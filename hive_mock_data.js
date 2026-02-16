@@ -1,15 +1,15 @@
-// Switch to the database
-use hive_platform;
+// Switch to the database (mongosh script compatibility)
+db = db.getSiblingDB('hive_platform');
 
 // Optional: Clear existing data to prevent duplicates during testing
-// db.users.drop();
-// db.services.drop();
-// db.chat_rooms.drop();
-// db.comments.drop();
-// db.join_requests.drop();
-// db.messages.drop();
-// db.timebank_transactions.drop();
-// db.transactions.drop();
+db.users.drop();
+db.services.drop();
+db.chat_rooms.drop();
+db.comments.drop();
+db.join_requests.drop();
+db.messages.drop();
+db.timebank_transactions.drop();
+db.transactions.drop();
 
 print("Starting migration...");
 
