@@ -1,0 +1,96 @@
+@import "@radix-ui/themes/styles.css";
+@import "@radix-ui/themes/tokens/base.css";
+
+@import "@radix-ui/themes/components.css";
+@import "@radix-ui/themes/utilities.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+h1 {
+    @apply text-3xl font-bold;
+}
+
+h2 {
+    @apply text-2xl font-bold;
+}
+
+h3 {
+    @apply text-xl font-bold;
+}
+
+p {
+    @apply text-base;
+}
+
+.DialogOverlay {
+    background-color: var(--black-a9);
+    position: fixed;
+    inset: 0;
+    animation: overlayShow 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.DialogContent {
+    background-color: var(--gray-1);
+    border-radius: 6px;
+    box-shadow: var(--shadow-6);
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90vw;
+    max-width: 500px;
+    max-height: 85vh;
+    padding: 25px;
+    animation: contentShow 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.DialogContent:focus {
+    outline: none;
+}
+
+.DialogTitle {
+    margin: 0;
+    font-weight: 500;
+    color: var(--mauve-12);
+    font-size: 17px;
+}
+
+.DialogDescription {
+    margin: 10px 0 20px;
+    color: var(--mauve-11);
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+@keyframes overlayShow {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes contentShow {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -48%) scale(0.96);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+.gm-style .gm-style-iw-c {
+    background-color: var(--color-background) !important;
+    color: var(--color-foreground) !important;
+}
+.bg-background {
+    background-color: var(--color-background) !important;
+}

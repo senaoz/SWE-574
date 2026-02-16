@@ -1,0 +1,60 @@
+services:
+  mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "38017:27017"
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-password}
+    networks:
+      - hive-network
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --eval 'db.adminCommand(\"ping\")' --quiet || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # No ports: EasyPanel will map automatically
+    environment:
+      - MONGODB_URL=mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017
+      - DATABASE_NAME=${DATABASE_NAME:-hive_platform}
+      - SECRET_KEY=${SECRET_KEY:-1cc121f4d036f246fb13825d0119717ee0655634538ea3f47db5f507ba5899da}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      - DEBUG=${DEBUG:-true}
+    depends_on:
+      mongodb:
+        condition: service_started
+    networks:
+      - hive-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=${VITE_API_URL}
+    restart: unless-stopped
+    # No ports: EasyPanel handles mapping
+    environment:
+      - VITE_API_URL=${VITE_API_URL}
+    depends_on:
+      - backend
+    networks:
+      - hive-network
+
+volumes:
+  mongo-data:
+    driver: local
+
+networks:
+  hive-network:
+    driver: bridge
