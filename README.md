@@ -5,3 +5,8 @@ This repository is maintained for the SWE 574 course at Boğaziçi University (S
 ## Wiki Content
 - [Elicitation Questions](https://github.com/senaoz/SWE-574/wiki/Elicitation-Questions)
 - [Meeting Notes](https://github.com/senaoz/SWE-574/wiki/Meeting-Notes)
+
+
+## Milestones
+- 9 March 2026: Milestone 1
+- 13 April 2026: Milestone 2
