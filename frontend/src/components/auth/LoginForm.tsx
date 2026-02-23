@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { authApi } from "@/services/api";
 import { validateEmail } from "@/utils/utils";
 import { Button, TextField } from "@radix-ui/themes";
@@ -20,12 +20,22 @@ export function LoginForm({
     password: "",
   });
   const [errors, setErrors] = useState<Partial<LoginFormData>>({});
+  const queryClient = useQueryClient();
 
   const loginMutation = useMutation({
     mutationFn: authApi.login,
     onSuccess: (response) => {
-      localStorage.setItem("access_token", response.data.access_token);
-      setLoginDialogOpen(false);
+      const token = response.data?.access_token;
+      const user = response.data?.user;
+      if (token) {
+        localStorage.setItem("access_token", token);
+        if (user) {
+          queryClient.setQueryData(["currentUser"], user);
+        }
+        setLoginDialogOpen(false);
+      } else {
+        setErrors({ email: "Login succeeded but session could not be started." });
+      }
     },
     onError: (error: any) => {
       console.error("Login error:", error);

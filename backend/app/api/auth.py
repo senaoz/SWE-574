@@ -46,9 +46,9 @@ async def get_current_user(
     
     return user
 
-@router.post("/register", response_model=UserResponse)
+@router.post("/register")
 async def register(user_data: UserCreate, db=Depends(get_database)):
-    """Register a new user"""
+    """Register a new user and return access token (auto sign-in)"""
     auth_service = AuthService(db)
     
     # Check if passwords match
@@ -76,7 +76,13 @@ async def register(user_data: UserCreate, db=Depends(get_database)):
     
     # Create user
     user = await auth_service.create_user(user_data)
-    return user
+    # Create access token so user is signed in immediately
+    access_token = create_access_token(data={"sub": str(user.id)})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user
+    }
 
 @router.post("/login")
 async def login(login_data: UserLogin, db=Depends(get_database)):

@@ -6,18 +6,21 @@ class TestAuthAPI:
     """Test /auth API endpoints"""
     
     def test_register_success(self, test_client, test_user_data):
-        """Test successful user registration"""
+        """Test successful user registration (returns token for auto sign-in)"""
         response = test_client.post("/auth/register", json=test_user_data)
         
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["email"] == test_user_data["email"]
-        assert data["username"] == test_user_data["username"]
-        # Pydantic models with alias can return either 'id' or '_id' depending on serialization
-        assert "id" in data or "_id" in data
-        user_id = data.get("id") or data.get("_id")
+        assert "access_token" in data
+        assert data["token_type"] == "bearer"
+        assert "user" in data
+        user = data["user"]
+        assert user["email"] == test_user_data["email"]
+        assert user["username"] == test_user_data["username"]
+        assert "id" in user or "_id" in user
+        user_id = user.get("id") or user.get("_id")
         assert user_id is not None
-        assert "password_hash" not in data  # Password should not be in response
+        assert "password_hash" not in user  # Password should not be in response
     
     def test_register_duplicate_email(self, test_client, test_user_data):
         """Test registration with duplicate email"""

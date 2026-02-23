@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { authApi } from "@/services/api";
 import { Button, Card, TextField } from "@radix-ui/themes";
 import { Form } from "radix-ui";
@@ -18,6 +18,7 @@ interface RegisterFormData {
 
 export function RegisterForm() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [formData, setFormData] = useState<RegisterFormData>({
     username: "",
     email: "",
@@ -36,9 +37,42 @@ export function RegisterForm() {
 
   const registerMutation = useMutation({
     mutationFn: authApi.register,
-    onSuccess: (response) => {
-      localStorage.setItem("access_token", response.data.access_token);
-      navigate("/dashboard");
+    onSuccess: async (response) => {
+      const token = response.data?.access_token;
+      const user = response.data?.user;
+      if (token) {
+        localStorage.setItem("access_token", token);
+        if (user) {
+          queryClient.setQueryData(["currentUser"], user);
+        }
+        navigate("/dashboard");
+        return;
+      }
+      // Fallback: backend returned old shape (user at top level, no token). Log in with same credentials.
+      const legacyUser = response.data as { email?: string; username?: string };
+      if (legacyUser?.email && formData.password) {
+        try {
+          const loginRes = await authApi.login({
+            email: formData.email,
+            password: formData.password,
+          });
+          const loginToken = loginRes.data?.access_token;
+          const loginUser = loginRes.data?.user;
+          if (loginToken) {
+            localStorage.setItem("access_token", loginToken);
+            if (loginUser) {
+              queryClient.setQueryData(["currentUser"], loginUser);
+            }
+            navigate("/dashboard");
+            return;
+          }
+        } catch (e) {
+          console.error("[Register] Fallback login after register failed:", e);
+        }
+      }
+      setErrors({
+        email: "Registration succeeded but sign-in failed. Please sign in.",
+      });
     },
     onError: (error: any) => {
       const errorDetail = error.response?.data?.detail;
