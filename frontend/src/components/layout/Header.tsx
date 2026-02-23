@@ -154,7 +154,7 @@ function LoginDialog({
       <Dialog.Content>
         <Dialog.Title className="text-2xl font-bold">Welcome Back</Dialog.Title>
         <Dialog.Description className="mb-4">
-          Sign in to your account to continue
+          Log in to your account to continue
         </Dialog.Description>
         <LoginForm setLoginDialogOpen={setLoginDialogOpen} />
       </Dialog.Content>

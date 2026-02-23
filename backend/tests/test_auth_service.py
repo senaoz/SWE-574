@@ -18,7 +18,7 @@ class TestAuthService:
         assert user is not None
         assert user.email == test_user_data["email"]
         assert user.username == test_user_data["username"]
-        assert user.timebank_balance == 10.0  # Default starting balance
+        assert user.timebank_balance == 3.0  # Default starting balance
         assert user.is_active is True
         assert user.role == UserRole.USER
         
