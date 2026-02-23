@@ -83,6 +83,7 @@ export interface Service {
     time: string;
   };
   open_availability?: string;
+  is_remote?: boolean;
 }
 
 export interface TimeBankTransaction {
@@ -116,6 +117,7 @@ export interface ServiceFilters {
   location?: Location;
   radius?: number;
   user_id?: string;
+  is_remote?: boolean;
 }
 
 export interface ServiceListResponse {
@@ -169,6 +171,7 @@ export interface ServiceForm {
   max_participants: number;
   attachment?: File;
   attachment_url?: string;
+  is_remote?: boolean;
 }
 
 export interface ServiceFormErrors {

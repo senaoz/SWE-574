@@ -26,6 +26,7 @@ async def get_services(
     longitude: Optional[float] = None,
     radius: Optional[float] = None,
     user_id: Optional[str] = None,
+    is_remote: Optional[bool] = None,
     db=Depends(get_database)
 ):
     """Get services with optional filters"""
@@ -48,7 +49,8 @@ async def get_services(
         status=service_status,
         location={"latitude": latitude, "longitude": longitude} if latitude and longitude else None,
         radius=radius,
-        user_id=user_id_obj
+        user_id=user_id_obj,
+        is_remote=is_remote
     )
     
     try:
