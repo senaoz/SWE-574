@@ -96,7 +96,7 @@ export function HandShakeModal({ service, onJoin }: HandShakeModalProps) {
           {service.service_type === "offer" ? "Join Offer" : "Provide Help"}
         </Button>
       </Dialog.Trigger>
-      <Dialog.Content className="max-w-md mx-auto">
+      <Dialog.Content className="max-w-md mx-auto" aria-describedby={undefined}>
         {statusInfo ? (
           // Status message
           <Flex direction="column" align="center" gap="4">

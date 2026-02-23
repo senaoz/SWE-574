@@ -103,6 +103,7 @@ class ServiceBase(BaseModel):
     tags: List[dict] = Field(default_factory=list, max_items=10)  # List of TagEntity dicts
     estimated_duration: float = Field(..., gt=0, le=24)  # Hours
     location: Location
+    is_remote: Optional[bool] = Field(default=False)  # Service can be done remotely
     deadline: Optional[datetime] = None
     service_type: ServiceType
     max_participants: Optional[int] = Field(default=1)
@@ -163,6 +164,7 @@ class ServiceUpdate(BaseModel):
     tags: Optional[List[dict]] = Field(None, max_items=10)  # List of TagEntity dicts
     estimated_duration: Optional[float] = Field(None, gt=0, le=24)
     location: Optional[Location] = None
+    is_remote: Optional[bool] = None
     deadline: Optional[datetime] = None
     status: Optional[ServiceStatus] = None
     # Scheduling fields
@@ -213,6 +215,7 @@ class ServiceFilters(BaseModel):
     location: Optional[Location] = None
     radius: Optional[float] = None  # Kilometers
     user_id: Optional[PyObjectId] = None
+    is_remote: Optional[bool] = None  # Filter by remote-only services
 
     class Config:
         json_encoders = {ObjectId: str}

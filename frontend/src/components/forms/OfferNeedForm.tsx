@@ -44,6 +44,7 @@ export function OfferNeedForm({
     service_type: serviceType,
     scheduling_type: "specific",
     max_participants: 1,
+    is_remote: false,
   });
   const [errors, setErrors] = useState<ServiceFormErrors>({});
   const [isGettingLocation, setIsGettingLocation] = useState(false);
@@ -353,11 +354,12 @@ export function OfferNeedForm({
       newErrors.category = "Category is required";
     }
 
-    if (!useCurrentLocation && !formData.city?.trim()) {
+    if (!formData.is_remote && !useCurrentLocation && !formData.city?.trim()) {
       newErrors.city = "City is required";
     }
 
     if (
+      !formData.is_remote &&
       formData.location.latitude === 0 &&
       formData.location.longitude === 0 &&
       !formData.location.address?.trim()
@@ -494,7 +496,10 @@ export function OfferNeedForm({
                 )}
               </Form.Field>
 
-              <Form.Field name="category" className="space-y-2 flex flex-col">
+              <Form.Field
+                name="category"
+                className="space-y-2 flex flex-col col-span-2"
+              >
                 <Form.Label className="text-sm font-medium">
                   Category *
                 </Form.Label>
@@ -518,57 +523,6 @@ export function OfferNeedForm({
                 {errors.category && (
                   <Text color="red" size="1">
                     {errors.category}
-                  </Text>
-                )}
-              </Form.Field>
-
-              <Form.Field name="city" className="space-y-2 flex flex-col">
-                <Form.Label className="text-sm font-medium">
-                  City * {useCurrentLocation && "(Auto-detected from location)"}
-                </Form.Label>
-                <Select.Root
-                  value={formData.city}
-                  onValueChange={(value) => {
-                    if (!useCurrentLocation) {
-                      handleInputChange("city", value);
-                      const cityData =
-                        TURKISH_CITIES[value as keyof typeof TURKISH_CITIES];
-                      if (cityData) {
-                        handleInputChange("location", {
-                          latitude: cityData.latitude,
-                          longitude: cityData.longitude,
-                          address: cityData.address,
-                        });
-                      }
-                    }
-                  }}
-                  disabled={useCurrentLocation}
-                >
-                  <Select.Trigger
-                    className={errors.city ? "border-red-500" : ""}
-                    disabled={useCurrentLocation}
-                  />
-                  <Select.Content>
-                    {getCityOptions().map((city) => (
-                      <Select.Item key={city.value} value={city.value}>
-                        {city.label}
-                      </Select.Item>
-                    ))}
-                  </Select.Content>
-                </Select.Root>
-                {errors.city && (
-                  <Text color="red" size="1">
-                    {errors.city}
-                  </Text>
-                )}
-                {useCurrentLocation && formData.city && (
-                  <Text color="green" size="1">
-                    ✓ City auto-detected:{" "}
-                    {
-                      TURKISH_CITIES[
-                        formData.city as keyof typeof TURKISH_CITIES
-                      ]?.address
-                    }
                   </Text>
                 )}
               </Form.Field>
@@ -608,95 +562,170 @@ export function OfferNeedForm({
               </Form.Field>
             </Grid>
 
-            {/* Location Section */}
+            {/* Remote option */}
             <Box className="mb-4">
-              {/* Toggle between current location and manual address */}
-              <div className="mb-3 flex items-center align-center gap-2">
-                <Text size="2">Location</Text>
+              <Flex gap="2" align="center" className="mb-3">
                 <Switch
-                  checked={useCurrentLocation}
-                  onCheckedChange={setUseCurrentLocation}
+                  checked={formData.is_remote ?? false}
+                  onCheckedChange={(checked) =>
+                    handleInputChange("is_remote", checked)
+                  }
                 />
-                <Text size="2">
-                  {useCurrentLocation
-                    ? "Use current location"
-                    : "Enter address manually"}
+                <Text size="2" className="font-medium">
+                  This service can be done remotely
                 </Text>
-              </div>
-
-              <Form.Field name="location" className="space-y-2 mb-4">
-                {useCurrentLocation ? (
-                  <Flex gap="2" align="center">
-                    <TextField.Root
-                      placeholder="e.g. Kadıköy, Istanbul or click Get Location"
-                      value={formData.location.address || ""}
-                      readOnly
-                      className="flex-1"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={getCurrentLocation}
-                      disabled={isGettingLocation}
-                      className="whitespace-nowrap"
-                    >
-                      <Crosshair1Icon width="16" height="16" />
-                      {isGettingLocation ? "Getting..." : "Get Location"}
-                    </Button>
-                  </Flex>
-                ) : (
-                  <Flex gap="2" align="center">
-                    <TextField.Root
-                      placeholder="e.g. 123 Main St, Kadıköy, Istanbul"
-                      value={formData.location.address || ""}
-                      onChange={(e) =>
-                        handleManualAddressChange(e.target.value)
-                      }
-                      onBlur={(e) => {
-                        if (e.target.value.trim()) {
-                          geocodeAddress(e.target.value.trim());
-                        }
-                      }}
-                      className="flex-1"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() =>
-                        geocodeAddress(formData.location.address || "")
-                      }
-                      disabled={!formData.location.address?.trim()}
-                      className="whitespace-nowrap"
-                    >
-                      Find Location
-                    </Button>
-                  </Flex>
-                )}
-
-                {errors.location && (
-                  <Text color="red" size="1">
-                    {errors.location}
-                  </Text>
-                )}
-
-                {formData.location.latitude !== 0 &&
-                  formData.location.longitude !== 0 && (
-                    <Text color="green" size="1">
-                      ✓ Location set: {formData.location.latitude.toFixed(4)},{" "}
-                      {formData.location.longitude.toFixed(4)}
-                    </Text>
-                  )}
-
-                {formData.location.address &&
-                  formData.location.latitude === 0 &&
-                  formData.location.longitude === 0 && (
-                    <Text color="orange" size="1">
-                      ⚠ Address set but coordinates not found. Location will be
-                      approximate.
-                    </Text>
-                  )}
-              </Form.Field>
+              </Flex>
             </Box>
+
+            {/* Location Section */}
+            {!formData?.is_remote && (
+              <>
+                <Box className="mb-4">
+                  {/* Toggle between current location and manual address */}
+                  <div className="mb-3 flex items-center align-center gap-2">
+                    <Text size="2">Location</Text>
+                    <Switch
+                      checked={useCurrentLocation}
+                      onCheckedChange={setUseCurrentLocation}
+                    />
+                    <Text size="2">
+                      {useCurrentLocation
+                        ? "Use current location"
+                        : "Enter address manually"}
+                    </Text>
+                  </div>
+
+                  <Form.Field name="location" className="space-y-2 mb-4">
+                    {useCurrentLocation ? (
+                      <Flex gap="2" align="center">
+                        <TextField.Root
+                          placeholder="e.g. Kadıköy, Istanbul or click Get Location"
+                          value={formData.location.address || ""}
+                          readOnly
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={getCurrentLocation}
+                          disabled={isGettingLocation}
+                          className="whitespace-nowrap"
+                        >
+                          <Crosshair1Icon width="16" height="16" />
+                          {isGettingLocation ? "Getting..." : "Get Location"}
+                        </Button>
+                      </Flex>
+                    ) : (
+                      <Flex gap="2" align="center">
+                        <TextField.Root
+                          placeholder="e.g. 123 Main St, Kadıköy, Istanbul"
+                          value={formData.location.address || ""}
+                          onChange={(e) =>
+                            handleManualAddressChange(e.target.value)
+                          }
+                          onBlur={(e) => {
+                            if (e.target.value.trim()) {
+                              geocodeAddress(e.target.value.trim());
+                            }
+                          }}
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() =>
+                            geocodeAddress(formData.location.address || "")
+                          }
+                          disabled={!formData.location.address?.trim()}
+                          className="whitespace-nowrap"
+                        >
+                          Find Location
+                        </Button>
+                      </Flex>
+                    )}
+
+                    {errors.location && (
+                      <Text color="red" size="1">
+                        {errors.location}
+                      </Text>
+                    )}
+
+                    {formData.location.latitude !== 0 &&
+                      formData.location.longitude !== 0 && (
+                        <Text color="green" size="1">
+                          ✓ Location set:{" "}
+                          {formData.location.latitude.toFixed(4)},{" "}
+                          {formData.location.longitude.toFixed(4)}
+                        </Text>
+                      )}
+
+                    {formData.location.address &&
+                      formData.location.latitude === 0 &&
+                      formData.location.longitude === 0 && (
+                        <Text color="orange" size="1">
+                          ⚠ Address set but coordinates not found. Location will
+                          be approximate.
+                        </Text>
+                      )}
+                  </Form.Field>
+                </Box>
+
+                <Form.Field
+                  name="city"
+                  className="space-y-2 flex flex-col mb-2"
+                >
+                  <Form.Label className="text-sm">
+                    City *{" "}
+                    {useCurrentLocation && "(Auto-detected from location)"}
+                  </Form.Label>
+                  <Select.Root
+                    value={formData.city}
+                    onValueChange={(value) => {
+                      if (!useCurrentLocation) {
+                        handleInputChange("city", value);
+                        const cityData =
+                          TURKISH_CITIES[value as keyof typeof TURKISH_CITIES];
+                        if (cityData) {
+                          handleInputChange("location", {
+                            latitude: cityData.latitude,
+                            longitude: cityData.longitude,
+                            address: cityData.address,
+                          });
+                        }
+                      }
+                    }}
+                    disabled={useCurrentLocation}
+                  >
+                    <Select.Trigger
+                      className={errors.city ? "border-red-500" : ""}
+                      disabled={useCurrentLocation}
+                    />
+                    <Select.Content>
+                      {getCityOptions().map((city) => (
+                        <Select.Item key={city.value} value={city.value}>
+                          {city.label}
+                        </Select.Item>
+                      ))}
+                    </Select.Content>
+                  </Select.Root>
+                  {errors.city && (
+                    <Text color="red" size="1">
+                      {errors.city}
+                    </Text>
+                  )}
+                  {useCurrentLocation && formData.city && (
+                    <Text color="green" size="1">
+                      ✓ City auto-detected:{" "}
+                      {
+                        TURKISH_CITIES[
+                          formData.city as keyof typeof TURKISH_CITIES
+                        ]?.address
+                      }
+                    </Text>
+                  )}
+                </Form.Field>
+              </>
+            )}
           </Box>
 
           {/* Scheduling */}

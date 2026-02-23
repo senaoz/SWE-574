@@ -57,6 +57,10 @@ class ServiceService:
             service_doc["max_participants"] = 1
         elif not isinstance(service_doc["max_participants"], int) or service_doc["max_participants"] < 1:
             service_doc["max_participants"] = 1
+
+        # Default is_remote for documents created before the field existed
+        if "is_remote" not in service_doc:
+            service_doc["is_remote"] = False
         
         # Normalize tags for backward compatibility
         if "tags" in service_doc:
@@ -130,6 +134,8 @@ class ServiceService:
                 # Convert string user_id to ObjectId for database query
                 user_id_obj = ObjectId(filters.user_id) if isinstance(filters.user_id, str) else filters.user_id
                 query["user_id"] = user_id_obj
+            if filters.is_remote is not None:
+                query["is_remote"] = filters.is_remote
             
             # Handle location-based filtering
             if filters.location and filters.radius:
@@ -167,6 +173,8 @@ class ServiceService:
                     # Convert string user_id to ObjectId for database query
                     user_id_obj = ObjectId(filters.user_id) if isinstance(filters.user_id, str) else filters.user_id
                     match_stage["user_id"] = user_id_obj
+                if filters.is_remote is not None:
+                    match_stage["is_remote"] = filters.is_remote
                 
                 if match_stage:
                     pipeline.append({"$match": match_stage})
