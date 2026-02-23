@@ -18,7 +18,6 @@ import { Layout } from "@/components/layout/Layout";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { FilterProvider } from "@/contexts/FilterContext";
 import { useState, createContext, useContext, useEffect } from "react";
-import { APIProvider } from "@vis.gl/react-google-maps";
 
 // Create theme context
 interface ThemeContextType {
@@ -91,9 +90,8 @@ function App() {
     <UserContext.Provider value={{ getCurrentUserId, currentUserId }}>
       <ThemeContext.Provider value={{ appearance, toggleAppearance }}>
         <FilterProvider>
-          <APIProvider apiKey={""}>
-            <Theme accentColor="lime" radius="full" appearance={appearance}>
-              <Router>
+          <Theme accentColor="lime" radius="full" appearance={appearance}>
+            <Router>
                 <Layout>
                   <Routes>
                     <Route path="/" element={<Home />} />
@@ -177,7 +175,6 @@ function App() {
                 </Layout>
               </Router>
             </Theme>
-          </APIProvider>
         </FilterProvider>
       </ThemeContext.Provider>
     </UserContext.Provider>

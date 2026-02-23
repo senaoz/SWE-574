@@ -1,14 +1,46 @@
-import { Map, Marker, InfoWindow } from "@vis.gl/react-google-maps";
-import { useState } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import L from "leaflet";
+import { useEffect, useState } from "react";
 import { Service } from "@/types";
 import { Badge, Button } from "@radix-ui/themes";
 import { useNavigate } from "react-router-dom";
 
-interface ServiceMapProps {
-  services: Service[];
-  loading?: boolean;
-  height?: string;
-  sticky?: boolean;
+const ISTANBUL_CENTER: [number, number] = [41.0082, 28.9784];
+const DEFAULT_ZOOM = 10;
+const USER_LOCATION_ZOOM = 12;
+
+// Fix default marker icons in Leaflet with Vite/React
+const createIcon = (color: string, label: string) =>
+  L.divIcon({
+    className: "custom-marker",
+    html: `<div style="
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: ${color};
+      border: 2px solid white;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-weight: bold; font-size: 14px;
+    ">${label}</div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+  });
+
+const offerIcon = createIcon("#10B981", "+");
+const needIcon = createIcon("#EF4444", "?");
+
+/** Updates map view to user location when geolocation is available */
+function MapLocationHandler({
+  userPosition,
+}: {
+  userPosition: [number, number] | null;
+}) {
+  const map = useMap();
+  useEffect(() => {
+    if (!userPosition) return;
+    map.flyTo(userPosition, USER_LOCATION_ZOOM, { duration: 1 });
+  }, [map, userPosition]);
+  return null;
 }
 
 export function ServiceMap({
@@ -16,60 +48,43 @@ export function ServiceMap({
   loading = false,
   height = "90vh",
   sticky = true,
-}: ServiceMapProps) {
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
+}: {
+  services: Service[];
+  loading?: boolean;
+  height?: string;
+  sticky?: boolean;
+}) {
+  const [userPosition, setUserPosition] = useState<[number, number] | null>(
+    null,
+  );
 
-  // Calculate center based on services or use Istanbul as default
-  const getMapCenter = () => {
-    if (services.length === 0) {
-      return { lat: 41.0082, lng: 28.9784 }; // Istanbul center
-    }
+  // Get user location via browser API and zoom map to it
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserPosition([pos.coords.latitude, pos.coords.longitude]);
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
+  }, []);
 
+  const center = ((): [number, number] => {
+    if (userPosition) return userPosition;
+    if (services.length === 0) return ISTANBUL_CENTER;
     const avgLat =
-      services.reduce((sum, service) => sum + service.location.latitude, 0) /
+      services.reduce((sum, s) => sum + s.location.latitude, 0) /
       services.length;
     const avgLng =
-      services.reduce((sum, service) => sum + service.location.longitude, 0) /
+      services.reduce((sum, s) => sum + s.location.longitude, 0) /
       services.length;
-    return { lat: avgLat, lng: avgLng };
-  };
+    return [avgLat, avgLng];
+  })();
 
-  const getMarkerIcon = (serviceType: "offer" | "need") => {
-    // Check if Google Maps is available
-    if (
-      typeof google === "undefined" ||
-      !google.maps ||
-      !google.maps.Size ||
-      !google.maps.Point
-    ) {
-      return undefined; // Use default marker
-    }
+  const zoom = userPosition ? USER_LOCATION_ZOOM : DEFAULT_ZOOM;
 
-    return {
-      url:
-        serviceType === "offer"
-          ? "data:image/svg+xml;charset=UTF-8," +
-            encodeURIComponent(`
-          <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="16" cy="16" r="14" fill="#10B981" stroke="#ffffff" stroke-width="2"/>
-            <text x="16" y="20" text-anchor="middle" fill="white" font-size="12" font-weight="bold">+</text>
-          </svg>
-        `)
-          : "data:image/svg+xml;charset=UTF-8," +
-            encodeURIComponent(`
-          <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="16" cy="16" r="14" fill="#EF4444" stroke="#ffffff" stroke-width="2"/>
-            <text x="16" y="20" text-anchor="middle" fill="white" font-size="12" font-weight="bold">?</text>
-          </svg>
-        `),
-      scaledSize: new google.maps.Size(32, 32),
-      anchor: new google.maps.Point(16, 16),
-    };
-  };
-
-  const formatDuration = (hours: number) => {
-    return `${hours}h`;
-  };
+  const formatDuration = (hours: number) => `${hours}h`;
 
   if (loading) {
     return (
@@ -84,7 +99,7 @@ export function ServiceMap({
         }}
       >
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2" />
           <p className="text-gray-600">
             {loading ? "Loading services..." : "Loading map..."}
           </p>
@@ -99,116 +114,90 @@ export function ServiceMap({
       style={{
         borderRadius: "1em",
         boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-        height: height,
+        height,
       }}
     >
-      <Map
-        defaultCenter={getMapCenter()}
-        defaultZoom={10}
-        gestureHandling="greedy"
-        disableDefaultUI
+      <MapContainer
+        center={center}
+        zoom={zoom}
         style={{
           width: "100%",
           height: "100%",
           borderRadius: "12px",
         }}
+        scrollWheelZoom
       >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        <MapLocationHandler userPosition={userPosition} />
         {services.map((service) => (
           <Marker
             key={service._id}
-            position={{
-              lat: service.location.latitude,
-              lng: service.location.longitude,
-            }}
-            title={service.title}
-            icon={getMarkerIcon(service.service_type)}
-            onClick={() => {
-              setSelectedService(service);
-            }}
-          />
+            position={[service.location.latitude, service.location.longitude]}
+            icon={service.service_type === "offer" ? offerIcon : needIcon}
+          >
+            <Popup closeButton>
+              <ServicePopupContent
+                service={service}
+                formatDuration={formatDuration}
+                onViewDetails={() => {}}
+                onClose={() => {}}
+              />
+            </Popup>
+          </Marker>
         ))}
-
-        {selectedService && (
-          <ServiceInfoWindow
-            selectedService={selectedService}
-            setSelectedService={setSelectedService}
-            formatDuration={formatDuration}
-          />
-        )}
-      </Map>
+      </MapContainer>
     </div>
   );
 }
 
-const ServiceInfoWindow = ({
-  selectedService,
-  setSelectedService,
+function ServicePopupContent({
+  service,
   formatDuration,
+  onViewDetails,
+  onClose,
 }: {
-  selectedService: Service;
-  setSelectedService: (service: Service | null) => void;
-  formatDuration: (hours: number) => string;
-}) => {
+  service: Service;
+  formatDuration: (h: number) => string;
+  onViewDetails: () => void;
+  onClose: () => void;
+}) {
   const navigate = useNavigate();
-
   return (
-    <InfoWindow
-      position={{
-        lat: selectedService.location.latitude,
-        lng: selectedService.location.longitude,
-      }}
-      onCloseClick={() => setSelectedService(null)}
-      headerDisabled={true}
-    >
-      <div className="p-2 max-w-xs text-xs space-y-2">
-        <div className="flex flex-wrap gap-1 mb-2 items-center">
-          <Badge
-            color={selectedService.service_type === "offer" ? "green" : "red"}
-            variant="soft"
-            size="1"
-          >
-            {selectedService.service_type === "offer" ? "Offer" : "Need"}
-          </Badge>
-
-          <Badge color="gray" variant="soft" size="1">
-            {formatDuration(selectedService.estimated_duration)}
-          </Badge>
-          <Badge color="gray" variant="soft" size="1">
-            {selectedService.category}
-          </Badge>
-          {selectedService.location.address && (
-            <Badge color="gray" variant="soft" size="1">
-              📍 {selectedService.location.address}
-            </Badge>
-          )}
-        </div>
-        <h3 className="font-semibold text-sm mb-1 line-clamp-2">
-          {selectedService.title}
-        </h3>
-        <p className="text-xs line-clamp-3">{selectedService.description}</p>
-
-        <div className="flex items-center gap-2 w-full">
-          <Button
-            variant="soft"
-            className="w-11/12"
-            onClick={() => {
-              setSelectedService(null);
-              navigate(`/service/${selectedService._id}`);
-            }}
-          >
-            View Details
-          </Button>
-          <Button
-            variant="soft"
-            color="gray"
-            size="1"
-            className="w-1/12"
-            onClick={() => setSelectedService(null)}
-          >
-            ✕
-          </Button>
-        </div>
+    <div className="max-w-xs text-xs space-y-2 min-w-[300px]">
+      <div className="flex flex-wrap gap-1 mb-2 items-center">
+        <Badge
+          color={service.service_type === "offer" ? "green" : "red"}
+          variant="soft"
+          size="1"
+        >
+          {service.service_type === "offer" ? "Offer" : "Need"}
+        </Badge>
+        <Badge color="gray" variant="soft" size="1">
+          {formatDuration(service.estimated_duration)}
+        </Badge>
+        <Badge color="gray" variant="soft" size="1">
+          {service.category}
+        </Badge>
       </div>
-    </InfoWindow>
+      <h3 className="font-semibold text-sm mb-1 line-clamp-2">
+        {service.title}
+      </h3>
+      <p className="text-xs line-clamp-3">{service.description}</p>
+      <div className="flex items-center gap-2 w-full">
+        <Button
+          variant="soft"
+          className="flex-1"
+          onClick={() => {
+            onViewDetails();
+            navigate(`/service/${service._id}`);
+          }}
+        >
+          View Details
+        </Button>
+      </div>
+    </div>
   );
-};
+}
