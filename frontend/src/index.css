@@ -8,6 +8,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Leaflet custom markers - hide default icon styling */
+.leaflet-marker-icon.custom-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
 
 h1 {
     @apply text-3xl font-bold;
