@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { authApi } from "@/services/api";
 import { validateEmail } from "@/utils/utils";
@@ -15,6 +16,7 @@ export function LoginForm({
 }: {
   setLoginDialogOpen: (open: boolean) => void;
 }) {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState<LoginFormData>({
     email: "",
     password: "",
@@ -33,8 +35,11 @@ export function LoginForm({
           queryClient.setQueryData(["currentUser"], user);
         }
         setLoginDialogOpen(false);
+        navigate("/dashboard");
       } else {
-        setErrors({ email: "Login succeeded but session could not be started." });
+        setErrors({
+          email: "Login succeeded but session could not be started.",
+        });
       }
     },
     onError: (error: any) => {
@@ -138,7 +143,7 @@ export function LoginForm({
               disabled={loginMutation.isPending}
               className="w-full"
             >
-              {loginMutation.isPending ? "Signing in..." : "Sign In"}
+              {loginMutation.isPending ? "Logging in..." : "Login"}
             </Button>
           </Form.Submit>
 
