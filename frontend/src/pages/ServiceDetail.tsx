@@ -19,6 +19,7 @@ import {
   Share1Icon,
   ArrowLeftIcon,
   Crosshair1Icon,
+  PersonIcon,
 } from "@radix-ui/react-icons";
 import { ProviderProfileSummary } from "@/components/ui/ProviderProfileSummary";
 import { ServiceMap } from "@/components/map/ServiceMap";
@@ -39,7 +40,7 @@ export function ServiceDetail() {
   const [canCancel, setCanCancel] = useState(true);
   const [loading, setLoading] = useState(true);
   const [pendingRequest, setPendingRequest] = useState<JoinRequest | null>(
-    null
+    null,
   );
   const [isCancellingRequest, setIsCancellingRequest] = useState(false);
   const { currentUserId } = useUser();
@@ -57,7 +58,7 @@ export function ServiceDetail() {
         // Fetch provider details (service owner)
         try {
           const providerResponse = await usersApi.getUserById(
-            foundService.user_id
+            foundService.user_id,
           );
           setProvider(providerResponse.data);
         } catch (error) {
@@ -87,9 +88,8 @@ export function ServiceDetail() {
         ) {
           for (const matchedUserId of foundService.matched_user_ids) {
             try {
-              const matchedUserResponse = await usersApi.getUserById(
-                matchedUserId
-              );
+              const matchedUserResponse =
+                await usersApi.getUserById(matchedUserId);
               participants.push(matchedUserResponse.data);
             } catch (error) {
               console.error("Error fetching matched user:", error);
@@ -267,7 +267,7 @@ export function ServiceDetail() {
     if (!service || !id) return;
 
     const confirmed = window.confirm(
-      "Confirm that you have received this service? The service will be marked as completed once both parties confirm."
+      "Confirm that you have received this service? The service will be marked as completed once both parties confirm.",
     );
     if (!confirmed) return;
 
@@ -279,18 +279,18 @@ export function ServiceDetail() {
       // Check if service was completed (both parties confirmed)
       if (updatedService.status === "completed") {
         alert(
-          "Service completed! Both parties confirmed. TimeBank transaction logs have been created."
+          "Service completed! Both parties confirmed. TimeBank transaction logs have been created.",
         );
       } else {
         alert(
-          "Your confirmation has been recorded. Waiting for provider confirmation."
+          "Your confirmation has been recorded. Waiting for provider confirmation.",
         );
       }
     } catch (error: any) {
       console.error("Error confirming service completion:", error);
       alert(
         error.response?.data?.detail ||
-          "Failed to confirm service completion. Please try again."
+          "Failed to confirm service completion. Please try again.",
       );
     }
   };
@@ -360,6 +360,14 @@ export function ServiceDetail() {
                 <Text size="3">
                   {formatDuration(service.estimated_duration)}
                 </Text>
+              </Flex>
+
+              <Flex align="center" gap="2">
+                <PersonIcon className="w-5 h-5" color="gray" />
+                <Text size="3" weight="medium">
+                  Max participants:
+                </Text>
+                <Text size="3">{service.max_participants ?? "No limit"}</Text>
               </Flex>
 
               <Flex align="center" gap="2">
@@ -481,7 +489,7 @@ export function ServiceDetail() {
                             if (error.response?.status !== 404) {
                               console.error(
                                 "Error fetching pending request:",
-                                error
+                                error,
                               );
                             }
                             setPendingRequest(null);
@@ -678,7 +686,7 @@ export const StartChatButton = ({
           console.error("Error starting chat:", error);
           if (
             error.response?.data?.detail?.includes(
-              "Chat room already exists for these participants:"
+              "Chat room already exists for these participants:",
             )
           ) {
             // Invalidate chat rooms cache even for existing rooms

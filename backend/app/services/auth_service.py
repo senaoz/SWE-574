@@ -64,7 +64,7 @@ class AuthService:
                 "is_active": True,
                 "is_verified": False,
                 "role": user_data.role,
-                "timebank_balance": 10.0,
+                "timebank_balance": 3.0,
                 # Privacy settings
                 "profile_visible": user_data.profile_visible,
                 "show_email": user_data.show_email,
@@ -132,7 +132,7 @@ class AuthService:
                 "is_active": True,
                 "is_verified": True,  # OAuth users are considered verified
                 "role": UserRole.USER,  # OAuth users start as regular users
-                "timebank_balance": 0.0,
+                "timebank_balance": 3.0,
                 "oauth_provider": provider,
                 "oauth_provider_id": provider_id,
                 # Privacy settings (defaults)
