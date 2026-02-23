@@ -251,7 +251,10 @@ function CreateServiceDialog({
           {serviceType === "offer" ? "Create Offer" : "Create Need"}
         </Button>
       </Dialog.Trigger>
-      <Dialog.Content className="max-w-4xl mx-auto p-12 max-h-[90vh] overflow-y-auto">
+      <Dialog.Content
+        className="max-w-4xl mx-auto p-12 max-h-[90vh] overflow-y-auto"
+        aria-describedby={undefined}
+      >
         <OfferNeedForm
           serviceType={serviceType}
           onSuccess={() => {

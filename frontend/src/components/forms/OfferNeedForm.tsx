@@ -354,11 +354,12 @@ export function OfferNeedForm({
       newErrors.category = "Category is required";
     }
 
-    if (!useCurrentLocation && !formData.city?.trim()) {
+    if (!formData.is_remote && !useCurrentLocation && !formData.city?.trim()) {
       newErrors.city = "City is required";
     }
 
     if (
+      !formData.is_remote &&
       formData.location.latitude === 0 &&
       formData.location.longitude === 0 &&
       !formData.location.address?.trim()

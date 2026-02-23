@@ -736,7 +736,10 @@ export function AdminPanel() {
           if (!open) setSelectedUser(null);
         }}
       >
-        <Dialog.Content className="max-w-md w-full">
+        <Dialog.Content
+            className="max-w-md w-full"
+            aria-describedby={undefined}
+          >
           <Flex direction="column" gap="4">
             <Dialog.Title>
               <Text size="4" weight="bold">
