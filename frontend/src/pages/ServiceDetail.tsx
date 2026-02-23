@@ -664,7 +664,7 @@ export function ServiceDetail() {
               </Flex>
             </Card>
           ) : (
-            <ServiceMap services={[service]} height="350px" />
+            <ServiceMap services={[service]} height="350px" showFilters={false} />
           )}
 
           {/* Comments section */}

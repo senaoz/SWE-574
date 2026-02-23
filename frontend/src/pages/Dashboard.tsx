@@ -1,11 +1,16 @@
-import { ServiceMap } from "@/components/map/ServiceMap";
+import {
+  ServiceMap,
+  applyMapFilters,
+  defaultMapFilters,
+  type MapFilters,
+} from "@/components/map/ServiceMap";
 import { OfferListingCard } from "@/components/ui/OfferListingCard";
 import { servicesApi } from "@/services/api";
 import { Button, Dialog, Heading, Text, Flex, Card } from "@radix-ui/themes";
 import { HandIcon, BackpackIcon, Crosshair1Icon } from "@radix-ui/react-icons";
 import { OfferNeedForm } from "@/components/forms/OfferNeedForm";
 import { useFilters } from "@/contexts/FilterContext";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Service } from "@/types";
 
@@ -17,6 +22,21 @@ export function Dashboard() {
   const [selectedStatusFilter, setSelectedStatusFilter] = useState("all");
   const [searchParams, setSearchParams] = useSearchParams();
   const tagParam = searchParams.get("tag");
+  const [mapFilters, setMapFilters] = useState<MapFilters>(defaultMapFilters);
+  const [userPosition, setUserPosition] = useState<[number, number] | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserPosition([pos.coords.latitude, pos.coords.longitude]);
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
+  }, []);
 
   const fetchServices = async () => {
     try {
@@ -82,6 +102,11 @@ export function Dashboard() {
     setFilteredServices(filtered);
   }, [services, searchQuery, selectedCity, tagParam]);
 
+  const displayedServices = useMemo(
+    () => applyMapFilters(filteredServices, mapFilters, userPosition),
+    [filteredServices, mapFilters, userPosition],
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -129,7 +154,7 @@ export function Dashboard() {
             <Flex align="center" gap="2" wrap="wrap">
               <Crosshair1Icon className="w-4 h-4" />
               <Text size="2" weight="medium" color="gray">
-                {filteredServices.length} services found
+                {displayedServices.length} services found
                 {searchQuery && ` for "${searchQuery}"`}
                 {selectedCity &&
                   selectedCity !== "all" &&
@@ -207,7 +232,7 @@ export function Dashboard() {
           </Flex>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {filteredServices
+            {displayedServices
               .filter((service) =>
                 selectedStatusFilter === "all"
                   ? true
@@ -219,7 +244,7 @@ export function Dashboard() {
           </div>
 
           {/* No Results Message */}
-          {filteredServices.length === 0 && !loading && (
+          {displayedServices.length === 0 && !loading && (
             <Card className="flex flex-col items-center justify-center">
               <Text size="3" color="gray">
                 No services found matching your criteria
@@ -230,7 +255,12 @@ export function Dashboard() {
             </Card>
           )}
         </div>
-        <ServiceMap services={filteredServices} />
+        <ServiceMap
+          services={displayedServices}
+          filters={mapFilters}
+          onFiltersChange={setMapFilters}
+          userPosition={userPosition}
+        />
       </div>
     </div>
   );
