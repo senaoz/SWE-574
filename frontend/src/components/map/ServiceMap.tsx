@@ -1,6 +1,13 @@
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import React, { useEffect, useState } from "react";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  useMap,
+  Circle,
+} from "react-leaflet";
 import L from "leaflet";
-import { useEffect, useState } from "react";
 import { Service } from "@/types";
 import { Badge, Button } from "@radix-ui/themes";
 import { useNavigate } from "react-router-dom";
@@ -8,26 +15,33 @@ import { useNavigate } from "react-router-dom";
 const ISTANBUL_CENTER: [number, number] = [41.0082, 28.9784];
 const DEFAULT_ZOOM = 10;
 const USER_LOCATION_ZOOM = 12;
+/** Max radius (m) for the user location accuracy circle so it stays a small area */
+const MAX_ACCURACY_CIRCLE_RADIUS = 500;
+/** Radius (m) for the small area circle showing approximate service location (no exact address) */
+const APPROXIMATE_LOCATION_RADIUS_M = 200;
 
-// Fix default marker icons in Leaflet with Vite/React
+/** Small center dot so marker reads as part of the area circle, not a separate pin */
+const MARKER_SIZE = 20;
+const MARKER_ANCHOR = MARKER_SIZE / 2;
+
 const createIcon = (color: string, label: string) =>
   L.divIcon({
     className: "custom-marker",
     html: `<div style="
-      width: 32px; height: 32px;
+      width: ${MARKER_SIZE}px; height: ${MARKER_SIZE}px;
       border-radius: 50%;
-      background: ${color};
-      border: 2px solid white;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      color: ${color};
+      background-color: #ffffffc9;
       display: flex; align-items: center; justify-content: center;
-      color: white; font-weight: bold; font-size: 14px;
+      font-weight: 800; font-size: 12px;
+      font-family: system-ui, -apple-system, sans-serif;
     ">${label}</div>`,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
+    iconSize: [MARKER_SIZE, MARKER_SIZE],
+    iconAnchor: [MARKER_ANCHOR, MARKER_ANCHOR],
   });
 
-const offerIcon = createIcon("#10B981", "+");
-const needIcon = createIcon("#EF4444", "?");
+const offerIcon = createIcon("#059669", "+");
+const needIcon = createIcon("#dc2626", "?");
 
 /** Updates map view to user location when geolocation is available */
 function MapLocationHandler({
@@ -57,13 +71,22 @@ export function ServiceMap({
   const [userPosition, setUserPosition] = useState<[number, number] | null>(
     null,
   );
+  const [userAccuracyMeters, setUserAccuracyMeters] = useState<number | null>(
+    null,
+  );
 
-  // Get user location via browser API and zoom map to it
+  // Get user location via browser API; show small area circle (no approximate-address text)
   useEffect(() => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setUserPosition([pos.coords.latitude, pos.coords.longitude]);
+        const accuracy = pos.coords.accuracy;
+        setUserAccuracyMeters(
+          accuracy > 0
+            ? Math.min(accuracy, MAX_ACCURACY_CIRCLE_RADIUS)
+            : MAX_ACCURACY_CIRCLE_RADIUS,
+        );
       },
       () => {},
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
@@ -110,7 +133,7 @@ export function ServiceMap({
 
   return (
     <div
-      className={`overflow-hidden ${sticky ? "sticky top-20 z-10" : ""}`}
+      className={`relative overflow-hidden ${sticky ? "sticky top-20 z-10" : ""}`}
       style={{
         borderRadius: "1em",
         boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
@@ -132,23 +155,53 @@ export function ServiceMap({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <MapLocationHandler userPosition={userPosition} />
+        {userPosition && userAccuracyMeters != null && (
+          <Circle
+            center={userPosition}
+            radius={userAccuracyMeters}
+            pathOptions={{
+              color: "#3b82f6",
+              fillColor: "#3b82f6",
+              fillOpacity: 0.15,
+              weight: 2,
+            }}
+          />
+        )}
         {services.map((service) => (
-          <Marker
-            key={service._id}
-            position={[service.location.latitude, service.location.longitude]}
-            icon={service.service_type === "offer" ? offerIcon : needIcon}
-          >
-            <Popup closeButton>
-              <ServicePopupContent
-                service={service}
-                formatDuration={formatDuration}
-                onViewDetails={() => {}}
-                onClose={() => {}}
-              />
-            </Popup>
-          </Marker>
+          <React.Fragment key={service._id}>
+            <Circle
+              center={[service.location.latitude, service.location.longitude]}
+              radius={APPROXIMATE_LOCATION_RADIUS_M}
+              pathOptions={{
+                color: service.service_type === "offer" ? "#10B981" : "#EF4444",
+                fillColor:
+                  service.service_type === "offer" ? "#10B981" : "#EF4444",
+                fillOpacity: 0.12,
+                weight: 1.5,
+              }}
+            />
+            <Marker
+              position={[service.location.latitude, service.location.longitude]}
+              icon={service.service_type === "offer" ? offerIcon : needIcon}
+            >
+              <Popup closeButton>
+                <ServicePopupContent
+                  service={service}
+                  formatDuration={formatDuration}
+                  onViewDetails={() => {}}
+                  onClose={() => {}}
+                />
+              </Popup>
+            </Marker>
+          </React.Fragment>
         ))}
       </MapContainer>
+      <p
+        className="absolute bottom-2 left-2 right-2 z-[1000] text-center text-xs text-gray-500 bg-white/90 dark:bg-gray-900/90 backdrop-blur px-2 py-1 rounded shadow"
+        aria-live="polite"
+      >
+        Approximate Location Data (No Exact Addresses)
+      </p>
     </div>
   );
 }
@@ -157,7 +210,7 @@ function ServicePopupContent({
   service,
   formatDuration,
   onViewDetails,
-  onClose,
+  onClose: _onClose,
 }: {
   service: Service;
   formatDuration: (h: number) => string;
