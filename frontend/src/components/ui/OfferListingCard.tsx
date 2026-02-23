@@ -90,18 +90,29 @@ export function OfferListingCard({ service }: { service: Service }) {
       </Flex>
       <Flex align="center" gap="1">
         <Crosshair1Icon className="w-4 h-4" />
-        <Text size="2">{service.location.address || "Istanbul"}</Text>
+        <Text
+          size="2"
+          className="whitespace-nowrap overflow-hidden text-ellipsis"
+        >
+          {service.is_remote ? "Remote" : service?.location?.address}
+        </Text>
       </Flex>
       <Flex align="center" gap="1">
         <PersonIcon className="w-4 h-4" />
-        <Text size="2">{user?.full_name || "Unknown User"}</Text>
+        <Text size="2">
+          {user?.full_name || `@${user?.username || "unknown"}`}
+        </Text>
       </Flex>
 
       {service.tags?.length > 0 && (
         <Flex wrap="wrap" gap="1" onClick={(e) => e.stopPropagation()}>
           {service.tags.slice(0, 3).map((tag, index) => (
             <ClickableTag
-              key={typeof tag === "string" ? tag : (tag.entityId || tag.label) + index}
+              key={
+                typeof tag === "string"
+                  ? tag
+                  : (tag.entityId || tag.label) + index
+              }
               tag={tag}
               size="1"
               variant="soft"
