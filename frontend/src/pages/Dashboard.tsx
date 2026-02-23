@@ -6,6 +6,7 @@ import { HandIcon, BackpackIcon, Crosshair1Icon } from "@radix-ui/react-icons";
 import { OfferNeedForm } from "@/components/forms/OfferNeedForm";
 import { useFilters } from "@/contexts/FilterContext";
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Service } from "@/types";
 
 export function Dashboard() {
@@ -14,6 +15,8 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const { searchQuery, selectedCity } = useFilters();
   const [selectedStatusFilter, setSelectedStatusFilter] = useState("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tagParam = searchParams.get("tag");
 
   const fetchServices = async () => {
     try {
@@ -35,9 +38,22 @@ export function Dashboard() {
     fetchServices();
   }, []);
 
-  // Filter services based on search query and city
+  // Filter services based on search query, city, and tag URL param
   useEffect(() => {
     let filtered = services;
+
+    // Filter by tag (URL param): match entityId or decoded label
+    if (tagParam && tagParam.trim()) {
+      const decoded = decodeURIComponent(tagParam.trim());
+      const isEntityId = /^Q\d+$/i.test(decoded);
+      filtered = filtered.filter((service) =>
+        service.tags.some((tag) => {
+          if (typeof tag === "string") return tag === decoded;
+          if (isEntityId) return tag.entityId === decoded;
+          return tag.label === decoded || tag.entityId === decoded;
+        })
+      );
+    }
 
     // Filter by search query
     if (searchQuery.trim()) {
@@ -58,14 +74,13 @@ export function Dashboard() {
     // Filter by city
     if (selectedCity && selectedCity !== "all") {
       filtered = filtered.filter((service) => {
-        // Check if service has city information in location address
         const address = service.location.address?.toLowerCase() || "";
         return address.includes(selectedCity.toLowerCase());
       });
     }
 
     setFilteredServices(filtered);
-  }, [services, searchQuery, selectedCity]);
+  }, [services, searchQuery, selectedCity, tagParam]);
 
   if (loading) {
     return (
@@ -111,7 +126,7 @@ export function Dashboard() {
           </div>
           {/* Services Count and Results */}
           <Flex gap="2" className="mb-4" direction="column">
-            <Flex align="center" gap="2">
+            <Flex align="center" gap="2" wrap="wrap">
               <Crosshair1Icon className="w-4 h-4" />
               <Text size="2" weight="medium" color="gray">
                 {filteredServices.length} services found
@@ -119,7 +134,23 @@ export function Dashboard() {
                 {selectedCity &&
                   selectedCity !== "all" &&
                   ` in ${selectedCity}`}
+                {tagParam && ` with tag "${decodeURIComponent(tagParam)}"`}
               </Text>
+              {tagParam && (
+                <Button
+                  size="1"
+                  variant="soft"
+                  color="gray"
+                  onClick={() => {
+                    setSearchParams((prev) => {
+                      prev.delete("tag");
+                      return prev;
+                    });
+                  }}
+                >
+                  Clear tag
+                </Button>
+              )}
             </Flex>
 
             <Flex align="center" gap="2" direction="row" wrap="wrap">

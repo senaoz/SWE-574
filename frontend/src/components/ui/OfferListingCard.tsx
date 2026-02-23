@@ -1,6 +1,7 @@
 import { Card, Badge, Text, Flex } from "@radix-ui/themes";
 import { Service } from "@/types";
 import { useNavigate } from "react-router-dom";
+import { ClickableTag } from "@/components/ui/ClickableTag";
 import {
   ClockIcon,
   Crosshair1Icon,
@@ -95,6 +96,21 @@ export function OfferListingCard({ service }: { service: Service }) {
         <PersonIcon className="w-4 h-4" />
         <Text size="2">{user?.full_name || "Unknown User"}</Text>
       </Flex>
+
+      {service.tags?.length > 0 && (
+        <Flex wrap="wrap" gap="1" onClick={(e) => e.stopPropagation()}>
+          {service.tags.slice(0, 3).map((tag, index) => (
+            <ClickableTag
+              key={typeof tag === "string" ? tag : (tag.entityId || tag.label) + index}
+              tag={tag}
+              size="1"
+              variant="soft"
+              color="green"
+              stopPropagation
+            />
+          ))}
+        </Flex>
+      )}
 
       {/* Deadline info */}
       {service.deadline && (

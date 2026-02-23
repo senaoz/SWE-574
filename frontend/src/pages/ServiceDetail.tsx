@@ -27,6 +27,7 @@ import { HandShakeModal } from "@/components/ui/HandShakeModal";
 import { CommentSection } from "@/components/ui/CommentSection";
 import { ParticipantAvatars } from "@/components/ui/ParticipantAvatars";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { ClickableTag } from "@/components/ui/ClickableTag";
 import ReactMarkdown from "react-markdown";
 
 export function ServiceDetail() {
@@ -442,9 +443,12 @@ export function ServiceDetail() {
               <div className="my-3">
                 <Flex wrap="wrap" gap="2">
                   {service.tags.map((tag, index) => (
-                    <Badge key={index} variant="soft" size="2">
-                      {typeof tag === "string" ? tag : tag.label}
-                    </Badge>
+                    <ClickableTag
+                      key={typeof tag === "string" ? tag : tag.entityId || tag.label + index}
+                      tag={tag}
+                      size="2"
+                      variant="soft"
+                    />
                   ))}
                 </Flex>
               </div>

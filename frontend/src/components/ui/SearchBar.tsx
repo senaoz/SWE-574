@@ -4,6 +4,7 @@ import { TextField, Text, Flex, Badge, IconButton } from "@radix-ui/themes";
 import { MagnifyingGlassIcon, Cross2Icon } from "@radix-ui/react-icons";
 import { Service } from "@/types";
 import { servicesApi } from "@/services/api";
+import { ClickableTag } from "@/components/ui/ClickableTag";
 
 interface SearchBarProps {
   className?: string;
@@ -168,19 +169,16 @@ export function SearchBar({ className = "", onSearchChange }: SearchBarProps) {
                             <Badge variant="outline" color="gray">
                               {service.category}
                             </Badge>
-                            {service.tags.slice(0, 1).map((tag, index) => {
-                              const tagLabel = typeof tag === 'string' ? tag : tag.label;
-                              return (
-                              <Badge
-                                key={index}
+                            {service.tags.slice(0, 3).map((tag, index) => (
+                              <ClickableTag
+                                key={typeof tag === 'string' ? tag : (tag.entityId || tag.label) + index}
+                                tag={tag}
+                                size="1"
                                 variant="outline"
                                 color="green"
-                                size="1"
-                              >
-                                {tagLabel}
-                              </Badge>
-                            );
-                            })}
+                                stopPropagation
+                              />
+                            ))}
                           </div>
                         </div>
                       </Flex>
