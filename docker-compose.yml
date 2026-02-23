@@ -24,8 +24,6 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
-    ports:
-      - "8000:8000"
     environment:
       - MONGODB_URL=mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017
       - DATABASE_NAME=${DATABASE_NAME:-hive_platform}
@@ -45,8 +43,6 @@ services:
       args:
         - VITE_API_URL=${VITE_API_URL}
     restart: unless-stopped
-    ports:
-      - "80:80"
     environment:
       - VITE_API_URL=${VITE_API_URL}
     depends_on:
