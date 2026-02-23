@@ -340,6 +340,11 @@ export function ServiceDetail() {
                   >
                     {service?.service_type === "offer" ? "OFFER" : "NEED"}
                   </Badge>
+                  {service.is_remote && (
+                    <Badge color="cyan" variant="soft" size="2">
+                      REMOTE
+                    </Badge>
+                  )}
                   <Badge color="yellow" variant="soft" size="2">
                     {service.category}
                   </Badge>
@@ -376,7 +381,11 @@ export function ServiceDetail() {
                 <Text size="3" weight="medium">
                   Location:
                 </Text>
-                <Text size="3">{service.location.address || "Istanbul"}</Text>
+                <Text size="3">
+                  {service.is_remote
+                    ? "Remote (online)"
+                    : service.location?.address || "Istanbul"}
+                </Text>
               </Flex>
 
               {service.deadline && (
@@ -642,8 +651,21 @@ export function ServiceDetail() {
             </Card>
           )}
 
-          {/* Map */}
-          <ServiceMap services={[service]} height="350px" />
+          {/* Map (only for non-remote services) */}
+          {service.is_remote ? (
+            <Card className="p-4">
+              <Flex direction="column" gap="2" align="center">
+                <Text size="2" color="gray" weight="medium">
+                  Remote service
+                </Text>
+                <Text size="1" color="gray" align="center">
+                  This service is offered remotely. No physical location.
+                </Text>
+              </Flex>
+            </Card>
+          ) : (
+            <ServiceMap services={[service]} height="350px" />
+          )}
 
           {/* Comments section */}
           <CommentSection serviceId={service._id} />
