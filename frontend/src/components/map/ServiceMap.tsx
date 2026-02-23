@@ -15,8 +15,6 @@ import { useNavigate } from "react-router-dom";
 const ISTANBUL_CENTER: [number, number] = [41.0082, 28.9784];
 const DEFAULT_ZOOM = 10;
 const USER_LOCATION_ZOOM = 12;
-/** Max radius (m) for the user location accuracy circle so it stays a small area */
-const MAX_ACCURACY_CIRCLE_RADIUS = 500;
 /** Radius (m) for the small area circle showing approximate service location (no exact address) */
 const APPROXIMATE_LOCATION_RADIUS_M = 200;
 
@@ -30,8 +28,8 @@ const createIcon = (color: string, label: string) =>
     html: `<div style="
       width: ${MARKER_SIZE}px; height: ${MARKER_SIZE}px;
       border-radius: 50%;
-      color: ${color};
-      background-color: #ffffffc9;
+      color: white;
+      background-color: ${color};
       display: flex; align-items: center; justify-content: center;
       font-weight: 800; font-size: 12px;
       font-family: system-ui, -apple-system, sans-serif;
@@ -71,22 +69,13 @@ export function ServiceMap({
   const [userPosition, setUserPosition] = useState<[number, number] | null>(
     null,
   );
-  const [userAccuracyMeters, setUserAccuracyMeters] = useState<number | null>(
-    null,
-  );
 
-  // Get user location via browser API; show small area circle (no approximate-address text)
+  // Get user location via browser API (used for centering map only)
   useEffect(() => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setUserPosition([pos.coords.latitude, pos.coords.longitude]);
-        const accuracy = pos.coords.accuracy;
-        setUserAccuracyMeters(
-          accuracy > 0
-            ? Math.min(accuracy, MAX_ACCURACY_CIRCLE_RADIUS)
-            : MAX_ACCURACY_CIRCLE_RADIUS,
-        );
       },
       () => {},
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
@@ -151,22 +140,12 @@ export function ServiceMap({
         scrollWheelZoom
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          subdomains="abcd"
+          maxZoom={20}
+          maxNativeZoom={19}
         />
         <MapLocationHandler userPosition={userPosition} />
-        {userPosition && userAccuracyMeters != null && (
-          <Circle
-            center={userPosition}
-            radius={userAccuracyMeters}
-            pathOptions={{
-              color: "#3b82f6",
-              fillColor: "#3b82f6",
-              fillOpacity: 0.15,
-              weight: 2,
-            }}
-          />
-        )}
         {services.map((service) => (
           <React.Fragment key={service._id}>
             <Circle
@@ -196,12 +175,6 @@ export function ServiceMap({
           </React.Fragment>
         ))}
       </MapContainer>
-      <p
-        className="absolute bottom-2 left-2 right-2 z-[1000] text-center text-xs text-gray-500 bg-white/90 dark:bg-gray-900/90 backdrop-blur px-2 py-1 rounded shadow"
-        aria-live="polite"
-      >
-        Approximate Location Data (No Exact Addresses)
-      </p>
     </div>
   );
 }
