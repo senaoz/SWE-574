@@ -107,7 +107,7 @@ export function OfferNeedForm({
     if (formData.location.latitude && formData.location.longitude) {
       const closestCity = findClosestTurkishCity(
         formData.location.latitude,
-        formData.location.longitude
+        formData.location.longitude,
       );
       handleInputChange("city", (closestCity as any).key || "");
     }
@@ -129,7 +129,7 @@ export function OfferNeedForm({
     const tagExists = formData.tags.some(
       (t) =>
         t.entityId === tag.entityId ||
-        t.label.toLowerCase() === tag.label.toLowerCase()
+        t.label.toLowerCase() === tag.label.toLowerCase(),
     );
 
     if (!tagExists && formData.tags.length < 10) {
@@ -143,8 +143,8 @@ export function OfferNeedForm({
       formData.tags.filter(
         (tag) =>
           tag.entityId !== tagToRemove.entityId &&
-          tag.label !== tagToRemove.label
-      )
+          tag.label !== tagToRemove.label,
+      ),
     );
   };
 
@@ -160,7 +160,7 @@ export function OfferNeedForm({
     Object.entries(TURKISH_CITIES).forEach(([key, cityData]) => {
       const distance = Math.sqrt(
         Math.pow(cityData.latitude - latitude, 2) +
-          Math.pow(cityData.longitude - longitude, 2)
+          Math.pow(cityData.longitude - longitude, 2),
       );
 
       if (distance < minDistance) {
@@ -195,7 +195,7 @@ export function OfferNeedForm({
             headers: {
               "User-Agent": "hive-frontend",
             },
-          }
+          },
         )
           .then((response) => response.json())
           .then((data) => {
@@ -205,7 +205,7 @@ export function OfferNeedForm({
             if (data.address) {
               if (data.address.neighbourhood || data.address.suburb) {
                 addressParts.push(
-                  data.address.neighbourhood || data.address.suburb
+                  data.address.neighbourhood || data.address.suburb,
                 );
               }
               if (
@@ -214,7 +214,9 @@ export function OfferNeedForm({
                 data.address.village
               ) {
                 addressParts.push(
-                  data.address.city || data.address.town || data.address.village
+                  data.address.city ||
+                    data.address.town ||
+                    data.address.village,
                 );
               }
               if (data.address.state || data.address.region) {
@@ -279,7 +281,7 @@ export function OfferNeedForm({
         enableHighAccuracy: true,
         timeout: 10000,
         maximumAge: 300000, // 5 minutes
-      }
+      },
     );
   };
 
@@ -297,13 +299,13 @@ export function OfferNeedForm({
       // Using OpenStreetMap Nominatim API
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          address
+          address,
         )}&limit=1`,
         {
           headers: {
             "User-Agent": "hive-frontend",
           },
-        }
+        },
       );
       const data = await response.json();
 
@@ -456,13 +458,10 @@ export function OfferNeedForm({
   const texts = {
     offer: {
       title: "What Can You Offer?",
-      description: "Share your skills, time, or knowledge with the community",
       buttonText: "Create Offer",
     },
     need: {
       title: "What Do You Need?",
-      description:
-        "Ask the community for help, support, or skills you're looking for",
       buttonText: "Create Need",
     },
   };
@@ -470,42 +469,19 @@ export function OfferNeedForm({
   return (
     <>
       <>
-        <div className="mb-6">
-          <Heading size="6" className="mb-2">
-            {texts[serviceType].title}
-          </Heading>
-          <Text size="3" className="mb-4">
-            {texts[serviceType].description}
-          </Text>
-          <Heading size="4" className="my-3">
-            Community Guidelines
-          </Heading>
-          <ul className="space-y-2 text-sm">
-            <li>
-              ✨ All services are offered freely, based on mutual support and
-              goodwill
-            </li>
-            <li>🤝 Be clear about what you're offering and any expectations</li>
-            <li>💜 Respect everyone's time, skills, and boundaries</li>
-            <li>
-              🌟 Remember: every contribution has equal value in our community
-            </li>
-          </ul>
-        </div>
+        <Heading size="6" className="mb-2">
+          {texts[serviceType].title}
+        </Heading>
 
         <Form.Root onSubmit={handleSubmit} className="space-y-4">
           {/* Basic Information */}
           <Box>
-            <Heading size="4" className="mb-2">
-              Basic Information
-            </Heading>
-
             <Grid columns="2" gap="3">
               <Form.Field name="title" className="space-y-2 col-span-2">
                 <Form.Label className="text-sm font-medium">Title *</Form.Label>
                 <Form.Control asChild>
                   <TextField.Root
-                    placeholder="Enter a descriptive title"
+                    placeholder="e.g. Home cooking class, Garden landscaping help"
                     value={formData.title}
                     onChange={(e) => handleInputChange("title", e.target.value)}
                     className={errors.title ? "border-red-500" : ""}
@@ -605,7 +581,7 @@ export function OfferNeedForm({
                   onTagAdd={handleTagAdd}
                   onTagRemove={handleTagRemove}
                   error={errors.tags}
-                  placeholder="Search WikiData for tags (e.g., 'cooking', 'gardening', 'programming')..."
+                  placeholder="e.g. cooking, gardening, programming, language, math..."
                   maxTags={10}
                 />
               </Form.Field>
@@ -618,7 +594,7 @@ export function OfferNeedForm({
                   Description *
                 </Form.Label>
                 <MarkdownEditor
-                  placeholder="Describe your service in detail... You can use **bold**, *italic*, and add images with ![alt text](image-url)"
+                  placeholder="e.g. I can teach 2 hours of Italian cooking at home per week. Ingredients from you. You can use **bold** and *italic*."
                   value={formData.description}
                   onChange={(value) => handleInputChange("description", value)}
                   error={!!errors.description}
@@ -636,7 +612,7 @@ export function OfferNeedForm({
             <Box className="mb-4">
               {/* Toggle between current location and manual address */}
               <div className="mb-3 flex items-center align-center gap-2">
-                <Heading size="4">Location</Heading>
+                <Text size="2">Location</Text>
                 <Switch
                   checked={useCurrentLocation}
                   onCheckedChange={setUseCurrentLocation}
@@ -652,7 +628,7 @@ export function OfferNeedForm({
                 {useCurrentLocation ? (
                   <Flex gap="2" align="center">
                     <TextField.Root
-                      placeholder="Click 'Get Location' to automatically detect your location"
+                      placeholder="e.g. Kadıköy, Istanbul or click Get Location"
                       value={formData.location.address || ""}
                       readOnly
                       className="flex-1"
@@ -671,7 +647,7 @@ export function OfferNeedForm({
                 ) : (
                   <Flex gap="2" align="center">
                     <TextField.Root
-                      placeholder="Enter your address (e.g., 123 Main St, Istanbul)"
+                      placeholder="e.g. 123 Main St, Kadıköy, Istanbul"
                       value={formData.location.address || ""}
                       onChange={(e) =>
                         handleManualAddressChange(e.target.value)
@@ -725,10 +701,6 @@ export function OfferNeedForm({
 
           {/* Scheduling */}
           <Box>
-            <Heading size="4" className="mb-2">
-              Scheduling
-            </Heading>
-
             <Form.Field
               name="scheduling_type"
               className="mb-4 flex flex-col space-y-2"
@@ -873,7 +845,7 @@ export function OfferNeedForm({
                 </Form.Label>
                 <Form.Control asChild>
                   <TextArea
-                    placeholder="e.g., 'Weekday evenings after 6 PM' or 'Weekends anytime'"
+                    placeholder="e.g. Weekday evenings after 6 PM, weekends anytime"
                     value={formData.open_availability || ""}
                     onChange={(e) =>
                       handleInputChange("open_availability", e.target.value)
@@ -893,10 +865,6 @@ export function OfferNeedForm({
 
           {/* Duration and Participants */}
           <Box>
-            <Heading size="4" className="mb-2">
-              Duration & Participants
-            </Heading>
-
             <Grid columns="2" gap="4" className="mb-4">
               <Form.Field name="estimated_duration" className="space-y-2">
                 <Form.Label className="text-sm font-medium">
@@ -906,12 +874,12 @@ export function OfferNeedForm({
                   <TextField.Root
                     type="number"
                     min="1"
-                    placeholder="1"
+                    placeholder="e.g. 2"
                     value={formData.estimated_duration}
                     onChange={(e) =>
                       handleInputChange(
                         "estimated_duration",
-                        parseInt(e.target.value) || 0
+                        parseInt(e.target.value) || 0,
                       )
                     }
                     className={
@@ -934,12 +902,12 @@ export function OfferNeedForm({
                   <TextField.Root
                     type="number"
                     min="1"
-                    placeholder="1"
+                    placeholder="e.g. 5"
                     value={formData.max_participants}
                     onChange={(e) =>
                       handleInputChange(
                         "max_participants",
-                        parseInt(e.target.value) || 1
+                        parseInt(e.target.value) || 1,
                       )
                     }
                     className={errors.max_participants ? "border-red-500" : ""}
@@ -961,9 +929,7 @@ export function OfferNeedForm({
             </Button>
             <Form.Submit asChild>
               <Button type="submit" disabled={createServiceMutation.isPending}>
-                {createServiceMutation.isPending
-                  ? "Creating..."
-                  : texts[serviceType].buttonText}
+                {createServiceMutation.isPending ? "Creating..." : "Create"}
               </Button>
             </Form.Submit>
           </Flex>

@@ -51,7 +51,7 @@ export function Dashboard() {
           if (typeof tag === "string") return tag === decoded;
           if (isEntityId) return tag.entityId === decoded;
           return tag.label === decoded || tag.entityId === decoded;
-        })
+        }),
       );
     }
 
@@ -67,7 +67,7 @@ export function Dashboard() {
           service.tags.some((tag) => {
             const tagLabel = typeof tag === "string" ? tag : tag.label;
             return tagLabel.toLowerCase().includes(searchQuery.toLowerCase());
-          })
+          }),
       );
     }
 
@@ -211,7 +211,7 @@ export function Dashboard() {
               .filter((service) =>
                 selectedStatusFilter === "all"
                   ? true
-                  : service.status === selectedStatusFilter
+                  : service.status === selectedStatusFilter,
               )
               .map((service) => (
                 <OfferListingCard key={service._id} service={service} />
@@ -252,14 +252,6 @@ function CreateServiceDialog({
         </Button>
       </Dialog.Trigger>
       <Dialog.Content className="max-w-4xl mx-auto p-12 max-h-[90vh] overflow-y-auto">
-        <Dialog.Title>
-          {serviceType === "offer" ? "Create Offer" : "Create Need"}
-        </Dialog.Title>
-        <Dialog.Description>
-          {serviceType === "offer"
-            ? "Share your skills and services with the community"
-            : "Request help, support, or skills from the community"}
-        </Dialog.Description>
         <OfferNeedForm
           serviceType={serviceType}
           onSuccess={() => {
