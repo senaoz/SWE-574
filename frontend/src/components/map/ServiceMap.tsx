@@ -9,7 +9,7 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import { Service, TagEntity } from "@/types";
-import { Badge, Button, Card, Flex, Select, Text } from "@radix-ui/themes";
+import { Badge, Button, Card, Flex, Select } from "@radix-ui/themes";
 import { useNavigate } from "react-router-dom";
 
 /** Distance in km between two lat/lng points (Haversine) */
@@ -60,21 +60,65 @@ const createIcon = (color: string, label: string) =>
 const offerIcon = createIcon("#059669", "+");
 const needIcon = createIcon("#dc2626", "?");
 
-const DISTANCE_OPTIONS_KM = [5, 10, 25, 50, 100] as const;
+export const DISTANCE_OPTIONS_KM = [5, 10, 25, 50, 100] as const;
 const SERVICE_TYPE_OPTIONS = ["all", "offer", "need"] as const;
-type ServiceTypeFilter = (typeof SERVICE_TYPE_OPTIONS)[number];
+export type ServiceTypeFilter = (typeof SERVICE_TYPE_OPTIONS)[number];
 
-/** Collect unique tag labels from services for filter dropdown */
-function getUniqueTagLabels(services: Service[]): string[] {
-  const set = new Set<string>();
-  for (const s of services) {
-    for (const tag of s.tags || []) {
-      const label = typeof tag === "string" ? tag : (tag as TagEntity).label;
-      if (label?.trim()) set.add(label.trim());
-    }
-  }
-  return Array.from(set).sort((a, b) => a.localeCompare(b));
+export interface MapFilters {
+  serviceType: ServiceTypeFilter;
+  tag: string;
+  distance: number | "any";
 }
+
+/** Apply map filters (service type, tag, distance) to a service list. Exported for Dashboard. */
+export function applyMapFilters(
+  services: Service[],
+  filters: MapFilters,
+  userPosition: [number, number] | null,
+): Service[] {
+  let list = services;
+  if (filters.serviceType !== "all") {
+    list = list.filter((s) => s.service_type === filters.serviceType);
+  }
+  if (filters.tag && filters.tag !== "all") {
+    const decoded = filters.tag;
+    const isEntityId = /^Q\d+$/i.test(decoded);
+    list = list.filter((service) =>
+      (service.tags || []).some((tag) => {
+        if (typeof tag === "string") return tag === decoded;
+        if (isEntityId) return (tag as TagEntity).entityId === decoded;
+        return (
+          (tag as TagEntity).label === decoded ||
+          (tag as TagEntity).entityId === decoded
+        );
+      }),
+    );
+  }
+  if (
+    filters.distance !== "any" &&
+    userPosition &&
+    typeof filters.distance === "number"
+  ) {
+    const [uLat, uLng] = userPosition;
+    const radiusKm = filters.distance;
+    list = list.filter((s) => {
+      const d = distanceKm(
+        uLat,
+        uLng,
+        s.location.latitude,
+        s.location.longitude,
+      );
+      return d <= radiusKm;
+    });
+  }
+  return list;
+}
+
+export const defaultMapFilters: MapFilters = {
+  serviceType: "all",
+  tag: "all",
+  distance: "any",
+};
 
 /** Updates map view to user location when geolocation is available */
 function MapLocationHandler({
@@ -96,6 +140,9 @@ export function ServiceMap({
   height = "90vh",
   sticky = true,
   showFilters = true,
+  filters: controlledFilters,
+  onFiltersChange,
+  userPosition: controlledUserPosition,
 }: {
   services: Service[];
   loading?: boolean;
@@ -103,79 +150,42 @@ export function ServiceMap({
   sticky?: boolean;
   /** When false, filter UI is hidden (e.g. single-service view). Default true. */
   showFilters?: boolean;
+  /** When provided with onFiltersChange, filters are controlled by the parent (e.g. Dashboard). List and map both reflect these filters. */
+  filters?: MapFilters;
+  onFiltersChange?: (f: MapFilters) => void;
+  /** Optional user position from parent (e.g. for distance filter). If not provided, map uses its own geolocation. */
+  userPosition?: [number, number] | null;
 }) {
-  const [userPosition, setUserPosition] = useState<[number, number] | null>(
-    null,
-  );
-  const [distanceKmFilter, setDistanceKmFilter] = useState<number | "any">(
-    "any",
-  );
-  const [selectedTag, setSelectedTag] = useState<string>("all");
-  const [serviceTypeFilter, setServiceTypeFilter] =
-    useState<ServiceTypeFilter>("all");
+  const [internalUserPosition, setInternalUserPosition] = useState<
+    [number, number] | null
+  >(null);
+  const [internalFilters, setInternalFilters] =
+    useState<MapFilters>(defaultMapFilters);
 
-  // Get user location via browser API (used for centering map and distance filter)
+  const isControlled = controlledFilters != null && onFiltersChange != null;
+  const filters = isControlled ? controlledFilters! : internalFilters;
+  const userPosition = controlledUserPosition ?? internalUserPosition;
+
+  const setFilters = isControlled ? onFiltersChange! : setInternalFilters;
+
+  // Get user location via browser API when not provided by parent
   useEffect(() => {
+    if (controlledUserPosition !== undefined) return;
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setUserPosition([pos.coords.latitude, pos.coords.longitude]);
+        setInternalUserPosition([pos.coords.latitude, pos.coords.longitude]);
       },
       () => {},
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
     );
-  }, []);
+  }, [controlledUserPosition]);
 
-  const uniqueTags = useMemo(() => getUniqueTagLabels(services), [services]);
-
+  // When controlled, parent passes already-filtered services; when uncontrolled, filter here
   const filteredServices = useMemo(() => {
-    let list = services;
-
-    if (serviceTypeFilter !== "all") {
-      list = list.filter((s) => s.service_type === serviceTypeFilter);
-    }
-
-    if (selectedTag && selectedTag !== "all") {
-      const decoded = selectedTag;
-      const isEntityId = /^Q\d+$/i.test(decoded);
-      list = list.filter((service) =>
-        (service.tags || []).some((tag) => {
-          if (typeof tag === "string") return tag === decoded;
-          if (isEntityId) return (tag as TagEntity).entityId === decoded;
-          return (
-            (tag as TagEntity).label === decoded ||
-            (tag as TagEntity).entityId === decoded
-          );
-        }),
-      );
-    }
-
-    if (
-      distanceKmFilter !== "any" &&
-      userPosition &&
-      typeof distanceKmFilter === "number"
-    ) {
-      const [uLat, uLng] = userPosition;
-      const radiusKm = distanceKmFilter;
-      list = list.filter((s) => {
-        const d = distanceKm(
-          uLat,
-          uLng,
-          s.location.latitude,
-          s.location.longitude,
-        );
-        return d <= radiusKm;
-      });
-    }
-
-    return list;
-  }, [
-    services,
-    serviceTypeFilter,
-    selectedTag,
-    distanceKmFilter,
-    userPosition,
-  ]);
+    if (isControlled) return services;
+    return applyMapFilters(services, filters, userPosition);
+  }, [isControlled, services, filters, userPosition]);
 
   const center = ((): [number, number] => {
     if (userPosition) return userPosition;
@@ -193,8 +203,8 @@ export function ServiceMap({
 
   const formatDuration = (hours: number) => `${hours}h`;
   const distanceRadiusM =
-    distanceKmFilter !== "any" && typeof distanceKmFilter === "number"
-      ? distanceKmFilter * 1000
+    filters.distance !== "any" && typeof filters.distance === "number"
+      ? filters.distance * 1000
       : null;
 
   if (loading) {
@@ -230,45 +240,19 @@ export function ServiceMap({
     >
       {showFilters && services.length > 0 && (
         <Card
-          className="absolute top-3 right-3 z-[1000] max-w-[280px] shadow-md"
+          className="absolute top-3 right-3 z-[1000] max-w-[200px] shadow-md"
           size="1"
         >
           <Flex direction="column" gap="2">
-            <Text size="1" weight="medium" color="gray">
-              Map filters
-            </Text>
-            <Select.Root
-              value={String(serviceTypeFilter)}
-              onValueChange={(v) =>
-                setServiceTypeFilter(v as ServiceTypeFilter)
-              }
-            >
-              <Select.Trigger placeholder="Type" />
-              <Select.Content>
-                <Select.Item value="all">All (Offer & Need)</Select.Item>
-                <Select.Item value="offer">Offer</Select.Item>
-                <Select.Item value="need">Need</Select.Item>
-              </Select.Content>
-            </Select.Root>
-            {/*
-              <Select.Root value={selectedTag} onValueChange={setSelectedTag}>
-              <Select.Trigger placeholder="Tag" />
-              <Select.Content>
-                <Select.Item value="all">All tags</Select.Item>
-                {uniqueTags.map((label) => (
-                  <Select.Item key={label} value={label}>
-                    {label}
-                  </Select.Item>
-                ))}
-              </Select.Content>
-            </Select.Root>
-              */}
             <Select.Root
               value={
-                distanceKmFilter === "any" ? "any" : String(distanceKmFilter)
+                filters.distance === "any" ? "any" : String(filters.distance)
               }
               onValueChange={(v) =>
-                setDistanceKmFilter(v === "any" ? "any" : Number(v))
+                setFilters({
+                  ...filters,
+                  distance: v === "any" ? "any" : Number(v),
+                })
               }
             >
               <Select.Trigger placeholder="Distance" />
@@ -284,20 +268,14 @@ export function ServiceMap({
                   ))}
               </Select.Content>
             </Select.Root>
-            {(selectedTag !== "all" ||
-              serviceTypeFilter !== "all" ||
-              distanceKmFilter !== "any") && (
+            {filters.distance !== "any" && (
               <Button
                 size="1"
                 variant="soft"
                 color="gray"
-                onClick={() => {
-                  setSelectedTag("all");
-                  setServiceTypeFilter("all");
-                  setDistanceKmFilter("any");
-                }}
+                onClick={() => setFilters(defaultMapFilters)}
               >
-                Clear filters
+                Clear
               </Button>
             )}
           </Flex>

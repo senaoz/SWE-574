@@ -93,7 +93,9 @@ export function HandShakeModal({ service, onJoin }: HandShakeModalProps) {
     <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
       <Dialog.Trigger>
         <Button size="3">
-          {service.service_type === "offer" ? "Join Offer" : "Provide Help"}
+          {service.service_type === "offer"
+            ? "Request Service"
+            : "Offer to Help"}
         </Button>
       </Dialog.Trigger>
       <Dialog.Content className="max-w-md mx-auto" aria-describedby={undefined}>

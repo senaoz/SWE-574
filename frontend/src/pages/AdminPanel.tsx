@@ -320,12 +320,12 @@ export function AdminPanel() {
                         <Table.Cell>
                           <Text size="2">
                             {new Date(
-                              transaction.created_at
+                              transaction.created_at,
                             ).toLocaleDateString()}
                           </Text>
                         </Table.Cell>
                       </Table.Row>
-                    )
+                    ),
                   )}
                 </Table.Body>
               </Table.Root>
@@ -388,12 +388,12 @@ export function AdminPanel() {
                         <Table.Cell>
                           <Text size="2">
                             {new Date(
-                              transaction.created_at
+                              transaction.created_at,
                             ).toLocaleDateString()}
                           </Text>
                         </Table.Cell>
                       </Table.Row>
-                    )
+                    ),
                   )}
                 </Table.Body>
               </Table.Root>
@@ -457,7 +457,7 @@ export function AdminPanel() {
                           <Badge key={status} color="blue" size="2">
                             {status}: {count as number}
                           </Badge>
-                        )
+                        ),
                       )}
                     </Flex>
                   </Card>
@@ -489,7 +489,7 @@ export function AdminPanel() {
                       </Table.Header>
                       <Table.Body>
                         {Object.entries(
-                          analytics.participation_by_category || {}
+                          analytics.participation_by_category || {},
                         ).map(([category, data]: [string, any]) => (
                           <Table.Row key={category}>
                             <Table.Cell>
@@ -542,12 +542,12 @@ export function AdminPanel() {
                   {/* Join Request Statistics */}
                   <Card className="p-4">
                     <Text size="4" weight="bold" className="block mb-3">
-                      Join Request Statistics
+                      Service Statistics
                     </Text>
                     <Grid columns={{ initial: "1", md: "2", lg: "4" }} gap="4">
                       <div>
                         <Text size="2" color="gray" className="block mb-1">
-                          Total Requests
+                          Total Help Offers
                         </Text>
                         <Text size="4" weight="bold">
                           {analytics.join_requests.total}
@@ -658,10 +658,10 @@ export function AdminPanel() {
                               transaction.reason === "provider_balance_limit"
                                 ? "orange"
                                 : transaction.reason === "insufficient_balance"
-                                ? "red"
-                                : transaction.reason === "user_not_found"
-                                ? "purple"
-                                : "gray"
+                                  ? "red"
+                                  : transaction.reason === "user_not_found"
+                                    ? "purple"
+                                    : "gray"
                             }
                             size="1"
                           >
@@ -674,7 +674,7 @@ export function AdminPanel() {
                           <Text size="2">
                             {transaction.user_balance_at_failure !== undefined
                               ? `${transaction.user_balance_at_failure.toFixed(
-                                  1
+                                  1,
                                 )}h`
                               : "N/A"}
                           </Text>
@@ -702,18 +702,18 @@ export function AdminPanel() {
                         <Table.Cell>
                           <Text size="2">
                             {new Date(
-                              transaction.created_at
+                              transaction.created_at,
                             ).toLocaleDateString()}
                             <br />
                             <Text size="1" color="gray">
                               {new Date(
-                                transaction.created_at
+                                transaction.created_at,
                               ).toLocaleTimeString()}
                             </Text>
                           </Text>
                         </Table.Cell>
                       </Table.Row>
-                    )
+                    ),
                   )}
                 </Table.Body>
               </Table.Root>
@@ -737,9 +737,9 @@ export function AdminPanel() {
         }}
       >
         <Dialog.Content
-            className="max-w-md w-full"
-            aria-describedby={undefined}
-          >
+          className="max-w-md w-full"
+          aria-describedby={undefined}
+        >
           <Flex direction="column" gap="4">
             <Dialog.Title>
               <Text size="4" weight="bold">
