@@ -93,6 +93,22 @@ async def create_indexes():
         await db.database.messages.create_index("created_at")
         await db.database.messages.create_index("is_deleted")
         
+        # Forum indexes
+        await db.database.forum_discussions.create_index("user_id")
+        await db.database.forum_discussions.create_index("created_at")
+        await db.database.forum_discussions.create_index("tags.label")
+
+        await db.database.forum_events.create_index("user_id")
+        await db.database.forum_events.create_index("event_at")
+        await db.database.forum_events.create_index("created_at")
+        await db.database.forum_events.create_index("tags.label")
+        await db.database.forum_events.create_index("service_id")
+        await db.database.forum_events.create_index("latitude")
+
+        await db.database.forum_comments.create_index([("target_type", 1), ("target_id", 1)])
+        await db.database.forum_comments.create_index("user_id")
+        await db.database.forum_comments.create_index("created_at")
+
         logger.info("Database indexes created successfully")
     except Exception as e:
         logger.error(f"Error creating indexes: {e}")
