@@ -1,4 +1,5 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator
+import re
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from typing import Optional, List, Annotated
 from datetime import datetime
 from bson import ObjectId, Decimal128
@@ -23,12 +24,42 @@ class UserRole(str, Enum):
     ADMIN = "admin"
 
 
+URL_REGEX = re.compile(
+    r'^https?://'
+    r'(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}'
+    r'(?:/[^\s]*)?$'
+)
+
+
+class SocialLinks(BaseModel):
+    linkedin: Optional[str] = None
+    github: Optional[str] = None
+    twitter: Optional[str] = None
+    instagram: Optional[str] = None
+    website: Optional[str] = None
+    portfolio: Optional[str] = None
+
+    @model_validator(mode='after')
+    def validate_urls(self):
+        for field_name in ['linkedin', 'github', 'twitter', 'instagram', 'website', 'portfolio']:
+            value = getattr(self, field_name)
+            if value is not None and value.strip() != '':
+                if not URL_REGEX.match(value):
+                    raise ValueError(f"Invalid URL for {field_name}: {value}")
+            elif value is not None and value.strip() == '':
+                setattr(self, field_name, None)
+        return self
+
+
 class UserBase(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     email: EmailStr
     full_name: Optional[str] = None
     bio: Optional[str] = None
     location: Optional[str] = None
+    profile_picture: Optional[str] = None
+    social_links: Optional[SocialLinks] = None
+    interests: Optional[List[str]] = None
     is_active: bool = True
     is_verified: bool = False
     role: UserRole = UserRole.USER
@@ -79,6 +110,9 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     bio: Optional[str] = None
     location: Optional[str] = None
+    profile_picture: Optional[str] = None
+    social_links: Optional[SocialLinks] = None
+    interests: Optional[List[str]] = None
 
     class Config:
         json_encoders = {ObjectId: str}
