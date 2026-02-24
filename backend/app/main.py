@@ -1,3 +1,4 @@
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -6,13 +7,22 @@ from .core.config import settings
 from .core.database import connect_to_mongo, close_mongo_connection
 from .api import auth, users, services, admin, comments, join_requests, transactions, chat, wikidata, ratings
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    logger.info("Connecting to MongoDB...")
     await connect_to_mongo()
+    logger.info("Application startup complete")
     yield
     # Shutdown
     await close_mongo_connection()
+    logger.info("Application shutdown complete")
 
 app = FastAPI(
     title=settings.app_name,

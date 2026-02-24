@@ -16,6 +16,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 @router.get("/profile", response_model=UserResponse)
 async def get_user_profile(current_user: UserResponse = Depends(get_current_user)):
     """Get current user's profile"""
+    logger.info("GET /users/profile user_id=%s", current_user.id)
     return current_user
 
 @router.put("/profile", response_model=UserResponse)
@@ -67,15 +68,20 @@ async def get_my_badges(
     db=Depends(get_database),
 ):
     """Get current user's badges with progress"""
+    logger.info("GET /users/badges user_id=%s", current_user.id)
     badge_service = BadgeService(db)
     try:
-        return await badge_service.get_badge_summary(str(current_user.id))
+        result = await badge_service.get_badge_summary(str(current_user.id))
+        logger.info("GET /users/badges ok earned=%s", result.get("earned_count"))
+        return result
     except ValueError as e:
+        logger.warning("GET /users/badges error: %s", e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-@router.get("/interests/available", response_model=list[str])
+@router.get("/available-interests", response_model=list[str])
 async def get_available_interests():
-    """Get list of available interest categories"""
+    """Get list of available interest categories (single-segment path to avoid /{user_id} match)"""
+    logger.info("GET /users/available-interests")
     return AVAILABLE_INTERESTS
 
 @router.get("/settings", response_model=UserResponse)
@@ -257,11 +263,13 @@ async def get_user_by_id(
     db=Depends(get_database)
 ):
     """Get user by ID"""
+    logger.info("GET /users/%s", user_id)
     user_service = UserService(db)
     
     try:
         user = await user_service.get_user_by_id(user_id)
         if not user:
+            logger.warning("GET /users/%s user not found", user_id)
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
@@ -270,6 +278,7 @@ async def get_user_by_id(
     except HTTPException:
         raise
     except Exception as e:
+        logger.exception("GET /users/%s error: %s", user_id, e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Error fetching user: {str(e)}"
