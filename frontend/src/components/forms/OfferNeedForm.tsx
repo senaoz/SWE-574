@@ -20,6 +20,8 @@ import { Crosshair1Icon } from "@radix-ui/react-icons";
 import { TURKISH_CITIES, getCityOptions } from "@/constants/turkishCities";
 import { TagAutocomplete } from "./TagAutocomplete";
 import { MarkdownEditor } from "./MarkdownEditor";
+import { MapContainer, TileLayer, Circle, Marker } from "react-leaflet";
+import L from "leaflet";
 
 interface OfferNeedFormProps {
   serviceType: "offer" | "need";
@@ -666,6 +668,66 @@ export function OfferNeedForm({
                           ⚠ Address set but coordinates not found. Location will
                           be approximate.
                         </Text>
+                      )}
+
+                    {formData.location.latitude !== 0 &&
+                      formData.location.longitude !== 0 && (
+                        <Box
+                          className="mt-3 rounded-xl overflow-hidden"
+                          style={{ height: 180 }}
+                        >
+                          <MapContainer
+                            center={[
+                              formData.location.latitude,
+                              formData.location.longitude,
+                            ]}
+                            zoom={15}
+                            style={{ height: "100%", width: "100%" }}
+                            scrollWheelZoom={false}
+                          >
+                            <TileLayer
+                              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                              subdomains="abcd"
+                            />
+                            <Circle
+                              center={[
+                                formData.location.latitude,
+                                formData.location.longitude,
+                              ]}
+                              radius={200}
+                              pathOptions={{
+                                color:
+                                  serviceType === "offer"
+                                    ? "#059669"
+                                    : "#dc2626",
+                                fillColor:
+                                  serviceType === "offer"
+                                    ? "#059669"
+                                    : "#dc2626",
+                                fillOpacity: 0.12,
+                                weight: 1.5,
+                              }}
+                            />
+                            <Marker
+                              position={[
+                                formData.location.latitude,
+                                formData.location.longitude,
+                              ]}
+                              icon={L.divIcon({
+                                className: "custom-marker",
+                                html: `<div style="width:20px;height:20px;border-radius:50%;color:white;background-color:${
+                                  serviceType === "offer"
+                                    ? "#059669"
+                                    : "#dc2626"
+                                };display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;">${
+                                  serviceType === "offer" ? "+" : "?"
+                                }</div>`,
+                                iconSize: [20, 20],
+                                iconAnchor: [10, 10],
+                              })}
+                            />
+                          </MapContainer>
+                        </Box>
                       )}
                   </Form.Field>
                 </Box>
