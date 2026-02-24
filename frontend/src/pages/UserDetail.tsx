@@ -17,9 +17,21 @@ import {
   Crosshair1Icon,
   ArrowLeftIcon,
 } from "@radix-ui/react-icons";
+import { useQuery } from "@tanstack/react-query";
 import { User, Service } from "@/types";
-import { servicesApi, usersApi } from "@/services/api";
+import { servicesApi, usersApi, ratingsApi } from "@/services/api";
 import { OfferListingCard } from "@/components/ui/OfferListingCard";
+import { BadgeDisplay } from "@/components/ui/BadgeDisplay";
+import { InterestChip } from "@/components/ui/InterestChip";
+import { RatingStars } from "@/components/ui/RatingStars";
+import {
+  Linkedin,
+  Github,
+  Twitter,
+  Instagram,
+  Globe,
+  Briefcase,
+} from "lucide-react";
 
 export function UserDetail() {
   const { userId } = useParams<{ userId: string }>();
@@ -54,6 +66,14 @@ export function UserDetail() {
 
     fetchUserData();
   }, [userId]);
+
+  const { data: ratingsData } = useQuery({
+    queryKey: ["user-ratings", userId],
+    queryFn: () => ratingsApi.getUserRatings(userId!, 1, 1),
+    enabled: !!userId,
+  });
+  const averageRating = ratingsData?.data?.average_score ?? null;
+  const ratingCount = ratingsData?.data?.total ?? 0;
 
   if (loading) {
     return (
@@ -93,6 +113,7 @@ export function UserDetail() {
               {/* User Avatar and Basic Info */}
               <Flex align="center" gap="4">
                 <Avatar
+                  src={user.profile_picture || undefined}
                   fallback={user.full_name?.[0] || user.username[0]}
                   size="6"
                 />
@@ -101,13 +122,13 @@ export function UserDetail() {
                     <Heading size="5">
                       {user.full_name || user.username}
                     </Heading>
+                    <Text size="3" color="gray">
+                      @{user.username}
+                    </Text>
                     {user.is_verified && (
                       <CheckCircledIcon className="w-4 h-4 text-green-600" />
                     )}
                   </Flex>
-                  <Text size="3" color="gray">
-                    @{user.username}
-                  </Text>
                   {user.is_verified && (
                     <Badge
                       color="green"
@@ -117,6 +138,117 @@ export function UserDetail() {
                     >
                       Verified User
                     </Badge>
+                  )}
+                  {/* Average Rating */}
+                  {ratingCount > 0 && averageRating != null ? (
+                    <Flex align="center" gap="2" mt="2">
+                      <RatingStars
+                        value={Math.round(averageRating * 10) / 10}
+                        readonly
+                        size={18}
+                      />
+                      <Text size="2" color="gray">
+                        {averageRating.toFixed(1)} ({ratingCount} rating
+                        {ratingCount !== 1 ? "s" : ""})
+                      </Text>
+                    </Flex>
+                  ) : (
+                    <Text size="2" color="gray" className="block mt-2">
+                      No ratings yet
+                    </Text>
+                  )}
+                  {/* Social Links */}
+                  {(user.social_links?.linkedin ||
+                    user.social_links?.github ||
+                    user.social_links?.twitter ||
+                    user.social_links?.instagram ||
+                    user.social_links?.website ||
+                    user.social_links?.portfolio) && (
+                    <Flex
+                      gap="3"
+                      wrap="wrap"
+                      id="social-links"
+                      className="mt-2"
+                    >
+                      {user.social_links?.linkedin && (
+                        <a
+                          href={user.social_links.linkedin}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="LinkedIn"
+                        >
+                          <Linkedin
+                            size={20}
+                            className="text-gray-600 hover:text-blue-600 transition-colors"
+                          />
+                        </a>
+                      )}
+                      {user.social_links?.github && (
+                        <a
+                          href={user.social_links.github}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="GitHub"
+                        >
+                          <Github
+                            size={20}
+                            className="text-gray-600 hover:text-gray-900 transition-colors"
+                          />
+                        </a>
+                      )}
+                      {user.social_links?.twitter && (
+                        <a
+                          href={user.social_links.twitter}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Twitter / X"
+                        >
+                          <Twitter
+                            size={20}
+                            className="text-gray-600 hover:text-sky-500 transition-colors"
+                          />
+                        </a>
+                      )}
+                      {user.social_links?.instagram && (
+                        <a
+                          href={user.social_links.instagram}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Instagram"
+                        >
+                          <Instagram
+                            size={20}
+                            className="text-gray-600 hover:text-pink-500 transition-colors"
+                          />
+                        </a>
+                      )}
+                      {user.social_links?.website && (
+                        <a
+                          href={user.social_links.website}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Website"
+                        >
+                          <Globe
+                            size={20}
+                            className="text-gray-600 hover:text-green-600 transition-colors"
+                          />
+                        </a>
+                      )}
+                      {user.social_links?.portfolio && (
+                        <a
+                          href={user.social_links.portfolio}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Portfolio"
+                        >
+                          <Briefcase
+                            size={20}
+                            className="text-gray-600 hover:text-amber-600 transition-colors"
+                          />
+                        </a>
+                      )}
+                    </Flex>
                   )}
                 </div>
               </Flex>
@@ -138,6 +270,25 @@ export function UserDetail() {
                   <Crosshair1Icon className="w-4 h-4" />
                   <Text size="2">{user.location}</Text>
                 </Flex>
+              )}
+
+              {/* Interests */}
+              {(user.interests?.length || 0) > 0 && (
+                <div>
+                  <Text size="2" weight="bold" className="block mb-3">
+                    Interests
+                  </Text>
+                  <Flex gap="2" wrap="wrap">
+                    {user.interests!.map((interest) => (
+                      <InterestChip
+                        key={interest}
+                        name={interest}
+                        size="sm"
+                        showIcon
+                      />
+                    ))}
+                  </Flex>
+                </div>
               )}
 
               {/* Stats */}
@@ -177,6 +328,8 @@ export function UserDetail() {
             </Flex>
           </Card>
         </Box>
+
+        {userId && <BadgeDisplay userId={userId} />}
 
         {/* Services Section */}
         <div className="space-y-6">

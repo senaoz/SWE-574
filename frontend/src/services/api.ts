@@ -1,5 +1,5 @@
 import axios, { AxiosResponse } from 'axios';
-import { AuthResponse, User, Service, ServiceListResponse, TimeBankResponse, TimeBankTransaction, LoginForm, RegisterForm, ServiceForm, Comment, CommentListResponse, CommentForm, JoinRequest, JoinRequestListResponse, JoinRequestForm, Transaction, TransactionListResponse, TransactionForm, ChatRoom, ChatRoomListResponse, ChatRoomForm, Message, MessageListResponse, MessageForm, UserSettings, PasswordChangeForm, AccountDeletionForm } from '@/types';
+import { AuthResponse, User, Service, ServiceListResponse, TimeBankResponse, TimeBankTransaction, LoginForm, RegisterForm, ServiceForm, Comment, CommentListResponse, CommentForm, JoinRequest, JoinRequestListResponse, JoinRequestForm, Transaction, TransactionListResponse, TransactionForm, ChatRoom, ChatRoomListResponse, ChatRoomForm, Message, MessageListResponse, MessageForm, UserSettings, PasswordChangeForm, AccountDeletionForm, BadgeSummary, Rating, RatingListResponse, RatingForm } from '@/types';
 
 // Use relative URL /api to leverage nginx proxy, or absolute URL if provided via env var
 // This ensures requests go through the same HTTPS domain as the frontend
@@ -111,6 +111,15 @@ export const usersApi = {
   
   deleteAccount: (data: AccountDeletionForm): Promise<AxiosResponse<{ message: string }>> =>
     api.post('/users/account/delete', data),
+
+  getBadges: (): Promise<AxiosResponse<BadgeSummary>> =>
+    api.get('/users/badges'),
+
+  getUserBadges: (userId: string): Promise<AxiosResponse<BadgeSummary>> =>
+    api.get(`/users/${userId}/badges`),
+
+  getAvailableInterests: (): Promise<AxiosResponse<string[]>> =>
+    api.get('/users/available-interests'),
 };
 
 // Services API
@@ -256,6 +265,18 @@ export const chatApi = {
   
   deleteMessage: (messageId: string): Promise<AxiosResponse<{ message: string }>> =>
     api.delete(`/chat/messages/${messageId}`),
+};
+
+// Ratings API
+export const ratingsApi = {
+  createRating: (data: RatingForm): Promise<AxiosResponse<Rating>> =>
+    api.post('/ratings/', data),
+
+  getUserRatings: (userId: string, page?: number, limit?: number): Promise<AxiosResponse<RatingListResponse>> =>
+    api.get(`/ratings/user/${userId}`, { params: { page, limit } }),
+
+  getTransactionRatings: (transactionId: string): Promise<AxiosResponse<Rating[]>> =>
+    api.get(`/ratings/transaction/${transactionId}`),
 };
 
 export default api;

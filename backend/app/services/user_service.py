@@ -51,6 +51,11 @@ class UserService:
             if not update_data:
                 return await self.get_user_by_id(user_id)
             
+            if "social_links" in update_data and isinstance(update_data["social_links"], dict):
+                update_data["social_links"] = {
+                    k: v for k, v in update_data["social_links"].items()
+                }
+            
             update_data["updated_at"] = datetime.utcnow()
             
             result = await self.users_collection.update_one(
@@ -58,7 +63,7 @@ class UserService:
                 {"$set": update_data}
             )
             
-            if result.modified_count:
+            if result.modified_count or result.matched_count:
                 return await self.get_user_by_id(user_id)
             return None
         except Exception:

@@ -21,6 +21,7 @@ import {
 } from "@radix-ui/themes";
 import { Pencil1Icon } from "@radix-ui/react-icons";
 import api, { usersApi } from "@/services/api";
+import { InterestChip } from "@/components/ui/InterestChip";
 
 export function AdminPanel() {
   const [activeTab, setActiveTab] = useState("users");
@@ -170,6 +171,7 @@ export function AdminPanel() {
                   <Table.Row>
                     <Table.ColumnHeaderCell>Username</Table.ColumnHeaderCell>
                     <Table.ColumnHeaderCell>Email</Table.ColumnHeaderCell>
+                    <Table.ColumnHeaderCell>Interests</Table.ColumnHeaderCell>
                     <Table.ColumnHeaderCell>Role</Table.ColumnHeaderCell>
                     <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
                     <Table.ColumnHeaderCell>Balance</Table.ColumnHeaderCell>
@@ -191,6 +193,24 @@ export function AdminPanel() {
                       </Table.Cell>
                       <Table.Cell>
                         <Text size="2">{user.email}</Text>
+                      </Table.Cell>
+                      <Table.Cell>
+                        {(user.interests?.length ?? 0) > 0 ? (
+                          <Flex gap="1" wrap="wrap">
+                            {user.interests!.map((interest) => (
+                              <InterestChip
+                                key={interest}
+                                name={interest}
+                                size="sm"
+                                showIcon
+                              />
+                            ))}
+                          </Flex>
+                        ) : (
+                          <Text size="2" color="gray">
+                            —
+                          </Text>
+                        )}
                       </Table.Cell>
                       <Table.Cell>
                         <Badge color={getRoleColor(user.role)}>

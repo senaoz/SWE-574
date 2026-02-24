@@ -31,9 +31,22 @@ import {
   PasswordChangeForm,
   AccountDeletionForm,
   JoinRequest,
+  SocialLinks,
 } from "@/types";
-import { usersApi, joinRequestsApi } from "@/services/api";
+import { usersApi, joinRequestsApi, ratingsApi } from "@/services/api";
 import { MyServices } from "./MyServices";
+import { BadgeDisplay } from "@/components/ui/BadgeDisplay";
+import { RatingStars } from "@/components/ui/RatingStars";
+import { InterestSelector } from "@/components/ui/InterestSelector";
+import { InterestChip } from "@/components/ui/InterestChip";
+import {
+  Linkedin,
+  Github,
+  Twitter,
+  Instagram,
+  Globe,
+  Briefcase,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
@@ -47,7 +60,18 @@ export function Profile() {
     bio: "",
     location: "",
     email: "",
+    profile_picture: "",
+    social_links: {
+      linkedin: "",
+      github: "",
+      twitter: "",
+      instagram: "",
+      website: "",
+      portfolio: "",
+    } as SocialLinks,
+    interests: [] as string[],
   });
+  const [showInterestSelector, setShowInterestSelector] = useState(false);
   const [settings, setSettings] = useState<UserSettings>({
     profile_visible: true,
     show_email: false,
@@ -79,6 +103,14 @@ export function Profile() {
     enabled: true,
   });
 
+  const { data: ratingsData } = useQuery({
+    queryKey: ["user-ratings", user?._id],
+    queryFn: () => ratingsApi.getUserRatings(user!._id, 1, 1),
+    enabled: !!user?._id,
+  });
+  const averageRating = ratingsData?.data?.average_score ?? null;
+  const ratingCount = ratingsData?.data?.total ?? 0;
+
   const rejectedRequests = rejectedRequestsData?.data.requests || [];
   const recentRejectedCount = rejectedRequests.filter((req: JoinRequest) => {
     const rejectedDate = new Date(req.updated_at);
@@ -98,6 +130,16 @@ export function Profile() {
           bio: userData.bio || "",
           location: userData.location || "",
           email: userData.email || "",
+          profile_picture: userData.profile_picture || "",
+          social_links: {
+            linkedin: userData.social_links?.linkedin || "",
+            github: userData.social_links?.github || "",
+            twitter: userData.social_links?.twitter || "",
+            instagram: userData.social_links?.instagram || "",
+            website: userData.social_links?.website || "",
+            portfolio: userData.social_links?.portfolio || "",
+          },
+          interests: userData.interests || [],
         });
         // Load settings from user data
         setSettings({
@@ -126,12 +168,27 @@ export function Profile() {
 
   const handleSave = async () => {
     try {
-      const response = await usersApi.updateProfile(editForm);
+      const socialLinks: SocialLinks = {};
+      for (const [key, val] of Object.entries(editForm.social_links)) {
+        if (val && val.trim()) {
+          (socialLinks as any)[key] = val.trim();
+        }
+      }
+
+      const payload: any = {
+        full_name: editForm.full_name,
+        bio: editForm.bio,
+        location: editForm.location,
+        profile_picture: editForm.profile_picture || undefined,
+        social_links: Object.keys(socialLinks).length > 0 ? socialLinks : undefined,
+        interests: editForm.interests.length > 0 ? editForm.interests : undefined,
+      };
+
+      const response = await usersApi.updateProfile(payload);
       setUser(response.data);
       setIsEditing(false);
     } catch (error) {
       console.error("Error updating user profile:", error);
-      // Keep editing mode open on error
     }
   };
 
@@ -142,6 +199,16 @@ export function Profile() {
         bio: user.bio || "",
         location: user.location || "",
         email: user.email || "",
+        profile_picture: user.profile_picture || "",
+        social_links: {
+          linkedin: user.social_links?.linkedin || "",
+          github: user.social_links?.github || "",
+          twitter: user.social_links?.twitter || "",
+          instagram: user.social_links?.instagram || "",
+          website: user.social_links?.website || "",
+          portfolio: user.social_links?.portfolio || "",
+        },
+        interests: user.interests || [],
       });
     }
     setIsEditing(false);
@@ -152,6 +219,24 @@ export function Profile() {
       ...prev,
       [field]: value,
     }));
+  };
+
+  const handleSocialLinkChange = (field: keyof SocialLinks, value: string) => {
+    setEditForm((prev) => ({
+      ...prev,
+      social_links: { ...prev.social_links, [field]: value },
+    }));
+  };
+
+  const handleInterestsSave = async (selected: string[]) => {
+    setEditForm((prev) => ({ ...prev, interests: selected }));
+    try {
+      const response = await usersApi.updateProfile({ interests: selected } as any);
+      setUser(response.data);
+    } catch (error) {
+      console.error("Error saving interests:", error);
+    }
+    setShowInterestSelector(false);
   };
 
   const handleSettingsChange = async (
@@ -337,6 +422,7 @@ export function Profile() {
               {/* Avatar and Basic Info */}
               <Flex align="center" gap="4">
                 <Avatar
+                  src={user.profile_picture || undefined}
                   fallback={user.full_name?.[0] || user.username[0]}
                   size="6"
                 />
@@ -432,6 +518,171 @@ export function Profile() {
                       {user.location || "No location provided"}
                     </Text>
                   </Flex>
+                )}
+              </div>
+
+              {/* Average Rating */}
+              <div>
+                <Text size="2" weight="bold" className="block mb-1">
+                  Average Rating
+                </Text>
+                {ratingCount > 0 && averageRating != null ? (
+                  <Flex align="center" gap="2">
+                    <RatingStars value={Math.round(averageRating * 10) / 10} readonly size={18} />
+                    <Text size="2" color="gray">
+                      {averageRating.toFixed(1)} ({ratingCount} rating{ratingCount !== 1 ? "s" : ""})
+                    </Text>
+                  </Flex>
+                ) : (
+                  <Text size="2" color="gray">
+                    No ratings yet
+                  </Text>
+                )}
+              </div>
+
+              {/* Profile Picture URL */}
+              {isEditing && (
+                <div>
+                  <Text size="2" weight="bold" mr="2">
+                    Profile Picture URL
+                  </Text>
+                  <TextField.Root
+                    value={editForm.profile_picture}
+                    onChange={(e) =>
+                      handleInputChange("profile_picture", e.target.value)
+                    }
+                    placeholder="https://example.com/photo.jpg"
+                    size="2"
+                  />
+                </div>
+              )}
+
+              <Separator />
+
+              {/* Social Links */}
+              <div>
+                <Text size="2" weight="bold" className="block mb-2">
+                  Social Links
+                </Text>
+                {isEditing ? (
+                  <div className="space-y-2">
+                    {([
+                      ["linkedin", "LinkedIn", "https://linkedin.com/in/..."],
+                      ["github", "GitHub", "https://github.com/..."],
+                      ["twitter", "Twitter / X", "https://twitter.com/..."],
+                      ["instagram", "Instagram", "https://instagram.com/..."],
+                      ["website", "Website", "https://yoursite.com"],
+                      ["portfolio", "Portfolio", "https://portfolio.com"],
+                    ] as const).map(([key, label, placeholder]) => (
+                      <div key={key}>
+                        <Text size="1" color="gray" className="block mb-0.5">
+                          {label}
+                        </Text>
+                        <TextField.Root
+                          value={(editForm.social_links as any)[key] || ""}
+                          onChange={(e) =>
+                            handleSocialLinkChange(key as keyof SocialLinks, e.target.value)
+                          }
+                          placeholder={placeholder}
+                          size="1"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <Flex gap="3" wrap="wrap">
+                    {user.social_links?.linkedin && (
+                      <a href={user.social_links.linkedin} target="_blank" rel="noopener noreferrer" title="LinkedIn">
+                        <Linkedin size={20} className="text-gray-600 hover:text-blue-600 transition-colors" />
+                      </a>
+                    )}
+                    {user.social_links?.github && (
+                      <a href={user.social_links.github} target="_blank" rel="noopener noreferrer" title="GitHub">
+                        <Github size={20} className="text-gray-600 hover:text-gray-900 transition-colors" />
+                      </a>
+                    )}
+                    {user.social_links?.twitter && (
+                      <a href={user.social_links.twitter} target="_blank" rel="noopener noreferrer" title="Twitter / X">
+                        <Twitter size={20} className="text-gray-600 hover:text-sky-500 transition-colors" />
+                      </a>
+                    )}
+                    {user.social_links?.instagram && (
+                      <a href={user.social_links.instagram} target="_blank" rel="noopener noreferrer" title="Instagram">
+                        <Instagram size={20} className="text-gray-600 hover:text-pink-500 transition-colors" />
+                      </a>
+                    )}
+                    {user.social_links?.website && (
+                      <a href={user.social_links.website} target="_blank" rel="noopener noreferrer" title="Website">
+                        <Globe size={20} className="text-gray-600 hover:text-green-600 transition-colors" />
+                      </a>
+                    )}
+                    {user.social_links?.portfolio && (
+                      <a href={user.social_links.portfolio} target="_blank" rel="noopener noreferrer" title="Portfolio">
+                        <Briefcase size={20} className="text-gray-600 hover:text-amber-600 transition-colors" />
+                      </a>
+                    )}
+                    {!user.social_links?.linkedin &&
+                      !user.social_links?.github &&
+                      !user.social_links?.twitter &&
+                      !user.social_links?.instagram &&
+                      !user.social_links?.website &&
+                      !user.social_links?.portfolio && (
+                        <Text size="2" color="gray">No social links added</Text>
+                      )}
+                  </Flex>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Interests */}
+              <div>
+                <Flex justify="between" align="center" mb="3">
+                  <Text size="2" weight="bold">Interests</Text>
+                  <Button
+                    size="1"
+                    variant="soft"
+                    color="lime"
+                    className="rounded-full"
+                    onClick={() => setShowInterestSelector(true)}
+                  >
+                    {(user.interests?.length || 0) > 0 ? "Edit" : "Add interests"}
+                  </Button>
+                </Flex>
+                {(user.interests?.length || 0) > 0 ? (
+                  <Flex gap="2" wrap="wrap">
+                    {user.interests!.map((interest) => (
+                      <InterestChip
+                        key={interest}
+                        name={interest}
+                        size="sm"
+                        showIcon
+                      />
+                    ))}
+                  </Flex>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowInterestSelector(true)}
+                    className="rounded-xl border-2 border-dashed px-4 py-3 text-left text-sm transition-colors"
+                    style={{
+                      borderColor: "var(--gray-6)",
+                      backgroundColor: "var(--gray-1)",
+                      color: "var(--gray-10)",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = "var(--lime-6)";
+                      e.currentTarget.style.backgroundColor = "var(--lime-2)";
+                      e.currentTarget.style.color = "var(--lime-11)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = "var(--gray-6)";
+                      e.currentTarget.style.backgroundColor = "var(--gray-1)";
+                      e.currentTarget.style.color = "var(--gray-10)";
+                    }}
+                  >
+                    Add interests to help others discover you
+                  </button>
                 )}
               </div>
 
@@ -844,6 +1095,15 @@ export function Profile() {
           </Flex>
         </Dialog.Content>
       </Dialog.Root>
+
+      <BadgeDisplay />
+
+      <InterestSelector
+        open={showInterestSelector}
+        onOpenChange={setShowInterestSelector}
+        initialSelected={user.interests || []}
+        onSave={handleInterestsSave}
+      />
 
       <MyServices />
     </div>

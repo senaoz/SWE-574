@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { authApi } from "@/services/api";
+import { authApi, usersApi } from "@/services/api";
 import { Button, Card, TextField } from "@radix-ui/themes";
 import { Form } from "radix-ui";
 import { validateEmail, validatePassword } from "@/utils/utils";
+import { InterestSelector } from "@/components/ui/InterestSelector";
 
 interface RegisterFormData {
   username: string;
@@ -29,8 +30,9 @@ export function RegisterForm() {
     location: "",
   });
   const [errors, setErrors] = useState<Partial<RegisterFormData>>({});
+  const [showInterestOnboarding, setShowInterestOnboarding] = useState(false);
 
-  if (localStorage.getItem("access_token")) {
+  if (localStorage.getItem("access_token") && !showInterestOnboarding) {
     navigate("/dashboard");
     return null;
   }
@@ -45,10 +47,9 @@ export function RegisterForm() {
         if (user) {
           queryClient.setQueryData(["currentUser"], user);
         }
-        navigate("/dashboard");
+        setShowInterestOnboarding(true);
         return;
       }
-      // Fallback: backend returned old shape (user at top level, no token). Log in with same credentials.
       const legacyUser = response.data as { email?: string; username?: string };
       if (legacyUser?.email && formData.password) {
         try {
@@ -63,7 +64,7 @@ export function RegisterForm() {
             if (loginUser) {
               queryClient.setQueryData(["currentUser"], loginUser);
             }
-            navigate("/dashboard");
+            setShowInterestOnboarding(true);
             return;
           }
         } catch (e) {
@@ -296,6 +297,28 @@ export function RegisterForm() {
           Sign in
         </a>
       </p>
+
+      <InterestSelector
+        open={showInterestOnboarding}
+        onOpenChange={(open) => {
+          if (!open) {
+            navigate("/dashboard");
+          }
+          setShowInterestOnboarding(open);
+        }}
+        initialSelected={[]}
+        onSave={async (selected) => {
+          try {
+            if (selected.length > 0) {
+              await usersApi.updateProfile({ interests: selected } as any);
+            }
+          } catch (e) {
+            console.error("Error saving interests:", e);
+          }
+          setShowInterestOnboarding(false);
+          navigate("/dashboard");
+        }}
+      />
     </Card>
   );
 }
