@@ -12,12 +12,13 @@ import {
   Badge,
   Avatar,
   Dialog,
-  Select,
   Box,
   Grid,
   Switch,
 } from "@radix-ui/themes";
 import { Form } from "radix-ui";
+import { MapContainer, TileLayer, Circle, Marker } from "react-leaflet";
+import L from "leaflet";
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -25,6 +26,7 @@ import {
   CalendarIcon,
   GlobeIcon,
   Cross2Icon,
+  Crosshair1Icon,
 } from "@radix-ui/react-icons";
 import { forumApi, servicesApi } from "@/services/api";
 import { ForumDiscussion, ForumEvent, TagEntity, Service } from "@/types";
@@ -493,6 +495,11 @@ function NewEventDialog({
   const [eventDate, setEventDate] = useState("");
   const [eventTime, setEventTime] = useState("");
   const [location, setLocation] = useState("");
+  const [latitude, setLatitude] = useState<number | undefined>(undefined);
+  const [longitude, setLongitude] = useState<number | undefined>(undefined);
+  const [locationError, setLocationError] = useState("");
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [useCurrentLocation, setUseCurrentLocation] = useState(true);
   const [isRemote, setIsRemote] = useState(false);
   const [tags, setTags] = useState<TagEntity[]>([]);
   const [serviceId, setServiceId] = useState("__none__");
@@ -517,10 +524,112 @@ function NewEventDialog({
     setEventDate("");
     setEventTime("");
     setLocation("");
+    setLatitude(undefined);
+    setLongitude(undefined);
+    setLocationError("");
+    setUseCurrentLocation(true);
     setIsRemote(false);
     setTags([]);
     setServiceId("__none__");
     setError("");
+  };
+
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError("Geolocation is not supported by this browser");
+      return;
+    }
+    setIsGettingLocation(true);
+    setLocationError("");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`,
+          { headers: { "User-Agent": "hive-frontend" } },
+        )
+          .then((res) => res.json())
+          .then((data) => {
+            const addressParts: string[] = [];
+            if (data.address) {
+              if (data.address.neighbourhood || data.address.suburb) {
+                addressParts.push(
+                  data.address.neighbourhood || data.address.suburb,
+                );
+              }
+              if (
+                data.address.city ||
+                data.address.town ||
+                data.address.village
+              ) {
+                addressParts.push(
+                  data.address.city ||
+                    data.address.town ||
+                    data.address.village,
+                );
+              }
+              if (data.address.state || data.address.region) {
+                addressParts.push(data.address.state || data.address.region);
+              }
+            }
+            const address =
+              addressParts.length > 0
+                ? addressParts.join(", ")
+                : data.display_name || "Current Location";
+            setLocation(address);
+            setLatitude(lat);
+            setLongitude(lng);
+            setIsGettingLocation(false);
+          })
+          .catch(() => {
+            setLocation("Current Location");
+            setLatitude(lat);
+            setLongitude(lng);
+            setIsGettingLocation(false);
+          });
+      },
+      (err) => {
+        let msg = "Unable to get your location";
+        if (err.code === err.PERMISSION_DENIED) {
+          msg = "Location access denied. Please enable location permissions.";
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          msg = "Location information unavailable.";
+        } else if (err.code === err.TIMEOUT) {
+          msg = "Location request timed out.";
+        }
+        setLocationError(msg);
+        setIsGettingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
+    );
+  };
+
+  const geocodeAddress = async (address: string) => {
+    if (!address.trim()) return;
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          address,
+        )}&limit=1`,
+        { headers: { "User-Agent": "hive-frontend" } },
+      );
+      const data = await res.json();
+      if (data?.length > 0) {
+        const r = data[0];
+        setLatitude(parseFloat(r.lat));
+        setLongitude(parseFloat(r.lon));
+        setLocation(address);
+      } else {
+        setLocation(address);
+        setLatitude(undefined);
+        setLongitude(undefined);
+      }
+    } catch {
+      setLocation(address);
+      setLatitude(undefined);
+      setLongitude(undefined);
+    }
   };
 
   const handleSubmit = async () => {
@@ -536,6 +645,8 @@ function NewEventDialog({
         description,
         event_at: eventAt,
         location: isRemote ? undefined : location || undefined,
+        latitude: isRemote ? undefined : latitude,
+        longitude: isRemote ? undefined : longitude,
         is_remote: isRemote,
         tags,
         service_id:
@@ -631,18 +742,120 @@ function NewEventDialog({
             </Flex>
           </Box>
           {!isRemote && (
-            <Form.Field name="location" className="space-y-2">
-              <Form.Label className="text-sm font-medium">
-                Location (address or place name)
-              </Form.Label>
-              <Form.Control asChild>
-                <TextField.Root
-                  placeholder="e.g. Community Center, Kadıköy"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+            <Box className="mb-4">
+              <div className="mb-3 flex items-center align-center gap-2">
+                <Text size="2">Location</Text>
+                <Switch
+                  checked={useCurrentLocation}
+                  onCheckedChange={setUseCurrentLocation}
                 />
-              </Form.Control>
-            </Form.Field>
+                <Text size="2">
+                  {useCurrentLocation
+                    ? "Use current location"
+                    : "Enter address manually"}
+                </Text>
+              </div>
+              <Form.Field name="location" className="space-y-2 mb-4">
+                {useCurrentLocation ? (
+                  <Flex gap="2" align="center">
+                    <TextField.Root
+                      placeholder="e.g. Kadıköy, Istanbul or click Get Location"
+                      value={location}
+                      readOnly
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={getCurrentLocation}
+                      disabled={isGettingLocation}
+                      className="whitespace-nowrap"
+                    >
+                      <Crosshair1Icon width="16" height="16" />
+                      {isGettingLocation ? "Getting..." : "Get Location"}
+                    </Button>
+                  </Flex>
+                ) : (
+                  <Flex gap="2" align="center">
+                    <TextField.Root
+                      placeholder="e.g. 123 Main St, Kadıköy, Istanbul"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      onBlur={(e) => {
+                        if (e.target.value.trim()) {
+                          geocodeAddress(e.target.value.trim());
+                        }
+                      }}
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => geocodeAddress(location)}
+                      disabled={!location.trim()}
+                      className="whitespace-nowrap"
+                    >
+                      Find Location
+                    </Button>
+                  </Flex>
+                )}
+                {locationError && (
+                  <Text size="1" color="red">
+                    {locationError}
+                  </Text>
+                )}
+                {latitude != null && longitude != null && (
+                  <Text size="1" color="green">
+                    ✓ Location set: {latitude.toFixed(4)},{" "}
+                    {longitude.toFixed(4)}
+                    {location && " — will appear on map"}
+                  </Text>
+                )}
+                {location && latitude == null && longitude == null && (
+                  <Text size="1" color="orange">
+                    ⚠ Address set but coordinates not found. Event will not
+                    appear on the map.
+                  </Text>
+                )}
+                {latitude != null && longitude != null && (
+                  <Box
+                    className="mt-3 rounded-xl overflow-hidden"
+                    style={{ height: 180 }}
+                  >
+                    <MapContainer
+                      center={[latitude, longitude]}
+                      zoom={15}
+                      style={{ height: "100%", width: "100%" }}
+                      scrollWheelZoom={false}
+                    >
+                      <TileLayer
+                        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                        subdomains="abcd"
+                      />
+                      <Circle
+                        center={[latitude, longitude]}
+                        radius={200}
+                        pathOptions={{
+                          color: "#7c3aed",
+                          fillColor: "#7c3aed",
+                          fillOpacity: 0.12,
+                          weight: 1.5,
+                        }}
+                      />
+                      <Marker
+                        position={[latitude, longitude]}
+                        icon={L.divIcon({
+                          className: "custom-marker",
+                          html: `<div style="width:20px;height:20px;border-radius:50%;color:white;background-color:#7c3aed;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;">E</div>`,
+                          iconSize: [20, 20],
+                          iconAnchor: [10, 10],
+                        })}
+                      />
+                    </MapContainer>
+                  </Box>
+                )}
+              </Form.Field>
+            </Box>
           )}
           <Form.Field name="tags" className="space-y-1">
             <Form.Label className="text-sm font-medium">Tags</Form.Label>
@@ -654,6 +867,8 @@ function NewEventDialog({
               }
             />
           </Form.Field>
+          {/*
+
           <Form.Field name="service_id" className="space-y-2">
             <Form.Label className="text-sm font-medium">
               Link to Offer / Need (optional)
@@ -670,6 +885,7 @@ function NewEventDialog({
               </Select.Content>
             </Select.Root>
           </Form.Field>
+            */}
           {error && (
             <Text size="2" color="red">
               {error}

@@ -97,6 +97,12 @@ p {
     background-color: var(--color-background) !important;
     color: var(--color-foreground) !important;
 }
+
 .bg-background {
     background-color: var(--color-background) !important;
+}
+
+.rt-BaseDialogContent {
+    max-height: 85vh !important;
+    overflow-y: auto !important;
 }
