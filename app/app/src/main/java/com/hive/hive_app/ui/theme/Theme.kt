@@ -1,58 +1,114 @@
 package com.hive.hive_app.ui.theme
 
-import android.app.Activity
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+// Single theme only: light, lime primary, soft semantics. No light/dark toggle.
+
+private val HiveLightColorScheme = lightColorScheme(
+    primary = Lime500,
+    onPrimary = OnLime,
+    primaryContainer = Lime50,
+    onPrimaryContainer = OnBackgroundLight,
+    secondary = OnSurfaceVariantLight,
+    onSecondary = SurfaceLight,
+    secondaryContainer = SurfaceVariantLight,
+    onSecondaryContainer = OnSurfaceLight,
+    tertiary = SemanticNeed,
+    onTertiary = OnLime,
+    background = BackgroundLight,
+    onBackground = OnBackgroundLight,
+    surface = SurfaceLight,
+    onSurface = OnSurfaceLight,
+    surfaceVariant = SurfaceVariantLight,
+    onSurfaceVariant = OnSurfaceVariantLight,
+    outline = OutlineLight,
+    outlineVariant = OutlineVariantLight,
+    error = SemanticError,
+    onError = OnSemanticError,
+    errorContainer = SemanticErrorContainer,
+    onErrorContainer = OnSurfaceLight,
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+// Pill-style (full radius) for buttons and inputs; cards/dialogs use rounded corners
+private val HiveShapes = Shapes(
+    extraSmall = RoundedCornerShape(percent = 50),
+    small = RoundedCornerShape(percent = 50),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(20.dp),
+    extraLarge = RoundedCornerShape(28.dp),
 )
+
+/** Semantic colors for badges, status, and types (Offer, Need, Category, etc.). */
+data class HiveSemanticColors(
+    val offer: Color,
+    val need: Color,
+    val category: Color,
+    val tag: Color,
+    val active: Color,
+    val inProgress: Color,
+    val completed: Color,
+    val pending: Color,
+    val cancelled: Color,
+    val expired: Color,
+    val muted: Color,
+)
+
+val LocalHiveSemanticColors = staticCompositionLocalOf {
+    HiveSemanticColors(
+        offer = SemanticOffer,
+        need = SemanticNeed,
+        category = SemanticCategory,
+        tag = SemanticTag,
+        active = SemanticActive,
+        inProgress = SemanticInProgress,
+        completed = SemanticCompleted,
+        pending = SemanticPending,
+        cancelled = SemanticCancelled,
+        expired = SemanticExpired,
+        muted = OnSurfaceVariantMuted,
+    )
+}
 
 @Composable
 fun HiveappTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = HiveLightColorScheme,
         typography = Typography,
-        content = content
+        shapes = HiveShapes,
+        content = {
+            androidx.compose.runtime.CompositionLocalProvider(
+                LocalHiveSemanticColors provides HiveSemanticColors(
+                    offer = SemanticOffer,
+                    need = SemanticNeed,
+                    category = SemanticCategory,
+                    tag = SemanticTag,
+                    active = SemanticActive,
+                    inProgress = SemanticInProgress,
+                    completed = SemanticCompleted,
+                    pending = SemanticPending,
+                    cancelled = SemanticCancelled,
+                    expired = SemanticExpired,
+                    muted = OnSurfaceVariantMuted,
+                )
+            ) {
+                content()
+            }
+        }
     )
+}
+
+/** Convenience access to Hive semantic colors. */
+object HiveTheme {
+    val semanticColors: HiveSemanticColors
+        @Composable
+        get() = LocalHiveSemanticColors.current
 }

@@ -48,14 +48,7 @@ class LoginViewModel @Inject constructor(
                 result.exceptionOrNull() is HttpException -> {
                     val ex = result.exceptionOrNull() as HttpException
                     val msg = ex.response()?.errorBody()?.string()?.let { body ->
-                        try {
-                            com.squareup.moshi.Moshi.Builder().build()
-                                .adapter(com.hive.hive_app.data.api.HttpValidationError::class.java)
-                                .fromJson(body)
-                                ?.detail?.firstOrNull()?.msg ?: "Login failed"
-                        } catch (_: Exception) {
-                            "Login failed"
-                        }
+                        parseLoginErrorBody(body)
                     } ?: "Login failed"
                     LoginState.Error(msg)
                 }
@@ -66,5 +59,19 @@ class LoginViewModel @Inject constructor(
 
     fun clearError() {
         if (_state.value is LoginState.Error) _state.value = LoginState.Idle
+    }
+
+    private fun parseLoginErrorBody(body: String): String {
+        val moshi = com.squareup.moshi.Moshi.Builder().build()
+        return try {
+            // FastAPI 401/400: {"detail": "Incorrect email or password"}
+            moshi.adapter(com.hive.hive_app.data.api.ApiErrorDetail::class.java).fromJson(body)
+                ?.detail?.takeIf { it.isNotBlank() }
+                ?: moshi.adapter(com.hive.hive_app.data.api.HttpValidationError::class.java).fromJson(body)
+                    ?.detail?.firstOrNull()?.msg
+                ?: "Login failed"
+        } catch (_: Exception) {
+            "Login failed"
+        }
     }
 }

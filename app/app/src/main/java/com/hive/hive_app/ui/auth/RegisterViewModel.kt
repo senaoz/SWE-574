@@ -68,19 +68,25 @@ class RegisterViewModel @Inject constructor(
                 result.exceptionOrNull() is HttpException -> {
                     val ex = result.exceptionOrNull() as HttpException
                     val msg = ex.response()?.errorBody()?.string()?.let { body ->
-                        try {
-                            com.squareup.moshi.Moshi.Builder().build()
-                                .adapter(com.hive.hive_app.data.api.HttpValidationError::class.java)
-                                .fromJson(body)
-                                ?.detail?.firstOrNull()?.msg ?: "Registration failed"
-                        } catch (_: Exception) {
-                            "Registration failed"
-                        }
+                        parseRegisterErrorBody(body)
                     } ?: "Registration failed"
                     RegisterState.Error(msg)
                 }
                 else -> RegisterState.Error(result.exceptionOrNull()?.message ?: "Network error")
             }
+        }
+    }
+
+    private fun parseRegisterErrorBody(body: String): String {
+        val moshi = com.squareup.moshi.Moshi.Builder().build()
+        return try {
+            moshi.adapter(com.hive.hive_app.data.api.ApiErrorDetail::class.java).fromJson(body)
+                ?.detail?.takeIf { it.isNotBlank() }
+                ?: moshi.adapter(com.hive.hive_app.data.api.HttpValidationError::class.java).fromJson(body)
+                    ?.detail?.firstOrNull()?.msg
+                ?: "Registration failed"
+        } catch (_: Exception) {
+            "Registration failed"
         }
     }
 }

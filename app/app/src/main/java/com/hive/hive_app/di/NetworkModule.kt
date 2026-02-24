@@ -1,5 +1,6 @@
 package com.hive.hive_app.di
 
+import android.util.Log
 import com.hive.hive_app.BuildConfig
 import com.hive.hive_app.data.api.AuthApi
 import com.hive.hive_app.data.api.AuthInterceptor
@@ -41,7 +42,9 @@ object NetworkModule {
         authInterceptor: AuthInterceptor,
         unauthorizedInterceptor: UnauthorizedInterceptor
     ): OkHttpClient {
-        val logging = HttpLoggingInterceptor().apply {
+        val logging = HttpLoggingInterceptor { message ->
+            Log.d("OkHttp", message)
+        }.apply {
             level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
         }
         return OkHttpClient.Builder()

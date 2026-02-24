@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import com.hive.hive_app.ui.main.ActiveItemsScreen
 import com.hive.hive_app.ui.main.DiscoverScreen
 import com.hive.hive_app.ui.main.ForumScreen
+import com.hive.hive_app.ui.main.MapScreen
 import com.hive.hive_app.ui.main.ProfileScreen
 
 @Composable
@@ -43,6 +44,7 @@ fun MainScaffold(
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
             when (currentDestination) {
                 MainDestinations.DISCOVER -> DiscoverScreen(Modifier.padding(innerPadding))
+                MainDestinations.MAP -> MapScreen(Modifier.padding(innerPadding))
                 MainDestinations.ACTIVE -> ActiveItemsScreen(Modifier.padding(innerPadding))
                 MainDestinations.FORUM -> ForumScreen(Modifier.padding(innerPadding))
                 MainDestinations.PROFILE -> ProfileScreen(onLogout = onLogout, modifier = Modifier.padding(innerPadding))
