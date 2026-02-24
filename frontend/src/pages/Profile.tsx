@@ -33,9 +33,10 @@ import {
   JoinRequest,
   SocialLinks,
 } from "@/types";
-import { usersApi, joinRequestsApi } from "@/services/api";
+import { usersApi, joinRequestsApi, ratingsApi } from "@/services/api";
 import { MyServices } from "./MyServices";
 import { BadgeDisplay } from "@/components/ui/BadgeDisplay";
+import { RatingStars } from "@/components/ui/RatingStars";
 import { InterestSelector } from "@/components/ui/InterestSelector";
 import { InterestChip } from "@/components/ui/InterestChip";
 import {
@@ -101,6 +102,14 @@ export function Profile() {
     queryFn: () => joinRequestsApi.getMyRequests(1, 50, "rejected"),
     enabled: true,
   });
+
+  const { data: ratingsData } = useQuery({
+    queryKey: ["user-ratings", user?._id],
+    queryFn: () => ratingsApi.getUserRatings(user!._id, 1, 1),
+    enabled: !!user?._id,
+  });
+  const averageRating = ratingsData?.data?.average_score ?? null;
+  const ratingCount = ratingsData?.data?.total ?? 0;
 
   const rejectedRequests = rejectedRequestsData?.data.requests || [];
   const recentRejectedCount = rejectedRequests.filter((req: JoinRequest) => {
@@ -509,6 +518,25 @@ export function Profile() {
                       {user.location || "No location provided"}
                     </Text>
                   </Flex>
+                )}
+              </div>
+
+              {/* Average Rating */}
+              <div>
+                <Text size="2" weight="bold" className="block mb-1">
+                  Average Rating
+                </Text>
+                {ratingCount > 0 && averageRating != null ? (
+                  <Flex align="center" gap="2">
+                    <RatingStars value={Math.round(averageRating * 10) / 10} readonly size={18} />
+                    <Text size="2" color="gray">
+                      {averageRating.toFixed(1)} ({ratingCount} rating{ratingCount !== 1 ? "s" : ""})
+                    </Text>
+                  </Flex>
+                ) : (
+                  <Text size="2" color="gray">
+                    No ratings yet
+                  </Text>
                 )}
               </div>
 

@@ -17,11 +17,13 @@ import {
   Crosshair1Icon,
   ArrowLeftIcon,
 } from "@radix-ui/react-icons";
+import { useQuery } from "@tanstack/react-query";
 import { User, Service } from "@/types";
-import { servicesApi, usersApi } from "@/services/api";
+import { servicesApi, usersApi, ratingsApi } from "@/services/api";
 import { OfferListingCard } from "@/components/ui/OfferListingCard";
 import { BadgeDisplay } from "@/components/ui/BadgeDisplay";
 import { InterestChip } from "@/components/ui/InterestChip";
+import { RatingStars } from "@/components/ui/RatingStars";
 import {
   Linkedin,
   Github,
@@ -64,6 +66,14 @@ export function UserDetail() {
 
     fetchUserData();
   }, [userId]);
+
+  const { data: ratingsData } = useQuery({
+    queryKey: ["user-ratings", userId],
+    queryFn: () => ratingsApi.getUserRatings(userId!, 1, 1),
+    enabled: !!userId,
+  });
+  const averageRating = ratingsData?.data?.average_score ?? null;
+  const ratingCount = ratingsData?.data?.total ?? 0;
 
   if (loading) {
     return (
@@ -128,6 +138,24 @@ export function UserDetail() {
                     >
                       Verified User
                     </Badge>
+                  )}
+                  {/* Average Rating */}
+                  {ratingCount > 0 && averageRating != null ? (
+                    <Flex align="center" gap="2" mt="2">
+                      <RatingStars
+                        value={Math.round(averageRating * 10) / 10}
+                        readonly
+                        size={18}
+                      />
+                      <Text size="2" color="gray">
+                        {averageRating.toFixed(1)} ({ratingCount} rating
+                        {ratingCount !== 1 ? "s" : ""})
+                      </Text>
+                    </Flex>
+                  ) : (
+                    <Text size="2" color="gray" className="block mt-2">
+                      No ratings yet
+                    </Text>
                   )}
                   {/* Social Links */}
                   {(user.social_links?.linkedin ||
