@@ -81,22 +81,22 @@ export function ForumDiscussionDetail() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto py-8 px-4">
+      <Card className="p-8 text-center">
         <Text color="gray">Loading...</Text>
-      </div>
+      </Card>
     );
   }
 
   if (!discussion) {
     return (
-      <div className="max-w-4xl mx-auto py-8 px-4">
+      <div>
         <Text color="red">Discussion not found.</Text>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4">
+    <div>
       <Button
         variant="ghost"
         className="mb-4"

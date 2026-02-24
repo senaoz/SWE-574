@@ -186,7 +186,9 @@ export function Forum() {
           </Flex>
 
           {discussionsLoading ? (
-            <Text color="gray">Loading...</Text>
+            <Card className="p-8 text-center">
+              <Text color="gray">Loading...</Text>
+            </Card>
           ) : discussions.length === 0 ? (
             <Card className="p-8 text-center">
               <Text color="gray">No discussions yet. Start one!</Text>
@@ -258,7 +260,9 @@ export function Forum() {
           </Flex>
 
           {eventsLoading ? (
-            <Text color="gray">Loading...</Text>
+            <Card className="p-8 text-center">
+              <Text color="gray">Loading...</Text>
+            </Card>
           ) : events.length === 0 ? (
             <Card className="p-8 text-center">
               <Text color="gray">No events yet. Create one!</Text>

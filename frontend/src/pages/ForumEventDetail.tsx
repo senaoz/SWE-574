@@ -84,22 +84,22 @@ export function ForumEventDetail() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto py-8 px-4">
+      <Card className="p-8 text-center">
         <Text color="gray">Loading...</Text>
-      </div>
+      </Card>
     );
   }
 
   if (!event) {
     return (
-      <div className="max-w-4xl mx-auto py-8 px-4">
+      <div>
         <Text color="red">Event not found.</Text>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4">
+    <div>
       <Button
         variant="ghost"
         className="mb-4"
@@ -122,8 +122,7 @@ export function ForumEventDetail() {
             <Heading size="5">{event.title}</Heading>
             <Flex gap="2" align="center" className="mt-1 mb-4" wrap="wrap">
               <Text size="2" color="gray">
-                by{" "}
-                {event.user?.full_name || event.user?.username || "Unknown"}
+                by {event.user?.full_name || event.user?.username || "Unknown"}
               </Text>
               <Text size="1" color="gray">
                 {timeAgo(event.created_at)}
