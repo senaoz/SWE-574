@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Button, Box, Dialog, IconButton, Flex } from "@radix-ui/themes";
+import { Button, Box, Dialog, IconButton, Flex, Avatar } from "@radix-ui/themes";
 import { usersApi } from "@/services/api";
 import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
 import { SearchBar } from "@/components/ui/SearchBar";
@@ -110,8 +110,17 @@ export function Header() {
               />
             ) : (
               <div className="flex items-center space-x-2 ml-2">
-                <IconButton onClick={() => navigate("/profile")}>
-                  <AvatarIcon className="w-4 h-4" />
+                <IconButton onClick={() => navigate("/profile")} style={{ borderRadius: "var(--radius-full)" }}>
+                  {currentUser?.profile_picture ? (
+                    <Avatar
+                      src={currentUser.profile_picture}
+                      fallback={currentUser.full_name?.[0] || currentUser.username[0]}
+                      size="1"
+                      radius="full"
+                    />
+                  ) : (
+                    <AvatarIcon className="w-4 h-4" />
+                  )}
                 </IconButton>
                 <IconButton onClick={() => navigate("/dashboard")}>
                   <HomeIcon className="w-4 h-4" />

@@ -20,6 +20,15 @@ import {
 import { User, Service } from "@/types";
 import { servicesApi, usersApi } from "@/services/api";
 import { OfferListingCard } from "@/components/ui/OfferListingCard";
+import { BadgeDisplay } from "@/components/ui/BadgeDisplay";
+import {
+  Linkedin,
+  Github,
+  Twitter,
+  Instagram,
+  Globe,
+  Briefcase,
+} from "lucide-react";
 
 export function UserDetail() {
   const { userId } = useParams<{ userId: string }>();
@@ -93,6 +102,7 @@ export function UserDetail() {
               {/* User Avatar and Basic Info */}
               <Flex align="center" gap="4">
                 <Avatar
+                  src={user.profile_picture || undefined}
                   fallback={user.full_name?.[0] || user.username[0]}
                   size="6"
                 />
@@ -140,6 +150,63 @@ export function UserDetail() {
                 </Flex>
               )}
 
+              {/* Social Links */}
+              {(user.social_links?.linkedin ||
+                user.social_links?.github ||
+                user.social_links?.twitter ||
+                user.social_links?.instagram ||
+                user.social_links?.website ||
+                user.social_links?.portfolio) && (
+                <Flex gap="3" wrap="wrap">
+                  {user.social_links?.linkedin && (
+                    <a href={user.social_links.linkedin} target="_blank" rel="noopener noreferrer" title="LinkedIn">
+                      <Linkedin size={20} className="text-gray-600 hover:text-blue-600 transition-colors" />
+                    </a>
+                  )}
+                  {user.social_links?.github && (
+                    <a href={user.social_links.github} target="_blank" rel="noopener noreferrer" title="GitHub">
+                      <Github size={20} className="text-gray-600 hover:text-gray-900 transition-colors" />
+                    </a>
+                  )}
+                  {user.social_links?.twitter && (
+                    <a href={user.social_links.twitter} target="_blank" rel="noopener noreferrer" title="Twitter / X">
+                      <Twitter size={20} className="text-gray-600 hover:text-sky-500 transition-colors" />
+                    </a>
+                  )}
+                  {user.social_links?.instagram && (
+                    <a href={user.social_links.instagram} target="_blank" rel="noopener noreferrer" title="Instagram">
+                      <Instagram size={20} className="text-gray-600 hover:text-pink-500 transition-colors" />
+                    </a>
+                  )}
+                  {user.social_links?.website && (
+                    <a href={user.social_links.website} target="_blank" rel="noopener noreferrer" title="Website">
+                      <Globe size={20} className="text-gray-600 hover:text-green-600 transition-colors" />
+                    </a>
+                  )}
+                  {user.social_links?.portfolio && (
+                    <a href={user.social_links.portfolio} target="_blank" rel="noopener noreferrer" title="Portfolio">
+                      <Briefcase size={20} className="text-gray-600 hover:text-amber-600 transition-colors" />
+                    </a>
+                  )}
+                </Flex>
+              )}
+
+              {/* Interests */}
+              {(user.interests?.length || 0) > 0 && (
+                <div>
+                  <Text size="2" weight="bold" className="block mb-2">
+                    Interests
+                  </Text>
+                  <Flex gap="2" wrap="wrap">
+                    {user.interests!.map((interest) => (
+                      <Badge key={interest} variant="soft" size="2">
+                        {interest}
+                      </Badge>
+                    ))}
+                  </Flex>
+                </div>
+              )}
+
               {/* Stats */}
               <div className="space-y-2">
                 <Flex justify="between" align="center">
@@ -177,6 +244,8 @@ export function UserDetail() {
             </Flex>
           </Card>
         </Box>
+
+        {userId && <BadgeDisplay userId={userId} />}
 
         {/* Services Section */}
         <div className="space-y-6">

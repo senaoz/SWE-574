@@ -10,3 +10,8 @@ This repository is maintained for the SWE 574 course at Boğaziçi University (S
 ## Milestones
 - 9 March 2026: Milestone 1
 - 13 April 2026: Milestone 2
+
+
+```
+docker compose up -d --build backend
+````

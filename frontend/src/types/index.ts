@@ -1,5 +1,62 @@
 export type UserRole = 'user' | 'moderator' | 'admin';
 
+export interface SocialLinks {
+  linkedin?: string;
+  github?: string;
+  twitter?: string;
+  instagram?: string;
+  website?: string;
+  portfolio?: string;
+}
+
+export interface BadgeProgress {
+  current: number;
+  target: number;
+}
+
+export interface Badge {
+  key: string;
+  name: string;
+  description: string;
+  icon: string;
+  earned: boolean;
+  progress?: BadgeProgress;
+}
+
+export interface BadgeSummary {
+  badges: Badge[];
+  earned_count: number;
+  total_count: number;
+}
+
+export interface Rating {
+  _id: string;
+  transaction_id: string;
+  rater_id: string;
+  rated_user_id: string;
+  score: number;
+  comment?: string;
+  created_at: string;
+  rater?: {
+    id: string;
+    username: string;
+    full_name?: string;
+  };
+}
+
+export interface RatingListResponse {
+  ratings: Rating[];
+  total: number;
+  average_score?: number;
+}
+
+export interface RatingForm {
+  transaction_id: string;
+  rated_user_id: string;
+  score: number;
+  comment?: string;
+}
+
 export interface User {
   _id: string;
   username: string;
@@ -7,6 +64,9 @@ export interface User {
   full_name?: string;
   bio?: string;
   location?: string;
+  profile_picture?: string;
+  social_links?: SocialLinks;
+  interests?: string[];
   is_active: boolean;
   is_verified: boolean;
   role: UserRole;
