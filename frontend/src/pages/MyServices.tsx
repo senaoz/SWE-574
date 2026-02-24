@@ -509,6 +509,7 @@ export function MyServices() {
             services={services}
             serviceTransactions={serviceTransactions}
             currentUserId={currentUserId}
+            requiresNeedCreation={timebankData?.requires_need_creation ?? false}
             onSetServiceInProgress={handleSetServiceInProgress}
             onMarkServiceAsDone={handleMarkServiceAsDone}
             onConfirmServiceCompletion={handleConfirmServiceCompletion}
@@ -536,6 +537,7 @@ export function MyServices() {
           <MyTransactionsTab
             transactions={transactions}
             currentUserId={currentUserId}
+            requiresNeedCreation={timebankData?.requires_need_creation ?? false}
             onConfirmTransactionCompletion={handleConfirmTransactionCompletion}
             onCancelTransaction={handleCancelTransaction}
             onStartChat={handleStartChat}

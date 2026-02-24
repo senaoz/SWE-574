@@ -1,6 +1,14 @@
 import { useState } from "react";
 import { Service } from "@/types";
-import { Button, Dialog, Flex, Text, Card, TextArea } from "@radix-ui/themes";
+import {
+  Button,
+  Dialog,
+  Flex,
+  Text,
+  Card,
+  TextArea,
+  Tooltip,
+} from "@radix-ui/themes";
 import { joinRequestsApi } from "@/services/api";
 
 // @ts-ignore
@@ -9,9 +17,15 @@ import handshakeIcon from "../../assets/handshakeIcon.png";
 interface HandShakeModalProps {
   service: Service;
   onJoin?: () => void;
+  /** When true, user cannot give help (disable "Offer to Help" on needs) */
+  requiresNeedCreation?: boolean;
 }
 
-export function HandShakeModal({ service, onJoin }: HandShakeModalProps) {
+export function HandShakeModal({
+  service,
+  onJoin,
+  requiresNeedCreation = false,
+}: HandShakeModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
@@ -92,11 +106,27 @@ export function HandShakeModal({ service, onJoin }: HandShakeModalProps) {
   return (
     <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
       <Dialog.Trigger>
-        <Button size="3">
-          {service.service_type === "offer"
-            ? "Request Service"
-            : "Offer to Help"}
-        </Button>
+        <Tooltip
+          content={
+            service.service_type === "need" && requiresNeedCreation
+              ? "Create a Need before you can give help"
+              : "Service Request"
+          }
+        >
+          <Button
+            size="3"
+            disabled={service.service_type === "need" && requiresNeedCreation}
+            title={
+              service.service_type === "need" && requiresNeedCreation
+                ? "Create a Need before you can give help"
+                : undefined
+            }
+          >
+            {service.service_type === "offer"
+              ? "Request Service"
+              : "Offer to Help"}
+          </Button>
+        </Tooltip>
       </Dialog.Trigger>
       <Dialog.Content className="max-w-md mx-auto" aria-describedby={undefined}>
         {statusInfo ? (

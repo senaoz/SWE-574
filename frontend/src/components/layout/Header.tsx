@@ -9,6 +9,7 @@ import { useFilters } from "@/contexts/FilterContext";
 import { LoginForm } from "../auth/LoginForm";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { HandIcon } from "@radix-ui/react-icons";
 import {
   ChatBubbleIcon,
   GearIcon,
@@ -98,9 +99,21 @@ export function Header() {
               onToggle={toggleAppearance}
             />
             {localStorage.getItem("access_token") && timebankData ? (
-              <Button variant="outline">
-                {`${Math.round(timebankData.balance)} Hours Left`}
-              </Button>
+              <Flex gap="2" align="center">
+                {timebankData.requires_need_creation ? (
+                  <Button
+                    variant="soft"
+                    color="amber"
+                    onClick={() => navigate("/dashboard")}
+                  >
+                    <HandIcon className="w-4 h-4 mr-1" />
+                    Create Need required
+                  </Button>
+                ) : null}
+                <Button variant="outline">
+                  {`${Math.round(timebankData.balance)} Hours Left`}
+                </Button>
+              </Flex>
             ) : null}
             {!localStorage.getItem("access_token") ? (
               <LoginDialog
