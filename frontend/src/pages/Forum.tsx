@@ -13,7 +13,11 @@ import {
   Avatar,
   Dialog,
   Select,
+  Box,
+  Grid,
+  Switch,
 } from "@radix-ui/themes";
+import { Form } from "radix-ui";
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -407,22 +411,38 @@ function NewDiscussionDialog({
     >
       <Dialog.Content className="max-w-2xl" aria-describedby={undefined}>
         <Dialog.Title>New Discussion</Dialog.Title>
-        <div className="space-y-4 mt-4">
-          <TextField.Root
-            placeholder="Discussion title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          <TextArea
-            placeholder="Write your discussion..."
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            rows={6}
-          />
-          <div>
-            <Text size="2" weight="medium" className="mb-1 block">
-              Tags
-            </Text>
+        <Form.Root
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSubmit();
+          }}
+          className="space-y-4 mt-4"
+        >
+          <Form.Field name="title" className="space-y-2">
+            <Form.Label className="text-sm font-medium">Title *</Form.Label>
+            <Form.Control asChild>
+              <TextField.Root
+                placeholder="Discussion title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className={error ? "border-red-500" : ""}
+              />
+            </Form.Control>
+          </Form.Field>
+          <Form.Field name="body" className="space-y-2">
+            <Form.Label className="text-sm font-medium">Body *</Form.Label>
+            <Form.Control asChild>
+              <TextArea
+                placeholder="Write your discussion..."
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                rows={6}
+                className={error ? "border-red-500" : ""}
+              />
+            </Form.Control>
+          </Form.Field>
+          <Form.Field name="tags" className="space-y-1">
+            <Form.Label className="text-sm font-medium">Tags</Form.Label>
             <TagAutocomplete
               tags={tags}
               onTagAdd={(t) => setTags([...tags, t])}
@@ -430,23 +450,28 @@ function NewDiscussionDialog({
                 setTags(tags.filter((x) => x.label !== t.label))
               }
             />
-          </div>
+          </Form.Field>
           {error && (
             <Text size="2" color="red">
               {error}
             </Text>
           )}
           <Flex justify="end" gap="3">
-            <Dialog.Close>
-              <Button variant="soft" color="gray">
-                Cancel
-              </Button>
-            </Dialog.Close>
-            <Button onClick={handleSubmit} disabled={submitting}>
-              {submitting ? "Creating..." : "Create Discussion"}
+            <Button
+              type="button"
+              variant="soft"
+              color="gray"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
             </Button>
+            <Form.Submit asChild>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "Creating..." : "Create Discussion"}
+              </Button>
+            </Form.Submit>
           </Flex>
-        </div>
+        </Form.Root>
       </Dialog.Content>
     </Dialog.Root>
   );
@@ -465,7 +490,8 @@ function NewEventDialog({
 }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [eventAt, setEventAt] = useState("");
+  const [eventDate, setEventDate] = useState("");
+  const [eventTime, setEventTime] = useState("");
   const [location, setLocation] = useState("");
   const [isRemote, setIsRemote] = useState(false);
   const [tags, setTags] = useState<TagEntity[]>([]);
@@ -488,7 +514,8 @@ function NewEventDialog({
   const reset = () => {
     setTitle("");
     setDescription("");
-    setEventAt("");
+    setEventDate("");
+    setEventTime("");
     setLocation("");
     setIsRemote(false);
     setTags([]);
@@ -497,20 +524,22 @@ function NewEventDialog({
   };
 
   const handleSubmit = async () => {
-    if (!title.trim() || !description.trim() || !eventAt) {
-      setError("Title, description, and date/time are required");
+    if (!title.trim() || !description.trim() || !eventDate || !eventTime) {
+      setError("Title, description, date, and time are required");
       return;
     }
+    const eventAt = new Date(`${eventDate}T${eventTime}`).toISOString();
     setSubmitting(true);
     try {
       await forumApi.createEvent({
         title,
         description,
-        event_at: new Date(eventAt).toISOString(),
+        event_at: eventAt,
         location: isRemote ? undefined : location || undefined,
         is_remote: isRemote,
         tags,
-        service_id: serviceId && serviceId !== "__none__" ? serviceId : undefined,
+        service_id:
+          serviceId && serviceId !== "__none__" ? serviceId : undefined,
       });
       reset();
       onOpenChange(false);
@@ -532,50 +561,91 @@ function NewEventDialog({
     >
       <Dialog.Content className="max-w-2xl" aria-describedby={undefined}>
         <Dialog.Title>New Event</Dialog.Title>
-        <div className="space-y-4 mt-4">
-          <TextField.Root
-            placeholder="Event title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          <TextArea
-            placeholder="Describe the event..."
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={4}
-          />
-          <div>
-            <Text size="2" weight="medium" className="mb-1 block">
-              Date & Time
-            </Text>
-            <input
-              type="datetime-local"
-              value={eventAt}
-              onChange={(e) => setEventAt(e.target.value)}
-              className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-transparent"
-            />
-          </div>
-          <Flex gap="3" align="center">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isRemote}
-                onChange={(e) => setIsRemote(e.target.checked)}
+        <Form.Root
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSubmit();
+          }}
+          className="space-y-4 mt-4"
+        >
+          <Form.Field name="title" className="space-y-2">
+            <Form.Label className="text-sm font-medium">
+              Event title *
+            </Form.Label>
+            <Form.Control asChild>
+              <TextField.Root
+                placeholder="Event title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className={error ? "border-red-500" : ""}
               />
-              <Text size="2">Remote / Online event</Text>
-            </label>
-          </Flex>
-          {!isRemote && (
-            <TextField.Root
-              placeholder="Location (address or place name)"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-            />
-          )}
-          <div>
-            <Text size="2" weight="medium" className="mb-1 block">
-              Tags
+            </Form.Control>
+          </Form.Field>
+          <Form.Field name="description" className="space-y-2">
+            <Form.Label className="text-sm font-medium">
+              Description *
+            </Form.Label>
+            <Form.Control asChild>
+              <TextArea
+                placeholder="Describe the event..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={4}
+                className={error ? "border-red-500" : ""}
+              />
+            </Form.Control>
+          </Form.Field>
+          <Box>
+            <Text size="2" weight="medium" className="mb-2 block">
+              Date & Time *
             </Text>
+            <Grid columns="2" gap="3">
+              <Form.Field name="event_date" className="space-y-2">
+                <Form.Control asChild>
+                  <TextField.Root
+                    type="date"
+                    value={eventDate}
+                    onChange={(e) => setEventDate(e.target.value)}
+                    className={error ? "border-red-500" : ""}
+                  />
+                </Form.Control>
+              </Form.Field>
+              <Form.Field name="event_time" className="space-y-2">
+                <Form.Control asChild>
+                  <TextField.Root
+                    type="time"
+                    value={eventTime}
+                    onChange={(e) => setEventTime(e.target.value)}
+                    className={error ? "border-red-500" : ""}
+                  />
+                </Form.Control>
+              </Form.Field>
+            </Grid>
+          </Box>
+          <Box>
+            <Flex gap="2" align="center">
+              <Switch checked={isRemote} onCheckedChange={setIsRemote} />
+              <Text size="2" className="font-medium">
+                Remote / Online event
+              </Text>
+            </Flex>
+          </Box>
+          {!isRemote && (
+            <Form.Field name="location" className="space-y-2">
+              <Form.Label className="text-sm font-medium">
+                Location (address or place name)
+              </Form.Label>
+              <Form.Control asChild>
+                <TextField.Root
+                  placeholder="e.g. Community Center, Kadıköy"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                />
+              </Form.Control>
+            </Form.Field>
+          )}
+          <Form.Field name="tags" className="space-y-1">
+            <Form.Label className="text-sm font-medium">Tags</Form.Label>
             <TagAutocomplete
               tags={tags}
               onTagAdd={(t) => setTags([...tags, t])}
@@ -583,11 +653,11 @@ function NewEventDialog({
                 setTags(tags.filter((x) => x.label !== t.label))
               }
             />
-          </div>
-          <div>
-            <Text size="2" weight="medium" className="mb-1 block">
+          </Form.Field>
+          <Form.Field name="service_id" className="space-y-2">
+            <Form.Label className="text-sm font-medium">
               Link to Offer / Need (optional)
-            </Text>
+            </Form.Label>
             <Select.Root value={serviceId} onValueChange={setServiceId}>
               <Select.Trigger placeholder="None" className="w-full" />
               <Select.Content>
@@ -599,23 +669,28 @@ function NewEventDialog({
                 ))}
               </Select.Content>
             </Select.Root>
-          </div>
+          </Form.Field>
           {error && (
             <Text size="2" color="red">
               {error}
             </Text>
           )}
           <Flex justify="end" gap="3">
-            <Dialog.Close>
-              <Button variant="soft" color="gray">
-                Cancel
-              </Button>
-            </Dialog.Close>
-            <Button onClick={handleSubmit} disabled={submitting}>
-              {submitting ? "Creating..." : "Create Event"}
+            <Button
+              type="button"
+              variant="soft"
+              color="gray"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
             </Button>
+            <Form.Submit asChild>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "Creating..." : "Create Event"}
+              </Button>
+            </Form.Submit>
           </Flex>
-        </div>
+        </Form.Root>
       </Dialog.Content>
     </Dialog.Root>
   );

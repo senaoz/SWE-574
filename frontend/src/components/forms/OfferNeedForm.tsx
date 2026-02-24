@@ -572,7 +572,7 @@ export function OfferNeedForm({
                   }
                 />
                 <Text size="2" className="font-medium">
-                  This service can be done remotely
+                  Remote / Online Service
                 </Text>
               </Flex>
             </Box>
