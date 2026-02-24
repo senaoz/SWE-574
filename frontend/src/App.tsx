@@ -14,6 +14,9 @@ import { Profile } from "@/pages/Profile";
 import { MyServices } from "@/pages/MyServices";
 import { Chat } from "@/pages/Chat";
 import { AdminPanel } from "@/pages/AdminPanel";
+import { Forum } from "@/pages/Forum";
+import { ForumDiscussionDetail } from "@/pages/ForumDiscussionDetail";
+import { ForumEventDetail } from "@/pages/ForumEventDetail";
 import { Layout } from "@/components/layout/Layout";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { FilterProvider } from "@/contexts/FilterContext";
@@ -159,6 +162,39 @@ function App() {
                           fallbackPath="/?login=true"
                         >
                           <Chat />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/forum"
+                      element={
+                        <ProtectedRoute
+                          requiredRole="user"
+                          fallbackPath="/?login=true"
+                        >
+                          <Forum />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/forum/discussions/:id"
+                      element={
+                        <ProtectedRoute
+                          requiredRole="user"
+                          fallbackPath="/?login=true"
+                        >
+                          <ForumDiscussionDetail />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/forum/events/:id"
+                      element={
+                        <ProtectedRoute
+                          requiredRole="user"
+                          fallbackPath="/?login=true"
+                        >
+                          <ForumEventDetail />
                         </ProtectedRoute>
                       }
                     />

@@ -1,5 +1,5 @@
 import axios, { AxiosResponse } from 'axios';
-import { AuthResponse, User, Service, ServiceListResponse, TimeBankResponse, TimeBankTransaction, LoginForm, RegisterForm, ServiceForm, Comment, CommentListResponse, CommentForm, JoinRequest, JoinRequestListResponse, JoinRequestForm, Transaction, TransactionListResponse, TransactionForm, ChatRoom, ChatRoomListResponse, ChatRoomForm, Message, MessageListResponse, MessageForm, UserSettings, PasswordChangeForm, AccountDeletionForm, BadgeSummary, Rating, RatingListResponse, RatingForm } from '@/types';
+import { AuthResponse, User, Service, ServiceListResponse, TimeBankResponse, TimeBankTransaction, LoginForm, RegisterForm, ServiceForm, Comment, CommentListResponse, CommentForm, JoinRequest, JoinRequestListResponse, JoinRequestForm, Transaction, TransactionListResponse, TransactionForm, ChatRoom, ChatRoomListResponse, ChatRoomForm, Message, MessageListResponse, MessageForm, UserSettings, PasswordChangeForm, AccountDeletionForm, BadgeSummary, Rating, RatingListResponse, RatingForm, ForumDiscussion, ForumDiscussionListResponse, ForumDiscussionForm, ForumEvent, ForumEventListResponse, ForumEventForm, ForumComment, ForumCommentListResponse } from '@/types';
 
 // Use relative URL /api to leverage nginx proxy, or absolute URL if provided via env var
 // This ensures requests go through the same HTTPS domain as the frontend
@@ -277,6 +277,57 @@ export const ratingsApi = {
 
   getTransactionRatings: (transactionId: string): Promise<AxiosResponse<Rating[]>> =>
     api.get(`/ratings/transaction/${transactionId}`),
+};
+
+// Forum API
+export const forumApi = {
+  // Discussions
+  getDiscussions: (params?: { page?: number; limit?: number; tag?: string; q?: string }): Promise<AxiosResponse<ForumDiscussionListResponse>> =>
+    api.get('/forum/discussions', { params }),
+
+  getDiscussion: (id: string): Promise<AxiosResponse<ForumDiscussion>> =>
+    api.get(`/forum/discussions/${id}`),
+
+  createDiscussion: (data: ForumDiscussionForm): Promise<AxiosResponse<ForumDiscussion>> =>
+    api.post('/forum/discussions', data),
+
+  updateDiscussion: (id: string, data: Partial<ForumDiscussionForm>): Promise<AxiosResponse<ForumDiscussion>> =>
+    api.put(`/forum/discussions/${id}`, data),
+
+  deleteDiscussion: (id: string): Promise<AxiosResponse<{ message: string }>> =>
+    api.delete(`/forum/discussions/${id}`),
+
+  // Events
+  getEvents: (params?: { page?: number; limit?: number; tag?: string; q?: string; has_location?: boolean }): Promise<AxiosResponse<ForumEventListResponse>> =>
+    api.get('/forum/events', { params }),
+
+  getEvent: (id: string): Promise<AxiosResponse<ForumEvent>> =>
+    api.get(`/forum/events/${id}`),
+
+  createEvent: (data: ForumEventForm): Promise<AxiosResponse<ForumEvent>> =>
+    api.post('/forum/events', data),
+
+  updateEvent: (id: string, data: Partial<ForumEventForm>): Promise<AxiosResponse<ForumEvent>> =>
+    api.put(`/forum/events/${id}`, data),
+
+  deleteEvent: (id: string): Promise<AxiosResponse<{ message: string }>> =>
+    api.delete(`/forum/events/${id}`),
+
+  getLinkedEvents: (serviceId: string): Promise<AxiosResponse<ForumEventListResponse>> =>
+    api.get(`/forum/services/${serviceId}/linked-events`),
+
+  // Comments
+  getComments: (targetType: string, targetId: string, params?: { page?: number; limit?: number }): Promise<AxiosResponse<ForumCommentListResponse>> =>
+    api.get('/forum/comments', { params: { target_type: targetType, target_id: targetId, ...params } }),
+
+  createComment: (data: { target_type: string; target_id: string; content: string }): Promise<AxiosResponse<ForumComment>> =>
+    api.post('/forum/comments', data),
+
+  updateComment: (id: string, data: { content: string }): Promise<AxiosResponse<ForumComment>> =>
+    api.put(`/forum/comments/${id}`, data),
+
+  deleteComment: (id: string): Promise<AxiosResponse<{ message: string }>> =>
+    api.delete(`/forum/comments/${id}`),
 };
 
 export default api;

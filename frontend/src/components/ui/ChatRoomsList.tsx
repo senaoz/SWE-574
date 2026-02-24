@@ -70,7 +70,7 @@ export function ChatRoomsList({
 
   if (rooms.length === 0) {
     return (
-      <Card className="p-4">
+      <Card className="p-4 mr-4">
         <div className="text-center py-8">
           <ChatBubbleIcon className="w-12 h-12 mx-auto mb-4" />
           <Text size="3" weight="bold" className="block mb-2">

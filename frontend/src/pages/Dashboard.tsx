@@ -5,14 +5,14 @@ import {
   type MapFilters,
 } from "@/components/map/ServiceMap";
 import { OfferListingCard } from "@/components/ui/OfferListingCard";
-import { servicesApi } from "@/services/api";
+import { servicesApi, forumApi } from "@/services/api";
 import { Button, Dialog, Heading, Text, Flex, Card } from "@radix-ui/themes";
 import { HandIcon, BackpackIcon, Crosshair1Icon } from "@radix-ui/react-icons";
 import { OfferNeedForm } from "@/components/forms/OfferNeedForm";
 import { useFilters } from "@/contexts/FilterContext";
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Service } from "@/types";
+import { Service, ForumEvent } from "@/types";
 
 export function Dashboard() {
   const [services, setServices] = useState<Service[]>([]);
@@ -26,6 +26,7 @@ export function Dashboard() {
   const [userPosition, setUserPosition] = useState<[number, number] | null>(
     null,
   );
+  const [forumEvents, setForumEvents] = useState<ForumEvent[]>([]);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -36,6 +37,13 @@ export function Dashboard() {
       () => {},
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
     );
+  }, []);
+
+  useEffect(() => {
+    forumApi
+      .getEvents({ has_location: true, limit: 200 })
+      .then((r) => setForumEvents(r.data.events || []))
+      .catch(() => setForumEvents([]));
   }, []);
 
   const fetchServices = async () => {
@@ -257,6 +265,7 @@ export function Dashboard() {
         </div>
         <ServiceMap
           services={displayedServices}
+          events={forumEvents}
           filters={mapFilters}
           onFiltersChange={setMapFilters}
           userPosition={userPosition}

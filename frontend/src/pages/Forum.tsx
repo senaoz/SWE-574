@@ -1,0 +1,622 @@
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+  Button,
+  Card,
+  Flex,
+  Heading,
+  Tabs,
+  Text,
+  TextField,
+  TextArea,
+  Badge,
+  Avatar,
+  Dialog,
+  Select,
+} from "@radix-ui/themes";
+import {
+  MagnifyingGlassIcon,
+  PlusIcon,
+  ChatBubbleIcon,
+  CalendarIcon,
+  GlobeIcon,
+  Cross2Icon,
+} from "@radix-ui/react-icons";
+import { forumApi, servicesApi } from "@/services/api";
+import { ForumDiscussion, ForumEvent, TagEntity, Service } from "@/types";
+import { TagAutocomplete } from "@/components/forms/TagAutocomplete";
+import { ClickableTag } from "@/components/ui/ClickableTag";
+
+function timeAgo(dateStr: string) {
+  const now = Date.now();
+  const d = new Date(dateStr).getTime();
+  const diffMs = now - d;
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString();
+}
+
+export function Forum() {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab") || "discussions";
+  const [tab, setTab] = useState(initialTab);
+  const [searchQ, setSearchQ] = useState("");
+  const [tagFilter, setTagFilter] = useState("");
+
+  // discussions
+  const [discussions, setDiscussions] = useState<ForumDiscussion[]>([]);
+  const [discussionsTotal, setDiscussionsTotal] = useState(0);
+  const [discussionsLoading, setDiscussionsLoading] = useState(true);
+
+  // events
+  const [events, setEvents] = useState<ForumEvent[]>([]);
+  const [eventsTotal, setEventsTotal] = useState(0);
+  const [eventsLoading, setEventsLoading] = useState(true);
+
+  // create dialogs
+  const [showNewDiscussion, setShowNewDiscussion] = useState(false);
+  const [showNewEvent, setShowNewEvent] = useState(false);
+
+  useEffect(() => {
+    setSearchParams((p) => {
+      p.set("tab", tab);
+      return p;
+    });
+  }, [tab]);
+
+  // fetch discussions
+  useEffect(() => {
+    (async () => {
+      setDiscussionsLoading(true);
+      try {
+        const res = await forumApi.getDiscussions({
+          q: searchQ || undefined,
+          tag: tagFilter || undefined,
+        });
+        setDiscussions(res.data.discussions);
+        setDiscussionsTotal(res.data.total);
+      } catch {
+        setDiscussions([]);
+      } finally {
+        setDiscussionsLoading(false);
+      }
+    })();
+  }, [searchQ, tagFilter]);
+
+  // fetch events
+  useEffect(() => {
+    (async () => {
+      setEventsLoading(true);
+      try {
+        const res = await forumApi.getEvents({
+          q: searchQ || undefined,
+          tag: tagFilter || undefined,
+        });
+        setEvents(res.data.events);
+        setEventsTotal(res.data.total);
+      } catch {
+        setEvents([]);
+      } finally {
+        setEventsLoading(false);
+      }
+    })();
+  }, [searchQ, tagFilter]);
+
+  const refresh = () => {
+    setSearchQ((q) => q); // trigger re-fetch via effect deps isn't great; use a counter
+    setTagFilter((t) => t);
+    // reload both
+    forumApi
+      .getDiscussions({ q: searchQ || undefined, tag: tagFilter || undefined })
+      .then((r) => {
+        setDiscussions(r.data.discussions);
+        setDiscussionsTotal(r.data.total);
+      });
+    forumApi
+      .getEvents({ q: searchQ || undefined, tag: tagFilter || undefined })
+      .then((r) => {
+        setEvents(r.data.events);
+        setEventsTotal(r.data.total);
+      });
+  };
+
+  return (
+    <div>
+      <Flex justify="between" align="center" className="mb-6">
+        <div>
+          <Heading size="7">Community Forum</Heading>
+          <Text size="3" color="gray">
+            Share ideas, discuss topics, and discover community events
+          </Text>
+        </div>
+      </Flex>
+
+      {/* Search + tag filter */}
+      <Flex gap="3" className="mb-6" wrap="wrap">
+        <TextField.Root
+          placeholder="Search discussions & events..."
+          value={searchQ}
+          onChange={(e) => setSearchQ(e.target.value)}
+          className="flex-1 min-w-[200px]"
+        >
+          <TextField.Slot>
+            <MagnifyingGlassIcon />
+          </TextField.Slot>
+        </TextField.Root>
+        {tagFilter && (
+          <Badge
+            size="2"
+            variant="soft"
+            className="cursor-pointer"
+            onClick={() => setTagFilter("")}
+          >
+            Tag: {tagFilter} <Cross2Icon className="ml-1 w-3 h-3" />
+          </Badge>
+        )}
+      </Flex>
+
+      <Tabs.Root value={tab} onValueChange={setTab}>
+        <Tabs.List>
+          <Tabs.Trigger value="discussions">
+            <ChatBubbleIcon className="mr-1" /> Discussions ({discussionsTotal})
+          </Tabs.Trigger>
+          <Tabs.Trigger value="events">
+            <CalendarIcon className="mr-1" /> Events ({eventsTotal})
+          </Tabs.Trigger>
+        </Tabs.List>
+
+        {/* ======== Discussions Tab ======== */}
+        <Tabs.Content value="discussions" className="pt-4">
+          <Flex justify="end" className="mb-4">
+            <Button onClick={() => setShowNewDiscussion(true)}>
+              <PlusIcon /> New Discussion
+            </Button>
+          </Flex>
+
+          {discussionsLoading ? (
+            <Text color="gray">Loading...</Text>
+          ) : discussions.length === 0 ? (
+            <Card className="p-8 text-center">
+              <Text color="gray">No discussions yet. Start one!</Text>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {discussions.map((d) => (
+                <Card
+                  key={d._id}
+                  className="p-4 cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => navigate(`/forum/discussions/${d._id}`)}
+                >
+                  <Flex gap="3" align="start">
+                    <Avatar
+                      size="3"
+                      src={d.user?.profile_picture}
+                      fallback={
+                        d.user?.full_name?.[0] || d.user?.username?.[0] || "?"
+                      }
+                    />
+                    <div className="flex-1 min-w-0">
+                      <Flex justify="between" align="start">
+                        <Text size="3" weight="bold" className="line-clamp-1">
+                          {d.title}
+                        </Text>
+                        <Text
+                          size="1"
+                          color="gray"
+                          className="whitespace-nowrap ml-2"
+                        >
+                          {timeAgo(d.created_at)}
+                        </Text>
+                      </Flex>
+                      <Text size="2" color="gray" className="line-clamp-2 mt-1">
+                        {d.body}
+                      </Text>
+                      <Flex gap="2" align="center" className="mt-2" wrap="wrap">
+                        <Text size="1" color="gray">
+                          by{" "}
+                          {d.user?.full_name || d.user?.username || "Unknown"}
+                        </Text>
+                        <Badge size="1" variant="soft" color="gray">
+                          <ChatBubbleIcon className="w-3 h-3 mr-1" />
+                          {d.comment_count}
+                        </Badge>
+                        {(d.tags || []).slice(0, 3).map((tag, i) => (
+                          <ClickableTag
+                            key={i}
+                            tag={tag}
+                            size="1"
+                            stopPropagation
+                          />
+                        ))}
+                      </Flex>
+                    </div>
+                  </Flex>
+                </Card>
+              ))}
+            </div>
+          )}
+        </Tabs.Content>
+
+        {/* ======== Events Tab ======== */}
+        <Tabs.Content value="events" className="pt-4">
+          <Flex justify="end" className="mb-4">
+            <Button onClick={() => setShowNewEvent(true)}>
+              <PlusIcon /> New Event
+            </Button>
+          </Flex>
+
+          {eventsLoading ? (
+            <Text color="gray">Loading...</Text>
+          ) : events.length === 0 ? (
+            <Card className="p-8 text-center">
+              <Text color="gray">No events yet. Create one!</Text>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {events.map((ev) => (
+                <Card
+                  key={ev._id}
+                  className="p-4 cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => navigate(`/forum/events/${ev._id}`)}
+                >
+                  <Flex gap="3" align="start">
+                    <Avatar
+                      size="3"
+                      src={ev.user?.profile_picture}
+                      fallback={
+                        ev.user?.full_name?.[0] || ev.user?.username?.[0] || "?"
+                      }
+                    />
+                    <div className="flex-1 min-w-0">
+                      <Flex justify="between" align="start" wrap="wrap">
+                        <Text size="3" weight="bold" className="line-clamp-1">
+                          {ev.title}
+                        </Text>
+                        <Flex gap="2" align="center">
+                          <Badge size="1" variant="soft" color="purple">
+                            <CalendarIcon className="w-3 h-3 mr-1" />
+                            {new Date(ev.event_at).toLocaleDateString(
+                              undefined,
+                              {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              },
+                            )}
+                          </Badge>
+                        </Flex>
+                      </Flex>
+                      <Text size="2" color="gray" className="line-clamp-2 mt-1">
+                        {ev.description}
+                      </Text>
+                      <Flex gap="2" align="center" className="mt-2" wrap="wrap">
+                        <Text size="1" color="gray">
+                          by{" "}
+                          {ev.user?.full_name || ev.user?.username || "Unknown"}
+                        </Text>
+                        {ev.is_remote ? (
+                          <Badge size="1" variant="soft" color="blue">
+                            <GlobeIcon className="w-3 h-3 mr-1" /> Remote
+                          </Badge>
+                        ) : ev.location ? (
+                          <Badge size="1" variant="soft" color="gray">
+                            {ev.location}
+                          </Badge>
+                        ) : null}
+                        {ev.service && (
+                          <Badge size="1" variant="soft" color="green">
+                            Linked: {ev.service.title}
+                          </Badge>
+                        )}
+                        <Badge size="1" variant="soft" color="gray">
+                          <ChatBubbleIcon className="w-3 h-3 mr-1" />
+                          {ev.comment_count}
+                        </Badge>
+                        {(ev.tags || []).slice(0, 3).map((tag, i) => (
+                          <ClickableTag
+                            key={i}
+                            tag={tag}
+                            size="1"
+                            stopPropagation
+                          />
+                        ))}
+                      </Flex>
+                    </div>
+                  </Flex>
+                </Card>
+              ))}
+            </div>
+          )}
+        </Tabs.Content>
+      </Tabs.Root>
+
+      {/* ======== New Discussion Dialog ======== */}
+      <NewDiscussionDialog
+        open={showNewDiscussion}
+        onOpenChange={setShowNewDiscussion}
+        onCreated={refresh}
+      />
+
+      {/* ======== New Event Dialog ======== */}
+      <NewEventDialog
+        open={showNewEvent}
+        onOpenChange={setShowNewEvent}
+        onCreated={refresh}
+      />
+    </div>
+  );
+}
+
+// ===================== New Discussion Dialog =====================
+
+function NewDiscussionDialog({
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  onCreated: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [tags, setTags] = useState<TagEntity[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const reset = () => {
+    setTitle("");
+    setBody("");
+    setTags([]);
+    setError("");
+  };
+
+  const handleSubmit = async () => {
+    if (!title.trim() || !body.trim()) {
+      setError("Title and body are required");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await forumApi.createDiscussion({ title, body, tags });
+      reset();
+      onOpenChange(false);
+      onCreated();
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || "Failed to create discussion");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog.Root
+      open={open}
+      onOpenChange={(o) => {
+        onOpenChange(o);
+        if (!o) reset();
+      }}
+    >
+      <Dialog.Content className="max-w-2xl" aria-describedby={undefined}>
+        <Dialog.Title>New Discussion</Dialog.Title>
+        <div className="space-y-4 mt-4">
+          <TextField.Root
+            placeholder="Discussion title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+          <TextArea
+            placeholder="Write your discussion..."
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={6}
+          />
+          <div>
+            <Text size="2" weight="medium" className="mb-1 block">
+              Tags
+            </Text>
+            <TagAutocomplete
+              tags={tags}
+              onTagAdd={(t) => setTags([...tags, t])}
+              onTagRemove={(t) =>
+                setTags(tags.filter((x) => x.label !== t.label))
+              }
+            />
+          </div>
+          {error && (
+            <Text size="2" color="red">
+              {error}
+            </Text>
+          )}
+          <Flex justify="end" gap="3">
+            <Dialog.Close>
+              <Button variant="soft" color="gray">
+                Cancel
+              </Button>
+            </Dialog.Close>
+            <Button onClick={handleSubmit} disabled={submitting}>
+              {submitting ? "Creating..." : "Create Discussion"}
+            </Button>
+          </Flex>
+        </div>
+      </Dialog.Content>
+    </Dialog.Root>
+  );
+}
+
+// ===================== New Event Dialog =====================
+
+function NewEventDialog({
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  onCreated: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [eventAt, setEventAt] = useState("");
+  const [location, setLocation] = useState("");
+  const [isRemote, setIsRemote] = useState(false);
+  const [tags, setTags] = useState<TagEntity[]>([]);
+  const [serviceId, setServiceId] = useState("__none__");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [myServices, setMyServices] = useState<Service[]>([]);
+
+  useEffect(() => {
+    if (open) {
+      servicesApi
+        .getServices({ limit: 100 })
+        .then((r) => {
+          setMyServices(r.data.services || []);
+        })
+        .catch(() => {});
+    }
+  }, [open]);
+
+  const reset = () => {
+    setTitle("");
+    setDescription("");
+    setEventAt("");
+    setLocation("");
+    setIsRemote(false);
+    setTags([]);
+    setServiceId("__none__");
+    setError("");
+  };
+
+  const handleSubmit = async () => {
+    if (!title.trim() || !description.trim() || !eventAt) {
+      setError("Title, description, and date/time are required");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await forumApi.createEvent({
+        title,
+        description,
+        event_at: new Date(eventAt).toISOString(),
+        location: isRemote ? undefined : location || undefined,
+        is_remote: isRemote,
+        tags,
+        service_id: serviceId && serviceId !== "__none__" ? serviceId : undefined,
+      });
+      reset();
+      onOpenChange(false);
+      onCreated();
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || "Failed to create event");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog.Root
+      open={open}
+      onOpenChange={(o) => {
+        onOpenChange(o);
+        if (!o) reset();
+      }}
+    >
+      <Dialog.Content className="max-w-2xl" aria-describedby={undefined}>
+        <Dialog.Title>New Event</Dialog.Title>
+        <div className="space-y-4 mt-4">
+          <TextField.Root
+            placeholder="Event title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+          <TextArea
+            placeholder="Describe the event..."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={4}
+          />
+          <div>
+            <Text size="2" weight="medium" className="mb-1 block">
+              Date & Time
+            </Text>
+            <input
+              type="datetime-local"
+              value={eventAt}
+              onChange={(e) => setEventAt(e.target.value)}
+              className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-transparent"
+            />
+          </div>
+          <Flex gap="3" align="center">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isRemote}
+                onChange={(e) => setIsRemote(e.target.checked)}
+              />
+              <Text size="2">Remote / Online event</Text>
+            </label>
+          </Flex>
+          {!isRemote && (
+            <TextField.Root
+              placeholder="Location (address or place name)"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+            />
+          )}
+          <div>
+            <Text size="2" weight="medium" className="mb-1 block">
+              Tags
+            </Text>
+            <TagAutocomplete
+              tags={tags}
+              onTagAdd={(t) => setTags([...tags, t])}
+              onTagRemove={(t) =>
+                setTags(tags.filter((x) => x.label !== t.label))
+              }
+            />
+          </div>
+          <div>
+            <Text size="2" weight="medium" className="mb-1 block">
+              Link to Offer / Need (optional)
+            </Text>
+            <Select.Root value={serviceId} onValueChange={setServiceId}>
+              <Select.Trigger placeholder="None" className="w-full" />
+              <Select.Content>
+                <Select.Item value="__none__">None</Select.Item>
+                {myServices.map((s) => (
+                  <Select.Item key={s._id} value={s._id}>
+                    [{s.service_type}] {s.title}
+                  </Select.Item>
+                ))}
+              </Select.Content>
+            </Select.Root>
+          </div>
+          {error && (
+            <Text size="2" color="red">
+              {error}
+            </Text>
+          )}
+          <Flex justify="end" gap="3">
+            <Dialog.Close>
+              <Button variant="soft" color="gray">
+                Cancel
+              </Button>
+            </Dialog.Close>
+            <Button onClick={handleSubmit} disabled={submitting}>
+              {submitting ? "Creating..." : "Create Event"}
+            </Button>
+          </Flex>
+        </div>
+      </Dialog.Content>
+    </Dialog.Root>
+  );
+}

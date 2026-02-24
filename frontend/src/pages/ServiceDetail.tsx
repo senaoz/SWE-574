@@ -2,12 +2,13 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, Badge, Text, Flex, Button, Tooltip } from "@radix-ui/themes";
-import { Service, User, JoinRequest } from "@/types";
+import { Service, User, JoinRequest, ForumEvent } from "@/types";
 import {
   chatApi,
   servicesApi,
   usersApi,
   joinRequestsApi,
+  forumApi,
 } from "@/services/api";
 import { useUser } from "@/App";
 import {
@@ -44,6 +45,7 @@ export function ServiceDetail() {
     null,
   );
   const [isCancellingRequest, setIsCancellingRequest] = useState(false);
+  const [linkedEvents, setLinkedEvents] = useState<ForumEvent[]>([]);
   const { currentUserId } = useUser();
 
   useEffect(() => {
@@ -151,6 +153,14 @@ export function ServiceDetail() {
 
     fetchServiceDetails();
   }, [id, currentUserId]);
+
+  useEffect(() => {
+    if (!id) return;
+    forumApi
+      .getLinkedEvents(id)
+      .then((r) => setLinkedEvents(r.data.events || []))
+      .catch(() => setLinkedEvents([]));
+  }, [id]);
 
   if (loading) {
     return (
@@ -665,6 +675,39 @@ export function ServiceDetail() {
             </Card>
           ) : (
             <ServiceMap services={[service]} height="350px" showFilters={false} />
+          )}
+
+          {/* Linked forum events */}
+          {linkedEvents.length > 0 && (
+            <Card className="p-4">
+              <Text size="3" weight="bold" className="mb-3 block">
+                Forum Events ({linkedEvents.length})
+              </Text>
+              <div className="space-y-2">
+                {linkedEvents.map((ev) => (
+                  <div
+                    key={ev._id}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                    onClick={() => navigate(`/forum/events/${ev._id}`)}
+                  >
+                    <Badge size="1" color="purple" variant="soft">
+                      Event
+                    </Badge>
+                    <div className="flex-1 min-w-0">
+                      <Text size="2" weight="medium" className="line-clamp-1">
+                        {ev.title}
+                      </Text>
+                    </div>
+                    <Text size="1" color="gray">
+                      {new Date(ev.event_at).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </Text>
+                  </div>
+                ))}
+              </div>
+            </Card>
           )}
 
           {/* Comments section */}

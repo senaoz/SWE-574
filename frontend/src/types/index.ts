@@ -475,3 +475,97 @@ export interface FailedTransactionListResponse {
   page: number;
   limit: number;
 }
+
+// ===================== Forum =====================
+
+export interface ForumAuthor {
+  id: string;
+  username: string;
+  full_name?: string;
+  profile_picture?: string;
+}
+
+export interface ForumDiscussion {
+  _id: string;
+  user_id: string;
+  title: string;
+  body: string;
+  tags: TagEntity[];
+  created_at: string;
+  updated_at: string;
+  user?: ForumAuthor;
+  comment_count: number;
+}
+
+export interface ForumDiscussionListResponse {
+  discussions: ForumDiscussion[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface ForumDiscussionForm {
+  title: string;
+  body: string;
+  tags: TagEntity[];
+}
+
+export interface ForumEvent {
+  _id: string;
+  user_id: string;
+  title: string;
+  description: string;
+  event_at: string;
+  location?: string;
+  latitude?: number;
+  longitude?: number;
+  is_remote: boolean;
+  tags: TagEntity[];
+  service_id?: string;
+  created_at: string;
+  updated_at: string;
+  user?: ForumAuthor;
+  service?: {
+    id: string;
+    title: string;
+    service_type: string;
+  };
+  comment_count: number;
+}
+
+export interface ForumEventListResponse {
+  events: ForumEvent[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface ForumEventForm {
+  title: string;
+  description: string;
+  event_at: string;
+  location?: string;
+  latitude?: number;
+  longitude?: number;
+  is_remote: boolean;
+  tags: TagEntity[];
+  service_id?: string;
+}
+
+export interface ForumComment {
+  _id: string;
+  user_id: string;
+  target_type: 'discussion' | 'event';
+  target_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  user?: ForumAuthor;
+}
+
+export interface ForumCommentListResponse {
+  comments: ForumComment[];
+  total: number;
+  page: number;
+  limit: number;
+}

@@ -8,8 +8,16 @@ import {
   Circle,
 } from "react-leaflet";
 import L from "leaflet";
-import { Service, TagEntity } from "@/types";
-import { Badge, Button, Card, Flex, Select } from "@radix-ui/themes";
+import { Service, TagEntity, ForumEvent } from "@/types";
+import {
+  Badge,
+  Button,
+  Card,
+  Flex,
+  Select,
+  Text,
+  Switch,
+} from "@radix-ui/themes";
 import { useNavigate } from "react-router-dom";
 
 /** Distance in km between two lat/lng points (Haversine) */
@@ -59,6 +67,7 @@ const createIcon = (color: string, label: string) =>
 
 const offerIcon = createIcon("#059669", "+");
 const needIcon = createIcon("#dc2626", "?");
+const eventIcon = createIcon("#7c3aed", "E");
 
 export const DISTANCE_OPTIONS_KM = [5, 10, 25, 50, 100] as const;
 const SERVICE_TYPE_OPTIONS = ["all", "offer", "need"] as const;
@@ -68,6 +77,7 @@ export interface MapFilters {
   serviceType: ServiceTypeFilter;
   tag: string;
   distance: number | "any";
+  showEvents: boolean;
 }
 
 /** Apply map filters (service type, tag, distance) to a service list. Exported for Dashboard. */
@@ -118,6 +128,7 @@ export const defaultMapFilters: MapFilters = {
   serviceType: "all",
   tag: "all",
   distance: "any",
+  showEvents: true,
 };
 
 /** Updates map view to user location when geolocation is available */
@@ -136,6 +147,7 @@ function MapLocationHandler({
 
 export function ServiceMap({
   services,
+  events = [],
   loading = false,
   height = "90vh",
   sticky = true,
@@ -145,15 +157,13 @@ export function ServiceMap({
   userPosition: controlledUserPosition,
 }: {
   services: Service[];
+  events?: ForumEvent[];
   loading?: boolean;
   height?: string;
   sticky?: boolean;
-  /** When false, filter UI is hidden (e.g. single-service view). Default true. */
   showFilters?: boolean;
-  /** When provided with onFiltersChange, filters are controlled by the parent (e.g. Dashboard). List and map both reflect these filters. */
   filters?: MapFilters;
   onFiltersChange?: (f: MapFilters) => void;
-  /** Optional user position from parent (e.g. for distance filter). If not provided, map uses its own geolocation. */
   userPosition?: [number, number] | null;
 }) {
   const [internalUserPosition, setInternalUserPosition] = useState<
@@ -186,6 +196,23 @@ export function ServiceMap({
     if (isControlled) return services;
     return applyMapFilters(services, filters, userPosition);
   }, [isControlled, services, filters, userPosition]);
+
+  const filteredEvents = useMemo(() => {
+    let list = events.filter((e) => e.latitude != null && e.longitude != null);
+    if (
+      filters.distance !== "any" &&
+      userPosition &&
+      typeof filters.distance === "number"
+    ) {
+      const [uLat, uLng] = userPosition;
+      list = list.filter(
+        (e) =>
+          distanceKm(uLat, uLng, e.latitude!, e.longitude!) <=
+          (filters.distance as number),
+      );
+    }
+    return list;
+  }, [events, filters.distance, userPosition]);
 
   const center = ((): [number, number] => {
     if (userPosition) return userPosition;
@@ -239,10 +266,7 @@ export function ServiceMap({
       }}
     >
       {showFilters && services.length > 0 && (
-        <Card
-          className="absolute top-3 right-3 z-[1000] max-w-[200px] shadow-md"
-          size="1"
-        >
+        <div className="absolute top-3 right-3 z-[1000] max-w-[200px]">
           <Flex direction="column" gap="2">
             <Select.Root
               value={
@@ -271,7 +295,7 @@ export function ServiceMap({
             {filters.distance !== "any" && (
               <Button
                 size="1"
-                variant="soft"
+                variant="solid"
                 color="gray"
                 onClick={() => setFilters(defaultMapFilters)}
               >
@@ -279,7 +303,7 @@ export function ServiceMap({
               </Button>
             )}
           </Flex>
-        </Card>
+        </div>
       )}
       <MapContainer
         center={center}
@@ -339,7 +363,79 @@ export function ServiceMap({
             </Marker>
           </React.Fragment>
         ))}
+        {/* Forum event markers */}
+        {filters.showEvents &&
+          filteredEvents.map((ev) => (
+            <React.Fragment key={`event-${ev._id}`}>
+              <Circle
+                center={[ev.latitude!, ev.longitude!]}
+                radius={APPROXIMATE_LOCATION_RADIUS_M}
+                pathOptions={{
+                  color: "#7c3aed",
+                  fillColor: "#7c3aed",
+                  fillOpacity: 0.12,
+                  weight: 1.5,
+                }}
+              />
+              <Marker position={[ev.latitude!, ev.longitude!]} icon={eventIcon}>
+                <Popup closeButton>
+                  <EventPopupContent event={ev} />
+                </Popup>
+              </Marker>
+            </React.Fragment>
+          ))}
       </MapContainer>
+
+      {/* Legend */}
+      {showFilters && (
+        <Card className="absolute bottom-3 left-3 z-[1000] shadow-md" size="1">
+          <Flex direction="column" gap="2">
+            <Text size="1" weight="bold">
+              Legend
+            </Text>
+            <Flex align="center" gap="2">
+              <div
+                style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: "50%",
+                  backgroundColor: "#059669",
+                }}
+              />
+              <Text size="1">Offer</Text>
+            </Flex>
+            <Flex align="center" gap="2">
+              <div
+                style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: "50%",
+                  backgroundColor: "#dc2626",
+                }}
+              />
+              <Text size="1">Need</Text>
+            </Flex>
+            <Flex align="center" gap="2">
+              <div
+                style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: "50%",
+                  backgroundColor: "#7c3aed",
+                }}
+              />
+              <Text size="1">Event</Text>
+              <Switch
+                size="1"
+                checked={filters.showEvents}
+                onCheckedChange={(v) =>
+                  setFilters({ ...filters, showEvents: v })
+                }
+              />
+            </Flex>
+          </Flex>
+        </Card>
+      )}
     </div>
   );
 }
@@ -387,6 +483,43 @@ function ServicePopupContent({
           }}
         >
           View Details
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function EventPopupContent({ event }: { event: ForumEvent }) {
+  const navigate = useNavigate();
+  return (
+    <div className="max-w-xs text-xs space-y-2 min-w-[260px]">
+      <div className="flex flex-wrap gap-1 mb-2 items-center">
+        <Badge color="purple" variant="soft" size="1">
+          Event
+        </Badge>
+        <Badge color="gray" variant="soft" size="1">
+          {new Date(event.event_at).toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </Badge>
+      </div>
+      <h3 className="font-semibold text-sm mb-1 line-clamp-2">{event.title}</h3>
+      <p className="text-xs line-clamp-3">{event.description}</p>
+      {event.service && (
+        <Badge color="green" variant="soft" size="1">
+          Linked: {event.service.title}
+        </Badge>
+      )}
+      <div className="flex items-center gap-2 w-full">
+        <Button
+          variant="soft"
+          className="flex-1"
+          onClick={() => navigate(`/forum/events/${event._id}`)}
+        >
+          View Event
         </Button>
       </div>
     </div>
