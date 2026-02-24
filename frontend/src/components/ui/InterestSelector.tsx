@@ -4,11 +4,11 @@ import {
   Button,
   Text,
   Flex,
-  Badge,
   TextField,
 } from "@radix-ui/themes";
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import { usersApi } from "@/services/api";
+import { InterestChip } from "./InterestChip";
 
 interface InterestSelectorProps {
   open: boolean;
@@ -61,12 +61,16 @@ export function InterestSelector({
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Content className="max-w-lg">
-        <Dialog.Title>Select Your Interests</Dialog.Title>
-        <Dialog.Description className="mb-4">
-          Choose topics you're interested in. These help match you with relevant
-          services and community members.
-        </Dialog.Description>
+      <Dialog.Content className="max-w-2xl rounded-2xl p-6 shadow-xl">
+        <div className="mb-2">
+          <Dialog.Title className="text-xl font-semibold text-gray-12">
+            Pick your interests
+          </Dialog.Title>
+          <Dialog.Description className="mt-1 text-sm text-gray-11">
+            Choose what you're into — we'll use this to match you with the right
+            people and services.
+          </Dialog.Description>
+        </div>
 
         <div className="mb-4">
           <TextField.Root
@@ -74,52 +78,66 @@ export function InterestSelector({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             size="2"
+            className="rounded-xl"
           >
             <TextField.Slot>
-              <MagnifyingGlassIcon />
+              <MagnifyingGlassIcon className="text-gray-10" />
             </TextField.Slot>
           </TextField.Root>
         </div>
 
         {loading ? (
-          <Text color="gray">Loading...</Text>
+          <Text color="gray" size="2">
+            Loading...
+          </Text>
         ) : (
-          <Flex gap="2" wrap="wrap" className="mb-4 max-h-64 overflow-y-auto p-1">
-            {filtered.map((interest) => {
-              const isSelected = selected.includes(interest);
-              return (
-                <Badge
+          <div className="max-h-[280px] overflow-y-auto rounded-xl border border-gray-4 bg-gray-1 p-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pr-1">
+              {filtered.map((interest) => (
+                <InterestChip
                   key={interest}
-                  size="2"
-                  variant={isSelected ? "solid" : "outline"}
-                  className="cursor-pointer select-none transition-all"
-                  style={{
-                    cursor: "pointer",
-                  }}
+                  name={interest}
+                  selected={selected.includes(interest)}
                   onClick={() => toggleInterest(interest)}
-                >
-                  {interest}
-                  {isSelected && " ✓"}
-                </Badge>
-              );
-            })}
+                  size="md"
+                  showIcon
+                />
+              ))}
+            </div>
             {filtered.length === 0 && (
-              <Text size="2" color="gray">
-                No interests match your search
-              </Text>
+              <Flex align="center" justify="center" className="py-8">
+                <Text size="2" color="gray">
+                  No interests match your search
+                </Text>
+              </Flex>
             )}
-          </Flex>
+          </div>
         )}
 
-        <Flex justify="between" align="center" mt="4">
+        <Flex
+          justify="between"
+          align="center"
+          mt="4"
+          className="border-t border-gray-4 pt-4"
+        >
           <Text size="2" color="gray">
             {selected.length} selected
           </Text>
           <Flex gap="3">
-            <Button variant="soft" onClick={() => onOpenChange(false)}>
+            <Button
+              variant="soft"
+              color="gray"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
-            <Button onClick={() => onSave(selected)}>Save Interests</Button>
+            <Button
+              color="lime"
+              onClick={() => onSave(selected)}
+              className="rounded-full"
+            >
+              Save interests
+            </Button>
           </Flex>
         </Flex>
       </Dialog.Content>

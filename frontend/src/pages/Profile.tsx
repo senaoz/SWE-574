@@ -37,6 +37,7 @@ import { usersApi, joinRequestsApi } from "@/services/api";
 import { MyServices } from "./MyServices";
 import { BadgeDisplay } from "@/components/ui/BadgeDisplay";
 import { InterestSelector } from "@/components/ui/InterestSelector";
+import { InterestChip } from "@/components/ui/InterestChip";
 import {
   Linkedin,
   Github,
@@ -608,26 +609,52 @@ export function Profile() {
 
               {/* Interests */}
               <div>
-                <Flex justify="between" align="center" mb="2">
+                <Flex justify="between" align="center" mb="3">
                   <Text size="2" weight="bold">Interests</Text>
                   <Button
                     size="1"
                     variant="soft"
+                    color="lime"
+                    className="rounded-full"
                     onClick={() => setShowInterestSelector(true)}
                   >
-                    {(user.interests?.length || 0) > 0 ? "Edit" : "Add"}
+                    {(user.interests?.length || 0) > 0 ? "Edit" : "Add interests"}
                   </Button>
                 </Flex>
                 {(user.interests?.length || 0) > 0 ? (
                   <Flex gap="2" wrap="wrap">
                     {user.interests!.map((interest) => (
-                      <Badge key={interest} variant="soft" size="2">
-                        {interest}
-                      </Badge>
+                      <InterestChip
+                        key={interest}
+                        name={interest}
+                        size="sm"
+                        showIcon
+                      />
                     ))}
                   </Flex>
                 ) : (
-                  <Text size="2" color="gray">No interests selected</Text>
+                  <button
+                    type="button"
+                    onClick={() => setShowInterestSelector(true)}
+                    className="rounded-xl border-2 border-dashed px-4 py-3 text-left text-sm transition-colors"
+                    style={{
+                      borderColor: "var(--gray-6)",
+                      backgroundColor: "var(--gray-1)",
+                      color: "var(--gray-10)",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = "var(--lime-6)";
+                      e.currentTarget.style.backgroundColor = "var(--lime-2)";
+                      e.currentTarget.style.color = "var(--lime-11)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = "var(--gray-6)";
+                      e.currentTarget.style.backgroundColor = "var(--gray-1)";
+                      e.currentTarget.style.color = "var(--gray-10)";
+                    }}
+                  >
+                    Add interests to help others discover you
+                  </button>
                 )}
               </div>
 
