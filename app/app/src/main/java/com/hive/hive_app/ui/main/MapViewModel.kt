@@ -128,7 +128,9 @@ class MapViewModel @Inject constructor(
             }
             result.fold(
                 onSuccess = { listResponse ->
-                    val fullList = listResponse.services.filter { it.location != null }
+                    val excludedStatuses = setOf("completed", "expired")
+                    val fullList = listResponse.services
+                        .filter { it.location != null && it.status.lowercase() !in excludedStatuses }
                     val offerCount = fullList.count { it.serviceType == "offer" }
                     val needCount = fullList.count { it.serviceType == "need" }
                     var list = if (s.filterType == null) fullList else fullList.filter { it.serviceType == s.filterType }

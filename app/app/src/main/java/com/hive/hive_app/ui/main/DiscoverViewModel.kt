@@ -41,8 +41,12 @@ class DiscoverViewModel @Inject constructor(
             )
             result.fold(
                 onSuccess = { listResponse ->
+                    val excludedStatuses = setOf("completed", "expired")
+                    val filtered = listResponse.services.filter {
+                        it.status.lowercase() !in excludedStatuses
+                    }
                     _state.value = _state.value.copy(
-                        services = if (page == 1) listResponse.services else _state.value.services + listResponse.services,
+                        services = if (page == 1) filtered else _state.value.services + filtered,
                         total = listResponse.total,
                         page = listResponse.page,
                         isLoading = false,

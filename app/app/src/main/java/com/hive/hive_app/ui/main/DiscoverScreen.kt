@@ -41,10 +41,14 @@ fun DiscoverScreen(
         val id = selectedServiceId!!
         LaunchedEffect(id) { detailViewModel.load(id) }
         val detailState by detailViewModel.state.collectAsState()
+        val detailCreator by detailViewModel.creator.collectAsState()
+        val detailAcceptedUsers by detailViewModel.acceptedUsers.collectAsState()
         val detailLoading by detailViewModel.isLoading.collectAsState()
         val detailError by detailViewModel.error.collectAsState()
         ServiceDetailScreen(
             service = detailState,
+            creator = detailCreator,
+            acceptedUsers = detailAcceptedUsers,
             isLoading = detailLoading,
             error = detailError,
             onBack = { selectedServiceId = null },
@@ -168,7 +172,7 @@ private fun ServiceCard(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "${service.estimatedDuration}h • ${service.status}",
+                    text = "${com.hive.hive_app.util.formatDurationHours(service.estimatedDuration)} • ${service.status}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
