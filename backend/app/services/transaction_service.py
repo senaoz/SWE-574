@@ -286,6 +286,16 @@ class TransactionService:
             if not is_provider and not is_requester:
                 raise ValueError("You are not authorized to confirm this transaction")
             
+            # Provider cannot confirm (give help) when they must create a Need first
+            if is_provider:
+                from .user_service import UserService
+                user_service = UserService(self.db)
+                if await user_service.requires_need_creation(current_user_id):
+                    raise ValueError(
+                        "You must create a Need before you can give help. "
+                        "You've reached the 10-hour surplus limit."
+                    )
+            
             # Update the appropriate confirmation
             update_fields = {"updated_at": datetime.utcnow()}
             if is_provider:

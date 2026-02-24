@@ -74,6 +74,15 @@ class ServiceService:
             # Use dict(exclude_none=False, exclude_unset=False) to include all fields
             # This ensures scheduling fields are saved to the database
             service_dict = service_data.dict(exclude_none=False, exclude_unset=False)
+            # User cannot create offers (give help) when they must create a Need first
+            if service_dict.get("service_type") == "offer":
+                from .user_service import UserService
+                user_service = UserService(self.db)
+                if await user_service.requires_need_creation(user_id):
+                    raise ValueError(
+                        "You must create a Need before you can give help. "
+                        "You've reached the 10-hour surplus limit."
+                    )
             # Normalize tags to entity format
             if "tags" in service_dict:
                 service_dict["tags"] = self._normalize_tags(service_dict["tags"])
@@ -364,6 +373,16 @@ class ServiceService:
             
             if not is_provider and not is_receiver:
                 raise ValueError("Not authorized to confirm this service")
+            
+            # Provider cannot confirm (give help) when they must create a Need first
+            if is_provider:
+                from .user_service import UserService
+                user_service = UserService(self.db)
+                if await user_service.requires_need_creation(user_id):
+                    raise ValueError(
+                        "You must create a Need before you can give help. "
+                        "You've reached the 10-hour surplus limit."
+                    )
             
             # Update the appropriate confirmation
             if is_provider:
