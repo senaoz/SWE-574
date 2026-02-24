@@ -42,8 +42,13 @@ class TransactionService:
             if not approved_request:
                 raise ValueError("No approved join request found for this service and user")
 
+            raw = transaction_data.dict()
             transaction_doc = {
-                **transaction_data.dict(),
+                "service_id": ObjectId(raw["service_id"]),
+                "provider_id": ObjectId(raw["provider_id"]),
+                "requester_id": ObjectId(raw["requester_id"]),
+                "timebank_hours": raw["timebank_hours"],
+                "description": raw.get("description"),
                 "status": TransactionStatus.PENDING,
                 "provider_confirmed": False,
                 "requester_confirmed": False,
@@ -61,21 +66,37 @@ class TransactionService:
     async def get_user_transactions(self, user_id: str, page: int = 1, limit: int = 20) -> Tuple[List[TransactionResponse], int]:
         """Get transactions for a specific user with pagination"""
         try:
-            query = {
-                "$or": [
-                    {"provider_id": ObjectId(user_id)},
-                    {"requester_id": ObjectId(user_id)}
-                ]
-            }
+            # Match both ObjectId and string (legacy docs may have string IDs)
+            user_oid = ObjectId(user_id) if ObjectId.is_valid(user_id) else None
+            if user_oid is not None:
+                query = {
+                    "$or": [
+                        {"provider_id": user_oid},
+                        {"requester_id": user_oid},
+                        {"provider_id": user_id},
+                        {"requester_id": user_id}
+                    ]
+                }
+            else:
+                query = {
+                    "$or": [
+                        {"provider_id": user_id},
+                        {"requester_id": user_id}
+                    ]
+                }
             total = await self.transactions_collection.count_documents(query)
             
+            def to_oid(v):
+                """Normalize id for lookups (users/services use ObjectId _id)."""
+                return ObjectId(v) if isinstance(v, str) and ObjectId.is_valid(v) else v
+
             skip = (page - 1) * limit
             cursor = self.transactions_collection.find(query).skip(skip).limit(limit).sort("created_at", -1)
             
             transactions = []
             async for transaction_doc in cursor:
                 # Populate service info
-                service = await self.services_collection.find_one({"_id": transaction_doc["service_id"]})
+                service = await self.services_collection.find_one({"_id": to_oid(transaction_doc["service_id"])})
                 if service:
                     transaction_doc["service"] = {
                         "id": str(service["_id"]),
@@ -84,7 +105,7 @@ class TransactionService:
                     }
                 
                 # Populate provider info
-                provider = await self.users_collection.find_one({"_id": transaction_doc["provider_id"]})
+                provider = await self.users_collection.find_one({"_id": to_oid(transaction_doc["provider_id"])})
                 if provider:
                     transaction_doc["provider"] = {
                         "id": str(provider["_id"]),
@@ -93,7 +114,7 @@ class TransactionService:
                     }
                 
                 # Populate requester info
-                requester = await self.users_collection.find_one({"_id": transaction_doc["requester_id"]})
+                requester = await self.users_collection.find_one({"_id": to_oid(transaction_doc["requester_id"])})
                 if requester:
                     transaction_doc["requester"] = {
                         "id": str(requester["_id"]),
