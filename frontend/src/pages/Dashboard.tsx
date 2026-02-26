@@ -272,7 +272,9 @@ function CreateServiceDialog({
   return (
     <Dialog.Root open={showDialog} onOpenChange={setShowDialog}>
       <Dialog.Trigger>
-        <Button size="3">+ Create Service</Button>
+        <Button className="add-service-button shadow-lg">
+          <PlusIcon className="w-10 h-10 stroke-4 stroke-black" />
+        </Button>
       </Dialog.Trigger>
       <Dialog.Content
         align="center"

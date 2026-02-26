@@ -134,3 +134,13 @@ p {
 .rounded-2xl {
     border-radius: 1.5rem;
 }
+
+.add-service-button {
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    z-index: 1000;
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+}
