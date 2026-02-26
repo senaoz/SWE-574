@@ -12,6 +12,7 @@ import {
   Switch,
   Dialog,
   Heading,
+  Checkbox,
 } from "@radix-ui/themes";
 import { Form } from "radix-ui";
 import { servicesApi } from "@/services/api";
@@ -514,6 +515,19 @@ export function OfferNeedForm({
                 )}
               </Form.Field>
 
+              {/* Remote option */}
+              <Flex gap="2" align="center" className="col-span-2">
+                <Checkbox
+                  checked={formData.is_remote ?? false}
+                  onCheckedChange={(checked) =>
+                    handleInputChange("is_remote", checked)
+                  }
+                />
+                <Text size="2" className="font-medium">
+                  Remote / Online Service
+                </Text>
+              </Flex>
+
               {/* Tags */}
               <Form.Field name="tags" className="space-y-1 col-span-2">
                 <Form.Label className="text-sm font-medium">Tags *</Form.Label>
@@ -548,21 +562,6 @@ export function OfferNeedForm({
                 )}
               </Form.Field>
             </Grid>
-
-            {/* Remote option */}
-            <Box className="mb-4">
-              <Flex gap="2" align="center" className="mb-3">
-                <Switch
-                  checked={formData.is_remote ?? false}
-                  onCheckedChange={(checked) =>
-                    handleInputChange("is_remote", checked)
-                  }
-                />
-                <Text size="2" className="font-medium">
-                  Remote / Online Service
-                </Text>
-              </Flex>
-            </Box>
 
             {/* Location Section */}
             {!formData?.is_remote && (
