@@ -1,5 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { Button, Box, Dialog, IconButton, Flex, Avatar } from "@radix-ui/themes";
+import {
+  Button,
+  Box,
+  Dialog,
+  IconButton,
+  Flex,
+  Avatar,
+} from "@radix-ui/themes";
 import { usersApi } from "@/services/api";
 import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
 import { SearchBar } from "@/components/ui/SearchBar";
@@ -58,7 +65,7 @@ export function Header() {
       window.history.replaceState(
         {},
         "",
-        window.location.pathname + searchParams.toString()
+        window.location.pathname + searchParams.toString(),
       );
     }
   }, [window.location.search]);
@@ -110,11 +117,16 @@ export function Header() {
               />
             ) : (
               <div className="flex items-center space-x-2 ml-2">
-                <IconButton onClick={() => navigate("/profile")} style={{ borderRadius: "var(--radius-full)" }}>
+                <IconButton
+                  onClick={() => navigate("/profile")}
+                  style={{ borderRadius: "var(--radius-full)" }}
+                >
                   {currentUser?.profile_picture ? (
                     <Avatar
                       src={currentUser.profile_picture}
-                      fallback={currentUser.full_name?.[0] || currentUser.username[0]}
+                      fallback={
+                        currentUser.full_name?.[0] || currentUser.username[0]
+                      }
                       size="1"
                       radius="full"
                     />
@@ -145,14 +157,15 @@ export function Header() {
                     <line x1="12" y1="7" x2="12" y2="13" />
                   </svg>
                 </IconButton>
-                {currentUser?.role === "admin" && (
-                  <IconButton
-                    onClick={() => navigate("/admin")}
-                    variant="outline"
-                  >
-                    <GearIcon className="w-4 h-4" />
-                  </IconButton>
-                )}
+                {currentUser?.role === "admin" ||
+                  (currentUser?.role === "moderator" && (
+                    <IconButton
+                      onClick={() => navigate("/admin")}
+                      variant="outline"
+                    >
+                      <GearIcon className="w-4 h-4" />
+                    </IconButton>
+                  ))}
               </div>
             )}
           </div>
@@ -187,4 +200,3 @@ function LoginDialog({
     </Dialog.Root>
   );
 }
-
