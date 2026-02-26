@@ -8,7 +8,6 @@ import {
   Tabs,
   Text,
   TextField,
-  TextArea,
   Badge,
   Avatar,
   Dialog,
@@ -32,6 +31,8 @@ import { forumApi, servicesApi } from "@/services/api";
 import { ForumDiscussion, ForumEvent, TagEntity, Service } from "@/types";
 import { TagAutocomplete } from "@/components/forms/TagAutocomplete";
 import { ClickableTag } from "@/components/ui/ClickableTag";
+import { MarkdownEditor } from "@/components/forms/MarkdownEditor";
+import ReactMarkdown from "react-markdown";
 
 function timeAgo(dateStr: string) {
   const now = Date.now();
@@ -222,9 +223,23 @@ export function Forum() {
                           {timeAgo(d.created_at)}
                         </Text>
                       </Flex>
-                      <Text size="2" color="gray" className="line-clamp-2 mt-1">
-                        {d.body}
-                      </Text>
+                      <div className="line-clamp-2 mt-1 prose prose-sm max-w-none opacity-80">
+                        <ReactMarkdown
+                          components={{
+                            a: ({ node, ...props }) => (
+                              <a
+                                {...props}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ color: "#7c3aed" }}
+                              />
+                            ),
+                            p: ({ node, ...props }) => <span {...props} />,
+                          }}
+                        >
+                          {d.body}
+                        </ReactMarkdown>
+                      </div>
                       <Flex gap="2" align="center" className="mt-2" wrap="wrap">
                         <Text size="1" color="gray">
                           by{" "}
@@ -304,9 +319,23 @@ export function Forum() {
                           </Badge>
                         </Flex>
                       </Flex>
-                      <Text size="2" color="gray" className="line-clamp-2 mt-1">
-                        {ev.description}
-                      </Text>
+                      <div className="line-clamp-2 mt-1 prose prose-sm max-w-none opacity-80">
+                        <ReactMarkdown
+                          components={{
+                            a: ({ node, ...props }) => (
+                              <a
+                                {...props}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ color: "#7c3aed" }}
+                              />
+                            ),
+                            p: ({ node, ...props }) => <span {...props} />,
+                          }}
+                        >
+                          {ev.description}
+                        </ReactMarkdown>
+                      </div>
                       <Flex gap="2" align="center" className="mt-2" wrap="wrap">
                         <Text size="1" color="gray">
                           by{" "}
@@ -437,15 +466,13 @@ function NewDiscussionDialog({
           </Form.Field>
           <Form.Field name="body" className="space-y-2">
             <Form.Label className="text-sm font-medium">Body *</Form.Label>
-            <Form.Control asChild>
-              <TextArea
-                placeholder="Write your discussion..."
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                rows={6}
-                className={error ? "border-red-500" : ""}
-              />
-            </Form.Control>
+            <MarkdownEditor
+              placeholder="Write your discussion... You can use **bold** and *italic*."
+              value={body}
+              onChange={(value) => setBody(value)}
+              error={!!error}
+              rows={6}
+            />
           </Form.Field>
           <Form.Field name="tags" className="space-y-1">
             <Form.Label className="text-sm font-medium">Tags</Form.Label>
@@ -700,15 +727,13 @@ function NewEventDialog({
             <Form.Label className="text-sm font-medium">
               Description *
             </Form.Label>
-            <Form.Control asChild>
-              <TextArea
-                placeholder="Describe the event..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={4}
-                className={error ? "border-red-500" : ""}
-              />
-            </Form.Control>
+            <MarkdownEditor
+              placeholder="Describe the event... You can use **bold** and *italic*."
+              value={description}
+              onChange={(value) => setDescription(value)}
+              error={!!error}
+              rows={6}
+            />
           </Form.Field>
           <Box>
             <Text size="2" weight="medium" className="mb-2 block">

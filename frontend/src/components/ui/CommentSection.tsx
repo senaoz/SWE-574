@@ -103,7 +103,7 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
 
   return (
     <Card className="p-4">
-      <Flex align="center" gap="2" className="mb-6">
+      <Flex align="center" gap="2" className="mb-4">
         <ChatBubbleIcon className="w-5 h-5" />
         <Text size="4" weight="bold">
           Comments & Ideas ({comments.length})
@@ -111,7 +111,7 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
       </Flex>
 
       {/* Add comment form */}
-      <div className="mb-6">
+      <div className="mb-4">
         <TextArea
           placeholder="Add a comment, idea, or share your experience..."
           value={newComment}

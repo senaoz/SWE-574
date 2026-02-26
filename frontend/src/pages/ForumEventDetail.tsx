@@ -21,6 +21,7 @@ import {
 import { forumApi } from "@/services/api";
 import { ForumEvent, ForumComment } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
+import ReactMarkdown from "react-markdown";
 
 function timeAgo(dateStr: string) {
   const now = Date.now();
@@ -153,9 +154,22 @@ export function ForumEventDetail() {
               ) : null}
             </Flex>
 
-            <Text size="3" className="whitespace-pre-wrap leading-relaxed mb-4">
-              {event.description}
-            </Text>
+            <div className="prose prose-sm max-w-none leading-relaxed mb-4">
+              <ReactMarkdown
+                components={{
+                  a: ({ node, ...props }) => (
+                    <a
+                      {...props}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: "#7c3aed" }}
+                    />
+                  ),
+                }}
+              >
+                {event.description}
+              </ReactMarkdown>
+            </div>
 
             {/* Linked service */}
             {event.service && (
@@ -196,7 +210,7 @@ export function ForumEventDetail() {
         </Flex>
 
         {/* New comment */}
-        <div className="mb-6">
+        <div>
           <TextArea
             placeholder="Write a comment..."
             value={newComment}
@@ -236,9 +250,22 @@ export function ForumEventDetail() {
                     {timeAgo(c.created_at)}
                   </Text>
                 </Flex>
-                <Text size="2" className="leading-relaxed">
-                  {c.content}
-                </Text>
+                <div className="prose prose-sm max-w-none leading-relaxed">
+                  <ReactMarkdown
+                    components={{
+                      a: ({ node, ...props }) => (
+                        <a
+                          {...props}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: "#7c3aed" }}
+                        />
+                      ),
+                    }}
+                  >
+                    {c.content}
+                  </ReactMarkdown>
+                </div>
               </div>
             </div>
           ))}
