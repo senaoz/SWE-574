@@ -6,6 +6,7 @@ import {
   IconButton,
   Flex,
   Avatar,
+  Tooltip,
 } from "@radix-ui/themes";
 import { usersApi } from "@/services/api";
 import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
@@ -21,6 +22,7 @@ import {
   GearIcon,
   HomeIcon,
   AvatarIcon,
+  GlobeIcon,
 } from "@radix-ui/react-icons";
 
 export const useScroll = (threshold: number) => {
@@ -117,55 +119,51 @@ export function Header() {
               />
             ) : (
               <div className="flex items-center space-x-2 ml-2">
-                <IconButton
-                  onClick={() => navigate("/profile")}
-                  style={{ borderRadius: "var(--radius-full)" }}
-                >
-                  {currentUser?.profile_picture ? (
-                    <Avatar
-                      src={currentUser.profile_picture}
-                      fallback={
-                        currentUser.full_name?.[0] || currentUser.username[0]
-                      }
-                      size="1"
-                      radius="full"
-                    />
-                  ) : (
-                    <AvatarIcon className="w-4 h-4" />
-                  )}
-                </IconButton>
-                <IconButton onClick={() => navigate("/dashboard")}>
-                  <HomeIcon className="w-4 h-4" />
-                </IconButton>
-                <IconButton onClick={() => navigate("/chat")}>
-                  <ChatBubbleIcon className="w-4 h-4" />
-                </IconButton>
-                <IconButton onClick={() => navigate("/forum")}>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                <Tooltip content="Profile">
+                  <IconButton
+                    onClick={() => navigate("/profile")}
+                    style={{ borderRadius: "var(--radius-full)" }}
                   >
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                    <line x1="9" y1="10" x2="15" y2="10" />
-                    <line x1="12" y1="7" x2="12" y2="13" />
-                  </svg>
-                </IconButton>
-                {currentUser?.role === "admin" ||
-                  (currentUser?.role === "moderator" && (
+                    {currentUser?.profile_picture ? (
+                      <Avatar
+                        src={currentUser.profile_picture}
+                        fallback={
+                          currentUser.full_name?.[0] || currentUser.username[0]
+                        }
+                        size="1"
+                        radius="full"
+                      />
+                    ) : (
+                      <AvatarIcon className="w-4 h-4" />
+                    )}
+                  </IconButton>
+                </Tooltip>
+                <Tooltip content="Dashboard">
+                  <IconButton onClick={() => navigate("/dashboard")}>
+                    <HomeIcon className="w-4 h-4" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip content="Chat">
+                  <IconButton onClick={() => navigate("/chat")}>
+                    <ChatBubbleIcon className="w-4 h-4" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip content="Forum">
+                  <IconButton onClick={() => navigate("/forum")}>
+                    <GlobeIcon className="w-4 h-4" />
+                  </IconButton>
+                </Tooltip>
+                {(currentUser?.role === "admin" ||
+                  currentUser?.role === "moderator") && (
+                  <Tooltip content="Admin Panel">
                     <IconButton
                       onClick={() => navigate("/admin")}
                       variant="outline"
                     >
                       <GearIcon className="w-4 h-4" />
                     </IconButton>
-                  ))}
+                  </Tooltip>
+                )}
               </div>
             )}
           </div>
