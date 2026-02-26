@@ -211,7 +211,7 @@ export interface RegisterForm {
 export interface ServiceForm {
   title: string;
   description: string;
-  category: string;
+  category?: string;
   tags: TagEntity[]; 
   estimated_duration: number;
   location: Location;

@@ -112,7 +112,7 @@ p {
 }
 
 .hover-card-selected.offer {
-    @apply border-purple-500;
+    @apply border-orange-500;
 }
 
 .hover-card-selected.need {

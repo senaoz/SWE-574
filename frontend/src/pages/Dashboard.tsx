@@ -17,7 +17,7 @@ import {
 } from "@radix-ui/themes";
 import {
   HandIcon,
-  BackpackIcon,
+  SunIcon,
   Crosshair1Icon,
   PlusIcon,
 } from "@radix-ui/react-icons";
@@ -290,7 +290,7 @@ function CreateServiceDialog({
             onClick={() => setSelectedServiceType("offer")}
           >
             <Heading size="5" className="flex items-center justify-center mb-1">
-              <BackpackIcon className="w-6 h-6 text-purple-500 mr-2" />
+              <SunIcon className="w-6 h-6 text-orange-500 mr-2" />
               Offer a Service
             </Heading>
             <Text size="2">

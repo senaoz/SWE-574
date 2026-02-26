@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
   Button,
@@ -11,18 +11,16 @@ import {
   Box,
   Switch,
   Dialog,
-  Heading,
-  Checkbox,
 } from "@radix-ui/themes";
 import { Form } from "radix-ui";
 import { servicesApi } from "@/services/api";
 import { ServiceForm, ServiceFormErrors, TagEntity } from "@/types";
-import { Crosshair1Icon } from "@radix-ui/react-icons";
 import { TURKISH_CITIES, getCityOptions } from "@/constants/turkishCities";
 import { TagAutocomplete } from "./TagAutocomplete";
 import { MarkdownEditor } from "./MarkdownEditor";
 import { MapContainer, TileLayer, Circle, Marker } from "react-leaflet";
 import L from "leaflet";
+import { GlobeIcon, Crosshair1Icon } from "@radix-ui/react-icons";
 
 interface OfferNeedFormProps {
   serviceType: "offer" | "need";
@@ -39,7 +37,6 @@ export function OfferNeedForm({
   const [formData, setFormData] = useState<ServiceForm>({
     title: "",
     description: "",
-    category: "",
     tags: [],
     estimated_duration: 1,
     location: { latitude: 0, longitude: 0, address: "" },
@@ -50,6 +47,7 @@ export function OfferNeedForm({
     is_remote: false,
   });
   const [errors, setErrors] = useState<ServiceFormErrors>({});
+  const formTopRef = useRef<HTMLDivElement>(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [useCurrentLocation, setUseCurrentLocation] = useState(true);
   const createServiceMutation = useMutation({
@@ -73,7 +71,8 @@ export function OfferNeedForm({
             const fieldName = err.loc[
               err.loc.length - 1
             ] as keyof ServiceFormErrors;
-            const errorMessage = err.msg || "Validation error";
+            const errorMessage =
+              err.msg ?? err.message ?? "Validation error";
 
             // Handle special cases for nested fields
             if (fieldName === "recurring_pattern") {
@@ -87,6 +86,16 @@ export function OfferNeedForm({
             }
           }
         });
+      setErrors(newErrors);
+      // Scroll form into view so user sees the error summary and fields
+      setTimeout(
+        () =>
+          formTopRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          }),
+        100
+      );
       } else if (typeof errorDetail === "string") {
         // Simple string error message
         newErrors.title = errorDetail;
@@ -103,7 +112,17 @@ export function OfferNeedForm({
         newErrors.title = "Failed to create service. Please check your input.";
       }
 
-      setErrors(newErrors);
+      if (!Array.isArray(errorDetail)) {
+        setErrors(newErrors);
+        setTimeout(
+          () =>
+            formTopRef.current?.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            }),
+          100
+        );
+      }
     },
   });
 
@@ -347,14 +366,12 @@ export function OfferNeedForm({
 
     if (!formData.title.trim()) {
       newErrors.title = "Title is required";
+    } else if (formData.title.trim().length < 5) {
+      newErrors.title = "Title must be at least 5 characters";
     }
 
     if (!formData.description.trim()) {
       newErrors.description = "Description is required";
-    }
-
-    if (!formData.category.trim()) {
-      newErrors.category = "Category is required";
     }
 
     if (!formData.is_remote && !useCurrentLocation && !formData.city?.trim()) {
@@ -436,20 +453,6 @@ export function OfferNeedForm({
     // Don't allow closing via onOpenChange - only via button
   };
 
-  const categories = [
-    "Technology",
-    "Education",
-    "Health & Wellness",
-    "Home & Garden",
-    "Transportation",
-    "Entertainment",
-    "Business",
-    "Creative Arts",
-    "Sports & Fitness",
-    "Food & Cooking",
-    "Other",
-  ];
-
   const daysOfWeek = [
     "Monday",
     "Tuesday",
@@ -464,6 +467,35 @@ export function OfferNeedForm({
     <>
       <>
         <Form.Root onSubmit={handleSubmit} className="space-y-4">
+          {/* Scroll target and error summary */}
+          <div ref={formTopRef}>
+            {Object.keys(errors).length > 0 && (
+              <Box
+                style={{
+                  backgroundColor: "var(--red-3)",
+                  borderColor: "var(--red-6)",
+                }}
+                className="rounded-lg border p-3"
+              >
+                <Text size="2" weight="medium" color="red">
+                  Please fix the errors below.
+                </Text>
+                <ul className="mt-2 list-inside list-disc text-sm text-red-11">
+                  {Object.entries(errors).map(([key, value]) => {
+                    const msg =
+                      typeof value === "string"
+                        ? value
+                        : value &&
+                            typeof value === "object" &&
+                            "error" in value
+                          ? (value as { error: string }).error
+                          : null;
+                    return msg ? <li key={key}>{msg}</li> : null;
+                  })}
+                </ul>
+              </Box>
+            )}
+          </div>
           {/* Basic Information */}
           <Box>
             <Grid columns="2" gap="3">
@@ -483,50 +515,6 @@ export function OfferNeedForm({
                   </Text>
                 )}
               </Form.Field>
-
-              <Form.Field
-                name="category"
-                className="space-y-2 flex flex-col col-span-2"
-              >
-                <Form.Label className="text-sm font-medium">
-                  Category *
-                </Form.Label>
-                <Select.Root
-                  value={formData.category}
-                  onValueChange={(value) =>
-                    handleInputChange("category", value)
-                  }
-                >
-                  <Select.Trigger
-                    className={errors.category ? "border-red-500" : ""}
-                  />
-                  <Select.Content>
-                    {categories.map((category) => (
-                      <Select.Item key={category} value={category}>
-                        {category}
-                      </Select.Item>
-                    ))}
-                  </Select.Content>
-                </Select.Root>
-                {errors.category && (
-                  <Text color="red" size="1">
-                    {errors.category}
-                  </Text>
-                )}
-              </Form.Field>
-
-              {/* Remote option */}
-              <Flex gap="2" align="center" className="col-span-2">
-                <Checkbox
-                  checked={formData.is_remote ?? false}
-                  onCheckedChange={(checked) =>
-                    handleInputChange("is_remote", checked)
-                  }
-                />
-                <Text size="2" className="font-medium">
-                  Remote / Online Service
-                </Text>
-              </Flex>
 
               {/* Tags */}
               <Form.Field name="tags" className="space-y-1 col-span-2">
@@ -561,8 +549,22 @@ export function OfferNeedForm({
                   </Text>
                 )}
               </Form.Field>
-            </Grid>
 
+              {/* In person or remote service selection */}
+              <Box
+                className={`flex items-center justify-center gap-2 mb-4 border rounded-lg p-2 hover-card text-center cursor-pointer font-medium text-sm ${formData.is_remote ? "" : "bg-gray-100"}`}
+                onClick={() => handleInputChange("is_remote", false)}
+              >
+                <Crosshair1Icon className="w-4 h-4" /> In person Service
+              </Box>
+              <Box
+                className={`flex items-center justify-center gap-2 mb-4 border rounded-lg p-2 hover-card text-center cursor-pointer font-medium text-sm ${formData.is_remote ? "bg-gray-100" : ""}`}
+                onClick={() => handleInputChange("is_remote", true)}
+              >
+                <GlobeIcon className="w-4 h-4" />
+                Remote / Online Service
+              </Box>
+            </Grid>
             {/* Location Section */}
             {!formData?.is_remote && (
               <>

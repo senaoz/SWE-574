@@ -99,7 +99,7 @@ class RecurringPattern(BaseModel):
 class ServiceBase(BaseModel):
     title: str = Field(..., min_length=5, max_length=100)
     description: str = Field(..., min_length=10, max_length=5000)
-    category: str = Field(..., min_length=2, max_length=50)
+    category: Optional[str] = Field(None, min_length=2, max_length=50)
     tags: List[dict] = Field(default_factory=list, max_items=10)  # List of TagEntity dicts
     estimated_duration: float = Field(..., gt=0, le=24)  # Hours
     location: Location

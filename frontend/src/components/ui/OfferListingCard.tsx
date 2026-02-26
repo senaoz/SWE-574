@@ -70,7 +70,7 @@ export function OfferListingCard({ service }: { service: Service }) {
       <div className="flex gap-2 flex-wrap">
         <StatusBadge status={service.status} size="1" variant="soft" />
         <Badge
-          color={service?.service_type === "offer" ? "purple" : "blue"}
+          color={service?.service_type === "offer" ? "orange" : "blue"}
           variant="soft"
         >
           {service?.service_type === "offer" ? "OFFER" : "NEED"}
