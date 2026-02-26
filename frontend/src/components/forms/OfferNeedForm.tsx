@@ -459,24 +459,9 @@ export function OfferNeedForm({
     "Sunday",
   ];
 
-  const texts = {
-    offer: {
-      title: "What Can You Offer?",
-      buttonText: "Create Offer",
-    },
-    need: {
-      title: "What Do You Need?",
-      buttonText: "Create Need",
-    },
-  };
-
   return (
     <>
       <>
-        <Heading size="6" className="mb-2">
-          {texts[serviceType].title}
-        </Heading>
-
         <Form.Root onSubmit={handleSubmit} className="space-y-4">
           {/* Basic Information */}
           <Box>

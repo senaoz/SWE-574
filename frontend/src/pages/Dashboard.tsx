@@ -6,8 +6,21 @@ import {
 } from "@/components/map/ServiceMap";
 import { OfferListingCard } from "@/components/ui/OfferListingCard";
 import { servicesApi, forumApi } from "@/services/api";
-import { Button, Dialog, Heading, Text, Flex, Card } from "@radix-ui/themes";
-import { HandIcon, BackpackIcon, Crosshair1Icon } from "@radix-ui/react-icons";
+import {
+  Button,
+  Dialog,
+  Heading,
+  Text,
+  Flex,
+  Card,
+  Box,
+} from "@radix-ui/themes";
+import {
+  HandIcon,
+  BackpackIcon,
+  Crosshair1Icon,
+  PlusIcon,
+} from "@radix-ui/react-icons";
 import { OfferNeedForm } from "@/components/forms/OfferNeedForm";
 import { useFilters } from "@/contexts/FilterContext";
 import { useState, useEffect, useMemo } from "react";
@@ -127,36 +140,7 @@ export function Dashboard() {
     <div>
       <div className="grid grid-cols-1 md:grid-cols-2">
         <div className="pr-4 space-y-2">
-          <div className="pb-4 grid grid-cols-1 md:grid-cols-2 gap-2">
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <BackpackIcon className="w-6 h-6 text-purple-500" />
-                <Heading size="5">Create Offer</Heading>
-              </div>
-              <Text size="2">
-                Create an offer to share your skills and services with the
-                community, let others know what you're offering.
-              </Text>
-              <CreateServiceDialog
-                serviceType="offer"
-                onServiceCreated={fetchServices}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <HandIcon className="w-6 h-6 text-blue-500" />
-                <Heading size="5">Create Need</Heading>
-              </div>
-              <Text size="2">
-                Create a need to request a service from the community, let
-                others know what you're looking for.
-              </Text>
-              <CreateServiceDialog
-                serviceType="need"
-                onServiceCreated={fetchServices}
-              />
-            </div>
-          </div>
+          <CreateServiceDialog onServiceCreated={fetchServices} />
           {/* Services Count and Results */}
           <Flex gap="2" className="mb-4" direction="column">
             <Flex align="center" gap="2" wrap="wrap">
@@ -276,26 +260,58 @@ export function Dashboard() {
 }
 
 function CreateServiceDialog({
-  serviceType,
   onServiceCreated,
 }: {
-  serviceType: "offer" | "need";
   onServiceCreated?: () => void;
 }) {
   const [showDialog, setShowDialog] = useState(false);
+  const [selectedServiceType, setSelectedServiceType] = useState<
+    "offer" | "need"
+  >("offer");
+
   return (
     <Dialog.Root open={showDialog} onOpenChange={setShowDialog}>
       <Dialog.Trigger>
-        <Button size="3">
-          {serviceType === "offer" ? "Create Offer" : "Create Need"}
-        </Button>
+        <Button size="3">+ Create Service</Button>
       </Dialog.Trigger>
       <Dialog.Content
-        className="max-w-4xl mx-auto p-12 max-h-[90vh] overflow-y-auto"
+        align="center"
+        size="4"
+        className="p-4 md:p-12 overflow-y-auto"
         aria-describedby={undefined}
+        maxWidth={"80vw"}
+        maxHeight={"80vh"}
       >
+        <div className="pb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Box
+            className={`border-2 rounded-lg hover-card text-center py-4 px-8 ${selectedServiceType === "offer" ? "hover-card-selected offer" : ""}`}
+            onClick={() => setSelectedServiceType("offer")}
+          >
+            <Heading size="5" className="flex items-center justify-center mb-1">
+              <BackpackIcon className="w-6 h-6 text-purple-500 mr-2" />
+              Offer a Service
+            </Heading>
+            <Text size="2">
+              Share your skills and services with the community, let others know
+              what you're offering.
+            </Text>
+          </Box>
+          <Box
+            className={`border-2 rounded-lg hover-card text-center py-4 px-10 ${selectedServiceType === "need" ? "hover-card-selected need" : ""}`}
+            onClick={() => setSelectedServiceType("need")}
+          >
+            <Heading size="5" className="flex items-center justify-center mb-1">
+              <HandIcon className="w-6 h-6 text-blue-500 mr-2" />
+              Need a Service
+            </Heading>
+            <Text size="2">
+              Request a service from the community, let others know what you're
+              looking for.
+            </Text>
+          </Box>
+        </div>
         <OfferNeedForm
-          serviceType={serviceType}
+          serviceType={selectedServiceType}
           onSuccess={() => {
             setShowDialog(false);
             // Refresh services list after successful creation
