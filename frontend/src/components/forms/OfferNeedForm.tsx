@@ -71,8 +71,7 @@ export function OfferNeedForm({
             const fieldName = err.loc[
               err.loc.length - 1
             ] as keyof ServiceFormErrors;
-            const errorMessage =
-              err.msg ?? err.message ?? "Validation error";
+            const errorMessage = err.msg ?? err.message ?? "Validation error";
 
             // Handle special cases for nested fields
             if (fieldName === "recurring_pattern") {
@@ -86,16 +85,16 @@ export function OfferNeedForm({
             }
           }
         });
-      setErrors(newErrors);
-      // Scroll form into view so user sees the error summary and fields
-      setTimeout(
-        () =>
-          formTopRef.current?.scrollIntoView({
-            behavior: "smooth",
-            block: "start",
-          }),
-        100
-      );
+        setErrors(newErrors);
+        // Scroll form into view so user sees the error summary and fields
+        setTimeout(
+          () =>
+            formTopRef.current?.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            }),
+          100,
+        );
       } else if (typeof errorDetail === "string") {
         // Simple string error message
         newErrors.title = errorDetail;
@@ -120,7 +119,7 @@ export function OfferNeedForm({
               behavior: "smooth",
               block: "start",
             }),
-          100
+          100,
         );
       }
     },
@@ -469,7 +468,7 @@ export function OfferNeedForm({
         <Form.Root onSubmit={handleSubmit} className="space-y-4">
           {/* Scroll target and error summary */}
           <div ref={formTopRef}>
-            {Object.keys(errors).length > 0 && (
+            {Object.keys(errors).length > 2 && (
               <Box
                 style={{
                   backgroundColor: "var(--red-3)",
@@ -485,9 +484,7 @@ export function OfferNeedForm({
                     const msg =
                       typeof value === "string"
                         ? value
-                        : value &&
-                            typeof value === "object" &&
-                            "error" in value
+                        : value && typeof value === "object" && "error" in value
                           ? (value as { error: string }).error
                           : null;
                     return msg ? <li key={key}>{msg}</li> : null;
