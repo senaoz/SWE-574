@@ -1,7 +1,9 @@
 package com.hive.hive_app.ui.main
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,10 +11,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -36,9 +47,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.hive.hive_app.data.api.dto.BadgesResponse
 import com.hive.hive_app.data.api.dto.SocialLinks
+import com.hive.hive_app.data.api.dto.TimeBankResponse
 import com.hive.hive_app.data.api.dto.UserResponse
 import com.hive.hive_app.util.formatApplicationDate
 
@@ -133,8 +151,13 @@ fun ProfileScreen(
                 profile?.let { user ->
                     Spacer(Modifier.height(12.dp))
 
-                    // 1. Profile header card
-                    ProfileHeaderCard(user = user, onEditProfile = { showEditProfile = true })
+                    // 1. Profile header – photo, name, stats
+                    ProfileHeaderCard(
+                        user = user,
+                        timeBank = timeBank,
+                        badges = badges,
+                        onEditProfile = { showEditProfile = true }
+                    )
 
                     // 2. Bio section (always show, empty state + Add)
                     Spacer(Modifier.height(12.dp))
@@ -186,68 +209,185 @@ fun ProfileScreen(
                     ) {
                         OutlinedButton(onClick = { showChangePassword = true }) { Text("Change password") }
                         OutlinedButton(onClick = { showDeleteAccount = true }) { Text("Delete account") }
+                        Button(onClick = onLogout) { Text("Log out") }
                     }
                 }
                 Spacer(Modifier.height(24.dp))
             }
         }
-        Spacer(Modifier.weight(1f))
-        Button(onClick = onLogout, modifier = Modifier.fillMaxWidth()) { Text("Log out") }
     }
 }
 
 @Composable
-private fun ProfileHeaderCard(user: UserResponse, onEditProfile: () -> Unit) {
+private fun ProfileHeaderCard(
+    user: UserResponse,
+    timeBank: TimeBankResponse?,
+    badges: BadgesResponse?,
+    onEditProfile: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Profile photo placeholder with initials, Instagram‑style gradient
+            val initials = remember(user) {
+                (user.fullName ?: user.username)
+                    .trim()
+                    .split(" ")
+                    .filter { it.isNotBlank() }
+                    .take(2)
+                    .joinToString("") { it.first().uppercase() }
+            }
+            Box(
+                modifier = Modifier
+                    .size(96.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.linearGradient(
+                            listOf(
+                                MaterialTheme.colorScheme.primary,
+                                MaterialTheme.colorScheme.secondary
+                            )
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = initials,
+                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            Text(
+                text = user.fullName?.takeIf { it.isNotBlank() } ?: user.username,
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "@${user.username}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            if (user.showEmail) {
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Email,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = user.email,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            if (user.showLocation && !user.location.isNullOrBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.LocationOn,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = user.location!!,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Stats row – hours, badges, member since
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                ProfileStat(
+                    label = "Hours",
+                    value = String.format("%.1f", timeBank?.balance ?: user.timebankBalance)
+                )
+                ProfileStat(
+                    label = "Badges",
+                    value = "${badges?.earnedCount ?: 0}/${badges?.totalCount ?: 0}"
+                )
+                ProfileStat(
+                    label = "Member",
+                    value = formatApplicationDate(user.createdAt)
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = user.fullName?.takeIf { it.isNotBlank() } ?: user.username,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "@${user.username}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (user.showEmail) {
-                        Text(
-                            text = user.email,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Text(
-                        text = "Role: ${user.role}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                Text(
+                    text = user.role.replaceFirstChar { it.uppercase() },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     if (user.isVerified) {
                         Text(
-                            text = "Verified",
+                            text = "Verified · ",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
+                    Text(
+                        text = "Member since ${formatApplicationDate(user.createdAt)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
                 OutlinedButton(onClick = onEditProfile) { Text("Edit profile") }
             }
-            Text(
-                text = "Member since ${formatApplicationDate(user.createdAt)}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
-            )
         }
+    }
+}
+
+@Composable
+private fun ProfileStat(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -312,12 +452,43 @@ private fun SocialLinksSectionCard(links: SocialLinks?, onAddOrEdit: () -> Unit)
             )
             Spacer(Modifier.height(8.dp))
             if (nonNull.isNotEmpty()) {
-                Text(
-                    text = nonNull.joinToString(" · ") { "${it.first}: ${it.second}" },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(Modifier.height(8.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    nonNull.forEach { (label, url) ->
+                        val icon = when (label) {
+                            "LinkedIn" -> Icons.Filled.Work
+                            "GitHub" -> Icons.Filled.Code
+                            "Twitter" -> Icons.Filled.Public
+                            "Website" -> Icons.Filled.Link
+                            else -> Icons.Filled.Link
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = label,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = url,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
                 OutlinedButton(onClick = onAddOrEdit) { Text("Edit") }
             } else {
                 Text(
