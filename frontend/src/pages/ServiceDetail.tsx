@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, Badge, Text, Flex, Button, Tooltip } from "@radix-ui/themes";
 import { Service, User, JoinRequest, ForumEvent } from "@/types";
 import {
@@ -47,6 +47,13 @@ export function ServiceDetail() {
   const [isCancellingRequest, setIsCancellingRequest] = useState(false);
   const [linkedEvents, setLinkedEvents] = useState<ForumEvent[]>([]);
   const { currentUserId } = useUser();
+
+  const { data: timebankData } = useQuery({
+    queryKey: ["timebank"],
+    queryFn: () => usersApi.getTimeBank().then((res) => res.data),
+    enabled: !!currentUserId,
+    retry: false,
+  });
 
   useEffect(() => {
     const fetchServiceDetails = async () => {
@@ -502,6 +509,7 @@ export function ServiceDetail() {
                 ) : (
                   <HandShakeModal
                     service={service}
+                    requiresNeedCreation={timebankData?.requires_need_creation ?? false}
                     onJoin={() => {
                       // Refresh pending request after joining
                       if (id && currentUserId) {

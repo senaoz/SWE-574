@@ -17,6 +17,7 @@ import { useFilters } from "@/contexts/FilterContext";
 import { LoginForm } from "../auth/LoginForm";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { HandIcon } from "@radix-ui/react-icons";
 import {
   ChatBubbleIcon,
   GearIcon,
@@ -106,11 +107,6 @@ export function Header() {
               appearance={appearance}
               onToggle={toggleAppearance}
             />
-            {localStorage.getItem("access_token") && timebankData ? (
-              <Button variant="outline">
-                {`${Math.round(timebankData.balance)} Hours Left`}
-              </Button>
-            ) : null}
             {!localStorage.getItem("access_token") ? (
               <LoginDialog
                 open={loginDialogOpen}
@@ -119,51 +115,51 @@ export function Header() {
               />
             ) : (
               <div className="flex items-center space-x-2 ml-2">
-                <Tooltip content="Profile">
-                  <IconButton
-                    onClick={() => navigate("/profile")}
-                    style={{ borderRadius: "var(--radius-full)" }}
-                  >
-                    {currentUser?.profile_picture ? (
-                      <Avatar
-                        src={currentUser.profile_picture}
-                        fallback={
-                          currentUser.full_name?.[0] || currentUser.username[0]
-                        }
-                        size="1"
-                        radius="full"
-                      />
-                    ) : (
-                      <AvatarIcon className="w-4 h-4" />
-                    )}
-                  </IconButton>
-                </Tooltip>
-                <Tooltip content="Dashboard">
-                  <IconButton onClick={() => navigate("/dashboard")}>
-                    <HomeIcon className="w-4 h-4" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip content="Chat">
-                  <IconButton onClick={() => navigate("/chat")}>
-                    <ChatBubbleIcon className="w-4 h-4" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip content="Forum">
-                  <IconButton onClick={() => navigate("/forum")}>
-                    <GlobeIcon className="w-4 h-4" />
-                  </IconButton>
-                </Tooltip>
-                {(currentUser?.role === "admin" ||
-                  currentUser?.role === "moderator") && (
-                  <Tooltip content="Admin Panel">
-                    <IconButton
-                      onClick={() => navigate("/admin")}
-                      variant="outline"
-                    >
-                      <GearIcon className="w-4 h-4" />
-                    </IconButton>
+                  <Tooltip content="Profile">
+                      <IconButton
+                          onClick={() => navigate("/profile")}
+                          style={{ borderRadius: "var(--radius-full)" }}
+                      >
+                          {currentUser?.profile_picture ? (
+                              <Avatar
+                                  src={currentUser.profile_picture}
+                                  fallback={
+                                      currentUser.full_name?.[0] || currentUser.username[0]
+                                  }
+                                  size="1"
+                                  radius="full"
+                              />
+                          ) : (
+                              <AvatarIcon className="w-4 h-4" />
+                          )}
+                      </IconButton>
                   </Tooltip>
-                )}
+                  <Tooltip content="Dashboard">
+                      <IconButton onClick={() => navigate("/dashboard")}>
+                          <HomeIcon className="w-4 h-4" />
+                      </IconButton>
+                  </Tooltip>
+                  <Tooltip content="Chat">
+                      <IconButton onClick={() => navigate("/chat")}>
+                          <ChatBubbleIcon className="w-4 h-4" />
+                      </IconButton>
+                  </Tooltip>
+                  <Tooltip content="Forum">
+                      <IconButton onClick={() => navigate("/forum")}>
+                          <GlobeIcon className="w-4 h-4" />
+                      </IconButton>
+                  </Tooltip>
+                  {(currentUser?.role === "admin" ||
+                      currentUser?.role === "moderator") && (
+                      <Tooltip content="Admin Panel">
+                          <IconButton
+                              onClick={() => navigate("/admin")}
+                              variant="outline"
+                          >
+                              <GearIcon className="w-4 h-4" />
+                          </IconButton>
+                      </Tooltip>
+                  )}
               </div>
             )}
           </div>

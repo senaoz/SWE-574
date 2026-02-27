@@ -19,11 +19,14 @@ import {
 interface ApplicantsListProps {
   serviceId: string;
   onRequestUpdate?: () => void;
+  /** When true, Approve button is disabled (e.g. provider must create a Need first) */
+  disableApprove?: boolean;
 }
 
 export function ApplicantsList({
   serviceId,
   onRequestUpdate,
+  disableApprove = false,
 }: ApplicantsListProps) {
   const [requests, setRequests] = useState<JoinRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -295,7 +298,14 @@ export function ApplicantsList({
                         <Button
                           color="green"
                           onClick={() => handleApprove(request._id)}
-                          disabled={updatingRequest === request._id}
+                          disabled={
+                            updatingRequest === request._id || disableApprove
+                          }
+                          title={
+                            disableApprove
+                              ? "Create a Need before you can give help"
+                              : undefined
+                          }
                         >
                           <CheckCircledIcon className="w-4 h-4 mr-2" />
                           {updatingRequest === request._id

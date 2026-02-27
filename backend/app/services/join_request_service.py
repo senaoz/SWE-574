@@ -34,6 +34,17 @@ class JoinRequestService:
             if str(service["user_id"]) == user_id:
                 raise ValueError("Cannot request to join your own service")
             
+            # When joining an offer, block if the provider must create a Need (cannot give help yet)
+            if service.get("service_type") == "offer":
+                from .user_service import UserService
+                user_service = UserService(self.db)
+                provider_id = str(service["user_id"])
+                if await user_service.requires_need_creation(provider_id):
+                    raise ValueError(
+                        "This provider cannot accept new requests until they create a Need. "
+                        "They've reached the 10-hour surplus limit."
+                    )
+            
             request_doc = {
                 **request_data.dict(),
                 "service_id": ObjectId(request_data.service_id),
@@ -139,6 +150,16 @@ class JoinRequestService:
             
             if str(service["user_id"]) != admin_user_id:
                 raise ValueError("Only the service owner can approve/reject requests")
+            
+            # When approving an offer, provider cannot give help if they must create a Need first
+            if update_data.status == JoinRequestStatus.APPROVED and service.get("service_type") == "offer":
+                from .user_service import UserService
+                user_service = UserService(self.db)
+                if await user_service.requires_need_creation(admin_user_id):
+                    raise ValueError(
+                        "You must create a Need before you can give help. "
+                        "You've reached the 10-hour surplus limit."
+                    )
             
             print(f"Update data: {update_data}")
             print(f"matched_user_ids before: {service.get('matched_user_ids', [])}")

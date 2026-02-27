@@ -14,6 +14,7 @@ interface MyServicesTabProps {
   services: Service[];
   serviceTransactions: Record<string, Transaction[]>;
   currentUserId: string | null;
+  requiresNeedCreation?: boolean;
   onSetServiceInProgress: (serviceId: string) => Promise<void>;
   onMarkServiceAsDone: (serviceId: string) => Promise<void>;
   onConfirmServiceCompletion: (serviceId: string) => Promise<void>;
@@ -28,6 +29,7 @@ export function MyServicesTab({
   services,
   serviceTransactions,
   currentUserId,
+  requiresNeedCreation = false,
   onSetServiceInProgress,
   onMarkServiceAsDone,
   onConfirmTransactionCompletion,
@@ -148,11 +150,19 @@ export function MyServicesTab({
                               <Button
                                 disabled={
                                   !service.matched_user_ids ||
-                                  service.matched_user_ids.length === 0
+                                  service.matched_user_ids.length === 0 ||
+                                  (service.service_type === "offer" &&
+                                    requiresNeedCreation)
                                 }
                                 size="2"
                                 color="green"
                                 onClick={() => onMarkServiceAsDone(service._id)}
+                                title={
+                                  service.service_type === "offer" &&
+                                  requiresNeedCreation
+                                    ? "Create a Need before you can give help"
+                                    : undefined
+                                }
                               >
                                 <CheckCircledIcon className="w-4 h-4 mr-2" />
                                 Mark as Done
@@ -319,6 +329,20 @@ export function MyServicesTab({
                                 <Button
                                   size="2"
                                   color="green"
+                                  disabled={
+                                    requiresNeedCreation &&
+                                    serviceTransactions[service._id].some(
+                                      (t) =>
+                                        t.status === "pending" &&
+                                        t.provider_id === currentUserId &&
+                                        !t.provider_confirmed
+                                    )
+                                  }
+                                  title={
+                                    requiresNeedCreation
+                                      ? "Create a Need before you can give help"
+                                      : undefined
+                                  }
                                   onClick={() => {
                                     const pendingTransactions =
                                       serviceTransactions[service._id].filter(
@@ -428,6 +452,18 @@ export function MyServicesTab({
                                         <Button
                                           size="1"
                                           color="green"
+                                          disabled={
+                                            requiresNeedCreation &&
+                                            transaction.provider_id ===
+                                              currentUserId
+                                          }
+                                          title={
+                                            requiresNeedCreation &&
+                                            transaction.provider_id ===
+                                              currentUserId
+                                              ? "Create a Need before you can give help"
+                                              : undefined
+                                          }
                                           onClick={() =>
                                             onConfirmTransactionCompletion(
                                               transaction._id
@@ -452,6 +488,10 @@ export function MyServicesTab({
                       <ApplicantsList
                         serviceId={service._id}
                         onRequestUpdate={onRequestUpdate}
+                        disableApprove={
+                          service.service_type === "offer" &&
+                          requiresNeedCreation
+                        }
                       />
                     </div>
                   </div>
