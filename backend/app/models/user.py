@@ -193,6 +193,7 @@ class TimeBankResponse(BaseModel):
     transactions: List[TimeBankTransaction]
     max_balance: float = 10.0
     can_earn: bool = True
+    requires_need_creation: bool = False
 
     @field_validator('balance', mode='before')
     @classmethod

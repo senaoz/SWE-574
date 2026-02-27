@@ -165,6 +165,7 @@ export interface TimeBankResponse {
   transactions: TimeBankTransaction[];
   max_balance: number;
   can_earn: boolean;
+  requires_need_creation?: boolean;
 }
 
 export interface ServiceFilters {

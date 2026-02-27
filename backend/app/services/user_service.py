@@ -89,10 +89,20 @@ class UserService:
             # Check if user can earn more
             can_earn = user.timebank_balance < 10.0
             
+            # Require Need creation when user has 10-hour surplus and no needs
+            need_count = 0
+            if user.timebank_balance >= 10.0:
+                need_count = await self.db.services.count_documents({
+                    "user_id": ObjectId(user_id),
+                    "service_type": "need",
+                })
+            requires_need_creation = user.timebank_balance >= 10.0 and need_count == 0
+            
             return TimeBankResponse(
                 balance=user.timebank_balance,
                 transactions=transactions,
-                can_earn=can_earn
+                can_earn=can_earn,
+                requires_need_creation=requires_need_creation,
             )
         except Exception as e:
             raise ValueError(f"Error getting TimeBank balance: {str(e)}")
@@ -154,7 +164,7 @@ class UserService:
                     description=description,
                     reason="provider_balance_limit",
                     user_balance=user.timebank_balance,
-                    error_message=f"Provider balance ({user.timebank_balance}) exceeds earning limit (10.0)",
+                    error_message=f"Provider balance ({user.timebank_balance}) exceeds earning limit (10.0). Create a Need to help balance the community.",
                     service_id=service_id
                 )
                 return False
@@ -221,6 +231,20 @@ class UserService:
             if not user:
                 return False
             return user.timebank_balance < 10.0
+        except Exception:
+            return False
+
+    async def requires_need_creation(self, user_id: str) -> bool:
+        """True when user has 10+ hour surplus and no Need services (cannot give help until they create a Need)."""
+        try:
+            user = await self.get_user_by_id(user_id)
+            if not user or user.timebank_balance < 10.0:
+                return False
+            need_count = await self.db.services.count_documents({
+                "user_id": ObjectId(user_id),
+                "service_type": "need",
+            })
+            return need_count == 0
         except Exception:
             return False
 

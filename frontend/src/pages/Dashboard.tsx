@@ -5,13 +5,22 @@ import {
   type MapFilters,
 } from "@/components/map/ServiceMap";
 import { OfferListingCard } from "@/components/ui/OfferListingCard";
-import { servicesApi } from "@/services/api";
-import { Button, Dialog, Heading, Text, Flex, Card } from "@radix-ui/themes";
+import { servicesApi, usersApi } from "@/services/api";
+import {
+  Button,
+  Dialog,
+  Heading,
+  Text,
+  Flex,
+  Card,
+  Callout,
+} from "@radix-ui/themes";
 import { HandIcon, BackpackIcon, Crosshair1Icon } from "@radix-ui/react-icons";
 import { OfferNeedForm } from "@/components/forms/OfferNeedForm";
 import { useFilters } from "@/contexts/FilterContext";
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Service } from "@/types";
 
 export function Dashboard() {
@@ -26,6 +35,15 @@ export function Dashboard() {
   const [userPosition, setUserPosition] = useState<[number, number] | null>(
     null,
   );
+  const [needDialogOpen, setNeedDialogOpen] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data: timebankData } = useQuery({
+    queryKey: ["timebank"],
+    queryFn: () => usersApi.getTimeBank().then((res) => res.data),
+    enabled: !!localStorage.getItem("access_token"),
+    retry: false,
+  });
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -119,6 +137,26 @@ export function Dashboard() {
     <div>
       <div className="grid grid-cols-1 md:grid-cols-2">
         <div className="pr-4 space-y-2">
+          {timebankData?.requires_need_creation && (
+            <Callout.Root color="amber" className="mb-4">
+              <Callout.Icon>
+                <HandIcon />
+              </Callout.Icon>
+              <Callout.Text>
+                You've reached the 10-hour surplus limit. Create a Need to help
+                balance the community and use your hours.
+              </Callout.Text>
+              <Button
+                size="2"
+                color="amber"
+                variant="soft"
+                onClick={() => setNeedDialogOpen(true)}
+                className="mt-2"
+              >
+                Create Need
+              </Button>
+            </Callout.Root>
+          )}
           <div className="pb-4 grid grid-cols-1 md:grid-cols-2 gap-2">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
@@ -132,6 +170,7 @@ export function Dashboard() {
               <CreateServiceDialog
                 serviceType="offer"
                 onServiceCreated={fetchServices}
+                disabled={!!timebankData?.requires_need_creation}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -145,7 +184,12 @@ export function Dashboard() {
               </Text>
               <CreateServiceDialog
                 serviceType="need"
-                onServiceCreated={fetchServices}
+                onServiceCreated={() => {
+                  fetchServices();
+                  queryClient.invalidateQueries({ queryKey: ["timebank"] });
+                }}
+                open={needDialogOpen}
+                onOpenChange={setNeedDialogOpen}
               />
             </div>
           </div>
@@ -269,15 +313,24 @@ export function Dashboard() {
 function CreateServiceDialog({
   serviceType,
   onServiceCreated,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+  disabled,
 }: {
   serviceType: "offer" | "need";
   onServiceCreated?: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  disabled?: boolean;
 }) {
-  const [showDialog, setShowDialog] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOnOpenChange != null;
+  const open = isControlled ? (controlledOpen ?? false) : internalOpen;
+  const setOpen = isControlled ? controlledOnOpenChange! : setInternalOpen;
   return (
-    <Dialog.Root open={showDialog} onOpenChange={setShowDialog}>
-      <Dialog.Trigger>
-        <Button size="3">
+    <Dialog.Root open={open} onOpenChange={setOpen}>
+      <Dialog.Trigger disabled={disabled}>
+        <Button size="3" disabled={disabled}>
           {serviceType === "offer" ? "Create Offer" : "Create Need"}
         </Button>
       </Dialog.Trigger>
@@ -288,14 +341,14 @@ function CreateServiceDialog({
         <OfferNeedForm
           serviceType={serviceType}
           onSuccess={() => {
-            setShowDialog(false);
+            setOpen(false);
             // Refresh services list after successful creation
             if (onServiceCreated) {
               onServiceCreated();
             }
           }}
           onClose={() => {
-            setShowDialog(false);
+            setOpen(false);
           }}
         />
       </Dialog.Content>

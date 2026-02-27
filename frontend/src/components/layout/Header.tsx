@@ -1,5 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { Button, Box, Dialog, IconButton, Flex, Avatar } from "@radix-ui/themes";
+import {
+  Button,
+  Box,
+  Dialog,
+  IconButton,
+  Flex,
+  Avatar,
+} from "@radix-ui/themes";
 import { usersApi } from "@/services/api";
 import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
 import { SearchBar } from "@/components/ui/SearchBar";
@@ -9,6 +16,7 @@ import { useFilters } from "@/contexts/FilterContext";
 import { LoginForm } from "../auth/LoginForm";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { HandIcon } from "@radix-ui/react-icons";
 import {
   ChatBubbleIcon,
   GearIcon,
@@ -58,7 +66,7 @@ export function Header() {
       window.history.replaceState(
         {},
         "",
-        window.location.pathname + searchParams.toString()
+        window.location.pathname + searchParams.toString(),
       );
     }
   }, [window.location.search]);
@@ -97,11 +105,6 @@ export function Header() {
               appearance={appearance}
               onToggle={toggleAppearance}
             />
-            {localStorage.getItem("access_token") && timebankData ? (
-              <Button variant="outline">
-                {`${Math.round(timebankData.balance)} Hours Left`}
-              </Button>
-            ) : null}
             {!localStorage.getItem("access_token") ? (
               <LoginDialog
                 open={loginDialogOpen}
@@ -110,11 +113,16 @@ export function Header() {
               />
             ) : (
               <div className="flex items-center space-x-2 ml-2">
-                <IconButton onClick={() => navigate("/profile")} style={{ borderRadius: "var(--radius-full)" }}>
+                <IconButton
+                  onClick={() => navigate("/profile")}
+                  style={{ borderRadius: "var(--radius-full)" }}
+                >
                   {currentUser?.profile_picture ? (
                     <Avatar
                       src={currentUser.profile_picture}
-                      fallback={currentUser.full_name?.[0] || currentUser.username[0]}
+                      fallback={
+                        currentUser.full_name?.[0] || currentUser.username[0]
+                      }
                       size="1"
                       radius="full"
                     />
@@ -170,4 +178,3 @@ function LoginDialog({
     </Dialog.Root>
   );
 }
-

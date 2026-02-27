@@ -9,6 +9,7 @@ import { ratingsApi } from "@/services/api";
 interface MyTransactionsTabProps {
   transactions: Transaction[];
   currentUserId: string | null;
+  requiresNeedCreation?: boolean;
   onConfirmTransactionCompletion: (transactionId: string) => Promise<void>;
   onCancelTransaction: (transactionId: string) => Promise<void>;
   onStartChat: (transactionId: string) => Promise<void>;
@@ -18,6 +19,7 @@ interface MyTransactionsTabProps {
 export function MyTransactionsTab({
   transactions,
   currentUserId,
+  requiresNeedCreation = false,
   onConfirmTransactionCompletion,
   onCancelTransaction,
   onStartChat,
@@ -156,6 +158,16 @@ export function MyTransactionsTab({
                         <Button
                           size="1"
                           color="green"
+                          disabled={
+                            requiresNeedCreation &&
+                            transaction.provider_id === currentUserId
+                          }
+                          title={
+                            requiresNeedCreation &&
+                            transaction.provider_id === currentUserId
+                              ? "Create a Need before you can give help"
+                              : undefined
+                          }
                           onClick={() =>
                             onConfirmTransactionCompletion(transaction._id)
                           }
