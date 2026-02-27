@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
   Button,
@@ -11,15 +11,16 @@ import {
   Box,
   Switch,
   Dialog,
-  Heading,
 } from "@radix-ui/themes";
 import { Form } from "radix-ui";
 import { servicesApi } from "@/services/api";
 import { ServiceForm, ServiceFormErrors, TagEntity } from "@/types";
-import { Crosshair1Icon } from "@radix-ui/react-icons";
 import { TURKISH_CITIES, getCityOptions } from "@/constants/turkishCities";
 import { TagAutocomplete } from "./TagAutocomplete";
 import { MarkdownEditor } from "./MarkdownEditor";
+import { MapContainer, TileLayer, Circle, Marker } from "react-leaflet";
+import L from "leaflet";
+import { GlobeIcon, Crosshair1Icon } from "@radix-ui/react-icons";
 
 interface OfferNeedFormProps {
   serviceType: "offer" | "need";
@@ -36,7 +37,6 @@ export function OfferNeedForm({
   const [formData, setFormData] = useState<ServiceForm>({
     title: "",
     description: "",
-    category: "",
     tags: [],
     estimated_duration: 1,
     location: { latitude: 0, longitude: 0, address: "" },
@@ -47,6 +47,7 @@ export function OfferNeedForm({
     is_remote: false,
   });
   const [errors, setErrors] = useState<ServiceFormErrors>({});
+  const formTopRef = useRef<HTMLDivElement>(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [useCurrentLocation, setUseCurrentLocation] = useState(true);
   const createServiceMutation = useMutation({
@@ -70,7 +71,7 @@ export function OfferNeedForm({
             const fieldName = err.loc[
               err.loc.length - 1
             ] as keyof ServiceFormErrors;
-            const errorMessage = err.msg || "Validation error";
+            const errorMessage = err.msg ?? err.message ?? "Validation error";
 
             // Handle special cases for nested fields
             if (fieldName === "recurring_pattern") {
@@ -84,6 +85,16 @@ export function OfferNeedForm({
             }
           }
         });
+        setErrors(newErrors);
+        // Scroll form into view so user sees the error summary and fields
+        setTimeout(
+          () =>
+            formTopRef.current?.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            }),
+          100,
+        );
       } else if (typeof errorDetail === "string") {
         // Simple string error message
         newErrors.title = errorDetail;
@@ -100,7 +111,17 @@ export function OfferNeedForm({
         newErrors.title = "Failed to create service. Please check your input.";
       }
 
-      setErrors(newErrors);
+      if (!Array.isArray(errorDetail)) {
+        setErrors(newErrors);
+        setTimeout(
+          () =>
+            formTopRef.current?.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            }),
+          100,
+        );
+      }
     },
   });
 
@@ -344,14 +365,12 @@ export function OfferNeedForm({
 
     if (!formData.title.trim()) {
       newErrors.title = "Title is required";
+    } else if (formData.title.trim().length < 5) {
+      newErrors.title = "Title must be at least 5 characters";
     }
 
     if (!formData.description.trim()) {
       newErrors.description = "Description is required";
-    }
-
-    if (!formData.category.trim()) {
-      newErrors.category = "Category is required";
     }
 
     if (!formData.is_remote && !useCurrentLocation && !formData.city?.trim()) {
@@ -433,20 +452,6 @@ export function OfferNeedForm({
     // Don't allow closing via onOpenChange - only via button
   };
 
-  const categories = [
-    "Technology",
-    "Education",
-    "Health & Wellness",
-    "Home & Garden",
-    "Transportation",
-    "Entertainment",
-    "Business",
-    "Creative Arts",
-    "Sports & Fitness",
-    "Food & Cooking",
-    "Other",
-  ];
-
   const daysOfWeek = [
     "Monday",
     "Tuesday",
@@ -457,25 +462,37 @@ export function OfferNeedForm({
     "Sunday",
   ];
 
-  const texts = {
-    offer: {
-      title: "What Can You Offer?",
-      buttonText: "Create Offer",
-    },
-    need: {
-      title: "What Do You Need?",
-      buttonText: "Create Need",
-    },
-  };
-
   return (
     <>
       <>
-        <Heading size="6" className="mb-2">
-          {texts[serviceType].title}
-        </Heading>
-
         <Form.Root onSubmit={handleSubmit} className="space-y-4">
+          {/* Scroll target and error summary */}
+          <div ref={formTopRef}>
+            {Object.keys(errors).length > 2 && (
+              <Box
+                style={{
+                  backgroundColor: "var(--red-3)",
+                  borderColor: "var(--red-6)",
+                }}
+                className="rounded-lg border p-3"
+              >
+                <Text size="2" weight="medium" color="red">
+                  Please fix the errors below.
+                </Text>
+                <ul className="mt-2 list-inside list-disc text-sm text-red-11">
+                  {Object.entries(errors).map(([key, value]) => {
+                    const msg =
+                      typeof value === "string"
+                        ? value
+                        : value && typeof value === "object" && "error" in value
+                          ? (value as { error: string }).error
+                          : null;
+                    return msg ? <li key={key}>{msg}</li> : null;
+                  })}
+                </ul>
+              </Box>
+            )}
+          </div>
           {/* Basic Information */}
           <Box>
             <Grid columns="2" gap="3">
@@ -492,37 +509,6 @@ export function OfferNeedForm({
                 {errors.title && (
                   <Text color="red" size="1">
                     {errors.title}
-                  </Text>
-                )}
-              </Form.Field>
-
-              <Form.Field
-                name="category"
-                className="space-y-2 flex flex-col col-span-2"
-              >
-                <Form.Label className="text-sm font-medium">
-                  Category *
-                </Form.Label>
-                <Select.Root
-                  value={formData.category}
-                  onValueChange={(value) =>
-                    handleInputChange("category", value)
-                  }
-                >
-                  <Select.Trigger
-                    className={errors.category ? "border-red-500" : ""}
-                  />
-                  <Select.Content>
-                    {categories.map((category) => (
-                      <Select.Item key={category} value={category}>
-                        {category}
-                      </Select.Item>
-                    ))}
-                  </Select.Content>
-                </Select.Root>
-                {errors.category && (
-                  <Text color="red" size="1">
-                    {errors.category}
                   </Text>
                 )}
               </Form.Field>
@@ -560,23 +546,30 @@ export function OfferNeedForm({
                   </Text>
                 )}
               </Form.Field>
+
+              {/* In person or remote service selection */}
+              <Box
+                className={`flex items-center justify-center gap-2 mb-4 border rounded-lg p-2 hover-card text-center cursor-pointer font-medium text-sm`}
+                onClick={() => handleInputChange("is_remote", false)}
+                style={{
+                  backgroundColor: formData.is_remote ? "" : "var(--gray-1)",
+                  borderColor: "var(--gray-3)",
+                }}
+              >
+                <Crosshair1Icon className="w-4 h-4" /> In person Service
+              </Box>
+              <Box
+                className={`flex items-center justify-center gap-2 mb-4 border rounded-lg p-2 hover-card text-center cursor-pointer font-medium text-sm`}
+                onClick={() => handleInputChange("is_remote", true)}
+                style={{
+                  backgroundColor: formData.is_remote ? "var(--gray-1)" : "",
+                  borderColor: "var(--gray-3)",
+                }}
+              >
+                <GlobeIcon className="w-4 h-4" />
+                Remote / Online Service
+              </Box>
             </Grid>
-
-            {/* Remote option */}
-            <Box className="mb-4">
-              <Flex gap="2" align="center" className="mb-3">
-                <Switch
-                  checked={formData.is_remote ?? false}
-                  onCheckedChange={(checked) =>
-                    handleInputChange("is_remote", checked)
-                  }
-                />
-                <Text size="2" className="font-medium">
-                  This service can be done remotely
-                </Text>
-              </Flex>
-            </Box>
-
             {/* Location Section */}
             {!formData?.is_remote && (
               <>
@@ -666,6 +659,66 @@ export function OfferNeedForm({
                           ⚠ Address set but coordinates not found. Location will
                           be approximate.
                         </Text>
+                      )}
+
+                    {formData.location.latitude !== 0 &&
+                      formData.location.longitude !== 0 && (
+                        <Box
+                          className="mt-3 rounded-xl overflow-hidden"
+                          style={{ height: 180 }}
+                        >
+                          <MapContainer
+                            center={[
+                              formData.location.latitude,
+                              formData.location.longitude,
+                            ]}
+                            zoom={15}
+                            style={{ height: "100%", width: "100%" }}
+                            scrollWheelZoom={false}
+                          >
+                            <TileLayer
+                              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                              subdomains="abcd"
+                            />
+                            <Circle
+                              center={[
+                                formData.location.latitude,
+                                formData.location.longitude,
+                              ]}
+                              radius={200}
+                              pathOptions={{
+                                color:
+                                  serviceType === "offer"
+                                    ? "#059669"
+                                    : "#dc2626",
+                                fillColor:
+                                  serviceType === "offer"
+                                    ? "#059669"
+                                    : "#dc2626",
+                                fillOpacity: 0.12,
+                                weight: 1.5,
+                              }}
+                            />
+                            <Marker
+                              position={[
+                                formData.location.latitude,
+                                formData.location.longitude,
+                              ]}
+                              icon={L.divIcon({
+                                className: "custom-marker",
+                                html: `<div style="width:20px;height:20px;border-radius:50%;color:white;background-color:${
+                                  serviceType === "offer"
+                                    ? "#059669"
+                                    : "#dc2626"
+                                };display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;">${
+                                  serviceType === "offer" ? "+" : "?"
+                                }</div>`,
+                                iconSize: [20, 20],
+                                iconAnchor: [10, 10],
+                              })}
+                            />
+                          </MapContainer>
+                        </Box>
                       )}
                   </Form.Field>
                 </Box>

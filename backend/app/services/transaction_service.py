@@ -482,7 +482,7 @@ class TransactionService:
             print(f"Warning: Error updating timebank balances: {e}")
 
     async def get_all_transactions(self, page: int = 1, limit: int = 20) -> tuple[List[TransactionResponse], int]:
-        """Get all transactions (admin only)"""
+        """Get all transactions (admin or moderator only)"""
         try:
             skip = (page - 1) * limit
             

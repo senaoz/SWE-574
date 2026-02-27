@@ -97,6 +97,50 @@ p {
     background-color: var(--color-background) !important;
     color: var(--color-foreground) !important;
 }
+
 .bg-background {
     background-color: var(--color-background) !important;
+}
+
+.rt-BaseDialogContent {
+    max-height: 85vh !important;
+    overflow-y: auto !important;
+}
+
+.hover-card {
+    @apply hover:shadow-md hover:cursor-pointer transition-all duration-200;
+}
+
+.hover-card-selected.offer {
+    @apply border-orange-500;
+}
+
+.hover-card-selected.need {
+    @apply border-blue-500;
+}
+
+.rounded-md {
+    border-radius: 0.5rem;
+}
+
+.rounded-lg {
+    border-radius: 0.75rem;
+}
+
+.rounded-xl {
+    border-radius: 1rem;
+}
+
+.rounded-2xl {
+    border-radius: 1.5rem;
+}
+
+.add-service-button {
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    z-index: 1000;
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
 }

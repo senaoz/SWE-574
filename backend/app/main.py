@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from .core.config import settings
 from .core.database import connect_to_mongo, close_mongo_connection
-from .api import auth, users, services, admin, comments, join_requests, transactions, chat, wikidata, ratings
+from .api import auth, users, services, admin, comments, join_requests, transactions, chat, wikidata, ratings, forum
 
 logging.basicConfig(
     level=logging.INFO,
@@ -51,6 +51,7 @@ app.include_router(transactions.router)
 app.include_router(chat.router)
 app.include_router(wikidata.router)
 app.include_router(ratings.router)
+app.include_router(forum.router)
 
 @app.get("/")
 async def root():

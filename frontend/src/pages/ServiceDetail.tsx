@@ -2,12 +2,13 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, Badge, Text, Flex, Button, Tooltip } from "@radix-ui/themes";
-import { Service, User, JoinRequest } from "@/types";
+import { Service, User, JoinRequest, ForumEvent } from "@/types";
 import {
   chatApi,
   servicesApi,
   usersApi,
   joinRequestsApi,
+  forumApi,
 } from "@/services/api";
 import { useUser } from "@/App";
 import {
@@ -44,6 +45,7 @@ export function ServiceDetail() {
     null,
   );
   const [isCancellingRequest, setIsCancellingRequest] = useState(false);
+  const [linkedEvents, setLinkedEvents] = useState<ForumEvent[]>([]);
   const { currentUserId } = useUser();
 
   const { data: timebankData } = useQuery({
@@ -158,6 +160,14 @@ export function ServiceDetail() {
 
     fetchServiceDetails();
   }, [id, currentUserId]);
+
+  useEffect(() => {
+    if (!id) return;
+    forumApi
+      .getLinkedEvents(id)
+      .then((r) => setLinkedEvents(r.data.events || []))
+      .catch(() => setLinkedEvents([]));
+  }, [id]);
 
   if (loading) {
     return (
@@ -460,7 +470,11 @@ export function ServiceDetail() {
                 <Flex wrap="wrap" gap="2">
                   {service.tags.map((tag, index) => (
                     <ClickableTag
-                      key={typeof tag === "string" ? tag : tag.entityId || tag.label + index}
+                      key={
+                        typeof tag === "string"
+                          ? tag
+                          : tag.entityId || tag.label + index
+                      }
                       tag={tag}
                       size="2"
                       variant="soft"
@@ -499,7 +513,9 @@ export function ServiceDetail() {
                 ) : (
                   <HandShakeModal
                     service={service}
-                    requiresNeedCreation={timebankData?.requires_need_creation ?? false}
+                    requiresNeedCreation={
+                      timebankData?.requires_need_creation ?? false
+                    }
                     onJoin={() => {
                       // Refresh pending request after joining
                       if (id && currentUserId) {
@@ -539,6 +555,7 @@ export function ServiceDetail() {
               )}
 
               <StartChatButton
+                disabled={service.status !== "active" || isServingUser}
                 otherUserIds={[service.user_id]}
                 service_id={service._id}
                 transaction_id={undefined}
@@ -672,7 +689,44 @@ export function ServiceDetail() {
               </Flex>
             </Card>
           ) : (
-            <ServiceMap services={[service]} height="350px" showFilters={false} />
+            <ServiceMap
+              services={[service]}
+              height="350px"
+              showFilters={false}
+            />
+          )}
+
+          {/* Linked forum events */}
+          {linkedEvents.length > 0 && (
+            <Card className="p-4">
+              <Text size="3" weight="bold" className="mb-3 block">
+                Forum Events ({linkedEvents.length})
+              </Text>
+              <div className="space-y-2">
+                {linkedEvents.map((ev) => (
+                  <div
+                    key={ev._id}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                    onClick={() => navigate(`/forum/events/${ev._id}`)}
+                  >
+                    <Badge size="1" color="purple" variant="soft">
+                      Event
+                    </Badge>
+                    <div className="flex-1 min-w-0">
+                      <Text size="2" weight="medium" className="line-clamp-1">
+                        {ev.title}
+                      </Text>
+                    </div>
+                    <Text size="1" color="gray">
+                      {new Date(ev.event_at).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </Text>
+                  </div>
+                ))}
+              </div>
+            </Card>
           )}
 
           {/* Comments section */}
@@ -684,10 +738,12 @@ export function ServiceDetail() {
 }
 
 export const StartChatButton = ({
+  disabled,
   otherUserIds,
   service_id = undefined,
   transaction_id = undefined,
 }: {
+  disabled: boolean;
   otherUserIds: string[];
   service_id: string | undefined;
   transaction_id: string | undefined;
@@ -711,10 +767,10 @@ export const StartChatButton = ({
           service_id: service_id,
           transaction_id: transaction_id,
         })
-        .then(() => {
-          // Invalidate chat rooms cache to refresh the list
+        .then((response) => {
           queryClient.invalidateQueries({ queryKey: ["chat-rooms"] });
-          navigate(`/chat`);
+          const roomId = response.data._id;
+          navigate(roomId ? `/chat?room_id=${roomId}` : "/chat");
         })
         .catch((error) => {
           console.error("Error starting chat:", error);
@@ -723,9 +779,8 @@ export const StartChatButton = ({
               "Chat room already exists for these participants:",
             )
           ) {
-            // Invalidate chat rooms cache even for existing rooms
             queryClient.invalidateQueries({ queryKey: ["chat-rooms"] });
-            navigate(`/chat`);
+            navigate("/chat");
           }
         });
     } catch (error) {
@@ -733,7 +788,12 @@ export const StartChatButton = ({
     }
   };
   return (
-    <Button variant="soft" size="3" onClick={handleStartChat}>
+    <Button
+      variant="soft"
+      size="3"
+      onClick={handleStartChat}
+      disabled={disabled}
+    >
       <ChatBubbleIcon className="w-4 h-4 mr-2" />
       Start Chat
     </Button>

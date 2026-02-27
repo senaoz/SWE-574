@@ -5,7 +5,7 @@ import {
   type MapFilters,
 } from "@/components/map/ServiceMap";
 import { OfferListingCard } from "@/components/ui/OfferListingCard";
-import { servicesApi, usersApi } from "@/services/api";
+import { servicesApi, forumApi } from "@/services/api";
 import {
   Button,
   Dialog,
@@ -13,15 +13,23 @@ import {
   Text,
   Flex,
   Card,
-  Callout,
+  Box,
 } from "@radix-ui/themes";
-import { HandIcon, BackpackIcon, Crosshair1Icon } from "@radix-ui/react-icons";
+import {
+  HandIcon,
+  SunIcon,
+  Crosshair1Icon,
+  PlusIcon,
+} from "@radix-ui/react-icons";
+import { usersApi } from "@/services/api";
+import { Callout } from "@radix-ui/themes";
 import { OfferNeedForm } from "@/components/forms/OfferNeedForm";
 import { useFilters } from "@/contexts/FilterContext";
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Service } from "@/types";
+import { ForumEvent } from "@/types";
 
 export function Dashboard() {
   const [services, setServices] = useState<Service[]>([]);
@@ -44,6 +52,7 @@ export function Dashboard() {
     enabled: !!localStorage.getItem("access_token"),
     retry: false,
   });
+  const [forumEvents, setForumEvents] = useState<ForumEvent[]>([]);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -54,6 +63,13 @@ export function Dashboard() {
       () => {},
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
     );
+  }, []);
+
+  useEffect(() => {
+    forumApi
+      .getEvents({ has_location: true, limit: 200 })
+      .then((r) => setForumEvents(r.data.events || []))
+      .catch(() => setForumEvents([]));
   }, []);
 
   const fetchServices = async () => {
@@ -137,6 +153,11 @@ export function Dashboard() {
     <div>
       <div className="grid grid-cols-1 md:grid-cols-2">
         <div className="pr-4 space-y-2">
+          <CreateServiceDialog
+            onServiceCreated={fetchServices}
+            disabled={!!timebankData?.requires_need_creation}
+          />
+
           {timebankData?.requires_need_creation && (
             <Callout.Root color="amber" className="mb-4">
               <Callout.Icon>
@@ -157,42 +178,7 @@ export function Dashboard() {
               </Button>
             </Callout.Root>
           )}
-          <div className="pb-4 grid grid-cols-1 md:grid-cols-2 gap-2">
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <BackpackIcon className="w-6 h-6 text-purple-500" />
-                <Heading size="5">Create Offer</Heading>
-              </div>
-              <Text size="2">
-                Create an offer to share your skills and services with the
-                community, let others know what you're offering.
-              </Text>
-              <CreateServiceDialog
-                serviceType="offer"
-                onServiceCreated={fetchServices}
-                disabled={!!timebankData?.requires_need_creation}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <HandIcon className="w-6 h-6 text-blue-500" />
-                <Heading size="5">Create Need</Heading>
-              </div>
-              <Text size="2">
-                Create a need to request a service from the community, let
-                others know what you're looking for.
-              </Text>
-              <CreateServiceDialog
-                serviceType="need"
-                onServiceCreated={() => {
-                  fetchServices();
-                  queryClient.invalidateQueries({ queryKey: ["timebank"] });
-                }}
-                open={needDialogOpen}
-                onOpenChange={setNeedDialogOpen}
-              />
-            </div>
-          </div>
+
           {/* Services Count and Results */}
           <Flex gap="2" className="mb-4" direction="column">
             <Flex align="center" gap="2" wrap="wrap">
@@ -301,6 +287,7 @@ export function Dashboard() {
         </div>
         <ServiceMap
           services={displayedServices}
+          events={forumEvents}
           filters={mapFilters}
           onFiltersChange={setMapFilters}
           userPosition={userPosition}
@@ -311,44 +298,71 @@ export function Dashboard() {
 }
 
 function CreateServiceDialog({
-  serviceType,
   onServiceCreated,
-  open: controlledOpen,
-  onOpenChange: controlledOnOpenChange,
   disabled,
 }: {
-  serviceType: "offer" | "need";
   onServiceCreated?: () => void;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
   disabled?: boolean;
 }) {
-  const [internalOpen, setInternalOpen] = useState(false);
-  const isControlled = controlledOnOpenChange != null;
-  const open = isControlled ? (controlledOpen ?? false) : internalOpen;
-  const setOpen = isControlled ? controlledOnOpenChange! : setInternalOpen;
+  const [showDialog, setShowDialog] = useState(false);
+  const [selectedServiceType, setSelectedServiceType] = useState<
+    "offer" | "need"
+  >("offer");
+
   return (
-    <Dialog.Root open={open} onOpenChange={setOpen}>
+    <Dialog.Root open={showDialog} onOpenChange={setShowDialog}>
       <Dialog.Trigger disabled={disabled}>
-        <Button size="3" disabled={disabled}>
-          {serviceType === "offer" ? "Create Offer" : "Create Need"}
+        <Button disabled={disabled} className="add-service-button shadow-lg">
+          <PlusIcon className="w-10 h-10 stroke-4 stroke-black" />
         </Button>
       </Dialog.Trigger>
       <Dialog.Content
-        className="max-w-4xl mx-auto p-12 max-h-[90vh] overflow-y-auto"
+        align="center"
+        size="4"
+        className="p-4 md:p-12 overflow-y-auto"
         aria-describedby={undefined}
+        maxWidth={"80vw"}
+        maxHeight={"80vh"}
       >
+        <div className="pb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Box
+            className={`border-2 rounded-lg hover-card text-center py-4 px-8 ${selectedServiceType === "offer" ? "hover-card-selected offer" : ""}`}
+            onClick={() => setSelectedServiceType("offer")}
+          >
+            <Heading size="5" className="flex items-center justify-center mb-1">
+              <SunIcon className="w-6 h-6 text-orange-500 mr-2" />
+              Offer a Service
+            </Heading>
+            <Text size="2">
+              Share your skills and services with the community, let others know
+              what you're offering.
+            </Text>
+          </Box>
+          <Box
+            className={`border-2 rounded-lg hover-card text-center py-4 px-10 ${selectedServiceType === "need" ? "hover-card-selected need" : ""}`}
+            onClick={() => setSelectedServiceType("need")}
+          >
+            <Heading size="5" className="flex items-center justify-center mb-1">
+              <HandIcon className="w-6 h-6 text-blue-500 mr-2" />
+              Need a Service
+            </Heading>
+            <Text size="2">
+              Request a service from the community, let others know what you're
+              looking for.
+            </Text>
+          </Box>
+        </div>
         <OfferNeedForm
-          serviceType={serviceType}
+          serviceType={selectedServiceType}
           onSuccess={() => {
-            setOpen(false);
+            setShowDialog(false);
             // Refresh services list after successful creation
             if (onServiceCreated) {
               onServiceCreated();
             }
           }}
           onClose={() => {
-            setOpen(false);
+            setShowDialog(false);
           }}
         />
       </Dialog.Content>

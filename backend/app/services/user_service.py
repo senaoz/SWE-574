@@ -249,7 +249,7 @@ class UserService:
             return False
 
     async def get_all_timebank_transactions(self, page: int = 1, limit: int = 50) -> Tuple[List[dict], int]:
-        """Get all TimeBank transactions with user info (admin only)"""
+        """Get all TimeBank transactions with user info (admin or moderator only)"""
         try:
             skip = (page - 1) * limit
             total = await self.transactions_collection.count_documents({})
@@ -284,7 +284,7 @@ class UserService:
             raise ValueError(f"Error getting all TimeBank transactions: {str(e)}")
 
     async def update_user_role(self, user_id: str, role_update: UserRoleUpdate) -> Optional[UserResponse]:
-        """Update user role (admin only)"""
+        """Update user role (admin or moderator only)"""
         try:
             update_data = {
                 "role": role_update.role,

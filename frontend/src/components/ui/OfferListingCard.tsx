@@ -62,14 +62,15 @@ export function OfferListingCard({ service }: { service: Service }) {
 
   return (
     <Card
-      className="p-4 hover:shadow-md hover:cursor-pointer transition-shadow duration-200 flex flex-col h-full gap-2"
+      size="2"
+      className="hover-card flex flex-col h-full gap-2"
       onClick={handleCardClick}
     >
       {/* Header with title and status */}
       <div className="flex gap-2 flex-wrap">
         <StatusBadge status={service.status} size="1" variant="soft" />
         <Badge
-          color={service?.service_type === "offer" ? "purple" : "blue"}
+          color={service?.service_type === "offer" ? "orange" : "blue"}
           variant="soft"
         >
           {service?.service_type === "offer" ? "OFFER" : "NEED"}

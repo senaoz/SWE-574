@@ -14,7 +14,11 @@ import { Profile } from "@/pages/Profile";
 import { MyServices } from "@/pages/MyServices";
 import { Chat } from "@/pages/Chat";
 import { AdminPanel } from "@/pages/AdminPanel";
+import { Forum } from "@/pages/Forum";
+import { ForumDiscussionDetail } from "@/pages/ForumDiscussionDetail";
+import { ForumEventDetail } from "@/pages/ForumEventDetail";
 import { Layout } from "@/components/layout/Layout";
+import { ScrollToTop } from "@/components/ScrollToTop";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { FilterProvider } from "@/contexts/FilterContext";
 import { useState, createContext, useContext, useEffect } from "react";
@@ -53,7 +57,7 @@ export const useUser = () => {
 
 function App() {
   const [appearance, setAppearance] = useState<"dark" | "light" | "inherit">(
-    "light"
+    "light",
   );
 
   useEffect(() => {
@@ -92,89 +96,123 @@ function App() {
         <FilterProvider>
           <Theme accentColor="lime" radius="full" appearance={appearance}>
             <Router>
-                <Layout>
-                  <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/register" element={<RegisterForm />} />
-                    <Route
-                      path="/dashboard"
-                      element={
-                        <ProtectedRoute
-                          requiredRole="user"
-                          fallbackPath="/?login=true"
-                        >
-                          <Dashboard />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/service/:id"
-                      element={
-                        <ProtectedRoute
-                          requiredRole="user"
-                          fallbackPath="/?login=true"
-                        >
-                          <ServiceDetail />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/user/:userId"
-                      element={
-                        <ProtectedRoute
-                          requiredRole="user"
-                          fallbackPath="/?login=true"
-                        >
-                          <UserDetail />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/profile"
-                      element={
-                        <ProtectedRoute
-                          requiredRole="user"
-                          fallbackPath="/?login=true"
-                        >
-                          <Profile />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/my-services"
-                      element={
-                        <ProtectedRoute
-                          requiredRole="user"
-                          fallbackPath="/?login=true"
-                        >
-                          <MyServices />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/chat"
-                      element={
-                        <ProtectedRoute
-                          requiredRole="user"
-                          fallbackPath="/?login=true"
-                        >
-                          <Chat />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/admin"
-                      element={
-                        <ProtectedRoute requiredRole="admin">
-                          <AdminPanel />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route path="*" element={<Navigate to="/" replace />} />
-                  </Routes>
-                </Layout>
-              </Router>
-            </Theme>
+              <ScrollToTop />
+              <Layout>
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/register" element={<RegisterForm />} />
+                  <Route
+                    path="/dashboard"
+                    element={
+                      <ProtectedRoute
+                        requiredRole="user"
+                        fallbackPath="/?login=true"
+                      >
+                        <Dashboard />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/service/:id"
+                    element={
+                      <ProtectedRoute
+                        requiredRole="user"
+                        fallbackPath="/?login=true"
+                      >
+                        <ServiceDetail />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/user/:userId"
+                    element={
+                      <ProtectedRoute
+                        requiredRole="user"
+                        fallbackPath="/?login=true"
+                      >
+                        <UserDetail />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/profile"
+                    element={
+                      <ProtectedRoute
+                        requiredRole="user"
+                        fallbackPath="/?login=true"
+                      >
+                        <Profile />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/my-services"
+                    element={
+                      <ProtectedRoute
+                        requiredRole="user"
+                        fallbackPath="/?login=true"
+                      >
+                        <MyServices />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/chat"
+                    element={
+                      <ProtectedRoute
+                        requiredRole="user"
+                        fallbackPath="/?login=true"
+                      >
+                        <Chat />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/forum"
+                    element={
+                      <ProtectedRoute
+                        requiredRole="user"
+                        fallbackPath="/?login=true"
+                      >
+                        <Forum />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/forum/discussions/:id"
+                    element={
+                      <ProtectedRoute
+                        requiredRole="user"
+                        fallbackPath="/?login=true"
+                      >
+                        <ForumDiscussionDetail />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/forum/events/:id"
+                    element={
+                      <ProtectedRoute
+                        requiredRole="user"
+                        fallbackPath="/?login=true"
+                      >
+                        <ForumEventDetail />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin"
+                    element={
+                      <ProtectedRoute requiredRole="moderator">
+                        <AdminPanel />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </Layout>
+            </Router>
+          </Theme>
         </FilterProvider>
       </ThemeContext.Provider>
     </UserContext.Provider>

@@ -180,8 +180,10 @@ export function Profile() {
         bio: editForm.bio,
         location: editForm.location,
         profile_picture: editForm.profile_picture || undefined,
-        social_links: Object.keys(socialLinks).length > 0 ? socialLinks : undefined,
-        interests: editForm.interests.length > 0 ? editForm.interests : undefined,
+        social_links:
+          Object.keys(socialLinks).length > 0 ? socialLinks : undefined,
+        interests:
+          editForm.interests.length > 0 ? editForm.interests : undefined,
       };
 
       const response = await usersApi.updateProfile(payload);
@@ -231,7 +233,9 @@ export function Profile() {
   const handleInterestsSave = async (selected: string[]) => {
     setEditForm((prev) => ({ ...prev, interests: selected }));
     try {
-      const response = await usersApi.updateProfile({ interests: selected } as any);
+      const response = await usersApi.updateProfile({
+        interests: selected,
+      } as any);
       setUser(response.data);
     } catch (error) {
       console.error("Error saving interests:", error);
@@ -241,7 +245,7 @@ export function Profile() {
 
   const handleSettingsChange = async (
     field: keyof UserSettings,
-    value: boolean
+    value: boolean,
   ) => {
     const oldSettings = { ...settings };
     const newSettings = { ...settings, [field]: value };
@@ -296,7 +300,7 @@ export function Profile() {
       console.error("Error changing password:", error);
       alert(
         error.response?.data?.detail ||
-          "Failed to change password. Please check your current password."
+          "Failed to change password. Please check your current password.",
       );
     } finally {
       setPasswordLoading(false);
@@ -310,7 +314,7 @@ export function Profile() {
     }
 
     const confirmed = window.confirm(
-      "Are you sure you want to delete your account? This action cannot be undone."
+      "Are you sure you want to delete your account? This action cannot be undone.",
     );
     if (!confirmed) return;
 
@@ -325,7 +329,7 @@ export function Profile() {
       console.error("Error deleting account:", error);
       alert(
         error.response?.data?.detail ||
-          "Failed to delete account. Please check your password."
+          "Failed to delete account. Please check your password.",
       );
     } finally {
       setDeleteLoading(false);
@@ -528,9 +532,14 @@ export function Profile() {
                 </Text>
                 {ratingCount > 0 && averageRating != null ? (
                   <Flex align="center" gap="2">
-                    <RatingStars value={Math.round(averageRating * 10) / 10} readonly size={18} />
+                    <RatingStars
+                      value={Math.round(averageRating * 10) / 10}
+                      readonly
+                      size={18}
+                    />
                     <Text size="2" color="gray">
-                      {averageRating.toFixed(1)} ({ratingCount} rating{ratingCount !== 1 ? "s" : ""})
+                      {averageRating.toFixed(1)} ({ratingCount} rating
+                      {ratingCount !== 1 ? "s" : ""})
                     </Text>
                   </Flex>
                 ) : (
@@ -566,14 +575,16 @@ export function Profile() {
                 </Text>
                 {isEditing ? (
                   <div className="space-y-2">
-                    {([
-                      ["linkedin", "LinkedIn", "https://linkedin.com/in/..."],
-                      ["github", "GitHub", "https://github.com/..."],
-                      ["twitter", "Twitter / X", "https://twitter.com/..."],
-                      ["instagram", "Instagram", "https://instagram.com/..."],
-                      ["website", "Website", "https://yoursite.com"],
-                      ["portfolio", "Portfolio", "https://portfolio.com"],
-                    ] as const).map(([key, label, placeholder]) => (
+                    {(
+                      [
+                        ["linkedin", "LinkedIn", "https://linkedin.com/in/..."],
+                        ["github", "GitHub", "https://github.com/..."],
+                        ["twitter", "Twitter / X", "https://twitter.com/..."],
+                        ["instagram", "Instagram", "https://instagram.com/..."],
+                        ["website", "Website", "https://yoursite.com"],
+                        ["portfolio", "Portfolio", "https://portfolio.com"],
+                      ] as const
+                    ).map(([key, label, placeholder]) => (
                       <div key={key}>
                         <Text size="1" color="gray" className="block mb-0.5">
                           {label}
@@ -581,7 +592,10 @@ export function Profile() {
                         <TextField.Root
                           value={(editForm.social_links as any)[key] || ""}
                           onChange={(e) =>
-                            handleSocialLinkChange(key as keyof SocialLinks, e.target.value)
+                            handleSocialLinkChange(
+                              key as keyof SocialLinks,
+                              e.target.value,
+                            )
                           }
                           placeholder={placeholder}
                           size="1"
@@ -592,33 +606,81 @@ export function Profile() {
                 ) : (
                   <Flex gap="3" wrap="wrap">
                     {user.social_links?.linkedin && (
-                      <a href={user.social_links.linkedin} target="_blank" rel="noopener noreferrer" title="LinkedIn">
-                        <Linkedin size={20} className="text-gray-600 hover:text-blue-600 transition-colors" />
+                      <a
+                        href={user.social_links.linkedin}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="LinkedIn"
+                      >
+                        <Linkedin
+                          size={20}
+                          className="text-gray-600 hover:text-blue-600 transition-colors"
+                        />
                       </a>
                     )}
                     {user.social_links?.github && (
-                      <a href={user.social_links.github} target="_blank" rel="noopener noreferrer" title="GitHub">
-                        <Github size={20} className="text-gray-600 hover:text-gray-900 transition-colors" />
+                      <a
+                        href={user.social_links.github}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="GitHub"
+                      >
+                        <Github
+                          size={20}
+                          className="text-gray-600 hover:text-gray-900 transition-colors"
+                        />
                       </a>
                     )}
                     {user.social_links?.twitter && (
-                      <a href={user.social_links.twitter} target="_blank" rel="noopener noreferrer" title="Twitter / X">
-                        <Twitter size={20} className="text-gray-600 hover:text-sky-500 transition-colors" />
+                      <a
+                        href={user.social_links.twitter}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Twitter / X"
+                      >
+                        <Twitter
+                          size={20}
+                          className="text-gray-600 hover:text-sky-500 transition-colors"
+                        />
                       </a>
                     )}
                     {user.social_links?.instagram && (
-                      <a href={user.social_links.instagram} target="_blank" rel="noopener noreferrer" title="Instagram">
-                        <Instagram size={20} className="text-gray-600 hover:text-pink-500 transition-colors" />
+                      <a
+                        href={user.social_links.instagram}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Instagram"
+                      >
+                        <Instagram
+                          size={20}
+                          className="text-gray-600 hover:text-pink-500 transition-colors"
+                        />
                       </a>
                     )}
                     {user.social_links?.website && (
-                      <a href={user.social_links.website} target="_blank" rel="noopener noreferrer" title="Website">
-                        <Globe size={20} className="text-gray-600 hover:text-green-600 transition-colors" />
+                      <a
+                        href={user.social_links.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Website"
+                      >
+                        <Globe
+                          size={20}
+                          className="text-gray-600 hover:text-green-600 transition-colors"
+                        />
                       </a>
                     )}
                     {user.social_links?.portfolio && (
-                      <a href={user.social_links.portfolio} target="_blank" rel="noopener noreferrer" title="Portfolio">
-                        <Briefcase size={20} className="text-gray-600 hover:text-amber-600 transition-colors" />
+                      <a
+                        href={user.social_links.portfolio}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Portfolio"
+                      >
+                        <Briefcase
+                          size={20}
+                          className="text-gray-600 hover:text-amber-600 transition-colors"
+                        />
                       </a>
                     )}
                     {!user.social_links?.linkedin &&
@@ -627,7 +689,9 @@ export function Profile() {
                       !user.social_links?.instagram &&
                       !user.social_links?.website &&
                       !user.social_links?.portfolio && (
-                        <Text size="2" color="gray">No social links added</Text>
+                        <Text size="2" color="gray">
+                          No social links added
+                        </Text>
                       )}
                   </Flex>
                 )}
@@ -638,7 +702,9 @@ export function Profile() {
               {/* Interests */}
               <div>
                 <Flex justify="between" align="center" mb="3">
-                  <Text size="2" weight="bold">Interests</Text>
+                  <Text size="2" weight="bold">
+                    Interests
+                  </Text>
                   <Button
                     size="1"
                     variant="soft"
@@ -646,7 +712,9 @@ export function Profile() {
                     className="rounded-full"
                     onClick={() => setShowInterestSelector(true)}
                   >
-                    {(user.interests?.length || 0) > 0 ? "Edit" : "Add interests"}
+                    {(user.interests?.length || 0) > 0
+                      ? "Update Interests"
+                      : "Add Interests"}
                   </Button>
                 </Flex>
                 {(user.interests?.length || 0) > 0 ? (
@@ -825,7 +893,7 @@ export function Profile() {
                       onCheckedChange={(checked) =>
                         handleSettingsChange(
                           "service_matches_notifications",
-                          checked
+                          checked,
                         )
                       }
                       disabled={settingsLoading}

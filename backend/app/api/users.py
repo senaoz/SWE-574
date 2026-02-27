@@ -7,7 +7,7 @@ from ..services.user_service import UserService
 from ..services.badge_service import BadgeService
 from ..api.auth import get_current_user
 from ..core.database import get_database
-from ..core.permissions import require_admin
+from ..core.permissions import require_admin, require_moderator_or_admin
 from ..constants.interests import AVAILABLE_INTERESTS
 
 logger = logging.getLogger(__name__)
@@ -154,10 +154,10 @@ async def delete_account(
 @router.get("/role/{role}", response_model=list[UserResponse])
 async def get_users_by_role(
     role: UserRole,
-    current_user: UserResponse = Depends(require_admin()),
+    current_user: UserResponse = Depends(require_moderator_or_admin()),
     db=Depends(get_database)
 ):
-    """Get users by role (admin only)"""
+    """Get users by role (admin or moderator only)"""
     user_service = UserService(db)
     
     users = await user_service.get_users_by_role(role)
@@ -165,10 +165,10 @@ async def get_users_by_role(
 
 @router.get("/", response_model=list[UserResponse])
 async def get_all_users(
-    current_user: UserResponse = Depends(require_admin()),
+    current_user: UserResponse = Depends(require_moderator_or_admin()),
     db=Depends(get_database)
 ):
-    """Get all users (admin only)"""
+    """Get all users (admin or moderator only)"""
     user_service = UserService(db)
     
     try:
@@ -187,10 +187,10 @@ async def get_all_users(
 async def get_all_timebank_transactions(
     page: int = 1,
     limit: int = 50,
-    current_user: UserResponse = Depends(require_admin()),
+    current_user: UserResponse = Depends(require_moderator_or_admin()),
     db=Depends(get_database)
 ):
-    """Get all TimeBank transactions (admin only)"""
+    """Get all TimeBank transactions (admin or moderator only)"""
     user_service = UserService(db)
     
     try:
@@ -229,10 +229,10 @@ async def get_user_badges(
 async def update_user_role(
     user_id: str,
     role_update: UserRoleUpdate,
-    current_user: UserResponse = Depends(require_admin()),
+    current_user: UserResponse = Depends(require_moderator_or_admin()),
     db=Depends(get_database)
 ):
-    """Update user role (admin only)"""
+    """Update user role (admin or moderator only)"""
     user_service = UserService(db)
     
     target_user = await user_service.get_user_by_id(user_id)

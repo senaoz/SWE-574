@@ -29,6 +29,21 @@ export function AdminPanel() {
   const [roleUpdate, setRoleUpdate] = useState<UserRole>("user");
   const queryClient = useQueryClient();
 
+  // Current user (to enforce: moderators cannot change admin roles)
+  const { data: currentUser } = useQuery({
+    queryKey: ["currentUser"],
+    queryFn: () => usersApi.getProfile().then((res) => res.data),
+    enabled: !!localStorage.getItem("access_token"),
+    retry: false,
+  });
+
+  const canEditUserRole = (user: User) => {
+    if (!currentUser) return false;
+    if (currentUser.role === "admin") return true;
+    if (currentUser.role === "moderator" && user.role !== "admin") return true;
+    return false;
+  };
+
   // Fetch all users
   const { data: users, isLoading: usersLoading } = useQuery({
     queryKey: ["admin", "users"],
@@ -126,21 +141,182 @@ export function AdminPanel() {
   ) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Text>Loading admin panel...</Text>
+        <Text>Loading...</Text>
       </div>
     );
   }
 
   return (
-    <>
-      <Card size="4" className="mb-6">
-        <Flex direction="column" gap="4">
-          <Text size="6" weight="bold">
-            Admin Panel
-          </Text>
-          <Text color="gray">Manage users and view system transactions</Text>
-        </Flex>
-      </Card>
+    <div className="flex flex-col gap-4">
+      <Text size="6" weight="bold">
+        Manage Users and Transactions
+      </Text>
+      <Text color="gray">
+        Manage users and view system transactions and TimeBank transactions
+      </Text>
+
+      {analytics ? (
+        <>
+          {/* Summary Cards */}
+          <Grid columns={{ initial: "1", md: "2", lg: "4" }} gap="4">
+            <Card className="p-4">
+              <Text size="2" color="gray" className="block mb-1">
+                Total Services
+              </Text>
+              <Text size="5" weight="bold">
+                {analytics.summary.total_services}
+              </Text>
+              {/*
+                <Flex wrap="wrap" gap="2">
+                {Object.entries(analytics.services_by_status || {}).map(
+                  ([status, count]) => (
+                    <span key={status} className="capitalize">
+                      {status.replace("_", " ")}: {count as number}
+                    </span>
+                  ),
+                )}
+              </Flex>
+               */}
+            </Card>
+            <Card className="p-4">
+              <Text size="2" color="gray" className="block mb-1">
+                Participation Rate
+              </Text>
+              <Text size="5" weight="bold" color="green">
+                {analytics.summary.participation_rate}%
+              </Text>
+            </Card>
+            <Card className="p-4">
+              <Text size="2" color="gray" className="block mb-1">
+                Avg Participants/Service
+              </Text>
+              <Text size="5" weight="bold">
+                {analytics.summary.avg_participants_per_service}
+              </Text>
+            </Card>
+            <Card className="p-4">
+              <Text size="2" color="gray" className="block mb-1">
+                Total Participants
+              </Text>
+              <Text size="5" weight="bold" color="blue">
+                {analytics.summary.total_participants}
+              </Text>
+            </Card>
+          </Grid>
+
+          {/* Participation by Category */}
+          <Card className="p-4">
+            <Text size="4" weight="bold" className="block mb-3">
+              Participation by Category
+            </Text>
+            <Table.Root>
+              <Table.Header>
+                <Table.Row>
+                  <Table.ColumnHeaderCell>Category</Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell>
+                    Total Services
+                  </Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell>
+                    With Participants
+                  </Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell>
+                    Total Participants
+                  </Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell>
+                    Avg Participants
+                  </Table.ColumnHeaderCell>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
+                {Object.entries(analytics.participation_by_category || {}).map(
+                  ([category, data]: [string, any]) => (
+                    <Table.Row key={category}>
+                      <Table.Cell>
+                        <Text weight="medium">{category}</Text>
+                      </Table.Cell>
+                      <Table.Cell>{data.total_services}</Table.Cell>
+                      <Table.Cell>{data.services_with_participants}</Table.Cell>
+                      <Table.Cell>{data.total_participants}</Table.Cell>
+                      <Table.Cell>
+                        {data.avg_participants.toFixed(2)}
+                      </Table.Cell>
+                    </Table.Row>
+                  ),
+                )}
+              </Table.Body>
+            </Table.Root>
+          </Card>
+
+          {/* Max Participants Service */}
+          {analytics.max_participants_service && (
+            <Card className="p-4">
+              <Text size="4" weight="bold" className="block mb-3">
+                Most Popular Service
+              </Text>
+              <Flex direction="column" gap="2">
+                <Text size="3" weight="bold">
+                  {analytics.max_participants_service.title}
+                </Text>
+                <Flex gap="4">
+                  <Text size="2" color="gray">
+                    Participants:{" "}
+                    <Text weight="bold">
+                      {analytics.max_participants_service.participants}/
+                      {analytics.max_participants_service.max_participants}
+                    </Text>
+                  </Text>
+                  <Text size="2" color="gray">
+                    ID: {analytics.max_participants_service.id.slice(-8)}
+                  </Text>
+                </Flex>
+              </Flex>
+            </Card>
+          )}
+
+          {/* Join Request Statistics */}
+          <Card className="p-4">
+            <Text size="4" weight="bold" className="block mb-3">
+              Service Statistics
+            </Text>
+            <Grid columns={{ initial: "1", md: "2", lg: "4" }} gap="4">
+              <div>
+                <Text size="2" color="gray" className="block mb-1">
+                  Total Help Offers
+                </Text>
+                <Text size="4" weight="bold">
+                  {analytics.join_requests.total}
+                </Text>
+              </div>
+              <div>
+                <Text size="2" color="gray" className="block mb-1">
+                  Pending
+                </Text>
+                <Badge color="yellow" size="2">
+                  {analytics.join_requests.pending}
+                </Badge>
+              </div>
+              <div>
+                <Text size="2" color="gray" className="block mb-1">
+                  Approved
+                </Text>
+                <Badge color="green" size="2">
+                  {analytics.join_requests.approved}
+                </Badge>
+              </div>
+              <div>
+                <Text size="2" color="gray" className="block mb-1">
+                  Approval Rate
+                </Text>
+                <Text size="4" weight="bold" color="green">
+                  {analytics.join_requests.approval_rate}%
+                </Text>
+              </div>
+            </Grid>
+          </Card>
+        </>
+      ) : (
+        <Text>Loading analytics...</Text>
+      )}
 
       <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
         <Tabs.List>
@@ -153,7 +329,6 @@ export function AdminPanel() {
           <Tabs.Trigger value="timebank">
             TimeBank Transactions ({timebankTransactions?.total || 0})
           </Tabs.Trigger>
-          <Tabs.Trigger value="analytics">Service Analytics</Tabs.Trigger>
           <Tabs.Trigger value="failed-transactions">
             Failed Transactions ({failedTransactions?.total || 0})
           </Tabs.Trigger>
@@ -232,14 +407,20 @@ export function AdminPanel() {
                       </Table.Cell>
                       <Table.Cell>
                         <Flex gap="2">
-                          <Button
-                            size="1"
-                            variant="soft"
-                            onClick={() => handleRoleUpdate(user)}
-                          >
-                            <Pencil1Icon />
-                            Edit Role
-                          </Button>
+                          {canEditUserRole(user) ? (
+                            <Button
+                              size="1"
+                              variant="soft"
+                              onClick={() => handleRoleUpdate(user)}
+                            >
+                              <Pencil1Icon />
+                              Edit Role
+                            </Button>
+                          ) : (
+                            <Text size="2" color="gray">
+                              —
+                            </Text>
+                          )}
                         </Flex>
                       </Table.Cell>
                     </Table.Row>
@@ -417,192 +598,6 @@ export function AdminPanel() {
                   )}
                 </Table.Body>
               </Table.Root>
-            </Flex>
-          </Card>
-        </Tabs.Content>
-
-        <Tabs.Content value="analytics" className="mt-6">
-          <Card>
-            <Flex direction="column" gap="4">
-              <Text size="5" weight="bold">
-                Service Participation Analytics
-              </Text>
-
-              {analytics ? (
-                <>
-                  {/* Summary Cards */}
-                  <Grid columns={{ initial: "1", md: "2", lg: "4" }} gap="4">
-                    <Card className="p-4">
-                      <Text size="2" color="gray" className="block mb-1">
-                        Total Services
-                      </Text>
-                      <Text size="5" weight="bold">
-                        {analytics.summary.total_services}
-                      </Text>
-                    </Card>
-                    <Card className="p-4">
-                      <Text size="2" color="gray" className="block mb-1">
-                        Participation Rate
-                      </Text>
-                      <Text size="5" weight="bold" color="green">
-                        {analytics.summary.participation_rate}%
-                      </Text>
-                    </Card>
-                    <Card className="p-4">
-                      <Text size="2" color="gray" className="block mb-1">
-                        Avg Participants/Service
-                      </Text>
-                      <Text size="5" weight="bold">
-                        {analytics.summary.avg_participants_per_service}
-                      </Text>
-                    </Card>
-                    <Card className="p-4">
-                      <Text size="2" color="gray" className="block mb-1">
-                        Total Participants
-                      </Text>
-                      <Text size="5" weight="bold" color="blue">
-                        {analytics.summary.total_participants}
-                      </Text>
-                    </Card>
-                  </Grid>
-
-                  {/* Services by Status */}
-                  <Card className="p-4">
-                    <Text size="4" weight="bold" className="block mb-3">
-                      Services by Status
-                    </Text>
-                    <Flex wrap="wrap" gap="2">
-                      {Object.entries(analytics.services_by_status || {}).map(
-                        ([status, count]) => (
-                          <Badge key={status} color="blue" size="2">
-                            {status}: {count as number}
-                          </Badge>
-                        ),
-                      )}
-                    </Flex>
-                  </Card>
-
-                  {/* Participation by Category */}
-                  <Card className="p-4">
-                    <Text size="4" weight="bold" className="block mb-3">
-                      Participation by Category
-                    </Text>
-                    <Table.Root>
-                      <Table.Header>
-                        <Table.Row>
-                          <Table.ColumnHeaderCell>
-                            Category
-                          </Table.ColumnHeaderCell>
-                          <Table.ColumnHeaderCell>
-                            Total Services
-                          </Table.ColumnHeaderCell>
-                          <Table.ColumnHeaderCell>
-                            With Participants
-                          </Table.ColumnHeaderCell>
-                          <Table.ColumnHeaderCell>
-                            Total Participants
-                          </Table.ColumnHeaderCell>
-                          <Table.ColumnHeaderCell>
-                            Avg Participants
-                          </Table.ColumnHeaderCell>
-                        </Table.Row>
-                      </Table.Header>
-                      <Table.Body>
-                        {Object.entries(
-                          analytics.participation_by_category || {},
-                        ).map(([category, data]: [string, any]) => (
-                          <Table.Row key={category}>
-                            <Table.Cell>
-                              <Text weight="medium">{category}</Text>
-                            </Table.Cell>
-                            <Table.Cell>{data.total_services}</Table.Cell>
-                            <Table.Cell>
-                              {data.services_with_participants}
-                            </Table.Cell>
-                            <Table.Cell>{data.total_participants}</Table.Cell>
-                            <Table.Cell>
-                              {data.avg_participants.toFixed(2)}
-                            </Table.Cell>
-                          </Table.Row>
-                        ))}
-                      </Table.Body>
-                    </Table.Root>
-                  </Card>
-
-                  {/* Max Participants Service */}
-                  {analytics.max_participants_service && (
-                    <Card className="p-4">
-                      <Text size="4" weight="bold" className="block mb-3">
-                        Most Popular Service
-                      </Text>
-                      <Flex direction="column" gap="2">
-                        <Text size="3" weight="bold">
-                          {analytics.max_participants_service.title}
-                        </Text>
-                        <Flex gap="4">
-                          <Text size="2" color="gray">
-                            Participants:{" "}
-                            <Text weight="bold">
-                              {analytics.max_participants_service.participants}/
-                              {
-                                analytics.max_participants_service
-                                  .max_participants
-                              }
-                            </Text>
-                          </Text>
-                          <Text size="2" color="gray">
-                            ID:{" "}
-                            {analytics.max_participants_service.id.slice(-8)}
-                          </Text>
-                        </Flex>
-                      </Flex>
-                    </Card>
-                  )}
-
-                  {/* Join Request Statistics */}
-                  <Card className="p-4">
-                    <Text size="4" weight="bold" className="block mb-3">
-                      Service Statistics
-                    </Text>
-                    <Grid columns={{ initial: "1", md: "2", lg: "4" }} gap="4">
-                      <div>
-                        <Text size="2" color="gray" className="block mb-1">
-                          Total Help Offers
-                        </Text>
-                        <Text size="4" weight="bold">
-                          {analytics.join_requests.total}
-                        </Text>
-                      </div>
-                      <div>
-                        <Text size="2" color="gray" className="block mb-1">
-                          Pending
-                        </Text>
-                        <Badge color="yellow" size="2">
-                          {analytics.join_requests.pending}
-                        </Badge>
-                      </div>
-                      <div>
-                        <Text size="2" color="gray" className="block mb-1">
-                          Approved
-                        </Text>
-                        <Badge color="green" size="2">
-                          {analytics.join_requests.approved}
-                        </Badge>
-                      </div>
-                      <div>
-                        <Text size="2" color="gray" className="block mb-1">
-                          Approval Rate
-                        </Text>
-                        <Text size="4" weight="bold" color="green">
-                          {analytics.join_requests.approval_rate}%
-                        </Text>
-                      </div>
-                    </Grid>
-                  </Card>
-                </>
-              ) : (
-                <Text>Loading analytics...</Text>
-              )}
             </Flex>
           </Card>
         </Tabs.Content>
@@ -808,6 +803,6 @@ export function AdminPanel() {
           </Flex>
         </Dialog.Content>
       </Dialog.Root>
-    </>
+    </div>
   );
 }

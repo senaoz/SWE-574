@@ -232,12 +232,11 @@ export function MyServices() {
 
   const handleStartChat = async (transactionId: string) => {
     try {
-      await chatApi.createTransactionChatRoom(transactionId);
-      // Navigate to chat page
-      navigate("/chat");
+      const { data } = await chatApi.createTransactionChatRoom(transactionId);
+      const roomId = data?._id;
+      navigate(roomId ? `/chat?room_id=${roomId}` : "/chat");
     } catch (error) {
       console.error("Error starting chat:", error);
-      // If transaction chat creation fails, try creating a general chat room
       try {
         const currentUserId = localStorage.getItem("access_token")
           ? JSON.parse(
@@ -246,7 +245,6 @@ export function MyServices() {
           : null;
 
         if (currentUserId) {
-          // Find the other participant in the transaction
           const transaction = transactions.find((t) => t._id === transactionId);
           if (transaction) {
             const otherUserId =
@@ -254,7 +252,7 @@ export function MyServices() {
                 ? transaction.requester_id
                 : transaction.provider_id;
 
-            await chatApi.createChatRoom({
+            const { data } = await chatApi.createChatRoom({
               participant_ids: [currentUserId, otherUserId],
               transaction_id: transactionId,
               name: `Transaction Chat - ${
@@ -262,7 +260,8 @@ export function MyServices() {
               }`,
               description: `Chat for transaction involving ${transaction.timebank_hours} hours`,
             });
-            navigate("/chat");
+            const roomId = data?._id;
+            navigate(roomId ? `/chat?room_id=${roomId}` : "/chat");
           }
         }
       } catch (fallbackError) {

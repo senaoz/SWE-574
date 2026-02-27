@@ -6,6 +6,7 @@ import {
   IconButton,
   Flex,
   Avatar,
+  Tooltip,
 } from "@radix-ui/themes";
 import { usersApi } from "@/services/api";
 import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
@@ -22,6 +23,7 @@ import {
   GearIcon,
   HomeIcon,
   AvatarIcon,
+  GlobeIcon,
 } from "@radix-ui/react-icons";
 
 export const useScroll = (threshold: number) => {
@@ -113,37 +115,51 @@ export function Header() {
               />
             ) : (
               <div className="flex items-center space-x-2 ml-2">
-                <IconButton
-                  onClick={() => navigate("/profile")}
-                  style={{ borderRadius: "var(--radius-full)" }}
-                >
-                  {currentUser?.profile_picture ? (
-                    <Avatar
-                      src={currentUser.profile_picture}
-                      fallback={
-                        currentUser.full_name?.[0] || currentUser.username[0]
-                      }
-                      size="1"
-                      radius="full"
-                    />
-                  ) : (
-                    <AvatarIcon className="w-4 h-4" />
+                  <Tooltip content="Profile">
+                      <IconButton
+                          onClick={() => navigate("/profile")}
+                          style={{ borderRadius: "var(--radius-full)" }}
+                      >
+                          {currentUser?.profile_picture ? (
+                              <Avatar
+                                  src={currentUser.profile_picture}
+                                  fallback={
+                                      currentUser.full_name?.[0] || currentUser.username[0]
+                                  }
+                                  size="1"
+                                  radius="full"
+                              />
+                          ) : (
+                              <AvatarIcon className="w-4 h-4" />
+                          )}
+                      </IconButton>
+                  </Tooltip>
+                  <Tooltip content="Dashboard">
+                      <IconButton onClick={() => navigate("/dashboard")}>
+                          <HomeIcon className="w-4 h-4" />
+                      </IconButton>
+                  </Tooltip>
+                  <Tooltip content="Chat">
+                      <IconButton onClick={() => navigate("/chat")}>
+                          <ChatBubbleIcon className="w-4 h-4" />
+                      </IconButton>
+                  </Tooltip>
+                  <Tooltip content="Forum">
+                      <IconButton onClick={() => navigate("/forum")}>
+                          <GlobeIcon className="w-4 h-4" />
+                      </IconButton>
+                  </Tooltip>
+                  {(currentUser?.role === "admin" ||
+                      currentUser?.role === "moderator") && (
+                      <Tooltip content="Admin Panel">
+                          <IconButton
+                              onClick={() => navigate("/admin")}
+                              variant="outline"
+                          >
+                              <GearIcon className="w-4 h-4" />
+                          </IconButton>
+                      </Tooltip>
                   )}
-                </IconButton>
-                <IconButton onClick={() => navigate("/dashboard")}>
-                  <HomeIcon className="w-4 h-4" />
-                </IconButton>
-                <IconButton onClick={() => navigate("/chat")}>
-                  <ChatBubbleIcon className="w-4 h-4" />
-                </IconButton>
-                {currentUser?.role === "admin" && (
-                  <IconButton
-                    onClick={() => navigate("/admin")}
-                    variant="outline"
-                  >
-                    <GearIcon className="w-4 h-4" />
-                  </IconButton>
-                )}
               </div>
             )}
           </div>
