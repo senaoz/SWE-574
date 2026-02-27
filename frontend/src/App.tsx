@@ -18,6 +18,7 @@ import { Forum } from "@/pages/Forum";
 import { ForumDiscussionDetail } from "@/pages/ForumDiscussionDetail";
 import { ForumEventDetail } from "@/pages/ForumEventDetail";
 import { Layout } from "@/components/layout/Layout";
+import { ScrollToTop } from "@/components/ScrollToTop";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { FilterProvider } from "@/contexts/FilterContext";
 import { useState, createContext, useContext, useEffect } from "react";
@@ -95,6 +96,7 @@ function App() {
         <FilterProvider>
           <Theme accentColor="lime" radius="full" appearance={appearance}>
             <Router>
+              <ScrollToTop />
               <Layout>
                 <Routes>
                   <Route path="/" element={<Home />} />
