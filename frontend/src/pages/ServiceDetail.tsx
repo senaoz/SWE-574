@@ -767,10 +767,10 @@ export const StartChatButton = ({
           service_id: service_id,
           transaction_id: transaction_id,
         })
-        .then(() => {
-          // Invalidate chat rooms cache to refresh the list
+        .then((response) => {
           queryClient.invalidateQueries({ queryKey: ["chat-rooms"] });
-          navigate(`/chat`);
+          const roomId = response.data._id;
+          navigate(roomId ? `/chat?room_id=${roomId}` : "/chat");
         })
         .catch((error) => {
           console.error("Error starting chat:", error);
@@ -779,9 +779,8 @@ export const StartChatButton = ({
               "Chat room already exists for these participants:",
             )
           ) {
-            // Invalidate chat rooms cache even for existing rooms
             queryClient.invalidateQueries({ queryKey: ["chat-rooms"] });
-            navigate(`/chat`);
+            navigate("/chat");
           }
         });
     } catch (error) {
