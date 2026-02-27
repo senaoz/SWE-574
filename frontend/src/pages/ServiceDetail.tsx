@@ -470,7 +470,11 @@ export function ServiceDetail() {
                 <Flex wrap="wrap" gap="2">
                   {service.tags.map((tag, index) => (
                     <ClickableTag
-                      key={typeof tag === "string" ? tag : tag.entityId || tag.label + index}
+                      key={
+                        typeof tag === "string"
+                          ? tag
+                          : tag.entityId || tag.label + index
+                      }
                       tag={tag}
                       size="2"
                       variant="soft"
@@ -509,7 +513,9 @@ export function ServiceDetail() {
                 ) : (
                   <HandShakeModal
                     service={service}
-                    requiresNeedCreation={timebankData?.requires_need_creation ?? false}
+                    requiresNeedCreation={
+                      timebankData?.requires_need_creation ?? false
+                    }
                     onJoin={() => {
                       // Refresh pending request after joining
                       if (id && currentUserId) {
@@ -549,6 +555,7 @@ export function ServiceDetail() {
               )}
 
               <StartChatButton
+                disabled={service.status !== "active" || isServingUser}
                 otherUserIds={[service.user_id]}
                 service_id={service._id}
                 transaction_id={undefined}
@@ -682,7 +689,11 @@ export function ServiceDetail() {
               </Flex>
             </Card>
           ) : (
-            <ServiceMap services={[service]} height="350px" showFilters={false} />
+            <ServiceMap
+              services={[service]}
+              height="350px"
+              showFilters={false}
+            />
           )}
 
           {/* Linked forum events */}
@@ -727,10 +738,12 @@ export function ServiceDetail() {
 }
 
 export const StartChatButton = ({
+  disabled,
   otherUserIds,
   service_id = undefined,
   transaction_id = undefined,
 }: {
+  disabled: boolean;
   otherUserIds: string[];
   service_id: string | undefined;
   transaction_id: string | undefined;
@@ -776,7 +789,12 @@ export const StartChatButton = ({
     }
   };
   return (
-    <Button variant="soft" size="3" onClick={handleStartChat}>
+    <Button
+      variant="soft"
+      size="3"
+      onClick={handleStartChat}
+      disabled={disabled}
+    >
       <ChatBubbleIcon className="w-4 h-4 mr-2" />
       Start Chat
     </Button>

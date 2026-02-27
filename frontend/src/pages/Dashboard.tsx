@@ -21,24 +21,15 @@ import {
   Crosshair1Icon,
   PlusIcon,
 } from "@radix-ui/react-icons";
-import { servicesApi, usersApi } from "@/services/api";
-import {
-  Button,
-  Dialog,
-  Heading,
-  Text,
-  Flex,
-  Card,
-  Callout,
-} from "@radix-ui/themes";
-import { HandIcon, BackpackIcon, Crosshair1Icon } from "@radix-ui/react-icons";
+import { usersApi } from "@/services/api";
+import { Callout } from "@radix-ui/themes";
 import { OfferNeedForm } from "@/components/forms/OfferNeedForm";
 import { useFilters } from "@/contexts/FilterContext";
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Service } from "@/types";
-import { Service, ForumEvent } from "@/types";
+import { ForumEvent } from "@/types";
 
 export function Dashboard() {
   const [services, setServices] = useState<Service[]>([]);
@@ -162,9 +153,12 @@ export function Dashboard() {
     <div>
       <div className="grid grid-cols-1 md:grid-cols-2">
         <div className="pr-4 space-y-2">
-            <CreateServiceDialog onServiceCreated={fetchServices} disabled={!!timebankData?.requires_need_creation} />
+          <CreateServiceDialog
+            onServiceCreated={fetchServices}
+            disabled={!!timebankData?.requires_need_creation}
+          />
 
-            {timebankData?.requires_need_creation && (
+          {timebankData?.requires_need_creation && (
             <Callout.Root color="amber" className="mb-4">
               <Callout.Icon>
                 <HandIcon />
@@ -303,19 +297,19 @@ export function Dashboard() {
   );
 }
 
-
 function CreateServiceDialog({
-                                 onServiceCreated, disabled,
-                             }: {
-    onServiceCreated?: () => void;
-    disabled?: boolean;
+  onServiceCreated,
+  disabled,
+}: {
+  onServiceCreated?: () => void;
+  disabled?: boolean;
 }) {
-    const [showDialog, setShowDialog] = useState(false);
-    const [selectedServiceType, setSelectedServiceType] = useState<
-        "offer" | "need"
-    >("offer");
+  const [showDialog, setShowDialog] = useState(false);
+  const [selectedServiceType, setSelectedServiceType] = useState<
+    "offer" | "need"
+  >("offer");
 
-    return (
+  return (
     <Dialog.Root open={showDialog} onOpenChange={setShowDialog}>
       <Dialog.Trigger disabled={disabled}>
         <Button disabled={disabled} className="add-service-button shadow-lg">
@@ -358,19 +352,19 @@ function CreateServiceDialog({
             </Text>
           </Box>
         </div>
-          <OfferNeedForm
-              serviceType={selectedServiceType}
-              onSuccess={() => {
-                  setShowDialog(false);
-                  // Refresh services list after successful creation
-                  if (onServiceCreated) {
-                      onServiceCreated();
-                  }
-              }}
-              onClose={() => {
-                  setShowDialog(false);
-              }}
-          />
+        <OfferNeedForm
+          serviceType={selectedServiceType}
+          onSuccess={() => {
+            setShowDialog(false);
+            // Refresh services list after successful creation
+            if (onServiceCreated) {
+              onServiceCreated();
+            }
+          }}
+          onClose={() => {
+            setShowDialog(false);
+          }}
+        />
       </Dialog.Content>
     </Dialog.Root>
   );

@@ -388,7 +388,10 @@ export function ServiceMap({
 
       {/* Legend */}
       {showFilters && (
-        <Card className="absolute bottom-3 left-3 z-[1000] shadow-md" size="1">
+        <Card
+          className="absolute bottom-3 left-3 z-[1000] shadow-md text-gray-800"
+          size="1"
+        >
           <Flex direction="column" gap="2">
             <Text size="1" weight="bold">
               Legend

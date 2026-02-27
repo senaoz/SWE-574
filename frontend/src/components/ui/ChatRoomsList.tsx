@@ -115,11 +115,19 @@ export function ChatRoomsList({
           >
             <div className="flex-1">
               <Text size="3" weight="bold" className="block mb-1 capitalize">
-                {"Chat Room with "}
-                {room.participants
-                  ?.filter((p) => p.id !== currentUserId)
-                  .map((p) => p.full_name)
-                  .join(", ") || "Unknown participants"}
+                {room.participants && room.participants.length > 0
+                  ? (() => {
+                      const others = Array.from(
+                        new Map(
+                          room.participants!.map((p) => [p.id, p])
+                        ).values()
+                      ).filter((p) => String(p.id) !== String(currentUserId));
+                      const names = others.map((p) => p.full_name).join(", ");
+                      return names
+                        ? "Chat Room with " + names
+                        : "Chat Room";
+                    })()
+                  : "Chat Room"}
               </Text>
               {room.description && (
                 <Text size="2" color="gray" className="block mb-2">
