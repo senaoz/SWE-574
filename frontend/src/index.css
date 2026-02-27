@@ -144,3 +144,8 @@ p {
     bottom: 20px;
     right: 20px;
 }
+
+.leaflet-popup-content-wrapper {
+    background-color: var(--color-background) !important;
+    color: var(--color-foreground) !important;
+}
