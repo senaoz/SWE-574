@@ -549,14 +549,22 @@ export function OfferNeedForm({
 
               {/* In person or remote service selection */}
               <Box
-                className={`flex items-center justify-center gap-2 mb-4 border rounded-lg p-2 hover-card text-center cursor-pointer font-medium text-sm ${formData.is_remote ? "" : "bg-gray-100"}`}
+                className={`flex items-center justify-center gap-2 mb-4 border rounded-lg p-2 hover-card text-center cursor-pointer font-medium text-sm`}
                 onClick={() => handleInputChange("is_remote", false)}
+                style={{
+                  backgroundColor: formData.is_remote ? "" : "var(--gray-1)",
+                  borderColor: "var(--gray-3)",
+                }}
               >
                 <Crosshair1Icon className="w-4 h-4" /> In person Service
               </Box>
               <Box
-                className={`flex items-center justify-center gap-2 mb-4 border rounded-lg p-2 hover-card text-center cursor-pointer font-medium text-sm ${formData.is_remote ? "bg-gray-100" : ""}`}
+                className={`flex items-center justify-center gap-2 mb-4 border rounded-lg p-2 hover-card text-center cursor-pointer font-medium text-sm`}
                 onClick={() => handleInputChange("is_remote", true)}
+                style={{
+                  backgroundColor: formData.is_remote ? "var(--gray-1)" : "",
+                  borderColor: "var(--gray-3)",
+                }}
               >
                 <GlobeIcon className="w-4 h-4" />
                 Remote / Online Service
