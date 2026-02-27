@@ -42,6 +42,20 @@ class JoinRequestsRepository @Inject constructor(
         }
     }
 
+    /** Returns current user's pending join request for this service, or null if none / 404. */
+    suspend fun getPendingRequestForService(serviceId: String): Result<JoinRequestResponse?> {
+        return try {
+            val response = api.getPendingRequestForService(serviceId)
+            when {
+                response.isSuccessful && response.body() != null -> Result.success(response.body())
+                response.code() == 404 -> Result.success(null)
+                else -> Result.failure(retrofit2.HttpException(response))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun updateStatus(requestId: String, status: String, adminMessage: String? = null): Result<JoinRequestResponse> {
         return try {
             val response = api.updateStatus(requestId, JoinRequestUpdate(status = status, adminMessage = adminMessage))

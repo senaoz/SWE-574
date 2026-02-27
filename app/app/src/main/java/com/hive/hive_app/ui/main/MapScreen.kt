@@ -92,6 +92,7 @@ fun MapScreen(
             isLoading = detailLoading,
             error = detailError,
             onBack = { selectedServiceId = null },
+            viewModel = detailViewModel,
             modifier = modifier
         )
         return

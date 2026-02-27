@@ -30,6 +30,9 @@ interface JoinRequestsApi {
         @Query("limit") limit: Int = 20
     ): Response<JoinRequestListResponse>
 
+    @GET("join-requests/service/{service_id}/pending")
+    suspend fun getPendingRequestForService(@Path("service_id") serviceId: String): Response<JoinRequestResponse>
+
     @GET("join-requests/{request_id}")
     suspend fun getRequest(@Path("request_id") requestId: String): Response<JoinRequestResponse>
 

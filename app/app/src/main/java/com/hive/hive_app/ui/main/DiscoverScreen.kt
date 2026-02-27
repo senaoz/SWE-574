@@ -70,6 +70,7 @@ fun DiscoverScreen(
             isLoading = detailLoading,
             error = detailError,
             onBack = { selectedServiceId = null },
+            viewModel = detailViewModel,
             modifier = modifier
         )
         return

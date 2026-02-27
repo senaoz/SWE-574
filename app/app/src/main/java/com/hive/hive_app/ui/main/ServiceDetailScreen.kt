@@ -11,11 +11,19 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Image
@@ -50,6 +58,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.hive.hive_app.data.api.dto.JoinRequestResponse
 import com.hive.hive_app.data.api.dto.ServiceResponse
 import com.hive.hive_app.data.api.dto.UserResponse
 import com.hive.hive_app.ui.theme.HiveTheme
@@ -69,6 +78,7 @@ fun ServiceDetailScreen(
     isLoading: Boolean,
     error: String?,
     onBack: () -> Unit = {},
+    viewModel: ServiceDetailViewModel? = null,
     modifier: Modifier = Modifier
 ) {
     when {
@@ -95,6 +105,51 @@ fun ServiceDetailScreen(
             }
         }
         service != null -> {
+            val isOwner by viewModel?.isOwner?.collectAsState(initial = false) ?: remember { mutableStateOf(false) }
+            val joinRequests by viewModel?.joinRequests?.collectAsState(initial = emptyList()) ?: remember { mutableStateOf(emptyList<JoinRequestResponse>()) }
+            val applyMessage by viewModel?.applyMessage?.collectAsState(initial = null) ?: remember { mutableStateOf<String?>(null) }
+            val myJoinRequest by viewModel?.myJoinRequestForService?.collectAsState(initial = null) ?: remember { mutableStateOf<JoinRequestResponse?>(null) }
+            var showApplyDialog by remember { mutableStateOf(false) }
+            var showManageRequests by remember { mutableStateOf(false) }
+            if (showApplyDialog && viewModel != null) {
+                var message by remember { mutableStateOf("") }
+                AlertDialog(
+                    onDismissRequest = { showApplyDialog = false },
+                    title = { Text("Apply") },
+                    text = {
+                        Column {
+                            Text("Add an optional message for the owner.")
+                            OutlinedTextField(
+                                value = message,
+                                onValueChange = { message = it },
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                placeholder = { Text("Message (optional)") },
+                                minLines = 2
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        Button(onClick = {
+                            viewModel.createJoinRequest(service._id, message.takeIf { it.isNotBlank() }) { _, _ ->
+                                showApplyDialog = false
+                            }
+                        }) { Text("Submit") }
+                    },
+                    dismissButton = { TextButton(onClick = { showApplyDialog = false }) { Text("Cancel") } }
+                )
+            }
+            if (showManageRequests && viewModel != null) {
+                ManageRequestsSheet(
+                    requests = joinRequests,
+                    onDismiss = { showManageRequests = false },
+                    onApprove = { req, adminMsg ->
+                        viewModel.updateRequestStatus(req._id, "approved", adminMsg) { showManageRequests = false }
+                    },
+                    onReject = { req, adminMsg ->
+                        viewModel.updateRequestStatus(req._id, "rejected", adminMsg) { showManageRequests = false }
+                    }
+                )
+            }
             Column(
                 modifier = modifier
                     .fillMaxSize()
@@ -283,6 +338,31 @@ fun ServiceDetailScreen(
                         }
                     }
 
+                    // Apply / Manage requests (FR-5)
+                    if (viewModel != null && service.status in listOf("active", "in_progress")) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        if (!isOwner) {
+                            if (myJoinRequest != null) {
+                                StatusChip(status = myJoinRequest!!.status)
+                            } else {
+                                val buttonLabel = if (service.serviceType == "need") "Offer Help" else "Request Service"
+                                Button(onClick = { showApplyDialog = true }) { Text(buttonLabel) }
+                                applyMessage?.let { msg ->
+                                    Text(
+                                        text = msg,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
+                                }
+                            }
+                        } else {
+                            Button(onClick = { showManageRequests = true }) {
+                                Text("Manage join requests (${joinRequests.size})")
+                            }
+                        }
+                    }
+
                     // Meta (created / updated)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
@@ -454,4 +534,73 @@ private fun LabelValue(label: String, value: String) {
             color = MaterialTheme.colorScheme.onSurface
         )
     }
+}
+
+@Composable
+private fun ManageRequestsSheet(
+    requests: List<JoinRequestResponse>,
+    onDismiss: () -> Unit,
+    onApprove: (JoinRequestResponse, String?) -> Unit,
+    onReject: (JoinRequestResponse, String?) -> Unit
+) {
+    var pendingAction by remember { mutableStateOf<Pair<JoinRequestResponse, String>?>(null) }
+    if (pendingAction != null) {
+        val (req, action) = pendingAction!!
+        var adminMsg by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { pendingAction = null },
+            title = { Text(if (action == "approved") "Approve request" else "Reject request") },
+            text = {
+                OutlinedTextField(
+                    value = adminMsg,
+                    onValueChange = { adminMsg = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Message to applicant (optional)") },
+                    minLines = 2
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    if (action == "approved") onApprove(req, adminMsg.takeIf { it.isNotBlank() })
+                    else onReject(req, adminMsg.takeIf { it.isNotBlank() })
+                    pendingAction = null
+                }) { Text("Confirm") }
+            },
+            dismissButton = { TextButton(onClick = { pendingAction = null }) { Text("Cancel") } }
+        )
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Join requests") },
+        text = {
+            if (requests.isEmpty()) {
+                Text("No join requests yet.")
+            } else {
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 400.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(requests, key = { it._id }) { req ->
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text("Request ${req._id.take(8)}… • ${req.status}", style = MaterialTheme.typography.titleSmall)
+                                req.message?.takeIf { it.isNotBlank() }?.let {
+                                    Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
+                                }
+                                if (req.status == "pending") {
+                                    Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Button(onClick = { pendingAction = req to "approved" }) { Text("Approve") }
+                                        OutlinedButton(onClick = { pendingAction = req to "rejected" }) { Text("Reject") }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { Button(onClick = onDismiss) { Text("Close") } }
+    )
 }

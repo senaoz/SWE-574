@@ -24,7 +24,8 @@ class ServicesRepository @Inject constructor(
         latitude: Double? = null,
         longitude: Double? = null,
         radius: Double? = null,
-        userId: String? = null
+        userId: String? = null,
+        serviceStatus: String? = null
     ): Result<com.hive.hive_app.data.api.dto.ServiceListResponse> {
         return try {
             val response = servicesApi.getServices(
@@ -36,7 +37,8 @@ class ServicesRepository @Inject constructor(
                 latitude = latitude,
                 longitude = longitude,
                 radius = radius,
-                userId = userId
+                userId = userId,
+                serviceStatus = serviceStatus
             )
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
