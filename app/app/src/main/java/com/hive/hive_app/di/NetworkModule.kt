@@ -89,4 +89,9 @@ object NetworkModule {
     @Singleton
     fun provideChatApi(retrofit: Retrofit): com.hive.hive_app.data.api.ChatApi =
         retrofit.create(com.hive.hive_app.data.api.ChatApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideForumApi(retrofit: Retrofit): com.hive.hive_app.data.api.ForumApi =
+        retrofit.create(com.hive.hive_app.data.api.ForumApi::class.java)
 }
