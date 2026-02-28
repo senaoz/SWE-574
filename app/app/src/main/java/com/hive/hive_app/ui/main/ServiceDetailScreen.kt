@@ -221,16 +221,18 @@ fun ServiceDetailScreen(
                             )
                         }
                         StatusChip(status = service.status)
-                        Surface(
-                            shape = RoundedCornerShape(percent = 50),
-                            color = HiveTheme.semanticColors.category.copy(alpha = 0.4f)
-                        ) {
-                            Text(
-                                text = service.category,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                            )
+                        (service.category?.takeIf { it.isNotBlank() })?.let { cat ->
+                            Surface(
+                                shape = RoundedCornerShape(percent = 50),
+                                color = HiveTheme.semanticColors.category.copy(alpha = 0.4f)
+                            ) {
+                                Text(
+                                    text = cat,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                )
+                            }
                         }
                     }
 

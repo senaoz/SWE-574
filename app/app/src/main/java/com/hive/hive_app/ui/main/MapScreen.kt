@@ -8,15 +8,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.CardDefaults
@@ -50,6 +44,7 @@ import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.infowindow.BasicInfoWindow
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -121,22 +116,124 @@ fun MapScreen(
     }
 
     var mapView by remember { mutableStateOf<MapView?>(null) }
-    var showListView by remember { mutableStateOf(false) }
-    val listServices = remember(state.services, state.userLat, state.userLon) {
-        val lat = state.userLat
-        val lon = state.userLon
-        if (lat != null && lon != null) {
-            state.services.sortedBy { service ->
-                service.location?.let { loc ->
-                    distanceKm(lat, lon, loc.latitude, loc.longitude)
-                } ?: Double.MAX_VALUE
-            }
-        } else state.services
-    }
 
-    Column(modifier = modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize()) {
+        // Map first so it stays behind the bar
+        AndroidView(
+            factory = {
+                Configuration.getInstance().load(it, it.getSharedPreferences("osmdroid", android.content.Context.MODE_PRIVATE))
+                MapView(it).apply {
+                    id = android.R.id.content
+                    setTileSource(
+                        XYTileSource(
+                            "Carto Voyager",
+                            0,
+                            18,
+                            256,
+                            ".png",
+                            arrayOf("https://a.basemaps.cartocdn.com/rastertiles/voyager/"),
+                            "© CARTO"
+                        )
+                    )
+                    setMultiTouchControls(true)
+                    controller.setZoom(10.0)
+                    mapView = this
+                }
+            },
+            modifier = Modifier.fillMaxSize(),
+            update = { map ->
+                mapView = map
+                map.overlays.clear()
+                if (state.userLat != null && state.userLon != null) {
+                    val myIcon = ContextCompat.getDrawable(context, com.hive.hive_app.R.drawable.ic_my_location)
+                    val userMarker = Marker(map).apply {
+                        position = GeoPoint(state.userLat!!, state.userLon!!)
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                        setIcon(myIcon)
+                        title = "You"
+                    }
+                    map.overlays.add(userMarker)
+                }
+                val pinOffer = ContextCompat.getDrawable(context, com.hive.hive_app.R.drawable.ic_map_pin_offer)?.mutate()
+                val pinNeed = ContextCompat.getDrawable(context, com.hive.hive_app.R.drawable.ic_map_pin_need)?.mutate()
+                val infoWindow = BasicInfoWindow(com.hive.hive_app.R.layout.map_info_window, map)
+                state.services.forEach { service ->
+                    service.location ?: return@forEach
+                    val icon = if (service.serviceType == "offer") pinOffer?.constantState?.newDrawable()?.mutate() ?: pinOffer else pinNeed?.constantState?.newDrawable()?.mutate() ?: pinNeed
+                    val tagsText = service.tags.joinToString(", ") { it.label ?: it.name ?: "" }.takeIf { it.isNotBlank() } ?: ""
+                    val marker = Marker(map).apply {
+                        position = GeoPoint(service.location.latitude, service.location.longitude)
+                        setAnchor(Marker.ANCHOR_BOTTOM, Marker.ANCHOR_CENTER)
+                        setIcon(icon)
+                        title = service.title
+                        snippet = tagsText
+                        setInfoWindow(infoWindow)
+                        setOnMarkerClickListener { _, _ ->
+                            if (isInfoWindowShown) {
+                                if (onServiceSelected != null) onServiceSelected.invoke(service._id)
+                                else selectedServiceId = service._id
+                                closeInfoWindow()
+                                true
+                            } else {
+                                showInfoWindow()
+                                true
+                            }
+                        }
+                    }
+                    map.overlays.add(marker)
+                }
+                when {
+                    state.userLat != null && state.userLon != null -> {
+                        map.controller.setCenter(GeoPoint(state.userLat!!, state.userLon!!))
+                        if (state.sortByDistance) map.controller.setZoom(15.0)
+                        else if (state.services.isEmpty()) map.controller.setZoom(12.0)
+                    }
+                    state.services.isNotEmpty() -> {
+                        val points = state.services.mapNotNull { it.location?.let { loc -> GeoPoint(loc.latitude, loc.longitude) } }
+                        if (points.size == 1) {
+                            map.controller.setCenter(points[0])
+                            map.controller.setZoom(14.0)
+                        } else {
+                            val box = BoundingBox.fromGeoPoints(points)
+                            map.zoomToBoundingBox(box, false, 100)
+                        }
+                    }
+                    else -> {
+                        map.controller.setCenter(GeoPoint(39.0, 32.0))
+                        map.controller.setZoom(4.0)
+                    }
+                }
+                map.invalidate()
+            }
+        )
+        val mapViewRef = mapView
+        DisposableEffect(lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                when (event) {
+                    Lifecycle.Event.ON_RESUME -> mapViewRef?.onResume()
+                    Lifecycle.Event.ON_PAUSE -> mapViewRef?.onPause()
+                    else -> {}
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        }
+        if (state.isLoading && state.services.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        }
+
+        // Top bar drawn on top of map so it never gets covered
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.TopCenter),
             color = MaterialTheme.colorScheme.surface,
             shadowElevation = 4.dp,
             tonalElevation = 1.dp
@@ -147,70 +244,6 @@ fun MapScreen(
                     .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                    horizontalArrangement = Arrangement.spacedBy(0.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(topStart = 10.dp, bottomStart = 10.dp))
-                            .background(
-                                if (showListView) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.surfaceVariant
-                            )
-                            .clickable { showListView = true }
-                            .padding(vertical = 10.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.List,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = if (showListView) MaterialTheme.colorScheme.onPrimary
-                            else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            "List",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = if (showListView) MaterialTheme.colorScheme.onPrimary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(start = 6.dp)
-                        )
-                    }
-                    Row(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(topEnd = 10.dp, bottomEnd = 10.dp))
-                            .background(
-                                if (!showListView) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.surfaceVariant
-                            )
-                            .clickable { showListView = false }
-                            .padding(vertical = 10.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Place,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = if (!showListView) MaterialTheme.colorScheme.onPrimary
-                            else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            "Map",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = if (!showListView) MaterialTheme.colorScheme.onPrimary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(start = 6.dp)
-                        )
-                    }
-                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -243,7 +276,10 @@ fun MapScreen(
         }
         if (state.error != null) {
             Card(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .padding(top = 80.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
             ) {
                 Text(
@@ -253,139 +289,6 @@ fun MapScreen(
                     modifier = Modifier.padding(12.dp)
                 )
             }
-        }
-        if (showListView) {
-            if (state.isLoading && state.services.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(listServices, key = { it._id }) { service ->
-                        val distKm = if (state.userLat != null && state.userLon != null && service.location != null)
-                            distanceKm(state.userLat!!, state.userLon!!, service.location.latitude, service.location.longitude)
-                        else null
-                        MapServiceCard(
-                            service = service,
-                            distanceKm = distKm,
-                            onClick = {
-                                if (onServiceSelected != null) onServiceSelected.invoke(service._id)
-                                else selectedServiceId = service._id
-                            }
-                        )
-                    }
-                }
-            }
-        } else {
-        Box(modifier = Modifier.fillMaxSize()) {
-            AndroidView(
-                factory = {
-                    Configuration.getInstance().load(it, it.getSharedPreferences("osmdroid", android.content.Context.MODE_PRIVATE))
-                    MapView(it).apply {
-                        id = android.R.id.content
-                        setTileSource(
-                            XYTileSource(
-                                "Carto Voyager",
-                                0,
-                                18,
-                                256,
-                                ".png",
-                                arrayOf("https://a.basemaps.cartocdn.com/rastertiles/voyager/"),
-                                "© CARTO"
-                            )
-                        )
-                        setMultiTouchControls(true)
-                        controller.setZoom(10.0)
-                        mapView = this
-                    }
-                },
-                modifier = Modifier.fillMaxSize(),
-                update = { map ->
-                    mapView = map
-                    map.overlays.clear()
-                    if (state.userLat != null && state.userLon != null) {
-                        val myIcon = ContextCompat.getDrawable(context, com.hive.hive_app.R.drawable.ic_my_location)
-                        val userMarker = Marker(map).apply {
-                            position = GeoPoint(state.userLat!!, state.userLon!!)
-                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                            setIcon(myIcon)
-                            title = "You"
-                        }
-                        map.overlays.add(userMarker)
-                    }
-                    val pinOffer = ContextCompat.getDrawable(context, com.hive.hive_app.R.drawable.ic_map_pin_offer)?.mutate()
-                    val pinNeed = ContextCompat.getDrawable(context, com.hive.hive_app.R.drawable.ic_map_pin_need)?.mutate()
-                    state.services.forEach { service ->
-                        service.location ?: return@forEach
-                        val icon = if (service.serviceType == "offer") pinOffer?.constantState?.newDrawable()?.mutate() ?: pinOffer else pinNeed?.constantState?.newDrawable()?.mutate() ?: pinNeed
-                        val marker = Marker(map).apply {
-                            position = GeoPoint(service.location.latitude, service.location.longitude)
-                            setAnchor(Marker.ANCHOR_BOTTOM, Marker.ANCHOR_CENTER)
-                            setIcon(icon)
-                            title = service.title
-                            snippet = service.category
-                            setOnMarkerClickListener { _, _ ->
-                                if (onServiceSelected != null) onServiceSelected.invoke(service._id)
-                                else selectedServiceId = service._id
-                                true
-                            }
-                        }
-                        map.overlays.add(marker)
-                    }
-                    when {
-                        state.userLat != null && state.userLon != null -> {
-                            map.controller.setCenter(GeoPoint(state.userLat!!, state.userLon!!))
-                            if (state.sortByDistance) map.controller.setZoom(15.0)
-                            else if (state.services.isEmpty()) map.controller.setZoom(12.0)
-                        }
-                        state.services.isNotEmpty() -> {
-                            val points = state.services.mapNotNull { it.location?.let { loc -> GeoPoint(loc.latitude, loc.longitude) } }
-                            if (points.size == 1) {
-                                map.controller.setCenter(points[0])
-                                map.controller.setZoom(14.0)
-                            } else {
-                                val box = BoundingBox.fromGeoPoints(points)
-                                map.zoomToBoundingBox(box, false, 100)
-                            }
-                        }
-                        else -> {
-                            map.controller.setCenter(GeoPoint(39.0, 32.0))
-                            map.controller.setZoom(4.0)
-                        }
-                    }
-                    map.invalidate()
-                }
-            )
-            val mapViewRef = mapView
-            DisposableEffect(lifecycleOwner) {
-                val observer = LifecycleEventObserver { _, event ->
-                    when (event) {
-                        Lifecycle.Event.ON_RESUME -> mapViewRef?.onResume()
-                        Lifecycle.Event.ON_PAUSE -> mapViewRef?.onPause()
-                        else -> {}
-                    }
-                }
-                lifecycleOwner.lifecycle.addObserver(observer)
-                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-            }
-            if (state.isLoading && state.services.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
-            }
-        }
         }
     }
 }

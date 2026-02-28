@@ -21,7 +21,7 @@ data class LocationDto(
 data class ServiceCreate(
     val title: String,
     val description: String,
-    val category: String,
+    val category: String? = null,
     val tags: List<TagDto>,
     @Json(name = "estimated_duration") val estimatedDuration: Double,
     val location: LocationDto,
@@ -39,7 +39,7 @@ data class ServiceResponse(
     val _id: String,
     val title: String,
     val description: String,
-    val category: String,
+    val category: String? = null,
     val tags: List<TagDto>,
     @Json(name = "estimated_duration") val estimatedDuration: Double,
     val location: LocationDto,

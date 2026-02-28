@@ -13,6 +13,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.hive.hive_app.ui.main.ActiveItemsScreen
+import com.hive.hive_app.ui.main.ChatScreen
 import com.hive.hive_app.ui.main.DiscoverScreen
 import com.hive.hive_app.ui.main.ForumScreen
 import com.hive.hive_app.ui.main.MapScreen
@@ -46,6 +47,7 @@ fun MainScaffold(
                 MainDestinations.DISCOVER -> DiscoverScreen(Modifier.padding(innerPadding))
                 MainDestinations.MAP -> MapScreen(Modifier.padding(innerPadding))
                 MainDestinations.ACTIVE -> ActiveItemsScreen(Modifier.padding(innerPadding))
+                MainDestinations.CHAT -> ChatScreen(Modifier.padding(innerPadding))
                 MainDestinations.FORUM -> ForumScreen(Modifier.padding(innerPadding))
                 MainDestinations.PROFILE -> ProfileScreen(onLogout = onLogout, modifier = Modifier.padding(innerPadding))
             }

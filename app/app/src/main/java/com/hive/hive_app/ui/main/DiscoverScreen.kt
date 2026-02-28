@@ -299,7 +299,7 @@ private fun DiscoverServiceCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = formatDurationHours(service.estimatedDuration) + " • " + service.status,
+                        text = formatDurationHours(service.estimatedDuration) + " • " + service.status.replace("_", " "),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

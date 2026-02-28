@@ -45,7 +45,7 @@ class DiscoverViewModel @Inject constructor(
         val error: String? = null,
         val filterType: String? = null,
         val searchQuery: String = "",
-        val sortOrder: DiscoverSortOrder = DiscoverSortOrder.DURATION,
+        val sortOrder: DiscoverSortOrder = DiscoverSortOrder.DISTANCE,
         val userLat: Double? = null,
         val userLon: Double? = null,
         val locationPermissionGranted: Boolean = false

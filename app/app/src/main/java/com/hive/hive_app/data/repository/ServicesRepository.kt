@@ -66,7 +66,7 @@ class ServicesRepository @Inject constructor(
     suspend fun createService(
         title: String,
         description: String,
-        category: String,
+        category: String? = null,
         tags: List<TagDto>,
         estimatedDuration: Double,
         location: LocationDto,
