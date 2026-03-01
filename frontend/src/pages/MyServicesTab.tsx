@@ -57,14 +57,17 @@ export function MyServicesTab({
   }
 
   // Group services by status
-  const groupedServices = services.reduce((acc, service) => {
-    const status = service.status;
-    if (!acc[status]) {
-      acc[status] = [];
-    }
-    acc[status].push(service);
-    return acc;
-  }, {} as Record<string, Service[]>);
+  const groupedServices = services.reduce(
+    (acc, service) => {
+      const status = service.status;
+      if (!acc[status]) {
+        acc[status] = [];
+      }
+      acc[status].push(service);
+      return acc;
+    },
+    {} as Record<string, Service[]>,
+  );
 
   // Define status order for display
   const statusOrder = [
@@ -290,11 +293,6 @@ export function MyServicesTab({
                         </Card>
                       )}
 
-                    {console.log(
-                      serviceTransactions[service._id],
-                      currentUserId
-                    )}
-
                     {/* Service Completion Confirmation */}
                     {(service.status === "in_progress" ||
                       service.status === "completed") &&
@@ -324,7 +322,7 @@ export function MyServicesTab({
                                     !transaction.provider_confirmed) ||
                                     (transaction.requester_id ===
                                       currentUserId &&
-                                      !transaction.requester_confirmed))
+                                      !transaction.requester_confirmed)),
                               ) && (
                                 <Button
                                   size="2"
@@ -335,7 +333,7 @@ export function MyServicesTab({
                                       (t) =>
                                         t.status === "pending" &&
                                         t.provider_id === currentUserId &&
-                                        !t.provider_confirmed
+                                        !t.provider_confirmed,
                                     )
                                   }
                                   title={
@@ -353,19 +351,19 @@ export function MyServicesTab({
                                             !transaction.provider_confirmed) ||
                                             (transaction.requester_id ===
                                               currentUserId &&
-                                              !transaction.requester_confirmed))
+                                              !transaction.requester_confirmed)),
                                       );
                                     if (pendingTransactions.length > 0) {
                                       const confirmed = window.confirm(
-                                        `Confirm completion for ${pendingTransactions.length} transaction(s)?`
+                                        `Confirm completion for ${pendingTransactions.length} transaction(s)?`,
                                       );
                                       if (confirmed) {
                                         pendingTransactions.forEach(
                                           (transaction) => {
                                             onConfirmTransactionCompletion(
-                                              transaction._id
+                                              transaction._id,
                                             );
-                                          }
+                                          },
                                         );
                                       }
                                     }
@@ -466,7 +464,7 @@ export function MyServicesTab({
                                           }
                                           onClick={() =>
                                             onConfirmTransactionCompletion(
-                                              transaction._id
+                                              transaction._id,
                                             )
                                           }
                                         >
@@ -476,7 +474,7 @@ export function MyServicesTab({
                                       )}
                                     </Flex>
                                   </Card>
-                                )
+                                ),
                               )}
                             </div>
                           </Flex>
