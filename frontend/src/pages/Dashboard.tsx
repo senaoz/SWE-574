@@ -36,7 +36,7 @@ export function Dashboard() {
   const [filteredServices, setFilteredServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const { searchQuery, selectedCity } = useFilters();
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState("all");
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState("active");
   const [searchParams, setSearchParams] = useSearchParams();
   const tagParam = searchParams.get("tag");
   const [mapFilters, setMapFilters] = useState<MapFilters>(defaultMapFilters);
@@ -113,7 +113,7 @@ export function Dashboard() {
       const decoded = decodeURIComponent(tagParam.trim());
       const isEntityId = /^Q\d+$/i.test(decoded);
       filtered = filtered.filter((service) =>
-        service.tags.some((tag) => {
+        service.tags?.some((tag) => {
           if (typeof tag === "string") return tag === decoded;
           if (isEntityId) return tag.entityId === decoded;
           return tag.label === decoded || tag.entityId === decoded;
@@ -125,14 +125,12 @@ export function Dashboard() {
     if (searchQuery.trim()) {
       filtered = filtered.filter(
         (service) =>
-          service.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          service.description
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          service.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          service.tags.some((tag) => {
+          (service.title || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (service.description || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (service.category || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+          service.tags?.some((tag) => {
             const tagLabel = typeof tag === "string" ? tag : tag.label;
-            return tagLabel.toLowerCase().includes(searchQuery.toLowerCase());
+            return tagLabel?.toLowerCase().includes(searchQuery.toLowerCase());
           }),
       );
     }
@@ -225,7 +223,7 @@ export function Dashboard() {
               <Button
                 size="1"
                 color="gray"
-                variant="outline"
+                variant={selectedStatusFilter === "all" ? "solid" : "outline"}
                 onClick={() => setSelectedStatusFilter("all")}
               >
                 All
@@ -233,7 +231,7 @@ export function Dashboard() {
               <Button
                 size="1"
                 color="green"
-                variant="outline"
+                variant={selectedStatusFilter === "active" ? "solid" : "outline"}
                 onClick={() => setSelectedStatusFilter("active")}
               >
                 Active
@@ -241,7 +239,7 @@ export function Dashboard() {
               <Button
                 size="1"
                 color="blue"
-                variant="outline"
+                variant={selectedStatusFilter === "in_progress" ? "solid" : "outline"}
                 onClick={() => setSelectedStatusFilter("in_progress")}
               >
                 In Progress
@@ -249,7 +247,7 @@ export function Dashboard() {
               <Button
                 size="1"
                 color="gray"
-                variant="outline"
+                variant={selectedStatusFilter === "completed" ? "solid" : "outline"}
                 onClick={() => setSelectedStatusFilter("completed")}
               >
                 Completed
@@ -257,7 +255,7 @@ export function Dashboard() {
               <Button
                 size="1"
                 color="red"
-                variant="outline"
+                variant={selectedStatusFilter === "cancelled" ? "solid" : "outline"}
                 onClick={() => setSelectedStatusFilter("cancelled")}
               >
                 Cancelled
@@ -265,7 +263,7 @@ export function Dashboard() {
               <Button
                 size="1"
                 color="orange"
-                variant="outline"
+                variant={selectedStatusFilter === "expired" ? "solid" : "outline"}
                 onClick={() => setSelectedStatusFilter("expired")}
               >
                 Expired

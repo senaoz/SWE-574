@@ -39,12 +39,12 @@ export function SearchBar({ className = "", onSearchChange }: SearchBarProps) {
       // Filter results on frontend for now (backend search would be better)
       const filteredResults = response.data.services.filter(
         (service: Service) =>
-          service.title.toLowerCase().includes(query.toLowerCase()) ||
-          service.description.toLowerCase().includes(query.toLowerCase()) ||
-          service.category.toLowerCase().includes(query.toLowerCase()) ||
-          service.tags.some((tag) => {
+          (service.title || "").toLowerCase().includes(query.toLowerCase()) ||
+          (service.description || "").toLowerCase().includes(query.toLowerCase()) ||
+          (service.category || "").toLowerCase().includes(query.toLowerCase()) ||
+          service.tags?.some((tag) => {
             const tagLabel = typeof tag === 'string' ? tag : tag.label;
-            return tagLabel.toLowerCase().includes(query.toLowerCase());
+            return tagLabel?.toLowerCase().includes(query.toLowerCase());
           })
       );
 
