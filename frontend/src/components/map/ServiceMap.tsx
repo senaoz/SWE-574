@@ -185,8 +185,11 @@ export function ServiceMap({
       setInternalUserPosition([pos.coords.latitude, pos.coords.longitude]);
     };
     const ipFallback = () => {
-      fetch("https://ipwho.is/")
-        .then((r) => r.json())
+      fetch("https://ipapi.co/json/")
+        .then((r) => {
+          if (!r.ok) throw new Error("IP lookup failed");
+          return r.json();
+        })
         .then((d) => {
           if (d.latitude && d.longitude) setInternalUserPosition([d.latitude, d.longitude]);
           else setInternalUserPosition([41.0082, 28.9784]);

@@ -168,10 +168,13 @@ export function MapLocationPicker({
   };
 
   const getLocationViaIp = () => {
-    fetch("https://ipwho.is/")
-      .then((res) => res.json())
+    fetch("https://ipapi.co/json/")
+      .then((res) => {
+        if (!res.ok) throw new Error("IP lookup failed");
+        return res.json();
+      })
       .then((data) => {
-        if (data.success !== false && data.latitude && data.longitude) {
+        if (data.latitude && data.longitude) {
           handleLocationResult(data.latitude, data.longitude);
         } else {
           setLocationError("Could not determine location.");

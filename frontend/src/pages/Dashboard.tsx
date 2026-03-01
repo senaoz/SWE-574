@@ -58,8 +58,11 @@ export function Dashboard() {
       setUserPosition([pos.coords.latitude, pos.coords.longitude]);
     };
     const ipFallback = () => {
-      fetch("https://ipwho.is/")
-        .then((r) => r.json())
+      fetch("https://ipapi.co/json/")
+        .then((r) => {
+          if (!r.ok) throw new Error("IP lookup failed");
+          return r.json();
+        })
         .then((d) => {
           if (d.latitude && d.longitude) setUserPosition([d.latitude, d.longitude]);
           else setUserPosition([41.0082, 28.9784]);
