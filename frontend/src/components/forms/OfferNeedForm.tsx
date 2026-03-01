@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
   Button,
@@ -15,11 +15,9 @@ import {
 import { Form } from "radix-ui";
 import { servicesApi } from "@/services/api";
 import { ServiceForm, ServiceFormErrors, TagEntity } from "@/types";
-import { TURKISH_CITIES, getCityOptions } from "@/constants/turkishCities";
 import { TagAutocomplete } from "./TagAutocomplete";
 import { MarkdownEditor } from "./MarkdownEditor";
-import { MapContainer, TileLayer, Circle, Marker } from "react-leaflet";
-import L from "leaflet";
+import { MapLocationPicker } from "@/components/ui/MapLocationPicker";
 import { GlobeIcon, Crosshair1Icon } from "@radix-ui/react-icons";
 
 interface OfferNeedFormProps {
@@ -48,8 +46,6 @@ export function OfferNeedForm({
   });
   const [errors, setErrors] = useState<ServiceFormErrors>({});
   const formTopRef = useRef<HTMLDivElement>(null);
-  const [isGettingLocation, setIsGettingLocation] = useState(false);
-  const [useCurrentLocation, setUseCurrentLocation] = useState(true);
   const createServiceMutation = useMutation({
     mutationFn: servicesApi.createService,
     onSuccess: () => {
@@ -125,16 +121,6 @@ export function OfferNeedForm({
     },
   });
 
-  useEffect(() => {
-    if (formData.location.latitude && formData.location.longitude) {
-      const closestCity = findClosestTurkishCity(
-        formData.location.latitude,
-        formData.location.longitude,
-      );
-      handleInputChange("city", (closestCity as any).key || "");
-    }
-  }, [formData.location.latitude, formData.location.longitude]);
-
   const handleInputChange = (field: keyof ServiceForm, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
@@ -170,193 +156,6 @@ export function OfferNeedForm({
     );
   };
 
-  const findClosestTurkishCity = (latitude: number, longitude: number) => {
-    let closestCity: {
-      key: string;
-      latitude: number;
-      longitude: number;
-      address: string;
-    } | null = null;
-    let minDistance = Infinity;
-
-    Object.entries(TURKISH_CITIES).forEach(([key, cityData]) => {
-      const distance = Math.sqrt(
-        Math.pow(cityData.latitude - latitude, 2) +
-          Math.pow(cityData.longitude - longitude, 2),
-      );
-
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestCity = { key, ...cityData };
-      }
-    });
-
-    return closestCity;
-  };
-
-  const getCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      setErrors((prev) => ({
-        ...prev,
-        location: "Geolocation is not supported by this browser",
-      }));
-      return;
-    }
-
-    setIsGettingLocation(true);
-    setErrors((prev) => ({ ...prev, location: undefined }));
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-
-        // Reverse geocoding to get address using OpenStreetMap Nominatim
-        fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
-          {
-            headers: {
-              "User-Agent": "hive-frontend",
-            },
-          },
-        )
-          .then((response) => response.json())
-          .then((data) => {
-            console.log(data);
-            // Build address from Nominatim response
-            const addressParts: string[] = [];
-            if (data.address) {
-              if (data.address.neighbourhood || data.address.suburb) {
-                addressParts.push(
-                  data.address.neighbourhood || data.address.suburb,
-                );
-              }
-              if (
-                data.address.city ||
-                data.address.town ||
-                data.address.village
-              ) {
-                addressParts.push(
-                  data.address.city ||
-                    data.address.town ||
-                    data.address.village,
-                );
-              }
-              if (data.address.state || data.address.region) {
-                addressParts.push(data.address.state || data.address.region);
-              }
-            }
-            const address =
-              addressParts.length > 0
-                ? addressParts.join(", ")
-                : data.display_name || "Current Location";
-
-            // Find the closest Turkish city based on coordinates
-            const closestCity = findClosestTurkishCity(latitude, longitude);
-
-            handleInputChange("location", {
-              latitude,
-              longitude,
-              address: address || "Current Location",
-            });
-
-            // Set the city based on geolocation
-            if (closestCity) {
-              handleInputChange("city", (closestCity as any).key);
-            }
-
-            setIsGettingLocation(false);
-          })
-          .catch((error) => {
-            console.error("Error getting address:", error);
-            handleInputChange("location", {
-              latitude,
-              longitude,
-              address: "Current Location",
-            });
-            setIsGettingLocation(false);
-          });
-      },
-      (error) => {
-        console.error("Error getting location:", error);
-        let errorMessage = "Unable to get your location";
-
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage =
-              "Location access denied. Please enable location permissions.";
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = "Location information unavailable.";
-            break;
-          case error.TIMEOUT:
-            errorMessage = "Location request timed out.";
-            break;
-        }
-
-        setErrors((prev) => ({
-          ...prev,
-          location: errorMessage,
-        }));
-        setIsGettingLocation(false);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 300000, // 5 minutes
-      },
-    );
-  };
-
-  const handleManualAddressChange = (address: string) => {
-    handleInputChange("location", {
-      ...formData.location,
-      address: address,
-    });
-  };
-
-  const geocodeAddress = async (address: string) => {
-    if (!address.trim()) return;
-
-    try {
-      // Using OpenStreetMap Nominatim API
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          address,
-        )}&limit=1`,
-        {
-          headers: {
-            "User-Agent": "hive-frontend",
-          },
-        },
-      );
-      const data = await response.json();
-
-      if (data && data.length > 0) {
-        const result = data[0];
-        handleInputChange("location", {
-          latitude: parseFloat(result.lat),
-          longitude: parseFloat(result.lon),
-          address: address,
-        });
-      } else {
-        // No results found, still allow address to be set
-        handleInputChange("location", {
-          latitude: 0,
-          longitude: 0,
-          address: address,
-        });
-      }
-    } catch (error) {
-      console.error("Error geocoding address:", error);
-      // Still allow the address to be set even if geocoding fails
-      handleInputChange("location", {
-        latitude: 0,
-        longitude: 0,
-        address: address,
-      });
-    }
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -373,18 +172,13 @@ export function OfferNeedForm({
       newErrors.description = "Description is required";
     }
 
-    if (!formData.is_remote && !useCurrentLocation && !formData.city?.trim()) {
-      newErrors.city = "City is required";
-    }
-
     if (
       !formData.is_remote &&
       formData.location.latitude === 0 &&
-      formData.location.longitude === 0 &&
-      !formData.location.address?.trim()
+      formData.location.longitude === 0
     ) {
       newErrors.location =
-        "Please provide your location or get your current location";
+        "Please select a location on the map or search by address";
     }
 
     if (formData.tags.length === 0) {
@@ -572,212 +366,18 @@ export function OfferNeedForm({
             </Grid>
             {/* Location Section */}
             {!formData?.is_remote && (
-              <>
-                <Box className="mb-4">
-                  {/* Toggle between current location and manual address */}
-                  <div className="mb-3 flex items-center align-center gap-2">
-                    <Text size="2">Location</Text>
-                    <Switch
-                      checked={useCurrentLocation}
-                      onCheckedChange={setUseCurrentLocation}
-                    />
-                    <Text size="2">
-                      {useCurrentLocation
-                        ? "Use current location"
-                        : "Enter address manually"}
-                    </Text>
-                  </div>
-
-                  <Form.Field name="location" className="space-y-2 mb-4">
-                    {useCurrentLocation ? (
-                      <Flex gap="2" align="center">
-                        <TextField.Root
-                          placeholder="e.g. Kadıköy, Istanbul or click Get Location"
-                          value={formData.location.address || ""}
-                          readOnly
-                          className="flex-1"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={getCurrentLocation}
-                          disabled={isGettingLocation}
-                          className="whitespace-nowrap"
-                        >
-                          <Crosshair1Icon width="16" height="16" />
-                          {isGettingLocation ? "Getting..." : "Get Location"}
-                        </Button>
-                      </Flex>
-                    ) : (
-                      <Flex gap="2" align="center">
-                        <TextField.Root
-                          placeholder="e.g. 123 Main St, Kadıköy, Istanbul"
-                          value={formData.location.address || ""}
-                          onChange={(e) =>
-                            handleManualAddressChange(e.target.value)
-                          }
-                          onBlur={(e) => {
-                            if (e.target.value.trim()) {
-                              geocodeAddress(e.target.value.trim());
-                            }
-                          }}
-                          className="flex-1"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() =>
-                            geocodeAddress(formData.location.address || "")
-                          }
-                          disabled={!formData.location.address?.trim()}
-                          className="whitespace-nowrap"
-                        >
-                          Find Location
-                        </Button>
-                      </Flex>
-                    )}
-
-                    {errors.location && (
-                      <Text color="red" size="1">
-                        {errors.location}
-                      </Text>
-                    )}
-
-                    {formData.location.latitude !== 0 &&
-                      formData.location.longitude !== 0 && (
-                        <Text color="green" size="1">
-                          ✓ Location set:{" "}
-                          {formData.location.latitude.toFixed(4)},{" "}
-                          {formData.location.longitude.toFixed(4)}
-                        </Text>
-                      )}
-
-                    {formData.location.address &&
-                      formData.location.latitude === 0 &&
-                      formData.location.longitude === 0 && (
-                        <Text color="orange" size="1">
-                          ⚠ Address set but coordinates not found. Location will
-                          be approximate.
-                        </Text>
-                      )}
-
-                    {formData.location.latitude !== 0 &&
-                      formData.location.longitude !== 0 && (
-                        <Box
-                          className="mt-3 rounded-xl overflow-hidden"
-                          style={{ height: 180 }}
-                        >
-                          <MapContainer
-                            center={[
-                              formData.location.latitude,
-                              formData.location.longitude,
-                            ]}
-                            zoom={15}
-                            style={{ height: "100%", width: "100%" }}
-                            scrollWheelZoom={false}
-                          >
-                            <TileLayer
-                              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                              subdomains="abcd"
-                            />
-                            <Circle
-                              center={[
-                                formData.location.latitude,
-                                formData.location.longitude,
-                              ]}
-                              radius={200}
-                              pathOptions={{
-                                color:
-                                  serviceType === "offer"
-                                    ? "#059669"
-                                    : "#dc2626",
-                                fillColor:
-                                  serviceType === "offer"
-                                    ? "#059669"
-                                    : "#dc2626",
-                                fillOpacity: 0.12,
-                                weight: 1.5,
-                              }}
-                            />
-                            <Marker
-                              position={[
-                                formData.location.latitude,
-                                formData.location.longitude,
-                              ]}
-                              icon={L.divIcon({
-                                className: "custom-marker",
-                                html: `<div style="width:20px;height:20px;border-radius:50%;color:white;background-color:${
-                                  serviceType === "offer"
-                                    ? "#059669"
-                                    : "#dc2626"
-                                };display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;">${
-                                  serviceType === "offer" ? "+" : "?"
-                                }</div>`,
-                                iconSize: [20, 20],
-                                iconAnchor: [10, 10],
-                              })}
-                            />
-                          </MapContainer>
-                        </Box>
-                      )}
-                  </Form.Field>
-                </Box>
-
-                <Form.Field
-                  name="city"
-                  className="space-y-2 flex flex-col mb-2"
-                >
-                  <Form.Label className="text-sm">
-                    City *{" "}
-                    {useCurrentLocation && "(Auto-detected from location)"}
-                  </Form.Label>
-                  <Select.Root
-                    value={formData.city}
-                    onValueChange={(value) => {
-                      if (!useCurrentLocation) {
-                        handleInputChange("city", value);
-                        const cityData =
-                          TURKISH_CITIES[value as keyof typeof TURKISH_CITIES];
-                        if (cityData) {
-                          handleInputChange("location", {
-                            latitude: cityData.latitude,
-                            longitude: cityData.longitude,
-                            address: cityData.address,
-                          });
-                        }
-                      }
-                    }}
-                    disabled={useCurrentLocation}
-                  >
-                    <Select.Trigger
-                      className={errors.city ? "border-red-500" : ""}
-                      disabled={useCurrentLocation}
-                    />
-                    <Select.Content>
-                      {getCityOptions().map((city) => (
-                        <Select.Item key={city.value} value={city.value}>
-                          {city.label}
-                        </Select.Item>
-                      ))}
-                    </Select.Content>
-                  </Select.Root>
-                  {errors.city && (
-                    <Text color="red" size="1">
-                      {errors.city}
-                    </Text>
-                  )}
-                  {useCurrentLocation && formData.city && (
-                    <Text color="green" size="1">
-                      ✓ City auto-detected:{" "}
-                      {
-                        TURKISH_CITIES[
-                          formData.city as keyof typeof TURKISH_CITIES
-                        ]?.address
-                      }
-                    </Text>
-                  )}
-                </Form.Field>
-              </>
+              <Box className="mb-4">
+                <Text size="2" weight="medium" className="mb-2 block">
+                  Location *
+                </Text>
+                <MapLocationPicker
+                  value={formData.location}
+                  onChange={(loc) => handleInputChange("location", loc)}
+                  markerColor={serviceType === "offer" ? "#059669" : "#dc2626"}
+                  error={errors.location}
+                  height={220}
+                />
+              </Box>
             )}
           </Box>
 

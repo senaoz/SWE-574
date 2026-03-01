@@ -27,7 +27,7 @@ import { OfferNeedForm } from "@/components/forms/OfferNeedForm";
 import { useFilters } from "@/contexts/FilterContext";
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Service } from "@/types";
 import { ForumEvent } from "@/types";
 
@@ -44,7 +44,6 @@ export function Dashboard() {
     null,
   );
   const [needDialogOpen, setNeedDialogOpen] = useState(false);
-  const queryClient = useQueryClient();
 
   const { data: timebankData } = useQuery({
     queryKey: ["timebank"],
@@ -55,14 +54,24 @@ export function Dashboard() {
   const [forumEvents, setForumEvents] = useState<ForumEvent[]>([]);
 
   useEffect(() => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserPosition([pos.coords.latitude, pos.coords.longitude]);
-      },
-      () => {},
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
-    );
+    const onSuccess = (pos: GeolocationPosition) => {
+      setUserPosition([pos.coords.latitude, pos.coords.longitude]);
+    };
+    const ipFallback = () => {
+      fetch("https://ipwho.is/")
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.latitude && d.longitude) setUserPosition([d.latitude, d.longitude]);
+          else setUserPosition([41.0082, 28.9784]);
+        })
+        .catch(() => setUserPosition([41.0082, 28.9784]));
+    };
+    if (!navigator.geolocation) { ipFallback(); return; }
+    navigator.geolocation.getCurrentPosition(onSuccess, () => ipFallback(), {
+      enableHighAccuracy: false,
+      timeout: 10000,
+      maximumAge: 300000,
+    });
   }, []);
 
   useEffect(() => {

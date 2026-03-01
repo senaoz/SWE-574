@@ -39,6 +39,7 @@ import { BadgeDisplay } from "@/components/ui/BadgeDisplay";
 import { RatingStars } from "@/components/ui/RatingStars";
 import { InterestSelector } from "@/components/ui/InterestSelector";
 import { InterestChip } from "@/components/ui/InterestChip";
+import { MapLocationPicker } from "@/components/ui/MapLocationPicker";
 import {
   Linkedin,
   Github,
@@ -507,13 +508,17 @@ export function Profile() {
                   Location
                 </Text>
                 {isEditing ? (
-                  <TextField.Root
-                    value={editForm.location}
-                    onChange={(e) =>
-                      handleInputChange("location", e.target.value)
+                  <MapLocationPicker
+                    value={{
+                      latitude: 0,
+                      longitude: 0,
+                      address: editForm.location || "",
+                    }}
+                    onChange={(loc) =>
+                      handleInputChange("location", loc.address || "")
                     }
-                    placeholder="Location"
-                    size="2"
+                    height={180}
+                    markerColor="#2563eb"
                   />
                 ) : (
                   <Flex align="center" gap="2">

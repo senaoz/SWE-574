@@ -181,14 +181,24 @@ export function ServiceMap({
   // Get user location via browser API when not provided by parent
   useEffect(() => {
     if (controlledUserPosition !== undefined) return;
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setInternalUserPosition([pos.coords.latitude, pos.coords.longitude]);
-      },
-      () => {},
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
-    );
+    const onSuccess = (pos: GeolocationPosition) => {
+      setInternalUserPosition([pos.coords.latitude, pos.coords.longitude]);
+    };
+    const ipFallback = () => {
+      fetch("https://ipwho.is/")
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.latitude && d.longitude) setInternalUserPosition([d.latitude, d.longitude]);
+          else setInternalUserPosition([41.0082, 28.9784]);
+        })
+        .catch(() => setInternalUserPosition([41.0082, 28.9784]));
+    };
+    if (!navigator.geolocation) { ipFallback(); return; }
+    navigator.geolocation.getCurrentPosition(onSuccess, () => ipFallback(), {
+      enableHighAccuracy: false,
+      timeout: 10000,
+      maximumAge: 300000,
+    });
   }, [controlledUserPosition]);
 
   // When controlled, parent passes already-filtered services; when uncontrolled, filter here
@@ -335,34 +345,44 @@ export function ServiceMap({
             }}
           />
         )}
-        {filteredServices.map((service) => (
-          <React.Fragment key={service._id}>
-            <Circle
-              center={[service.location.latitude, service.location.longitude]}
-              radius={APPROXIMATE_LOCATION_RADIUS_M}
-              pathOptions={{
-                color: service.service_type === "offer" ? "#10B981" : "#EF4444",
-                fillColor:
-                  service.service_type === "offer" ? "#10B981" : "#EF4444",
-                fillOpacity: 0.12,
-                weight: 1.5,
-              }}
-            />
-            <Marker
-              position={[service.location.latitude, service.location.longitude]}
-              icon={service.service_type === "offer" ? offerIcon : needIcon}
-            >
-              <Popup closeButton>
-                <ServicePopupContent
-                  service={service}
-                  formatDuration={formatDuration}
-                  onViewDetails={() => {}}
-                  onClose={() => {}}
+        {filteredServices.map(
+          (service) =>
+            service.is_remote === false && (
+              <React.Fragment key={service._id}>
+                <Circle
+                  center={[
+                    service.location.latitude,
+                    service.location.longitude,
+                  ]}
+                  radius={APPROXIMATE_LOCATION_RADIUS_M}
+                  pathOptions={{
+                    color:
+                      service.service_type === "offer" ? "#10B981" : "#EF4444",
+                    fillColor:
+                      service.service_type === "offer" ? "#10B981" : "#EF4444",
+                    fillOpacity: 0.12,
+                    weight: 1.5,
+                  }}
                 />
-              </Popup>
-            </Marker>
-          </React.Fragment>
-        ))}
+                <Marker
+                  position={[
+                    service.location.latitude,
+                    service.location.longitude,
+                  ]}
+                  icon={service.service_type === "offer" ? offerIcon : needIcon}
+                >
+                  <Popup closeButton>
+                    <ServicePopupContent
+                      service={service}
+                      formatDuration={formatDuration}
+                      onViewDetails={() => {}}
+                      onClose={() => {}}
+                    />
+                  </Popup>
+                </Marker>
+              </React.Fragment>
+            ),
+        )}
         {/* Forum event markers */}
         {filters.showEvents &&
           filteredEvents.map((ev) => (
