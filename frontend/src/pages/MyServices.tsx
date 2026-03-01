@@ -40,11 +40,14 @@ interface MyServicesProps {
     timebank: number;
     applications: number;
   }) => void;
+  /** When tab is "services", filter/scroll to this status (from URL ?status=). */
+  statusFilter?: string;
 }
 
 export function MyServices({
   activeTab: activeTabProp,
   onDataLoad,
+  statusFilter,
 }: MyServicesProps = {}) {
   const navigate = useNavigate();
   const { currentUserId } = useUser();
@@ -554,6 +557,7 @@ export function MyServices({
             onCancelService={handleCancelService}
             onRequestUpdate={fetchData}
             formatDate={formatDate}
+            statusFilter={statusFilter}
           />
         </div>
       )}

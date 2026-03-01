@@ -35,7 +35,7 @@ import {
   SocialLinks,
 } from "@/types";
 import { usersApi, joinRequestsApi, ratingsApi } from "@/services/api";
-import { MyServices, type MyServicesTabValue } from "./MyServices";
+import { MyServices } from "./MyServices";
 import { BadgeDisplay } from "@/components/ui/BadgeDisplay";
 import { RatingStars } from "@/components/ui/RatingStars";
 import { InterestSelector } from "@/components/ui/InterestSelector";
@@ -55,7 +55,7 @@ import {
   UserIcon,
   LucideBriefcase,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
 export function Profile() {
@@ -103,8 +103,6 @@ export function Profile() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showRejectedRequestsDialog, setShowRejectedRequestsDialog] =
     useState(false);
-  const [myservicesTab, setMyservicesTab] =
-    useState<MyServicesTabValue>("services");
   const [myservicesCounts, setMyservicesCounts] = useState({
     services: 0,
     applications: 0,
@@ -113,6 +111,30 @@ export function Profile() {
     transactions: 0,
     saved: 0,
   });
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const profileTabFromUrl = searchParams.get("tab") || "profile";
+  const profileStatusFromUrl = searchParams.get("status") || undefined;
+  const allowedTabs = [
+    "profile",
+    "services",
+    "applications",
+    "transactions",
+    "timebank",
+    "saved",
+  ] as const;
+  const profileTab = allowedTabs.includes(profileTabFromUrl as any)
+    ? profileTabFromUrl
+    : "profile";
+
+  const setProfileTab = (tab: string) => {
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      p.set("tab", tab);
+      if (tab !== "services") p.delete("status");
+      return p;
+    });
+  };
 
   // Fetch rejected requests
   const { data: rejectedRequestsData } = useQuery({
@@ -425,7 +447,10 @@ export function Profile() {
         </Card>
       )}
 
-      <Tabs.Root defaultValue="profile">
+      <Tabs.Root
+        value={profileTab}
+        onValueChange={(v) => setProfileTab(v)}
+      >
         <Tabs.List size="2">
           <Tabs.Trigger value="profile">
             <UserIcon className="w-4 h-4 mr-2" />
@@ -1086,7 +1111,11 @@ export function Profile() {
 
           {/* ── My Services Tab ── */}
           <Tabs.Content value="services">
-            <MyServices activeTab="services" onDataLoad={setMyservicesCounts} />
+            <MyServices
+              activeTab="services"
+              onDataLoad={setMyservicesCounts}
+              statusFilter={profileTab === "services" ? profileStatusFromUrl : undefined}
+            />
           </Tabs.Content>
 
           <Tabs.Content value="applications">

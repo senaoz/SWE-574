@@ -1,4 +1,5 @@
 import { Card, Text, Flex, Badge, Button, Heading } from "@radix-ui/themes";
+import { useEffect } from "react";
 import { Service, Transaction } from "@/types";
 import { ApplicantsList } from "@/components/ui/ApplicantsList";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -24,6 +25,8 @@ interface MyServicesTabProps {
   onCancelService: (serviceId: string) => Promise<void>;
   onRequestUpdate: () => void;
   formatDate: (dateString: string) => string;
+  /** When set (from URL ?status=), scroll to this section and highlight the filter button. */
+  statusFilter?: string;
 }
 
 export function MyServicesTab({
@@ -38,8 +41,18 @@ export function MyServicesTab({
   onCancelService,
   onRequestUpdate,
   formatDate,
+  statusFilter,
 }: MyServicesTabProps) {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!statusFilter) return;
+    const el = document.getElementById(statusFilter.toLowerCase());
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [statusFilter]);
+
   const getServiceTypeLabel = (type: string) => {
     return type === "offer" ? "Offer" : "Need";
   };
@@ -99,12 +112,67 @@ export function MyServicesTab({
 
   return (
     <div className="space-y-8">
+      <div className="flex flex-row gap-2">
+        <Button
+          variant={!statusFilter ? "solid" : "soft"}
+          color="gray"
+          size="2"
+          onClick={() => navigate("/profile?tab=services")}
+        >
+          All
+        </Button>
+        <Button
+          variant={statusFilter === "active" ? "solid" : "soft"}
+          color="gray"
+          size="2"
+          onClick={() => navigate("/profile?tab=services&status=active")}
+          disabled={
+            !groupedServices.active || groupedServices.active.length === 0
+          }
+        >
+          Active
+        </Button>
+        <Button
+          disabled={
+            !groupedServices.in_progress ||
+            groupedServices.in_progress.length === 0
+          }
+          variant={statusFilter === "in_progress" ? "solid" : "soft"}
+          color="gray"
+          size="2"
+          onClick={() => navigate("/profile?tab=services&status=in_progress")}
+        >
+          In Progress
+        </Button>
+        <Button
+          disabled={
+            !groupedServices.completed || groupedServices.completed.length === 0
+          }
+          variant={statusFilter === "completed" ? "solid" : "soft"}
+          color="gray"
+          size="2"
+          onClick={() => navigate("/profile?tab=services&status=completed")}
+        >
+          Completed
+        </Button>
+        <Button
+          disabled={
+            !groupedServices.cancelled || groupedServices.cancelled.length === 0
+          }
+          variant={statusFilter === "cancelled" ? "solid" : "soft"}
+          color="gray"
+          size="2"
+          onClick={() => navigate("/profile?tab=services&status=cancelled")}
+        >
+          Cancelled
+        </Button>
+      </div>
       {statusOrder.map((status) => {
         const servicesInStatus = groupedServices[status] || [];
         if (servicesInStatus.length === 0) return null;
 
         return (
-          <div key={status} className="space-y-4">
+          <div key={status} className="space-y-4" id={status.toLowerCase()}>
             <Flex align="center" gap="3">
               <Heading size="4">{getStatusLabel(status)} Services</Heading>
               <Badge color="gray" size="2">
