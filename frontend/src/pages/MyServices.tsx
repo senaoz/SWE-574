@@ -10,10 +10,12 @@ import {
 } from "@/services/api";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "@/App";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MyServicesTab } from "./MyServicesTab";
 import { MyApplicationsTab } from "./MyApplicationsTab";
 import { MyTransactionsTab } from "./MyTransactionsTab";
 import { MyTimebankTab } from "./MyTimebankTab";
+import { SavedServicesTab } from "./SavedServicesTab";
 
 export function MyServices() {
   const navigate = useNavigate();
@@ -35,6 +37,13 @@ export function MyServices() {
     null
   );
   const [timebankLoading, setTimebankLoading] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data: savedServicesData } = useQuery({
+    queryKey: ["saved-services"],
+    queryFn: () => servicesApi.getSavedServices(1, 50).then((res) => res.data),
+    enabled: !!currentUserId,
+  });
 
   useEffect(() => {
     fetchData();
@@ -501,6 +510,9 @@ export function MyServices() {
             Transactions ({transactions.length})
           </Tabs.Trigger>
           <Tabs.Trigger value="timebank">Timebank Logs</Tabs.Trigger>
+          <Tabs.Trigger value="saved">
+            Saved Items ({savedServicesData?.services?.length ?? 0})
+          </Tabs.Trigger>
         </Tabs.List>
 
         <Tabs.Content value="services" className="mt-6">
@@ -548,6 +560,17 @@ export function MyServices() {
           <MyTimebankTab
             timebankData={timebankData}
             timebankLoading={timebankLoading}
+          />
+        </Tabs.Content>
+
+        <Tabs.Content value="saved" className="mt-6">
+          <SavedServicesTab
+            services={savedServicesData?.services ?? []}
+            onUnsave={async (serviceId) => {
+              await servicesApi.unsaveService(serviceId);
+              queryClient.invalidateQueries({ queryKey: ["saved-services"] });
+              queryClient.invalidateQueries({ queryKey: ["saved-service-ids"] });
+            }}
           />
         </Tabs.Content>
       </Tabs.Root>

@@ -93,6 +93,13 @@ async def create_indexes():
         await db.database.messages.create_index("created_at")
         await db.database.messages.create_index("is_deleted")
         
+        # Saved services indexes
+        await db.database.saved_services.create_index(
+            [("user_id", 1), ("service_id", 1)], unique=True
+        )
+        await db.database.saved_services.create_index("user_id")
+        await db.database.saved_services.create_index("created_at")
+
         # Forum indexes
         await db.database.forum_discussions.create_index("user_id")
         await db.database.forum_discussions.create_index("created_at")

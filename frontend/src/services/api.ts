@@ -161,6 +161,18 @@ export const servicesApi = {
   
   confirmServiceCompletion: (id: string): Promise<AxiosResponse<Service>> =>
     api.post(`/services/${id}/confirm-completion`),
+
+  saveService: (id: string): Promise<AxiosResponse<{ message: string }>> =>
+    api.post(`/services/${id}/save`),
+
+  unsaveService: (id: string): Promise<AxiosResponse<{ message: string }>> =>
+    api.delete(`/services/${id}/save`),
+
+  getSavedServices: (page?: number, limit?: number): Promise<AxiosResponse<ServiceListResponse>> =>
+    api.get('/services/saved', { params: { page, limit } }),
+
+  getSavedServiceIds: (): Promise<AxiosResponse<{ service_ids: string[] }>> =>
+    api.get('/services/saved/ids'),
 };
 
 // Comments API

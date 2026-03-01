@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import status
 from typing import Optional, List
+from datetime import datetime, timezone
 from bson import ObjectId
 
 from ..models.service import (
@@ -84,6 +85,59 @@ async def create_service(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
+@router.get("/saved", response_model=ServiceListResponse)
+async def get_saved_services(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    current_user: UserResponse = Depends(get_current_user),
+    db=Depends(get_database)
+):
+    """Get all services saved by the current user"""
+    try:
+        cursor = db.saved_services.find(
+            {"user_id": str(current_user.id)}
+        ).sort("created_at", -1).skip((page - 1) * limit).limit(limit)
+
+        saved_docs = await cursor.to_list(length=limit)
+        total = await db.saved_services.count_documents({"user_id": str(current_user.id)})
+
+        service_service = ServiceService(db)
+        services = []
+        for doc in saved_docs:
+            try:
+                svc = await service_service.get_service_by_id(doc["service_id"])
+                if svc:
+                    services.append(svc)
+            except Exception:
+                pass
+
+        return ServiceListResponse(
+            services=services,
+            total=total,
+            page=page,
+            limit=limit,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error fetching saved services: {str(e)}"
+        )
+
+
+@router.get("/saved/ids")
+async def get_saved_service_ids(
+    current_user: UserResponse = Depends(get_current_user),
+    db=Depends(get_database)
+):
+    """Get list of service IDs saved by the current user (lightweight check)"""
+    cursor = db.saved_services.find(
+        {"user_id": str(current_user.id)},
+        {"service_id": 1, "_id": 0}
+    )
+    docs = await cursor.to_list(length=500)
+    return {"service_ids": [doc["service_id"] for doc in docs]}
+
 
 @router.get("/{service_id}", response_model=ServiceResponse)
 async def get_service(
@@ -202,6 +256,52 @@ async def delete_service(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Error deleting service: {str(e)}"
         )
+
+@router.post("/{service_id}/save")
+async def save_service(
+    service_id: str,
+    current_user: UserResponse = Depends(get_current_user),
+    db=Depends(get_database)
+):
+    """Save a service for future reference"""
+    if not ObjectId.is_valid(service_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
+
+    service_service = ServiceService(db)
+    svc = await service_service.get_service_by_id(service_id)
+    if not svc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
+
+    existing = await db.saved_services.find_one({
+        "user_id": str(current_user.id),
+        "service_id": service_id
+    })
+    if existing:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Service already saved")
+
+    await db.saved_services.insert_one({
+        "user_id": str(current_user.id),
+        "service_id": service_id,
+        "created_at": datetime.now(timezone.utc),
+    })
+    return {"message": "Service saved successfully"}
+
+
+@router.delete("/{service_id}/save")
+async def unsave_service(
+    service_id: str,
+    current_user: UserResponse = Depends(get_current_user),
+    db=Depends(get_database)
+):
+    """Remove a service from saved items"""
+    result = await db.saved_services.delete_one({
+        "user_id": str(current_user.id),
+        "service_id": service_id
+    })
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Saved service not found")
+    return {"message": "Service unsaved successfully"}
+
 
 @router.post("/{service_id}/match")
 async def match_service(

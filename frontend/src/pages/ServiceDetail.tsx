@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import {
   Card,
   Badge,
@@ -56,6 +56,43 @@ export function ServiceDetail() {
   const [linkedEvents, setLinkedEvents] = useState<ForumEvent[]>([]);
   const [copied, setCopied] = useState(false);
   const { currentUserId } = useUser();
+  const queryClient = useQueryClient();
+
+  const { data: savedIdsData } = useQuery({
+    queryKey: ["saved-service-ids"],
+    queryFn: () => servicesApi.getSavedServiceIds().then((res) => res.data),
+    enabled: !!currentUserId,
+    retry: false,
+  });
+
+  const isSaved = id
+    ? (savedIdsData?.service_ids?.includes(id) ?? false)
+    : false;
+
+  const saveMutation = useMutation({
+    mutationFn: (serviceId: string) => servicesApi.saveService(serviceId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["saved-service-ids"] });
+      queryClient.invalidateQueries({ queryKey: ["saved-services"] });
+    },
+  });
+
+  const unsaveMutation = useMutation({
+    mutationFn: (serviceId: string) => servicesApi.unsaveService(serviceId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["saved-service-ids"] });
+      queryClient.invalidateQueries({ queryKey: ["saved-services"] });
+    },
+  });
+
+  const handleToggleSave = () => {
+    if (!id || !currentUserId) return;
+    if (isSaved) {
+      unsaveMutation.mutate(id);
+    } else {
+      saveMutation.mutate(id);
+    }
+  };
 
   const { data: timebankData } = useQuery({
     queryKey: ["timebank"],
@@ -349,7 +386,11 @@ export function ServiceDetail() {
   const handleNativeShare = async () => {
     if (navigator.share) {
       try {
-        await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: shareUrl,
+        });
       } catch {
         // user cancelled or share failed — ignore
       }
@@ -524,7 +565,7 @@ export function ServiceDetail() {
                 pendingRequest ? (
                   <>
                     <Button color="green" size="3" disabled>
-                      <ClockIcon className="w-4 h-4 mr-2" />
+                      <ClockIcon className="w-4 h-4" />
                       Request Pending
                     </Button>
                     <Button
@@ -583,7 +624,7 @@ export function ServiceDetail() {
                   size="3"
                   disabled={service.status !== "active"}
                 >
-                  <CheckCircledIcon className="w-4 h-4 mr-2" />
+                  <CheckCircledIcon className="w-4 h-4" />
                   You're joining
                 </Button>
               )}
@@ -596,18 +637,24 @@ export function ServiceDetail() {
               />
 
               <Button
-                variant="soft"
+                variant={isSaved ? "solid" : "soft"}
+                color={isSaved ? "red" : undefined}
                 size="3"
-                disabled={service.status !== "active"}
+                onClick={handleToggleSave}
+                disabled={
+                  !currentUserId ||
+                  saveMutation.isPending ||
+                  unsaveMutation.isPending
+                }
               >
-                <HeartIcon className="w-4 h-4 mr-2" />
-                Save
+                <HeartIcon className="w-4 h-4" />
+                {isSaved ? "Saved" : "Save"}
               </Button>
 
               <DropdownMenu.Root>
                 <DropdownMenu.Trigger>
                   <Button variant="soft" size="3">
-                    <Share1Icon className="w-4 h-4 mr-2" />
+                    <Share1Icon className="w-4 h-4" />
                     Share
                   </Button>
                 </DropdownMenu.Trigger>
@@ -700,7 +747,7 @@ export function ServiceDetail() {
                     size="3"
                     onClick={handleConfirmServiceCompletion}
                   >
-                    <CheckCircledIcon className="w-4 h-4 mr-2" />
+                    <CheckCircledIcon className="w-4 h-4" />
                     Confirm I Received This Service
                   </Button>
                 )}
