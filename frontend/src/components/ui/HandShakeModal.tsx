@@ -7,7 +7,6 @@ import {
   Text,
   Card,
   TextArea,
-  Tooltip,
 } from "@radix-ui/themes";
 import { joinRequestsApi } from "@/services/api";
 
@@ -50,7 +49,6 @@ export function HandShakeModal({
     setIsSubmitting(true);
 
     try {
-      // Call the actual backend API
       await joinRequestsApi.createJoinRequest({
         service_id: service._id,
         message: message.trim() || undefined,
@@ -58,9 +56,8 @@ export function HandShakeModal({
 
       setJoinStatus("pending");
       onJoin?.();
-    } catch (error) {
-      console.error("Error creating join request:", error);
-      // You could add error handling here (show error message)
+    } catch {
+      // Error creating join request
     } finally {
       setIsSubmitting(false);
     }
@@ -104,29 +101,24 @@ export function HandShakeModal({
   if (!service?.service_type) return null;
 
   return (
-    <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog.Root
+      open={isOpen}
+      onOpenChange={setIsOpen}
+    >
       <Dialog.Trigger>
-        <Tooltip
-          content={
+        <Button
+          size="3"
+          disabled={service.service_type === "need" && requiresNeedCreation}
+          title={
             service.service_type === "need" && requiresNeedCreation
               ? "Create a Need before you can give help"
-              : "Service Request"
+              : undefined
           }
         >
-          <Button
-            size="3"
-            disabled={service.service_type === "need" && requiresNeedCreation}
-            title={
-              service.service_type === "need" && requiresNeedCreation
-                ? "Create a Need before you can give help"
-                : undefined
-            }
-          >
-            {service.service_type === "offer"
-              ? "Request Service"
-              : "Offer to Help"}
-          </Button>
-        </Tooltip>
+          {service.service_type === "offer"
+            ? "Request Service"
+            : "Offer to Help"}
+        </Button>
       </Dialog.Trigger>
       <Dialog.Content className="max-w-md mx-auto" aria-describedby={undefined}>
         {statusInfo ? (

@@ -483,6 +483,14 @@ export function ServiceDetail() {
                 </Flex>
               </div>
             )}
+
+            {service.service_type === "need" &&
+              timebankData?.requires_need_creation && (
+                <div className="mb-4 bg-red-500 p-2 text-white text-sm rounded-lg">
+                  You need to create a Need before you can give help.
+                </div>
+              )}
+
             {/* Action buttons */}
             <div className="flex flex-wrap gap-3">
               {!isParticipating && !isServingUser ? (

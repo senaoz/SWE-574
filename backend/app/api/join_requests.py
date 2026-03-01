@@ -44,6 +44,8 @@ async def get_pending_request_for_service(
                 detail="No pending request found for this service"
             )
         return request
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -136,6 +138,8 @@ async def get_request(
                 detail="Join request not found"
             )
         return request
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

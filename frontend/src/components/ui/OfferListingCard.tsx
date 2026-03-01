@@ -75,9 +75,6 @@ export function OfferListingCard({ service }: { service: Service }) {
         >
           {service?.service_type === "offer" ? "OFFER" : "NEED"}
         </Badge>
-        <Badge color="yellow" variant="soft">
-          {service?.category}
-        </Badge>
       </div>
       <Text size="1" className="opacity-60">
         Posted {formatDate(service.created_at)}
