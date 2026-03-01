@@ -115,51 +115,60 @@ export function Header() {
               />
             ) : (
               <div className="flex items-center space-x-2 ml-2">
-                  <Tooltip content="Profile">
-                      <IconButton
-                          onClick={() => navigate("/profile")}
-                          style={{ borderRadius: "var(--radius-full)" }}
-                      >
-                          {currentUser?.profile_picture ? (
-                              <Avatar
-                                  src={currentUser.profile_picture}
-                                  fallback={
-                                      currentUser.full_name?.[0] || currentUser.username[0]
-                                  }
-                                  size="1"
-                                  radius="full"
-                              />
-                          ) : (
-                              <AvatarIcon className="w-4 h-4" />
-                          )}
-                      </IconButton>
+                <Tooltip content="Profile">
+                  <IconButton
+                    onClick={() => navigate("/profile")}
+                    style={{ borderRadius: "var(--radius-full)" }}
+                  >
+                    {currentUser?.profile_picture ? (
+                      <Avatar
+                        src={currentUser.profile_picture}
+                        fallback={
+                          currentUser.full_name?.[0] || currentUser.username[0]
+                        }
+                        size="1"
+                        radius="full"
+                      />
+                    ) : (
+                      <AvatarIcon className="w-4 h-4" />
+                    )}
+                  </IconButton>
+                </Tooltip>
+                <Tooltip content="Timebank">
+                  <IconButton
+                    variant="outline"
+                    className="text-sm font-bold"
+                    onClick={() => navigate("/profile?tab=timebank")}
+                  >
+                    {timebankData?.balance}
+                  </IconButton>
+                </Tooltip>
+                <Tooltip content="Dashboard">
+                  <IconButton onClick={() => navigate("/dashboard")}>
+                    <HomeIcon className="w-4 h-4" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip content="Chat">
+                  <IconButton onClick={() => navigate("/chat")}>
+                    <ChatBubbleIcon className="w-4 h-4" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip content="Forum">
+                  <IconButton onClick={() => navigate("/forum")}>
+                    <GlobeIcon className="w-4 h-4" />
+                  </IconButton>
+                </Tooltip>
+                {(currentUser?.role === "admin" ||
+                  currentUser?.role === "moderator") && (
+                  <Tooltip content="Admin Panel">
+                    <IconButton
+                      onClick={() => navigate("/admin")}
+                      variant="outline"
+                    >
+                      <GearIcon className="w-4 h-4" />
+                    </IconButton>
                   </Tooltip>
-                  <Tooltip content="Dashboard">
-                      <IconButton onClick={() => navigate("/dashboard")}>
-                          <HomeIcon className="w-4 h-4" />
-                      </IconButton>
-                  </Tooltip>
-                  <Tooltip content="Chat">
-                      <IconButton onClick={() => navigate("/chat")}>
-                          <ChatBubbleIcon className="w-4 h-4" />
-                      </IconButton>
-                  </Tooltip>
-                  <Tooltip content="Forum">
-                      <IconButton onClick={() => navigate("/forum")}>
-                          <GlobeIcon className="w-4 h-4" />
-                      </IconButton>
-                  </Tooltip>
-                  {(currentUser?.role === "admin" ||
-                      currentUser?.role === "moderator") && (
-                      <Tooltip content="Admin Panel">
-                          <IconButton
-                              onClick={() => navigate("/admin")}
-                              variant="outline"
-                          >
-                              <GearIcon className="w-4 h-4" />
-                          </IconButton>
-                      </Tooltip>
-                  )}
+                )}
               </div>
             )}
           </div>
