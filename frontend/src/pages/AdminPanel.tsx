@@ -204,49 +204,6 @@ export function AdminPanel() {
             </Card>
           </Grid>
 
-          {/* Participation by Category */}
-          <Card className="p-4">
-            <Text size="4" weight="bold" className="block mb-3">
-              Participation by Category
-            </Text>
-            <Table.Root>
-              <Table.Header>
-                <Table.Row>
-                  <Table.ColumnHeaderCell>Category</Table.ColumnHeaderCell>
-                  <Table.ColumnHeaderCell>
-                    Total Services
-                  </Table.ColumnHeaderCell>
-                  <Table.ColumnHeaderCell>
-                    With Participants
-                  </Table.ColumnHeaderCell>
-                  <Table.ColumnHeaderCell>
-                    Total Participants
-                  </Table.ColumnHeaderCell>
-                  <Table.ColumnHeaderCell>
-                    Avg Participants
-                  </Table.ColumnHeaderCell>
-                </Table.Row>
-              </Table.Header>
-              <Table.Body>
-                {Object.entries(analytics.participation_by_category || {}).map(
-                  ([category, data]: [string, any]) => (
-                    <Table.Row key={category}>
-                      <Table.Cell>
-                        <Text weight="medium">{category}</Text>
-                      </Table.Cell>
-                      <Table.Cell>{data.total_services}</Table.Cell>
-                      <Table.Cell>{data.services_with_participants}</Table.Cell>
-                      <Table.Cell>{data.total_participants}</Table.Cell>
-                      <Table.Cell>
-                        {data.avg_participants.toFixed(2)}
-                      </Table.Cell>
-                    </Table.Row>
-                  ),
-                )}
-              </Table.Body>
-            </Table.Root>
-          </Card>
-
           {/* Max Participants Service */}
           {analytics.max_participants_service && (
             <Card className="p-4">

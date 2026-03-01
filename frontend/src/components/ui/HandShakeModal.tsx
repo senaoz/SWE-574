@@ -7,11 +7,14 @@ import {
   Text,
   Card,
   TextArea,
+  Callout,
 } from "@radix-ui/themes";
 import { joinRequestsApi } from "@/services/api";
+import { AxiosError } from "axios";
 
 // @ts-ignore
 import handshakeIcon from "../../assets/handshakeIcon.png";
+import { InfoCircledIcon } from "@radix-ui/react-icons";
 
 interface HandShakeModalProps {
   service: Service;
@@ -31,6 +34,7 @@ export function HandShakeModal({
   const [joinStatus, setJoinStatus] = useState<
     "pending" | "accepted" | "rejected" | null
   >(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const formatDuration = (hours: number) => {
     return `${hours}h`;
   };
@@ -47,6 +51,7 @@ export function HandShakeModal({
 
   const handleJoin = async () => {
     setIsSubmitting(true);
+    setErrorMessage(null);
 
     try {
       await joinRequestsApi.createJoinRequest({
@@ -56,8 +61,18 @@ export function HandShakeModal({
 
       setJoinStatus("pending");
       onJoin?.();
-    } catch {
-      // Error creating join request
+    } catch (err) {
+      const axiosError = err as AxiosError<{
+        detail?: string | { msg: string }[];
+      }>;
+      const detail = axiosError.response?.data?.detail;
+      const errorText =
+        typeof detail === "string"
+          ? detail
+          : Array.isArray(detail) && detail[0]?.msg
+            ? detail[0].msg
+            : "Unable to submit your request. Please try again.";
+      setErrorMessage(errorText);
     } finally {
       setIsSubmitting(false);
     }
@@ -67,6 +82,7 @@ export function HandShakeModal({
     setIsOpen(false);
     setMessage("");
     setJoinStatus(null);
+    setErrorMessage(null);
   };
 
   const getStatusMessage = () => {
@@ -101,10 +117,7 @@ export function HandShakeModal({
   if (!service?.service_type) return null;
 
   return (
-    <Dialog.Root
-      open={isOpen}
-      onOpenChange={setIsOpen}
-    >
+    <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
       <Dialog.Trigger>
         <Button
           size="3"
@@ -159,42 +172,47 @@ export function HandShakeModal({
               </p>
             </Flex>
 
+            {errorMessage && (
+              <Callout.Root color="red" className="mb-4" size="1">
+                <Callout.Icon>
+                  <InfoCircledIcon className="w-4 h-4" />
+                </Callout.Icon>
+                <Callout.Text>{errorMessage}</Callout.Text>
+              </Callout.Root>
+            )}
+
             {/* Service Details Card */}
-            <Card className="mb-6">
+            <Flex
+              direction="column"
+              gap="2"
+              id="service-details"
+              className="mb-6"
+            >
+              <Text size="4" weight="bold" className="flex-1">
+                {service.title}
+              </Text>
+              <Text size="2">{service.description}</Text>
+
               <Flex direction="column" gap="2">
-                <Text size="4" weight="bold" className="flex-1">
-                  {service.title}
-                </Text>
-                <Text size="2">{service.description}</Text>
-
-                <Flex direction="column" gap="2">
-                  <Flex justify="between">
-                    <Text size="2" weight="medium">
-                      Category:
-                    </Text>
-                    <Text size="2">{service.category}</Text>
-                  </Flex>
-
-                  <Flex justify="between">
-                    <Text size="2" weight="medium">
-                      Duration:
-                    </Text>
-                    <Text size="2">
-                      {formatDuration(service.estimated_duration)}
-                    </Text>
-                  </Flex>
-
-                  {service.deadline && (
-                    <Flex justify="between">
-                      <Text size="2" weight="medium">
-                        Deadline:
-                      </Text>
-                      <Text size="2">{formatDate(service.deadline)}</Text>
-                    </Flex>
-                  )}
+                <Flex justify="between">
+                  <Text size="2" weight="medium">
+                    Duration:
+                  </Text>
+                  <Text size="2">
+                    {formatDuration(service.estimated_duration)}
+                  </Text>
                 </Flex>
+
+                {service.deadline && (
+                  <Flex justify="between">
+                    <Text size="2" weight="medium">
+                      Deadline:
+                    </Text>
+                    <Text size="2">{formatDate(service.deadline)}</Text>
+                  </Flex>
+                )}
               </Flex>
-            </Card>
+            </Flex>
 
             {/* Optional message */}
             <div className="mb-6">
@@ -214,7 +232,10 @@ export function HandShakeModal({
               <Button variant="soft" color="gray" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button onClick={handleJoin} disabled={isSubmitting}>
+              <Button
+                onClick={handleJoin}
+                disabled={isSubmitting || !!errorMessage}
+              >
                 {isSubmitting ? "Sending..." : "Confirm"}
               </Button>
             </Flex>

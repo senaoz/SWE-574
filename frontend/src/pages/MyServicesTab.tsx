@@ -283,12 +283,6 @@ export function MyServicesTab({
                     {/* Service details */}
                     <Flex gap="4" wrap="wrap">
                       <Flex align="center" gap="1">
-                        <Text size="2" weight="medium">
-                          Category:
-                        </Text>
-                        <Text size="2">{service.category}</Text>
-                      </Flex>
-                      <Flex align="center" gap="1">
                         <ClockIcon className="w-3 h-3" />
                         <Text size="2">{service.estimated_duration}h</Text>
                       </Flex>

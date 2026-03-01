@@ -40,12 +40,16 @@ export function SearchBar({ className = "", onSearchChange }: SearchBarProps) {
       const filteredResults = response.data.services.filter(
         (service: Service) =>
           (service.title || "").toLowerCase().includes(query.toLowerCase()) ||
-          (service.description || "").toLowerCase().includes(query.toLowerCase()) ||
-          (service.category || "").toLowerCase().includes(query.toLowerCase()) ||
+          (service.description || "")
+            .toLowerCase()
+            .includes(query.toLowerCase()) ||
+          (service.category || "")
+            .toLowerCase()
+            .includes(query.toLowerCase()) ||
           service.tags?.some((tag) => {
-            const tagLabel = typeof tag === 'string' ? tag : tag.label;
+            const tagLabel = typeof tag === "string" ? tag : tag.label;
             return tagLabel?.toLowerCase().includes(query.toLowerCase());
-          })
+          }),
       );
 
       setSearchResults(filteredResults);
@@ -166,12 +170,13 @@ export function SearchBar({ className = "", onSearchChange }: SearchBarProps) {
                             <Badge variant="soft" color="blue">
                               {service.service_type}
                             </Badge>
-                            <Badge variant="outline" color="gray">
-                              {service.category}
-                            </Badge>
                             {service.tags.slice(0, 3).map((tag, index) => (
                               <ClickableTag
-                                key={typeof tag === 'string' ? tag : (tag.entityId || tag.label) + index}
+                                key={
+                                  typeof tag === "string"
+                                    ? tag
+                                    : (tag.entityId || tag.label) + index
+                                }
                                 tag={tag}
                                 size="1"
                                 variant="outline"

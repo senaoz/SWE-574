@@ -25,6 +25,7 @@ import {
   CheckCircledIcon,
   ChatBubbleIcon,
   HeartIcon,
+  HeartFilledIcon,
   Share1Icon,
   ArrowLeftIcon,
   Crosshair1Icon,
@@ -647,7 +648,11 @@ export function ServiceDetail() {
                   unsaveMutation.isPending
                 }
               >
-                <HeartIcon className="w-4 h-4" />
+                {isSaved ? (
+                  <HeartFilledIcon className="w-4 h-4" />
+                ) : (
+                  <HeartIcon className="w-4 h-4" />
+                )}
                 {isSaved ? "Saved" : "Save"}
               </Button>
 
@@ -945,7 +950,7 @@ export const StartChatButton = ({
       onClick={handleStartChat}
       disabled={disabled}
     >
-      <ChatBubbleIcon className="w-4 h-4 mr-2" />
+      <ChatBubbleIcon className="w-4 h-4" />
       Start Chat
     </Button>
   );
