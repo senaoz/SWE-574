@@ -9,6 +9,7 @@ import {
   TrashIcon,
   CrossCircledIcon,
 } from "@radix-ui/react-icons";
+import { useNavigate } from "react-router-dom";
 
 interface MyServicesTabProps {
   services: Service[];
@@ -38,6 +39,7 @@ export function MyServicesTab({
   onRequestUpdate,
   formatDate,
 }: MyServicesTabProps) {
+  const navigate = useNavigate();
   const getServiceTypeLabel = (type: string) => {
     return type === "offer" ? "Offer" : "Need";
   };
@@ -196,7 +198,12 @@ export function MyServicesTab({
                         </Flex>
                       )}
                     </Flex>
-                    <Flex direction="column" gap="1">
+                    <Flex
+                      direction="column"
+                      gap="1"
+                      className="cursor-pointer hover:text-lime-500 transition-colors duration-200"
+                      onClick={() => navigate(`/service/${service._id}`)}
+                    >
                       <Text size="4" weight="bold">
                         {service.title}
                       </Text>

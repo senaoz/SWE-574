@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Text, Tabs } from "@radix-ui/themes";
+import { Tabs } from "@radix-ui/themes";
 import { Service, JoinRequest, Transaction, TimeBankResponse } from "@/types";
 import {
   servicesApi,
@@ -23,7 +23,29 @@ import {
   LucideList,
 } from "lucide-react";
 
-export function MyServices() {
+export type MyServicesTabValue =
+  | "services"
+  | "applications"
+  | "transactions"
+  | "timebank"
+  | "saved";
+
+interface MyServicesProps {
+  activeTab?: MyServicesTabValue;
+  onDataLoad?: (counts: {
+    requests: number;
+    transactions: number;
+    saved: number;
+    services: number;
+    timebank: number;
+    applications: number;
+  }) => void;
+}
+
+export function MyServices({
+  activeTab: activeTabProp,
+  onDataLoad,
+}: MyServicesProps = {}) {
   const navigate = useNavigate();
   const { currentUserId } = useUser();
   const [services, setServices] = useState<Service[]>([]);
@@ -34,7 +56,10 @@ export function MyServices() {
     Record<string, Transaction[]>
   >({});
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("applications");
+  const [activeTab, setActiveTab] =
+    useState<MyServicesTabValue>("applications");
+  const isManagedByParent = activeTabProp !== undefined;
+  const effectiveTab = isManagedByParent ? activeTabProp : activeTab;
   const [serviceTitles, setServiceTitles] = useState<Record<string, string>>(
     {},
   );
@@ -55,6 +80,27 @@ export function MyServices() {
     fetchData();
     fetchTimebankData();
   }, []);
+
+  useEffect(() => {
+    if (!onDataLoad || isLoading) return;
+    onDataLoad({
+      requests: requests.length,
+      transactions: transactions.length,
+      saved: savedServicesData?.services?.length ?? 0,
+      services: services?.length ?? 0,
+      timebank: timebankData?.balance ?? 0,
+      applications: applicationServices.length,
+    });
+  }, [
+    onDataLoad,
+    isLoading,
+    requests.length,
+    transactions.length,
+    savedServicesData?.services?.length,
+    services?.length,
+    applicationServices.length,
+    timebankData?.balance,
+  ]);
 
   const fetchTimebankData = async () => {
     try {
@@ -493,87 +539,145 @@ export function MyServices() {
 
   return (
     <div>
-      <div className="mb-8 grid">
-        <MyServicesTab
-          services={services}
-          serviceTransactions={serviceTransactions}
-          currentUserId={currentUserId}
-          requiresNeedCreation={timebankData?.requires_need_creation ?? false}
-          onSetServiceInProgress={handleSetServiceInProgress}
-          onMarkServiceAsDone={handleMarkServiceAsDone}
-          onConfirmServiceCompletion={handleConfirmServiceCompletion}
-          onConfirmTransactionCompletion={handleConfirmTransactionCompletion}
-          onDeleteService={handleDeleteService}
-          onCancelService={handleCancelService}
-          onRequestUpdate={fetchData}
-          formatDate={formatDate}
-        />
-      </div>
-
-      <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
-        <Tabs.List>
-          <Tabs.Trigger value="applications">
-            <LucideList className="w-4 h-4 mr-2" />
-            My Applications ({requests.length})
-          </Tabs.Trigger>
-          <Tabs.Trigger value="transactions">
-            <LucideArrowLeftRight className="w-4 h-4 mr-2" />
-            Transactions ({transactions.length})
-          </Tabs.Trigger>
-          <Tabs.Trigger value="timebank">
-            <ClockIcon className="w-4 h-4 mr-2" />
-            Timebank Logs
-          </Tabs.Trigger>
-          <Tabs.Trigger value="saved">
-            <BookmarkIcon className="w-4 h-4 mr-2" />
-            Saved Items ({savedServicesData?.services?.length ?? 0})
-          </Tabs.Trigger>
-        </Tabs.List>
-
-        <Tabs.Content value="applications" className="mt-6">
-          <MyApplicationsTab
-            requests={requests}
-            serviceTitles={serviceTitles}
-            services={applicationServices}
-            currentUserId={currentUserId}
-            onServiceClick={handleServiceClick}
-            onConfirmServiceCompletion={handleConfirmServiceCompletion}
-            formatDate={formatDate}
-          />
-        </Tabs.Content>
-
-        <Tabs.Content value="transactions" className="mt-6">
-          <MyTransactionsTab
-            transactions={transactions}
+      {(isManagedByParent ? effectiveTab === "services" : true) && (
+        <div className="mb-8 grid">
+          <MyServicesTab
+            services={services}
+            serviceTransactions={serviceTransactions}
             currentUserId={currentUserId}
             requiresNeedCreation={timebankData?.requires_need_creation ?? false}
+            onSetServiceInProgress={handleSetServiceInProgress}
+            onMarkServiceAsDone={handleMarkServiceAsDone}
+            onConfirmServiceCompletion={handleConfirmServiceCompletion}
             onConfirmTransactionCompletion={handleConfirmTransactionCompletion}
-            onCancelTransaction={handleCancelTransaction}
-            onStartChat={handleStartChat}
+            onDeleteService={handleDeleteService}
+            onCancelService={handleCancelService}
+            onRequestUpdate={fetchData}
             formatDate={formatDate}
           />
-        </Tabs.Content>
+        </div>
+      )}
 
-        <Tabs.Content value="timebank" className="mt-6">
-          <MyTimebankTab
-            timebankData={timebankData}
-            timebankLoading={timebankLoading}
-          />
-        </Tabs.Content>
+      {isManagedByParent ? (
+        <div className="mt-6">
+          {effectiveTab === "applications" && (
+            <MyApplicationsTab
+              requests={requests}
+              serviceTitles={serviceTitles}
+              services={applicationServices}
+              currentUserId={currentUserId}
+              onServiceClick={handleServiceClick}
+              onConfirmServiceCompletion={handleConfirmServiceCompletion}
+              formatDate={formatDate}
+            />
+          )}
+          {effectiveTab === "transactions" && (
+            <MyTransactionsTab
+              transactions={transactions}
+              currentUserId={currentUserId}
+              requiresNeedCreation={
+                timebankData?.requires_need_creation ?? false
+              }
+              onConfirmTransactionCompletion={
+                handleConfirmTransactionCompletion
+              }
+              onCancelTransaction={handleCancelTransaction}
+              onStartChat={handleStartChat}
+              formatDate={formatDate}
+            />
+          )}
+          {effectiveTab === "timebank" && (
+            <MyTimebankTab
+              timebankData={timebankData}
+              timebankLoading={timebankLoading}
+            />
+          )}
+          {effectiveTab === "saved" && (
+            <SavedServicesTab
+              services={savedServicesData?.services ?? []}
+              onUnsave={async (serviceId) => {
+                await servicesApi.unsaveService(serviceId);
+                queryClient.invalidateQueries({ queryKey: ["saved-services"] });
+                queryClient.invalidateQueries({
+                  queryKey: ["saved-service-ids"],
+                });
+              }}
+            />
+          )}
+        </div>
+      ) : (
+        <Tabs.Root
+          value={effectiveTab}
+          onValueChange={(v) => setActiveTab(v as MyServicesTabValue)}
+        >
+          <Tabs.List>
+            <Tabs.Trigger value="applications">
+              <LucideList className="w-4 h-4 mr-2" />
+              My Applications ({requests.length})
+            </Tabs.Trigger>
+            <Tabs.Trigger value="transactions">
+              <LucideArrowLeftRight className="w-4 h-4 mr-2" />
+              Transactions ({transactions.length})
+            </Tabs.Trigger>
+            <Tabs.Trigger value="timebank">
+              <ClockIcon className="w-4 h-4 mr-2" />
+              Timebank Logs
+            </Tabs.Trigger>
+            <Tabs.Trigger value="saved">
+              <BookmarkIcon className="w-4 h-4 mr-2" />
+              Saved Items ({savedServicesData?.services?.length ?? 0})
+            </Tabs.Trigger>
+          </Tabs.List>
 
-        <Tabs.Content value="saved" className="mt-6">
-          <SavedServicesTab
-            services={savedServicesData?.services ?? []}
-            onUnsave={async (serviceId) => {
-              await servicesApi.unsaveService(serviceId);
-              queryClient.invalidateQueries({ queryKey: ["saved-services"] });
-              queryClient.invalidateQueries({
-                queryKey: ["saved-service-ids"],
-              });
-            }}
-          />
-        </Tabs.Content>
-      </Tabs.Root>
+          <Tabs.Content value="applications" className="mt-6">
+            <MyApplicationsTab
+              requests={requests}
+              serviceTitles={serviceTitles}
+              services={applicationServices}
+              currentUserId={currentUserId}
+              onServiceClick={handleServiceClick}
+              onConfirmServiceCompletion={handleConfirmServiceCompletion}
+              formatDate={formatDate}
+            />
+          </Tabs.Content>
+
+          <Tabs.Content value="transactions" className="mt-6">
+            <MyTransactionsTab
+              transactions={transactions}
+              currentUserId={currentUserId}
+              requiresNeedCreation={
+                timebankData?.requires_need_creation ?? false
+              }
+              onConfirmTransactionCompletion={
+                handleConfirmTransactionCompletion
+              }
+              onCancelTransaction={handleCancelTransaction}
+              onStartChat={handleStartChat}
+              formatDate={formatDate}
+            />
+          </Tabs.Content>
+
+          <Tabs.Content value="timebank" className="mt-6">
+            <MyTimebankTab
+              timebankData={timebankData}
+              timebankLoading={timebankLoading}
+            />
+          </Tabs.Content>
+
+          <Tabs.Content value="saved" className="mt-6">
+            <SavedServicesTab
+              services={savedServicesData?.services ?? []}
+              onUnsave={async (serviceId) => {
+                await servicesApi.unsaveService(serviceId);
+                queryClient.invalidateQueries({ queryKey: ["saved-services"] });
+                queryClient.invalidateQueries({
+                  queryKey: ["saved-service-ids"],
+                });
+              }}
+            />
+          </Tabs.Content>
+        </Tabs.Root>
+      )}
     </div>
   );
 }

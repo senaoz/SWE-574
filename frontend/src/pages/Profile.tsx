@@ -35,7 +35,7 @@ import {
   SocialLinks,
 } from "@/types";
 import { usersApi, joinRequestsApi, ratingsApi } from "@/services/api";
-import { MyServices } from "./MyServices";
+import { MyServices, type MyServicesTabValue } from "./MyServices";
 import { BadgeDisplay } from "@/components/ui/BadgeDisplay";
 import { RatingStars } from "@/components/ui/RatingStars";
 import { InterestSelector } from "@/components/ui/InterestSelector";
@@ -48,6 +48,12 @@ import {
   Instagram,
   Globe,
   Briefcase,
+  BookmarkIcon,
+  ClockIcon,
+  LucideArrowLeftRight,
+  LucideList,
+  UserIcon,
+  LucideBriefcase,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -97,6 +103,16 @@ export function Profile() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showRejectedRequestsDialog, setShowRejectedRequestsDialog] =
     useState(false);
+  const [myservicesTab, setMyservicesTab] =
+    useState<MyServicesTabValue>("services");
+  const [myservicesCounts, setMyservicesCounts] = useState({
+    services: 0,
+    applications: 0,
+    timebank: 0,
+    requests: 0,
+    transactions: 0,
+    saved: 0,
+  });
 
   // Fetch rejected requests
   const { data: rejectedRequestsData } = useQuery({
@@ -411,8 +427,30 @@ export function Profile() {
 
       <Tabs.Root defaultValue="profile">
         <Tabs.List size="2">
-          <Tabs.Trigger value="profile">Profile</Tabs.Trigger>
-          <Tabs.Trigger value="services">My Services</Tabs.Trigger>
+          <Tabs.Trigger value="profile">
+            <UserIcon className="w-4 h-4 mr-2" />
+            Profile
+          </Tabs.Trigger>
+          <Tabs.Trigger value="services">
+            <LucideBriefcase className="w-4 h-4 mr-2" />
+            My Services{myservicesCounts.services ? ` (${myservicesCounts.services})` : ""}
+          </Tabs.Trigger>
+          <Tabs.Trigger value="applications">
+            <LucideList className="w-4 h-4 mr-2" />
+            My Applications{myservicesCounts.requests ? ` (${myservicesCounts.requests})` : ""}
+          </Tabs.Trigger>
+          <Tabs.Trigger value="transactions">
+            <LucideArrowLeftRight className="w-4 h-4 mr-2" />
+            Transactions{myservicesCounts.transactions ? ` (${myservicesCounts.transactions})` : ""}
+          </Tabs.Trigger>
+          <Tabs.Trigger value="timebank">
+            <ClockIcon className="w-4 h-4 mr-2" />
+            Timebank Logs{myservicesCounts.timebank ? ` (${myservicesCounts.timebank})` : ""}
+          </Tabs.Trigger>
+          <Tabs.Trigger value="saved">
+            <BookmarkIcon className="w-4 h-4 mr-2" />
+            Saved Items{myservicesCounts.saved ? ` (${myservicesCounts.saved})` : ""}
+          </Tabs.Trigger>
         </Tabs.List>
 
         <Box pt="5">
@@ -1048,7 +1086,29 @@ export function Profile() {
 
           {/* ── My Services Tab ── */}
           <Tabs.Content value="services">
-            <MyServices />
+            <MyServices activeTab="services" onDataLoad={setMyservicesCounts} />
+          </Tabs.Content>
+
+          <Tabs.Content value="applications">
+            <MyServices
+              activeTab="applications"
+              onDataLoad={setMyservicesCounts}
+            />
+          </Tabs.Content>
+
+          <Tabs.Content value="transactions">
+            <MyServices
+              activeTab="transactions"
+              onDataLoad={setMyservicesCounts}
+            />
+          </Tabs.Content>
+
+          <Tabs.Content value="timebank">
+            <MyServices activeTab="timebank" onDataLoad={setMyservicesCounts} />
+          </Tabs.Content>
+
+          <Tabs.Content value="saved">
+            <MyServices activeTab="saved" onDataLoad={setMyservicesCounts} />
           </Tabs.Content>
         </Box>
       </Tabs.Root>
