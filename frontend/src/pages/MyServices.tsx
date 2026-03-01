@@ -297,7 +297,9 @@ export function MyServices({
     try {
       const { data } = await chatApi.createTransactionChatRoom(transactionId);
       const roomId = data?._id;
-      navigate(roomId ? `/chat?room_id=${roomId}` : "/chat");
+      navigate(
+        roomId ? `/profile?tab=chat&room_id=${roomId}` : "/profile?tab=chat",
+      );
     } catch (error) {
       console.error("Error starting chat:", error);
       try {
@@ -324,7 +326,11 @@ export function MyServices({
               description: `Chat for transaction involving ${transaction.timebank_hours} hours`,
             });
             const roomId = data?._id;
-            navigate(roomId ? `/chat?room_id=${roomId}` : "/chat");
+            navigate(
+              roomId
+                ? `/profile?tab=chat&room_id=${roomId}`
+                : "/profile?tab=chat",
+            );
           }
         }
       } catch (fallbackError) {
@@ -563,7 +569,7 @@ export function MyServices({
       )}
 
       {isManagedByParent ? (
-        <div className="mt-6">
+        <div>
           {effectiveTab === "applications" && (
             <MyApplicationsTab
               requests={requests}
@@ -661,14 +667,14 @@ export function MyServices({
             />
           </Tabs.Content>
 
-          <Tabs.Content value="timebank" className="mt-6">
+          <Tabs.Content value="timebank">
             <MyTimebankTab
               timebankData={timebankData}
               timebankLoading={timebankLoading}
             />
           </Tabs.Content>
 
-          <Tabs.Content value="saved" className="mt-6">
+          <Tabs.Content value="saved">
             <SavedServicesTab
               services={savedServicesData?.services ?? []}
               onUnsave={async (serviceId) => {

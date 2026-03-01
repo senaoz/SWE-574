@@ -149,7 +149,7 @@ export function Header() {
                   </IconButton>
                 </Tooltip>
                 <Tooltip content="Chat">
-                  <IconButton onClick={() => navigate("/chat")}>
+                  <IconButton onClick={() => navigate("/profile?tab=chat")}>
                     <ChatBubbleIcon className="w-4 h-4" />
                   </IconButton>
                 </Tooltip>

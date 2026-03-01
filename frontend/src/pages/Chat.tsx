@@ -45,15 +45,6 @@ export function Chat() {
 
   return (
     <>
-      <div className="mb-6">
-        <Text size="6" weight="bold" className="block mb-2">
-          Chat
-        </Text>
-        <Text color="gray">
-          Communicate with other users about your service exchanges
-        </Text>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 h-[75vh]">
         {/* Chat Rooms List */}
         <ChatRoomsList

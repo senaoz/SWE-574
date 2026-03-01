@@ -917,7 +917,11 @@ export const StartChatButton = ({
         .then((response) => {
           queryClient.invalidateQueries({ queryKey: ["chat-rooms"] });
           const roomId = response.data._id;
-          navigate(roomId ? `/chat?room_id=${roomId}` : "/chat");
+          navigate(
+            roomId
+              ? `/profile?tab=chat&room_id=${roomId}`
+              : "/profile?tab=chat",
+          );
         })
         .catch((error) => {
           console.error("Error starting chat:", error);
@@ -927,7 +931,7 @@ export const StartChatButton = ({
             )
           ) {
             queryClient.invalidateQueries({ queryKey: ["chat-rooms"] });
-            navigate("/chat");
+            navigate("/profile?tab=chat");
           }
         });
     } catch (error) {

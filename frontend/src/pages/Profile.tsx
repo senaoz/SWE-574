@@ -54,9 +54,11 @@ import {
   LucideList,
   UserIcon,
   LucideBriefcase,
+  LucideMessageCircle,
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { Chat } from "./Chat";
 
 export function Profile() {
   const navigate = useNavigate();
@@ -122,6 +124,7 @@ export function Profile() {
     "transactions",
     "timebank",
     "saved",
+    "chat",
   ] as const;
   const profileTab = allowedTabs.includes(profileTabFromUrl as any)
     ? profileTabFromUrl
@@ -447,10 +450,7 @@ export function Profile() {
         </Card>
       )}
 
-      <Tabs.Root
-        value={profileTab}
-        onValueChange={(v) => setProfileTab(v)}
-      >
+      <Tabs.Root value={profileTab} onValueChange={(v) => setProfileTab(v)}>
         <Tabs.List size="2">
           <Tabs.Trigger value="profile">
             <UserIcon className="w-4 h-4 mr-2" />
@@ -458,23 +458,34 @@ export function Profile() {
           </Tabs.Trigger>
           <Tabs.Trigger value="services">
             <LucideBriefcase className="w-4 h-4 mr-2" />
-            My Services{myservicesCounts.services ? ` (${myservicesCounts.services})` : ""}
+            My Services
+            {myservicesCounts.services ? ` (${myservicesCounts.services})` : ""}
           </Tabs.Trigger>
           <Tabs.Trigger value="applications">
             <LucideList className="w-4 h-4 mr-2" />
-            My Applications{myservicesCounts.requests ? ` (${myservicesCounts.requests})` : ""}
+            My Applications
+            {myservicesCounts.requests ? ` (${myservicesCounts.requests})` : ""}
           </Tabs.Trigger>
           <Tabs.Trigger value="transactions">
             <LucideArrowLeftRight className="w-4 h-4 mr-2" />
-            Transactions{myservicesCounts.transactions ? ` (${myservicesCounts.transactions})` : ""}
+            Transactions
+            {myservicesCounts.transactions
+              ? ` (${myservicesCounts.transactions})`
+              : ""}
           </Tabs.Trigger>
           <Tabs.Trigger value="timebank">
             <ClockIcon className="w-4 h-4 mr-2" />
-            Timebank Logs{myservicesCounts.timebank ? ` (${myservicesCounts.timebank})` : ""}
+            Timebank Logs
+            {myservicesCounts.timebank ? ` (${myservicesCounts.timebank})` : ""}
           </Tabs.Trigger>
           <Tabs.Trigger value="saved">
             <BookmarkIcon className="w-4 h-4 mr-2" />
-            Saved Items{myservicesCounts.saved ? ` (${myservicesCounts.saved})` : ""}
+            Saved Items
+            {myservicesCounts.saved ? ` (${myservicesCounts.saved})` : ""}
+          </Tabs.Trigger>
+          <Tabs.Trigger value="chat">
+            <LucideMessageCircle className="w-4 h-4 mr-2" />
+            Chat
           </Tabs.Trigger>
         </Tabs.List>
 
@@ -1114,7 +1125,9 @@ export function Profile() {
             <MyServices
               activeTab="services"
               onDataLoad={setMyservicesCounts}
-              statusFilter={profileTab === "services" ? profileStatusFromUrl : undefined}
+              statusFilter={
+                profileTab === "services" ? profileStatusFromUrl : undefined
+              }
             />
           </Tabs.Content>
 
@@ -1138,6 +1151,10 @@ export function Profile() {
 
           <Tabs.Content value="saved">
             <MyServices activeTab="saved" onDataLoad={setMyservicesCounts} />
+          </Tabs.Content>
+
+          <Tabs.Content value="chat">
+            <Chat />
           </Tabs.Content>
         </Box>
       </Tabs.Root>

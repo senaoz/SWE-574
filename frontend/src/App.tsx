@@ -146,28 +146,6 @@ function App() {
                     }
                   />
                   <Route
-                    path="/my-services"
-                    element={
-                      <ProtectedRoute
-                        requiredRole="user"
-                        fallbackPath="/?login=true"
-                      >
-                        <MyServices />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/chat"
-                    element={
-                      <ProtectedRoute
-                        requiredRole="user"
-                        fallbackPath="/?login=true"
-                      >
-                        <Chat />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
                     path="/forum"
                     element={
                       <ProtectedRoute
