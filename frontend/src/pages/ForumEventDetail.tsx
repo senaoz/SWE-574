@@ -9,6 +9,7 @@ import {
   Button,
   TextArea,
   Heading,
+  Tooltip,
 } from "@radix-ui/themes";
 import {
   ArrowLeftIcon,
@@ -17,10 +18,13 @@ import {
   GlobeIcon,
   PaperPlaneIcon,
   Link2Icon,
+  PersonIcon,
+  CheckCircledIcon,
 } from "@radix-ui/react-icons";
 import { forumApi } from "@/services/api";
 import { ForumEvent, ForumComment } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
+import { useUser } from "@/App";
 import ReactMarkdown from "react-markdown";
 
 function timeAgo(dateStr: string) {
@@ -37,26 +41,41 @@ function timeAgo(dateStr: string) {
   return new Date(dateStr).toLocaleDateString();
 }
 
+type Attendee = {
+  _id: string;
+  username: string;
+  full_name?: string;
+  profile_picture?: string;
+};
+
 export function ForumEventDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { currentUserId } = useUser();
   const [event, setEvent] = useState<ForumEvent | null>(null);
   const [comments, setComments] = useState<ForumComment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [attendees, setAttendees] = useState<Attendee[]>([]);
+  const [attendToggling, setAttendToggling] = useState(false);
+
+  const isAttending =
+    event?.attendee_ids?.includes(currentUserId || "") ?? false;
 
   useEffect(() => {
     if (!id) return;
     (async () => {
       setLoading(true);
       try {
-        const [eRes, cRes] = await Promise.all([
+        const [eRes, cRes, aRes] = await Promise.all([
           forumApi.getEvent(id),
           forumApi.getComments("event", id),
+          forumApi.getEventAttendees(id),
         ]);
         setEvent(eRes.data);
         setComments(cRes.data.comments);
+        setAttendees(aRes.data);
       } catch {
         setEvent(null);
       } finally {
@@ -64,6 +83,26 @@ export function ForumEventDetail() {
       }
     })();
   }, [id]);
+
+  const handleToggleAttend = async () => {
+    if (!id || attendToggling) return;
+    setAttendToggling(true);
+    try {
+      if (isAttending) {
+        const res = await forumApi.unattendEvent(id);
+        setEvent(res.data);
+      } else {
+        const res = await forumApi.attendEvent(id);
+        setEvent(res.data);
+      }
+      const aRes = await forumApi.getEventAttendees(id);
+      setAttendees(aRes.data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAttendToggling(false);
+    }
+  };
 
   const handlePostComment = async () => {
     if (!newComment.trim() || !id) return;
@@ -198,6 +237,69 @@ export function ForumEventDetail() {
             )}
           </div>
         </Flex>
+      </Card>
+
+      {/* Attending section */}
+      <Card className="p-4 mb-6">
+        <Flex justify="between" align="center" className="mb-3">
+          <Flex align="center" gap="2">
+            <PersonIcon className="w-5 h-5" />
+            <Text size="3" weight="bold">
+              Attendees ({event.attendee_count})
+            </Text>
+          </Flex>
+          {currentUserId && (
+            <Tooltip content={isAttending ? "Leave event" : "Join event"}>
+              <Button
+                variant={isAttending ? "soft" : "solid"}
+                color={isAttending ? "green" : "purple"}
+                onClick={handleToggleAttend}
+                disabled={attendToggling}
+                size="2"
+              >
+                {isAttending ? (
+                  <>
+                    <CheckCircledIcon className="w-4 h-4 mr-1" />
+                    {attendToggling ? "Leaving..." : "Attending"}
+                  </>
+                ) : (
+                  <>
+                    <PersonIcon className="w-4 h-4 mr-1" />
+                    {attendToggling ? "Joining..." : "Attend"}
+                  </>
+                )}
+              </Button>
+            </Tooltip>
+          )}
+        </Flex>
+
+        {attendees.length > 0 ? (
+          <Flex align="center" gap="2" wrap="wrap">
+            {attendees.slice(0, 10).map((a) => (
+              <Tooltip key={a._id} content={a.full_name || a.username}>
+                <Avatar
+                  fallback={a.full_name?.[0] || a.username[0]}
+                  src={a.profile_picture}
+                  size="3"
+                  className="cursor-pointer hover:ring-2 hover:ring-purple-500 transition-all"
+                />
+              </Tooltip>
+            ))}
+            {attendees.length > 10 && (
+              <Tooltip content={`${attendees.length - 10} more attendees`}>
+                <Avatar
+                  size="3"
+                  fallback={`+${attendees.length - 10}`}
+                  className="cursor-pointer hover:ring-2 hover:ring-purple-500 transition-all bg-gray-100"
+                />
+              </Tooltip>
+            )}
+          </Flex>
+        ) : (
+          <Text size="2" color="gray">
+            No one is attending yet. Be the first!
+          </Text>
+        )}
       </Card>
 
       {/* Comments section */}
