@@ -8,12 +8,13 @@ import {
   Button,
   Heading,
   Separator,
-  Grid,
   Box,
   TextField,
   TextArea,
   Switch,
   Dialog,
+  Grid,
+  Tabs,
 } from "@radix-ui/themes";
 import {
   CheckCircledIcon,
@@ -408,422 +409,472 @@ export function Profile() {
         </Card>
       )}
 
-      <Grid columns={{ initial: "1", md: "2" }} gap="6">
-        <Flex align="center" justify="between" className="col-span-2">
-          <Heading size="6">My Profile</Heading>
-          {!isEditing ? (
-            <Button onClick={handleEdit} size="2">
-              <Pencil1Icon className="w-4 h-4 mr-2" />
-              Edit Profile
-            </Button>
-          ) : (
-            <Flex gap="2">
-              <Button onClick={handleCancel} variant="soft" size="2">
-                <Cross2Icon className="w-4 h-4 mr-2" />
-                Cancel
-              </Button>
-              <Button onClick={handleSave} size="2">
-                <CheckIcon className="w-4 h-4 mr-2" />
-                Save Changes
-              </Button>
-            </Flex>
-          )}
-        </Flex>
+      <Tabs.Root defaultValue="profile">
+        <Tabs.List size="2">
+          <Tabs.Trigger value="profile">Profile</Tabs.Trigger>
+          <Tabs.Trigger value="services">My Services</Tabs.Trigger>
+        </Tabs.List>
 
-        {/* Profile Information */}
-        <Box>
-          <Card size="4" className="p-6">
-            <Heading size="5" mb="4">
-              Profile Information
-            </Heading>
-
-            <div className="space-y-4">
-              {/* Avatar and Basic Info */}
-              <Flex align="center" gap="4">
-                <Avatar
-                  src={user.profile_picture || undefined}
-                  fallback={user.full_name?.[0] || user.username[0]}
-                  size="6"
-                />
-                <div className="flex-1">
-                  <Flex align="center" gap="2" mb="1">
-                    <Heading size="4">
-                      {isEditing ? (
-                        <TextField.Root
-                          value={editForm.full_name}
-                          onChange={(e) =>
-                            handleInputChange("full_name", e.target.value)
-                          }
-                          placeholder="Full Name"
-                          size="2"
-                        />
-                      ) : (
-                        user.full_name || user.username
-                      )}
-                    </Heading>
-                    {user.is_verified && (
-                      <CheckCircledIcon className="w-4 h-4 text-green-600" />
-                    )}
-                  </Flex>
-                  <Text size="3" color="gray">
-                    @{user.username}
-                  </Text>
-                  {user.is_verified && (
-                    <Badge
-                      color="green"
-                      variant="soft"
-                      size="1"
-                      className="ml-2"
+        <Box pt="5">
+          {/* ── Profile Tab ── */}
+          <Tabs.Content value="profile">
+            <div className="grid gap-6">
+              <Grid columns={{ initial: "1", md: "2" }} gap="6">
+                {/* Profile Information */}
+                <Box>
+                  <Card size="4" className="p-6">
+                    <Flex
+                      align="center"
+                      justify="between"
+                      className="col-span-2 mb-4"
                     >
-                      Verified User
-                    </Badge>
-                  )}
-                </div>
-              </Flex>
-
-              {/* Email */}
-              <div>
-                <Text size="2" weight="bold" mr="2">
-                  Email
-                </Text>
-                {isEditing ? (
-                  <TextField.Root
-                    value={editForm.email}
-                    onChange={(e) => handleInputChange("email", e.target.value)}
-                    placeholder="Email"
-                    size="2"
-                  />
-                ) : (
-                  <Text size="2">{user.email}</Text>
-                )}
-              </div>
-
-              {/* Bio */}
-              <div>
-                <Text size="2" weight="bold" mr="2">
-                  Bio
-                </Text>
-                {isEditing ? (
-                  <TextArea
-                    value={editForm.bio}
-                    onChange={(e) => handleInputChange("bio", e.target.value)}
-                    placeholder="Tell us about yourself..."
-                    size="2"
-                    rows={3}
-                  />
-                ) : (
-                  <Text size="2">{user.bio || "No bio provided"}</Text>
-                )}
-              </div>
-
-              {/* Location */}
-              <div>
-                <Text size="2" weight="bold" mr="2">
-                  Location
-                </Text>
-                {isEditing ? (
-                  <MapLocationPicker
-                    value={editForm.location}
-                    onChange={(loc) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        location: {
-                          latitude: loc.latitude,
-                          longitude: loc.longitude,
-                          address: loc.address || "",
-                        },
-                      }))
-                    }
-                    height={180}
-                    markerColor="#2563eb"
-                  />
-                ) : (
-                  <Flex align="center" gap="2">
-                    <Crosshair1Icon className="w-4 h-4" />
-                    <Text size="2">
-                      {typeof user.location === "string"
-                        ? user.location || "No location provided"
-                        : (user.location as any)?.address ||
-                          "No location provided"}
-                    </Text>
-                  </Flex>
-                )}
-              </div>
-
-              {/* Average Rating */}
-              <div>
-                <Text size="2" weight="bold" className="block mb-1">
-                  Average Rating
-                </Text>
-                {ratingCount > 0 && averageRating != null ? (
-                  <Flex align="center" gap="2">
-                    <RatingStars
-                      value={Math.round(averageRating * 10) / 10}
-                      readonly
-                      size={18}
-                    />
-                    <Text size="2" color="gray">
-                      {averageRating.toFixed(1)} ({ratingCount} rating
-                      {ratingCount !== 1 ? "s" : ""})
-                    </Text>
-                  </Flex>
-                ) : (
-                  <Text size="2" color="gray">
-                    No ratings yet
-                  </Text>
-                )}
-              </div>
-
-              {/* Profile Picture URL */}
-              {isEditing && (
-                <div>
-                  <Text size="2" weight="bold" mr="2">
-                    Profile Picture URL
-                  </Text>
-                  <TextField.Root
-                    value={editForm.profile_picture}
-                    onChange={(e) =>
-                      handleInputChange("profile_picture", e.target.value)
-                    }
-                    placeholder="https://example.com/photo.jpg"
-                    size="2"
-                  />
-                </div>
-              )}
-
-              <Separator />
-
-              {/* Social Links */}
-              <div>
-                <Text size="2" weight="bold" className="block mb-2">
-                  Social Links
-                </Text>
-                {isEditing ? (
-                  <div className="space-y-2">
-                    {(
-                      [
-                        ["linkedin", "LinkedIn", "https://linkedin.com/in/..."],
-                        ["github", "GitHub", "https://github.com/..."],
-                        ["twitter", "Twitter / X", "https://twitter.com/..."],
-                        ["instagram", "Instagram", "https://instagram.com/..."],
-                        ["website", "Website", "https://yoursite.com"],
-                        ["portfolio", "Portfolio", "https://portfolio.com"],
-                      ] as const
-                    ).map(([key, label, placeholder]) => (
-                      <div key={key}>
-                        <Text size="1" color="gray" className="block mb-0.5">
-                          {label}
-                        </Text>
-                        <TextField.Root
-                          value={(editForm.social_links as any)[key] || ""}
-                          onChange={(e) =>
-                            handleSocialLinkChange(
-                              key as keyof SocialLinks,
-                              e.target.value,
-                            )
-                          }
-                          placeholder={placeholder}
-                          size="1"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <Flex gap="3" wrap="wrap">
-                    {user.social_links?.linkedin && (
-                      <a
-                        href={user.social_links.linkedin}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="LinkedIn"
-                      >
-                        <Linkedin
-                          size={20}
-                          className="text-gray-600 hover:text-blue-600 transition-colors"
-                        />
-                      </a>
-                    )}
-                    {user.social_links?.github && (
-                      <a
-                        href={user.social_links.github}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="GitHub"
-                      >
-                        <Github
-                          size={20}
-                          className="text-gray-600 hover:text-gray-900 transition-colors"
-                        />
-                      </a>
-                    )}
-                    {user.social_links?.twitter && (
-                      <a
-                        href={user.social_links.twitter}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Twitter / X"
-                      >
-                        <Twitter
-                          size={20}
-                          className="text-gray-600 hover:text-sky-500 transition-colors"
-                        />
-                      </a>
-                    )}
-                    {user.social_links?.instagram && (
-                      <a
-                        href={user.social_links.instagram}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Instagram"
-                      >
-                        <Instagram
-                          size={20}
-                          className="text-gray-600 hover:text-pink-500 transition-colors"
-                        />
-                      </a>
-                    )}
-                    {user.social_links?.website && (
-                      <a
-                        href={user.social_links.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Website"
-                      >
-                        <Globe
-                          size={20}
-                          className="text-gray-600 hover:text-green-600 transition-colors"
-                        />
-                      </a>
-                    )}
-                    {user.social_links?.portfolio && (
-                      <a
-                        href={user.social_links.portfolio}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Portfolio"
-                      >
-                        <Briefcase
-                          size={20}
-                          className="text-gray-600 hover:text-amber-600 transition-colors"
-                        />
-                      </a>
-                    )}
-                    {!user.social_links?.linkedin &&
-                      !user.social_links?.github &&
-                      !user.social_links?.twitter &&
-                      !user.social_links?.instagram &&
-                      !user.social_links?.website &&
-                      !user.social_links?.portfolio && (
-                        <Text size="2" color="gray">
-                          No social links added
-                        </Text>
+                      <Heading size="5">Profile Information</Heading>
+                      {!isEditing ? (
+                        <Button onClick={handleEdit} size="2">
+                          <Pencil1Icon className="w-4 h-4 mr-2" />
+                          Edit Profile
+                        </Button>
+                      ) : (
+                        <Flex gap="2">
+                          <Button
+                            onClick={handleCancel}
+                            variant="soft"
+                            size="2"
+                          >
+                            <Cross2Icon className="w-4 h-4 mr-2" />
+                            Cancel
+                          </Button>
+                          <Button onClick={handleSave} size="2">
+                            <CheckIcon className="w-4 h-4 mr-2" />
+                            Save Changes
+                          </Button>
+                        </Flex>
                       )}
-                  </Flex>
-                )}
-              </div>
+                    </Flex>
 
-              <Separator />
+                    <div className="space-y-4">
+                      {/* Avatar and Basic Info */}
+                      <Flex align="center" gap="4">
+                        <Avatar
+                          src={user.profile_picture || undefined}
+                          fallback={user.full_name?.[0] || user.username[0]}
+                          size="6"
+                        />
+                        <div className="flex-1">
+                          <Flex align="center" gap="2" mb="1">
+                            <Heading size="4">
+                              {isEditing ? (
+                                <TextField.Root
+                                  value={editForm.full_name}
+                                  onChange={(e) =>
+                                    handleInputChange(
+                                      "full_name",
+                                      e.target.value,
+                                    )
+                                  }
+                                  placeholder="Full Name"
+                                  size="2"
+                                />
+                              ) : (
+                                user.full_name || user.username
+                              )}
+                            </Heading>
+                            {user.is_verified && (
+                              <CheckCircledIcon className="w-4 h-4 text-green-600" />
+                            )}
+                          </Flex>
+                          <Text size="3" color="gray">
+                            @{user.username}
+                          </Text>
+                          {user.is_verified && (
+                            <Badge
+                              color="green"
+                              variant="soft"
+                              size="1"
+                              className="ml-2"
+                            >
+                              Verified User
+                            </Badge>
+                          )}
+                        </div>
+                      </Flex>
 
-              {/* Interests */}
-              <div>
-                <Flex justify="between" align="center" mb="3">
-                  <Text size="2" weight="bold">
-                    Interests
-                  </Text>
-                  <Button
-                    size="1"
-                    variant="soft"
-                    color="lime"
-                    className="rounded-full"
-                    onClick={() => setShowInterestSelector(true)}
-                  >
-                    {(user.interests?.length || 0) > 0
-                      ? "Update Interests"
-                      : "Add Interests"}
-                  </Button>
-                </Flex>
-                {(user.interests?.length || 0) > 0 ? (
-                  <Flex gap="2" wrap="wrap">
-                    {user.interests!.map((interest) => (
-                      <InterestChip
-                        key={interest}
-                        name={interest}
-                        size="sm"
-                        showIcon
-                      />
-                    ))}
-                  </Flex>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowInterestSelector(true)}
-                    className="rounded-xl border-2 border-dashed px-4 py-3 text-left text-sm transition-colors"
-                    style={{
-                      borderColor: "var(--gray-6)",
-                      backgroundColor: "var(--gray-1)",
-                      color: "var(--gray-10)",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "var(--lime-6)";
-                      e.currentTarget.style.backgroundColor = "var(--lime-2)";
-                      e.currentTarget.style.color = "var(--lime-11)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = "var(--gray-6)";
-                      e.currentTarget.style.backgroundColor = "var(--gray-1)";
-                      e.currentTarget.style.color = "var(--gray-10)";
-                    }}
-                  >
-                    Add interests to help others discover you
-                  </button>
-                )}
-              </div>
+                      {/* Email */}
+                      <div>
+                        <Text size="2" weight="bold" mr="2">
+                          Email
+                        </Text>
+                        {isEditing ? (
+                          <TextField.Root
+                            value={editForm.email}
+                            onChange={(e) =>
+                              handleInputChange("email", e.target.value)
+                            }
+                            placeholder="Email"
+                            size="2"
+                          />
+                        ) : (
+                          <Text size="2">{user.email}</Text>
+                        )}
+                      </div>
 
-              <Separator />
+                      {/* Bio */}
+                      <div>
+                        <Text size="2" weight="bold" mr="2">
+                          Bio
+                        </Text>
+                        {isEditing ? (
+                          <TextArea
+                            value={editForm.bio}
+                            onChange={(e) =>
+                              handleInputChange("bio", e.target.value)
+                            }
+                            placeholder="Tell us about yourself..."
+                            size="2"
+                            rows={3}
+                          />
+                        ) : (
+                          <Text size="2">{user.bio || "No bio provided"}</Text>
+                        )}
+                      </div>
 
-              {/* Stats */}
-              <div className="space-y-2">
-                <Flex justify="between" align="center">
-                  <Text size="2">TimeBank Balance</Text>
-                  <Text size="2" weight="bold">
-                    {user.timebank_balance} hours
-                  </Text>
-                </Flex>
-                <Flex justify="between" align="center">
-                  <Text size="2">Member Since</Text>
-                  <Text size="2">
-                    {new Date(user.created_at).toLocaleDateString()}
-                  </Text>
-                </Flex>
-                <Flex justify="between" align="center">
-                  <Text size="2">Status</Text>
-                  <Badge
-                    color={user.is_active ? "green" : "red"}
-                    variant="soft"
-                  >
-                    {user.is_active ? "Active" : "Inactive"}
-                  </Badge>
-                </Flex>
-              </div>
-            </div>
-          </Card>
-        </Box>
+                      {/* Location */}
+                      <div>
+                        <Text size="2" weight="bold" mr="2">
+                          Location
+                        </Text>
+                        {isEditing ? (
+                          <MapLocationPicker
+                            value={editForm.location}
+                            onChange={(loc) =>
+                              setEditForm((prev) => ({
+                                ...prev,
+                                location: {
+                                  latitude: loc.latitude,
+                                  longitude: loc.longitude,
+                                  address: loc.address || "",
+                                },
+                              }))
+                            }
+                            height={180}
+                            markerColor="#2563eb"
+                          />
+                        ) : (
+                          <Flex align="center" gap="2">
+                            <Crosshair1Icon className="w-4 h-4" />
+                            <Text size="2">
+                              {typeof user.location === "string"
+                                ? user.location || "No location provided"
+                                : (user.location as any)?.address ||
+                                  "No location provided"}
+                            </Text>
+                          </Flex>
+                        )}
+                      </div>
 
-        {/* Settings */}
-        <Box>
-          <Card size="4" className="p-6">
-            <Heading size="5" mb="4">
-              Settings & Preferences
-            </Heading>
+                      {/* Average Rating */}
+                      <div>
+                        <Text size="2" weight="bold" className="block mb-1">
+                          Average Rating
+                        </Text>
+                        {ratingCount > 0 && averageRating != null ? (
+                          <Flex align="center" gap="2">
+                            <RatingStars
+                              value={Math.round(averageRating * 10) / 10}
+                              readonly
+                              size={18}
+                            />
+                            <Text size="2" color="gray">
+                              {averageRating.toFixed(1)} ({ratingCount} rating
+                              {ratingCount !== 1 ? "s" : ""})
+                            </Text>
+                          </Flex>
+                        ) : (
+                          <Text size="2" color="gray">
+                            No ratings yet
+                          </Text>
+                        )}
+                      </div>
 
-            <div className="space-y-6">
-              {/* Privacy Settings */}
-              <div>
-                <Heading size="4" mb="3">
-                  Privacy
-                </Heading>
-                <div className="space-y-3">
-                  {/*
+                      {/* Profile Picture URL */}
+                      {isEditing && (
+                        <div>
+                          <Text size="2" weight="bold" mr="2">
+                            Profile Picture URL
+                          </Text>
+                          <TextField.Root
+                            value={editForm.profile_picture}
+                            onChange={(e) =>
+                              handleInputChange(
+                                "profile_picture",
+                                e.target.value,
+                              )
+                            }
+                            placeholder="https://example.com/photo.jpg"
+                            size="2"
+                          />
+                        </div>
+                      )}
+
+                      <Separator />
+
+                      {/* Social Links */}
+                      <div>
+                        <Text size="2" weight="bold" className="block mb-2">
+                          Social Links
+                        </Text>
+                        {isEditing ? (
+                          <div className="space-y-2">
+                            {(
+                              [
+                                [
+                                  "linkedin",
+                                  "LinkedIn",
+                                  "https://linkedin.com/in/...",
+                                ],
+                                ["github", "GitHub", "https://github.com/..."],
+                                [
+                                  "twitter",
+                                  "Twitter / X",
+                                  "https://twitter.com/...",
+                                ],
+                                [
+                                  "instagram",
+                                  "Instagram",
+                                  "https://instagram.com/...",
+                                ],
+                                ["website", "Website", "https://yoursite.com"],
+                                [
+                                  "portfolio",
+                                  "Portfolio",
+                                  "https://portfolio.com",
+                                ],
+                              ] as const
+                            ).map(([key, label, placeholder]) => (
+                              <div key={key}>
+                                <Text
+                                  size="1"
+                                  color="gray"
+                                  className="block mb-0.5"
+                                >
+                                  {label}
+                                </Text>
+                                <TextField.Root
+                                  value={
+                                    (editForm.social_links as any)[key] || ""
+                                  }
+                                  onChange={(e) =>
+                                    handleSocialLinkChange(
+                                      key as keyof SocialLinks,
+                                      e.target.value,
+                                    )
+                                  }
+                                  placeholder={placeholder}
+                                  size="1"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <Flex gap="3" wrap="wrap">
+                            {user.social_links?.linkedin && (
+                              <a
+                                href={user.social_links.linkedin}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="LinkedIn"
+                              >
+                                <Linkedin
+                                  size={20}
+                                  className="text-gray-600 hover:text-blue-600 transition-colors"
+                                />
+                              </a>
+                            )}
+                            {user.social_links?.github && (
+                              <a
+                                href={user.social_links.github}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="GitHub"
+                              >
+                                <Github
+                                  size={20}
+                                  className="text-gray-600 hover:text-gray-900 transition-colors"
+                                />
+                              </a>
+                            )}
+                            {user.social_links?.twitter && (
+                              <a
+                                href={user.social_links.twitter}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Twitter / X"
+                              >
+                                <Twitter
+                                  size={20}
+                                  className="text-gray-600 hover:text-sky-500 transition-colors"
+                                />
+                              </a>
+                            )}
+                            {user.social_links?.instagram && (
+                              <a
+                                href={user.social_links.instagram}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Instagram"
+                              >
+                                <Instagram
+                                  size={20}
+                                  className="text-gray-600 hover:text-pink-500 transition-colors"
+                                />
+                              </a>
+                            )}
+                            {user.social_links?.website && (
+                              <a
+                                href={user.social_links.website}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Website"
+                              >
+                                <Globe
+                                  size={20}
+                                  className="text-gray-600 hover:text-green-600 transition-colors"
+                                />
+                              </a>
+                            )}
+                            {user.social_links?.portfolio && (
+                              <a
+                                href={user.social_links.portfolio}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Portfolio"
+                              >
+                                <Briefcase
+                                  size={20}
+                                  className="text-gray-600 hover:text-amber-600 transition-colors"
+                                />
+                              </a>
+                            )}
+                            {!user.social_links?.linkedin &&
+                              !user.social_links?.github &&
+                              !user.social_links?.twitter &&
+                              !user.social_links?.instagram &&
+                              !user.social_links?.website &&
+                              !user.social_links?.portfolio && (
+                                <Text size="2" color="gray">
+                                  No social links added
+                                </Text>
+                              )}
+                          </Flex>
+                        )}
+                      </div>
+
+                      <Separator />
+
+                      {/* Interests */}
+                      <div>
+                        <Flex justify="between" align="center" mb="3">
+                          <Text size="2" weight="bold">
+                            Interests
+                          </Text>
+                          <Button
+                            size="1"
+                            variant="soft"
+                            color="lime"
+                            className="rounded-full"
+                            onClick={() => setShowInterestSelector(true)}
+                          >
+                            {(user.interests?.length || 0) > 0
+                              ? "Update Interests"
+                              : "Add Interests"}
+                          </Button>
+                        </Flex>
+                        {(user.interests?.length || 0) > 0 ? (
+                          <Flex gap="2" wrap="wrap">
+                            {user.interests!.map((interest) => (
+                              <InterestChip
+                                key={interest}
+                                name={interest}
+                                size="sm"
+                                showIcon
+                              />
+                            ))}
+                          </Flex>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setShowInterestSelector(true)}
+                            className="rounded-xl border-2 border-dashed px-4 py-3 text-left text-sm transition-colors"
+                            style={{
+                              borderColor: "var(--gray-6)",
+                              backgroundColor: "var(--gray-1)",
+                              color: "var(--gray-10)",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.borderColor =
+                                "var(--lime-6)";
+                              e.currentTarget.style.backgroundColor =
+                                "var(--lime-2)";
+                              e.currentTarget.style.color = "var(--lime-11)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.borderColor =
+                                "var(--gray-6)";
+                              e.currentTarget.style.backgroundColor =
+                                "var(--gray-1)";
+                              e.currentTarget.style.color = "var(--gray-10)";
+                            }}
+                          >
+                            Add interests to help others discover you
+                          </button>
+                        )}
+                      </div>
+
+                      <Separator />
+
+                      {/* Stats */}
+                      <div className="space-y-2">
+                        <Flex justify="between" align="center">
+                          <Text size="2">TimeBank Balance</Text>
+                          <Text size="2" weight="bold">
+                            {user.timebank_balance} hours
+                          </Text>
+                        </Flex>
+                        <Flex justify="between" align="center">
+                          <Text size="2">Member Since</Text>
+                          <Text size="2">
+                            {new Date(user.created_at).toLocaleDateString()}
+                          </Text>
+                        </Flex>
+                        <Flex justify="between" align="center">
+                          <Text size="2">Status</Text>
+                          <Badge
+                            color={user.is_active ? "green" : "red"}
+                            variant="soft"
+                          >
+                            {user.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                        </Flex>
+                      </div>
+                    </div>
+                  </Card>
+                </Box>
+
+                {/* Settings */}
+                <Box>
+                  <Card size="4" className="p-6">
+                    <Heading size="5" mb="4">
+                      Settings & Preferences
+                    </Heading>
+
+                    <div className="space-y-6">
+                      {/* Privacy Settings */}
+                      <div>
+                        <Heading size="4" mb="3">
+                          Privacy
+                        </Heading>
+                        <div className="space-y-3">
+                          {/*
                     <Flex justify="between" align="center">
                     <div className="grid gap-1">
                       <Text size="2" weight="bold">
@@ -840,151 +891,174 @@ export function Profile() {
                       }
                       disabled={settingsLoading}
                     />
-                  </Flex> 
+                  </Flex>
                     */}
-                  <Flex justify="between" align="center">
-                    <div className="grid gap-1">
-                      <Text size="2" weight="bold">
-                        Show Email
-                      </Text>
-                      <Text size="1" color="gray">
-                        Display your email on your profile
-                      </Text>
-                    </div>
-                    <Switch
-                      checked={settings.show_email}
-                      onCheckedChange={(checked) =>
-                        handleSettingsChange("show_email", checked)
-                      }
-                      disabled={settingsLoading}
-                    />
-                  </Flex>
-                  <Flex justify="between" align="center">
-                    <div className="grid gap-1">
-                      <Text size="2" weight="bold">
-                        Show Location
-                      </Text>
-                      <Text size="1" color="gray">
-                        Display your location on your profile
-                      </Text>
-                    </div>
-                    <Switch
-                      checked={settings.show_location}
-                      onCheckedChange={(checked) =>
-                        handleSettingsChange("show_location", checked)
-                      }
-                      disabled={settingsLoading}
-                    />
-                  </Flex>
-                </div>
-              </div>
+                          <Flex justify="between" align="center">
+                            <div className="grid gap-1">
+                              <Text size="2" weight="bold">
+                                Show Email
+                              </Text>
+                              <Text size="1" color="gray">
+                                Display your email on your profile
+                              </Text>
+                            </div>
+                            <Switch
+                              checked={settings.show_email}
+                              onCheckedChange={(checked) =>
+                                handleSettingsChange("show_email", checked)
+                              }
+                              disabled={settingsLoading}
+                            />
+                          </Flex>
+                          <Flex justify="between" align="center">
+                            <div className="grid gap-1">
+                              <Text size="2" weight="bold">
+                                Show Location
+                              </Text>
+                              <Text size="1" color="gray">
+                                Display your location on your profile
+                              </Text>
+                            </div>
+                            <Switch
+                              checked={settings.show_location}
+                              onCheckedChange={(checked) =>
+                                handleSettingsChange("show_location", checked)
+                              }
+                              disabled={settingsLoading}
+                            />
+                          </Flex>
+                        </div>
+                      </div>
 
-              <Separator />
+                      <Separator />
 
-              {/* Notification Settings */}
-              <div>
-                <Heading size="4" mb="3">
-                  Notifications
-                </Heading>
-                <div className="space-y-3">
-                  <Flex justify="between" align="center">
-                    <div className="grid gap-1">
-                      <Text size="2" weight="bold">
-                        Email Notifications
-                      </Text>
-                      <Text size="1" color="gray">
-                        Receive notifications via email
-                      </Text>
-                    </div>
-                    <Switch
-                      checked={settings.email_notifications}
-                      onCheckedChange={(checked) =>
-                        handleSettingsChange("email_notifications", checked)
-                      }
-                      disabled={settingsLoading}
-                    />
-                  </Flex>
-                  <Flex justify="between" align="center">
-                    <div className="grid gap-1">
-                      <Text size="2" weight="bold">
-                        Service Matches
-                      </Text>
-                      <Text size="1" color="gray">
-                        Get notified when services match your needs
-                      </Text>
-                    </div>
-                    <Switch
-                      checked={settings.service_matches_notifications}
-                      onCheckedChange={(checked) =>
-                        handleSettingsChange(
-                          "service_matches_notifications",
-                          checked,
-                        )
-                      }
-                      disabled={settingsLoading}
-                    />
-                  </Flex>
-                  <Flex justify="between" align="center">
-                    <div className="grid gap-1">
-                      <Text size="2" weight="bold">
-                        Messages
-                      </Text>
-                      <Text size="1" color="gray">
-                        Get notified about new messages
-                      </Text>
-                    </div>
-                    <Switch
-                      checked={settings.messages_notifications}
-                      onCheckedChange={(checked) =>
-                        handleSettingsChange("messages_notifications", checked)
-                      }
-                      disabled={settingsLoading}
-                    />
-                  </Flex>
-                </div>
-              </div>
+                      {/* Notification Settings */}
+                      <div>
+                        <Heading size="4" mb="3">
+                          Notifications
+                        </Heading>
+                        <div className="space-y-3">
+                          <Flex justify="between" align="center">
+                            <div className="grid gap-1">
+                              <Text size="2" weight="bold">
+                                Email Notifications
+                              </Text>
+                              <Text size="1" color="gray">
+                                Receive notifications via email
+                              </Text>
+                            </div>
+                            <Switch
+                              checked={settings.email_notifications}
+                              onCheckedChange={(checked) =>
+                                handleSettingsChange(
+                                  "email_notifications",
+                                  checked,
+                                )
+                              }
+                              disabled={settingsLoading}
+                            />
+                          </Flex>
+                          <Flex justify="between" align="center">
+                            <div className="grid gap-1">
+                              <Text size="2" weight="bold">
+                                Service Matches
+                              </Text>
+                              <Text size="1" color="gray">
+                                Get notified when services match your needs
+                              </Text>
+                            </div>
+                            <Switch
+                              checked={settings.service_matches_notifications}
+                              onCheckedChange={(checked) =>
+                                handleSettingsChange(
+                                  "service_matches_notifications",
+                                  checked,
+                                )
+                              }
+                              disabled={settingsLoading}
+                            />
+                          </Flex>
+                          <Flex justify="between" align="center">
+                            <div className="grid gap-1">
+                              <Text size="2" weight="bold">
+                                Messages
+                              </Text>
+                              <Text size="1" color="gray">
+                                Get notified about new messages
+                              </Text>
+                            </div>
+                            <Switch
+                              checked={settings.messages_notifications}
+                              onCheckedChange={(checked) =>
+                                handleSettingsChange(
+                                  "messages_notifications",
+                                  checked,
+                                )
+                              }
+                              disabled={settingsLoading}
+                            />
+                          </Flex>
+                        </div>
+                      </div>
 
-              <Separator />
+                      <Separator />
 
-              {/* Account Settings */}
-              <div>
-                <Heading size="4" mb="3">
-                  Account
-                </Heading>
-                <div className="space-y-3">
-                  <Button
-                    variant="soft"
-                    size="2"
-                    className="w-full justify-start"
-                    onClick={() => setShowPasswordDialog(true)}
-                  >
-                    <LockClosedIcon className="w-4 h-4 mr-2" />
-                    Change Password
-                  </Button>
-                  <Button
-                    variant="soft"
-                    size="2"
-                    className="w-full justify-start"
-                    onClick={handleLogout}
-                  >
-                    <ExitIcon className="w-4 h-4 mr-2" />
-                    Logout
-                  </Button>
-                  <Button
-                    variant="soft"
-                    color="red"
-                    size="2"
-                    className="w-full justify-start"
-                    onClick={() => setShowDeleteDialog(true)}
-                  >
-                    Delete Account
-                  </Button>
-                </div>
-              </div>
+                      {/* Account Settings */}
+                      <div>
+                        <Heading size="4" mb="3">
+                          Account
+                        </Heading>
+                        <div className="space-y-3">
+                          <Button
+                            variant="soft"
+                            size="2"
+                            className="w-full justify-start"
+                            onClick={() => setShowPasswordDialog(true)}
+                          >
+                            <LockClosedIcon className="w-4 h-4 mr-2" />
+                            Change Password
+                          </Button>
+                          <Button
+                            variant="soft"
+                            size="2"
+                            className="w-full justify-start"
+                            onClick={handleLogout}
+                          >
+                            <ExitIcon className="w-4 h-4 mr-2" />
+                            Logout
+                          </Button>
+                          <Button
+                            variant="soft"
+                            color="red"
+                            size="2"
+                            className="w-full justify-start"
+                            onClick={() => setShowDeleteDialog(true)}
+                          >
+                            Delete Account
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                </Box>
+              </Grid>
+              <BadgeDisplay />
             </div>
-          </Card>
+          </Tabs.Content>
+
+          {/* ── My Services Tab ── */}
+          <Tabs.Content value="services">
+            <MyServices />
+          </Tabs.Content>
         </Box>
-      </Grid>
+      </Tabs.Root>
+
+      <InterestSelector
+        open={showInterestSelector}
+        onOpenChange={setShowInterestSelector}
+        initialSelected={user.interests || []}
+        onSave={handleInterestsSave}
+      />
 
       {/* Change Password Dialog */}
       <Dialog.Root
@@ -1188,17 +1262,6 @@ export function Profile() {
           </Flex>
         </Dialog.Content>
       </Dialog.Root>
-
-      <BadgeDisplay />
-
-      <InterestSelector
-        open={showInterestSelector}
-        onOpenChange={setShowInterestSelector}
-        initialSelected={user.interests || []}
-        onSave={handleInterestsSave}
-      />
-
-      <MyServices />
     </div>
   );
 }
