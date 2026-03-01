@@ -148,6 +148,8 @@ class ForumEventResponse(BaseModel):
     user: Optional[dict] = None
     service: Optional[dict] = None
     comment_count: int = 0
+    attendee_ids: List[str] = Field(default_factory=list)
+    attendee_count: int = 0
 
     class Config:
         populate_by_name = True

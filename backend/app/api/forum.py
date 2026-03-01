@@ -158,6 +158,46 @@ async def delete_event(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
+# ===================== Event Attendance =====================
+
+@router.post("/events/{event_id}/attend", response_model=ForumEventResponse)
+async def attend_event(
+    event_id: str,
+    current_user: UserResponse = Depends(get_current_user),
+    db=Depends(get_database),
+):
+    svc = _forum(db)
+    try:
+        return await svc.attend_event(event_id, str(current_user.id))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.delete("/events/{event_id}/attend", response_model=ForumEventResponse)
+async def unattend_event(
+    event_id: str,
+    current_user: UserResponse = Depends(get_current_user),
+    db=Depends(get_database),
+):
+    svc = _forum(db)
+    try:
+        return await svc.unattend_event(event_id, str(current_user.id))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.get("/events/{event_id}/attendees")
+async def get_event_attendees(
+    event_id: str,
+    db=Depends(get_database),
+):
+    svc = _forum(db)
+    try:
+        return await svc.get_event_attendees(event_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
 # ===================== Comments =====================
 
 @router.get("/comments", response_model=ForumCommentListResponse)
