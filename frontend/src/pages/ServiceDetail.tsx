@@ -1,7 +1,15 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, Badge, Text, Flex, Button, Tooltip } from "@radix-ui/themes";
+import {
+  Card,
+  Badge,
+  Text,
+  Flex,
+  Button,
+  Tooltip,
+  DropdownMenu,
+} from "@radix-ui/themes";
 import { Service, User, JoinRequest, ForumEvent } from "@/types";
 import {
   chatApi,
@@ -46,6 +54,7 @@ export function ServiceDetail() {
   );
   const [isCancellingRequest, setIsCancellingRequest] = useState(false);
   const [linkedEvents, setLinkedEvents] = useState<ForumEvent[]>([]);
+  const [copied, setCopied] = useState(false);
   const { currentUserId } = useUser();
 
   const { data: timebankData } = useQuery({
@@ -327,8 +336,28 @@ export function ServiceDetail() {
     }
   };
 
-  const handleShare = () => {
-    navigator.clipboard.writeText(window.location.href);
+  const shareUrl = window.location.href;
+  const shareTitle = `${service?.service_type === "offer" ? "Offer" : "Need"}: ${service?.title}`;
+  const shareText = `Check out this service on our community: "${service?.title}"`;
+
+  const handleCopyLink = async () => {
+    await navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
+      } catch {
+        // user cancelled or share failed — ignore
+      }
+    }
+  };
+
+  const openShareWindow = (url: string) => {
+    window.open(url, "_blank", "noopener,noreferrer,width=600,height=400");
   };
 
   return (
@@ -575,12 +604,74 @@ export function ServiceDetail() {
                 Save
               </Button>
 
-              <Tooltip content="Click to copy the link to the service">
-                <Button variant="soft" size="3" onClick={handleShare}>
-                  <Share1Icon className="w-4 h-4 mr-2" />
-                  Share
-                </Button>
-              </Tooltip>
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger>
+                  <Button variant="soft" size="3">
+                    <Share1Icon className="w-4 h-4 mr-2" />
+                    Share
+                  </Button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content>
+                  <DropdownMenu.Item onClick={handleCopyLink}>
+                    {copied ? "Copied!" : "Copy link"}
+                  </DropdownMenu.Item>
+                  {typeof navigator.share === "function" && (
+                    <>
+                      <DropdownMenu.Separator />
+                      <DropdownMenu.Item onClick={handleNativeShare}>
+                        Share via device…
+                      </DropdownMenu.Item>
+                    </>
+                  )}
+                  <DropdownMenu.Separator />
+                  <DropdownMenu.Item
+                    onClick={() =>
+                      openShareWindow(
+                        `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`,
+                      )
+                    }
+                  >
+                    Share on X (Twitter)
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    onClick={() =>
+                      openShareWindow(
+                        `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
+                      )
+                    }
+                  >
+                    Share on Facebook
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    onClick={() =>
+                      openShareWindow(
+                        `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`,
+                      )
+                    }
+                  >
+                    Share on LinkedIn
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    onClick={() =>
+                      openShareWindow(
+                        `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText + " " + shareUrl)}`,
+                      )
+                    }
+                  >
+                    Share on WhatsApp
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Separator />
+                  <DropdownMenu.Item
+                    onClick={() =>
+                      window.open(
+                        `mailto:?subject=${encodeURIComponent(shareTitle)}&body=${encodeURIComponent(shareText + "\n\n" + shareUrl)}`,
+                      )
+                    }
+                  >
+                    Share via Email
+                  </DropdownMenu.Item>
+                </DropdownMenu.Content>
+              </DropdownMenu.Root>
               {/* Cancel participation button */}
               {isParticipating && !isServingUser && (
                 <Tooltip content="Cannot cancel within 24 hours of service">
