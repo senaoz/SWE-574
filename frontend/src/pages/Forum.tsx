@@ -23,6 +23,7 @@ import {
   CalendarIcon,
   GlobeIcon,
   Cross2Icon,
+  PersonIcon,
 } from "@radix-ui/react-icons";
 import { forumApi, servicesApi } from "@/services/api";
 import { ForumDiscussion, ForumEvent, TagEntity, Service } from "@/types";
@@ -351,6 +352,12 @@ export function Forum() {
                         {ev.service && (
                           <Badge size="1" variant="soft" color="green">
                             Linked: {ev.service.title}
+                          </Badge>
+                        )}
+                        {ev.attendee_count > 0 && (
+                          <Badge size="1" variant="soft" color="purple">
+                            <PersonIcon className="w-3 h-3 mr-1" />
+                            {ev.attendee_count} attending
                           </Badge>
                         )}
                         <Badge size="1" variant="soft" color="gray">

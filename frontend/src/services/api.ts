@@ -316,6 +316,16 @@ export const forumApi = {
   getLinkedEvents: (serviceId: string): Promise<AxiosResponse<ForumEventListResponse>> =>
     api.get(`/forum/services/${serviceId}/linked-events`),
 
+  // Attendance
+  attendEvent: (eventId: string): Promise<AxiosResponse<ForumEvent>> =>
+    api.post(`/forum/events/${eventId}/attend`),
+
+  unattendEvent: (eventId: string): Promise<AxiosResponse<ForumEvent>> =>
+    api.delete(`/forum/events/${eventId}/attend`),
+
+  getEventAttendees: (eventId: string): Promise<AxiosResponse<{ _id: string; username: string; full_name?: string; profile_picture?: string }[]>> =>
+    api.get(`/forum/events/${eventId}/attendees`),
+
   // Comments
   getComments: (targetType: string, targetId: string, params?: { page?: number; limit?: number }): Promise<AxiosResponse<ForumCommentListResponse>> =>
     api.get('/forum/comments', { params: { target_type: targetType, target_id: targetId, ...params } }),

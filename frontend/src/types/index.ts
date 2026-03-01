@@ -532,6 +532,8 @@ export interface ForumEvent {
     service_type: string;
   };
   comment_count: number;
+  attendee_ids: string[];
+  attendee_count: number;
 }
 
 export interface ForumEventListResponse {

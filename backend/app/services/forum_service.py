@@ -131,6 +131,13 @@ class ForumService:
 
     # ---- Events ----
 
+    def _populate_attendee_fields(self, doc: dict) -> dict:
+        """Ensure attendee_ids / attendee_count are present on event docs."""
+        raw = doc.get("attendee_ids") or []
+        doc["attendee_ids"] = [str(aid) for aid in raw]
+        doc["attendee_count"] = len(doc["attendee_ids"])
+        return doc
+
     async def create_event(self, data: ForumEventCreate, user_id: str) -> ForumEventResponse:
         doc = data.dict()
         doc["user_id"] = ObjectId(user_id)
@@ -141,6 +148,7 @@ class ForumService:
             doc["service_id"] = ObjectId(doc["service_id"])
         else:
             doc["service_id"] = None
+        doc["attendee_ids"] = []
         doc["created_at"] = datetime.utcnow()
         doc["updated_at"] = datetime.utcnow()
 
@@ -149,6 +157,7 @@ class ForumService:
         doc = await self._enrich_user(doc)
         doc = await self._enrich_service(doc)
         doc["comment_count"] = 0
+        doc = self._populate_attendee_fields(doc)
         return ForumEventResponse(**doc)
 
     async def get_events(
@@ -180,6 +189,7 @@ class ForumService:
             doc = await self._enrich_user(doc)
             doc = await self._enrich_service(doc)
             doc["comment_count"] = await self._comment_count("event", doc["_id"])
+            doc = self._populate_attendee_fields(doc)
             results.append(ForumEventResponse(**doc))
         return results, total
 
@@ -190,6 +200,7 @@ class ForumService:
         doc = await self._enrich_user(doc)
         doc = await self._enrich_service(doc)
         doc["comment_count"] = await self._comment_count("event", doc["_id"])
+        doc = self._populate_attendee_fields(doc)
         return ForumEventResponse(**doc)
 
     async def update_event(
@@ -239,8 +250,50 @@ class ForumService:
             doc = await self._enrich_user(doc)
             doc = await self._enrich_service(doc)
             doc["comment_count"] = await self._comment_count("event", doc["_id"])
+            doc = self._populate_attendee_fields(doc)
             results.append(ForumEventResponse(**doc))
         return results
+
+    # ---- Attendance ----
+
+    async def attend_event(self, event_id: str, user_id: str) -> ForumEventResponse:
+        oid = ObjectId(event_id)
+        uid = ObjectId(user_id)
+        doc = await self.events.find_one({"_id": oid})
+        if not doc:
+            raise ValueError("Event not found")
+        existing = [str(a) for a in (doc.get("attendee_ids") or [])]
+        if user_id in existing:
+            raise ValueError("Already attending this event")
+        await self.events.update_one({"_id": oid}, {"$push": {"attendee_ids": uid}})
+        return await self.get_event_by_id(event_id)
+
+    async def unattend_event(self, event_id: str, user_id: str) -> ForumEventResponse:
+        oid = ObjectId(event_id)
+        uid = ObjectId(user_id)
+        doc = await self.events.find_one({"_id": oid})
+        if not doc:
+            raise ValueError("Event not found")
+        await self.events.update_one({"_id": oid}, {"$pull": {"attendee_ids": uid}})
+        return await self.get_event_by_id(event_id)
+
+    async def get_event_attendees(self, event_id: str) -> list:
+        doc = await self.events.find_one({"_id": ObjectId(event_id)})
+        if not doc:
+            raise ValueError("Event not found")
+        attendee_ids = doc.get("attendee_ids") or []
+        attendees = []
+        for aid in attendee_ids:
+            uid = aid if isinstance(aid, ObjectId) else ObjectId(aid)
+            user = await self.users.find_one({"_id": uid})
+            if user:
+                attendees.append({
+                    "_id": str(user["_id"]),
+                    "username": user["username"],
+                    "full_name": user.get("full_name"),
+                    "profile_picture": user.get("profile_picture"),
+                })
+        return attendees
 
     # ---- Comments ----
 
