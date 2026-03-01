@@ -362,9 +362,6 @@ export function ServiceDetail() {
                       REMOTE
                     </Badge>
                   )}
-                  <Badge color="yellow" variant="soft" size="2">
-                    {service.category}
-                  </Badge>
                   <Text size="2" color="gray">
                     Posted {formatDate(service.created_at)}
                   </Text>
@@ -701,6 +698,10 @@ export function ServiceDetail() {
               services={[service]}
               height="350px"
               showFilters={false}
+              userPosition={[
+                service.location.latitude,
+                service.location.longitude,
+              ]}
             />
           )}
 
