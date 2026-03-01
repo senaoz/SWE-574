@@ -59,7 +59,7 @@ export function Profile() {
   const [editForm, setEditForm] = useState({
     full_name: "",
     bio: "",
-    location: "",
+    location: { latitude: 0, longitude: 0, address: "" },
     email: "",
     profile_picture: "",
     social_links: {
@@ -129,7 +129,14 @@ export function Profile() {
         setEditForm({
           full_name: userData.full_name || "",
           bio: userData.bio || "",
-          location: userData.location || "",
+          location: {
+            latitude: (userData.location as any)?.latitude || 0,
+            longitude: (userData.location as any)?.longitude || 0,
+            address:
+              typeof userData.location === "string"
+                ? userData.location
+                : (userData.location as any)?.address || "",
+          },
           email: userData.email || "",
           profile_picture: userData.profile_picture || "",
           social_links: {
@@ -179,7 +186,7 @@ export function Profile() {
       const payload: any = {
         full_name: editForm.full_name,
         bio: editForm.bio,
-        location: editForm.location,
+        location: editForm.location.address || undefined,
         profile_picture: editForm.profile_picture || undefined,
         social_links:
           Object.keys(socialLinks).length > 0 ? socialLinks : undefined,
@@ -200,7 +207,14 @@ export function Profile() {
       setEditForm({
         full_name: user.full_name || "",
         bio: user.bio || "",
-        location: user.location || "",
+        location: {
+          latitude: (user.location as any)?.latitude || 0,
+          longitude: (user.location as any)?.longitude || 0,
+          address:
+            typeof user.location === "string"
+              ? user.location
+              : (user.location as any)?.address || "",
+        },
         email: user.email || "",
         profile_picture: user.profile_picture || "",
         social_links: {
@@ -509,13 +523,16 @@ export function Profile() {
                 </Text>
                 {isEditing ? (
                   <MapLocationPicker
-                    value={{
-                      latitude: 0,
-                      longitude: 0,
-                      address: editForm.location || "",
-                    }}
+                    value={editForm.location}
                     onChange={(loc) =>
-                      handleInputChange("location", loc.address || "")
+                      setEditForm((prev) => ({
+                        ...prev,
+                        location: {
+                          latitude: loc.latitude,
+                          longitude: loc.longitude,
+                          address: loc.address || "",
+                        },
+                      }))
                     }
                     height={180}
                     markerColor="#2563eb"
@@ -524,7 +541,10 @@ export function Profile() {
                   <Flex align="center" gap="2">
                     <Crosshair1Icon className="w-4 h-4" />
                     <Text size="2">
-                      {user.location || "No location provided"}
+                      {typeof user.location === "string"
+                        ? user.location || "No location provided"
+                        : (user.location as any)?.address ||
+                          "No location provided"}
                     </Text>
                   </Flex>
                 )}
