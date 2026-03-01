@@ -117,6 +117,8 @@ export function Profile() {
   const [searchParams, setSearchParams] = useSearchParams();
   const profileTabFromUrl = searchParams.get("tab") || "profile";
   const profileStatusFromUrl = searchParams.get("status") || undefined;
+  const selectInterests = searchParams.get("interests") || undefined;
+
   const allowedTabs = [
     "profile",
     "services",
@@ -138,6 +140,12 @@ export function Profile() {
       return p;
     });
   };
+
+  useEffect(() => {
+    if (selectInterests) {
+      setShowInterestSelector(true);
+    }
+  }, [selectInterests]);
 
   // Fetch rejected requests
   const { data: rejectedRequestsData } = useQuery({
@@ -298,6 +306,11 @@ export function Profile() {
       console.error("Error saving interests:", error);
     }
     setShowInterestSelector(false);
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      p.delete("interests");
+      return p;
+    });
   };
 
   const handleSettingsChange = async (

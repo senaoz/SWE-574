@@ -15,6 +15,7 @@ import { CityFilter } from "@/components/ui/CityFilter";
 import { useTheme } from "@/App";
 import { useFilters } from "@/contexts/FilterContext";
 import { LoginForm } from "../auth/LoginForm";
+import { RegisterForm } from "../auth/RegisterForm";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HandIcon } from "@radix-ui/react-icons";
@@ -115,6 +116,15 @@ export function Header() {
               />
             ) : (
               <div className="flex items-center space-x-2 ml-2">
+                <Tooltip content="Timebank">
+                  <IconButton
+                    variant="outline"
+                    className="text-sm font-bold"
+                    onClick={() => navigate("/profile?tab=timebank")}
+                  >
+                    {timebankData?.balance}
+                  </IconButton>
+                </Tooltip>
                 <Tooltip content="Profile">
                   <IconButton
                     onClick={() => navigate("/profile")}
@@ -134,28 +144,19 @@ export function Header() {
                     )}
                   </IconButton>
                 </Tooltip>
-                <Tooltip content="Timebank">
-                  <IconButton
-                    variant="outline"
-                    className="text-sm font-bold"
-                    onClick={() => navigate("/profile?tab=timebank")}
-                  >
-                    {timebankData?.balance}
-                  </IconButton>
-                </Tooltip>
                 <Tooltip content="Dashboard">
                   <IconButton onClick={() => navigate("/dashboard")}>
                     <HomeIcon className="w-4 h-4" />
                   </IconButton>
                 </Tooltip>
-                <Tooltip content="Chat">
-                  <IconButton onClick={() => navigate("/profile?tab=chat")}>
-                    <ChatBubbleIcon className="w-4 h-4" />
-                  </IconButton>
-                </Tooltip>
                 <Tooltip content="Forum">
                   <IconButton onClick={() => navigate("/forum")}>
                     <GlobeIcon className="w-4 h-4" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip content="Chat">
+                  <IconButton onClick={() => navigate("/profile?tab=chat")}>
+                    <ChatBubbleIcon className="w-4 h-4" />
                   </IconButton>
                 </Tooltip>
                 {(currentUser?.role === "admin" ||
@@ -187,18 +188,47 @@ function LoginDialog({
   onOpenChange: (open: boolean) => void;
   setLoginDialogOpen: (open: boolean) => void;
 }) {
+  const [mode, setMode] = useState<"login" | "register">("login");
+
+  const handleOpenChange = (next: boolean) => {
+    if (!next) setMode("login");
+    onOpenChange(next);
+  };
+
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Trigger>
         <Button>Login</Button>
       </Dialog.Trigger>
 
-      <Dialog.Content>
-        <Dialog.Title className="text-2xl font-bold">Welcome Back</Dialog.Title>
-        <Dialog.Description className="mb-4">
-          Log in to your account to continue
-        </Dialog.Description>
-        <LoginForm setLoginDialogOpen={setLoginDialogOpen} />
+      <Dialog.Content className="max-h-[90vh] overflow-y-auto">
+        {mode === "login" ? (
+          <>
+            <Dialog.Title className="text-2xl font-bold">
+              Welcome Back
+            </Dialog.Title>
+            <Dialog.Description className="mb-4">
+              Log in to your account to continue
+            </Dialog.Description>
+            <LoginForm setLoginDialogOpen={setLoginDialogOpen} />
+            <p className="mt-6 text-center text-sm ">
+              Don&apos;t have an account?{" "}
+              <button
+                type="button"
+                className="text-lime-600 hover:underline font-medium"
+                onClick={() => setMode("register")}
+              >
+                Register
+              </button>
+            </p>
+          </>
+        ) : (
+          <RegisterForm
+            setLoginDialogOpen={setLoginDialogOpen}
+            onSwitchToLogin={() => setMode("login")}
+            embedded
+          />
+        )}
       </Dialog.Content>
     </Dialog.Root>
   );

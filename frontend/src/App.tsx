@@ -11,8 +11,6 @@ import { Home } from "@/pages/Home";
 import { ServiceDetail } from "@/pages/ServiceDetail";
 import { UserDetail } from "@/pages/UserDetail";
 import { Profile } from "@/pages/Profile";
-import { MyServices } from "@/pages/MyServices";
-import { Chat } from "@/pages/Chat";
 import { AdminPanel } from "@/pages/AdminPanel";
 import { Forum } from "@/pages/Forum";
 import { ForumDiscussionDetail } from "@/pages/ForumDiscussionDetail";
@@ -20,6 +18,7 @@ import { ForumEventDetail } from "@/pages/ForumEventDetail";
 import { Layout } from "@/components/layout/Layout";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { GuestOnlyRoute } from "@/components/auth/GuestOnlyRoute";
 import { FilterProvider } from "@/contexts/FilterContext";
 import { useState, createContext, useContext, useEffect } from "react";
 
@@ -100,7 +99,14 @@ function App() {
               <Layout>
                 <Routes>
                   <Route path="/" element={<Home />} />
-                  <Route path="/register" element={<RegisterForm />} />
+                  <Route
+                    path="/register"
+                    element={
+                      <GuestOnlyRoute>
+                        <RegisterForm />
+                      </GuestOnlyRoute>
+                    }
+                  />
                   <Route
                     path="/dashboard"
                     element={

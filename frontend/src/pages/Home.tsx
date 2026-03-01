@@ -57,11 +57,7 @@ export function Home() {
           variant="solid"
           size="3"
           className="w-fit mx-auto"
-          onClick={() =>
-            !localStorage.getItem("access_token")
-              ? navigate("/register")
-              : navigate("/dashboard")
-          }
+          onClick={() => navigate("/dashboard")}
         >
           Explore the Community
         </Button>
@@ -168,11 +164,7 @@ export function Home() {
             <Button
               variant="solid"
               size="3"
-              onClick={() =>
-                !localStorage.getItem("access_token")
-                  ? navigate("/register")
-                  : navigate("/dashboard")
-              }
+              onClick={() => navigate("/dashboard")}
             >
               Get Started
             </Button>
@@ -401,7 +393,7 @@ export function Home() {
         </div>
 
         <div className="text-center mt-8">
-          <Button variant="outline" size="3">
+          <Button variant="outline" size="3" onClick={() => navigate("/forum")}>
             Join the Conversation
           </Button>
         </div>
