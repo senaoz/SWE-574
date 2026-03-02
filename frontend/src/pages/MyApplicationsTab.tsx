@@ -1,12 +1,16 @@
 import { Card, Text, Flex, Badge, Button } from "@radix-ui/themes";
-import { JoinRequest, Service } from "@/types";
+import { useEffect, useState } from "react";
+import { JoinRequest, Service, Transaction, Rating } from "@/types";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { RatingForm, RatingStars } from "@/components/ui/RatingStars";
+import { ratingsApi } from "@/services/api";
 import { CheckCircledIcon } from "@radix-ui/react-icons";
 
 interface MyApplicationsTabProps {
   requests: JoinRequest[];
   serviceTitles: Record<string, string>;
   services: Service[]; // Services for approved applications
+  serviceTransactions: Record<string, Transaction[]>;
   currentUserId: string | null;
   onServiceClick: (id: string) => void;
   onConfirmServiceCompletion: (serviceId: string) => Promise<void>;
@@ -17,11 +21,63 @@ export function MyApplicationsTab({
   requests,
   serviceTitles,
   services,
+  serviceTransactions,
   currentUserId,
   onServiceClick,
   onConfirmServiceCompletion,
   formatDate,
 }: MyApplicationsTabProps) {
+  const [transactionRatings, setTransactionRatings] = useState<
+    Record<string, Rating[]>
+  >({});
+  const [ratingLoading, setRatingLoading] = useState<string | null>(null);
+
+  // Fetch ratings for completed transactions (where we are the requester)
+  useEffect(() => {
+    const applicationServiceIds = services.map((s) => s._id);
+    applicationServiceIds.forEach((serviceId) => {
+      const transactions = serviceTransactions[serviceId] ?? [];
+      const completedAsRequester = transactions.filter(
+        (t) =>
+          t.status === "completed" &&
+          currentUserId &&
+          String(t.requester_id) === String(currentUserId),
+      );
+      completedAsRequester.forEach(async (t) => {
+        try {
+          const res = await ratingsApi.getTransactionRatings(t._id);
+          setTransactionRatings((prev) => ({ ...prev, [t._id]: res.data }));
+        } catch {
+          // ratings not available yet
+        }
+      });
+    });
+  }, [services, serviceTransactions, currentUserId]);
+
+  const handleRatingSubmit = async (
+    transactionId: string,
+    ratedUserId: string,
+    score: number,
+    comment: string,
+  ) => {
+    setRatingLoading(transactionId);
+    try {
+      await ratingsApi.createRating({
+        transaction_id: transactionId,
+        rated_user_id: ratedUserId,
+        score,
+        comment: comment || undefined,
+      });
+      const res = await ratingsApi.getTransactionRatings(transactionId);
+      setTransactionRatings((prev) => ({ ...prev, [transactionId]: res.data }));
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { detail?: string } } };
+      alert(err.response?.data?.detail || "Failed to submit rating");
+    } finally {
+      setRatingLoading(null);
+    }
+  };
+
   if (requests.length === 0) {
     return (
       <Card className="p-8">
@@ -188,6 +244,72 @@ export function MyApplicationsTab({
                                 </Text>
                               </Flex>
                             )}
+
+                            {/* Rating section for completed services */}
+                            {service.status === "completed" &&
+                              isReceiver &&
+                              currentUserId && (() => {
+                                const transactions =
+                                  serviceTransactions[service._id] ?? [];
+                                const myTransaction = transactions.find(
+                                  (t) =>
+                                    t.status === "completed" &&
+                                    String(t.requester_id) ===
+                                      String(currentUserId),
+                                );
+                                if (!myTransaction) return null;
+                                const providerId = service.user_id;
+                                const ratings =
+                                  transactionRatings[myTransaction._id] ?? [];
+                                const myRating = ratings.find(
+                                  (r) =>
+                                    String(r.rater_id) ===
+                                    String(currentUserId),
+                                );
+                                return (
+                                  <Card className="p-3 mt-2">
+                                    {myRating ? (
+                                      <div>
+                                        <Text
+                                          size="2"
+                                          weight="bold"
+                                          className="block mb-1"
+                                        >
+                                          Your rating for the provider
+                                        </Text>
+                                        <RatingStars
+                                          value={myRating.score}
+                                          readonly
+                                          size={16}
+                                        />
+                                        {myRating.comment && (
+                                          <Text
+                                            size="1"
+                                            color="gray"
+                                            className="block mt-1"
+                                          >
+                                            &quot;{myRating.comment}&quot;
+                                          </Text>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <RatingForm
+                                        onSubmit={(score, comment) =>
+                                          handleRatingSubmit(
+                                            myTransaction._id,
+                                            providerId,
+                                            score,
+                                            comment,
+                                          )
+                                        }
+                                        loading={
+                                          ratingLoading === myTransaction._id
+                                        }
+                                      />
+                                    )}
+                                  </Card>
+                                );
+                              })()}
                           </Flex>
                         </div>
                       )}

@@ -184,7 +184,7 @@ export function MyServices({
         setServiceTitles((prev) => ({ ...prev, ...missingTitles }));
       }
 
-      // Fetch transactions for each service
+      // Fetch transactions for each service (user's own services)
       const serviceTransactionsMap: Record<string, Transaction[]> = {};
       for (const service of servicesResponse.data.services) {
         if (
@@ -199,6 +199,26 @@ export function MyServices({
           } catch (error) {
             console.error(
               `Error fetching transactions for service ${service._id}:`,
+              error,
+            );
+            serviceTransactionsMap[service._id] = [];
+          }
+        }
+      }
+      // Fetch transactions for application services (approved applications)
+      for (const service of applicationServicesList) {
+        if (
+          (service.status === "in_progress" || service.status === "completed") &&
+          !serviceTransactionsMap[service._id]
+        ) {
+          try {
+            const serviceTransactionsResponse =
+              await transactionsApi.getServiceTransactions(service._id, 1, 50);
+            serviceTransactionsMap[service._id] =
+              serviceTransactionsResponse.data.transactions;
+          } catch (error) {
+            console.error(
+              `Error fetching transactions for application service ${service._id}:`,
               error,
             );
             serviceTransactionsMap[service._id] = [];
@@ -523,6 +543,7 @@ export function MyServices({
               requests={requests}
               serviceTitles={serviceTitles}
               services={applicationServices}
+              serviceTransactions={serviceTransactions}
               currentUserId={currentUserId}
               onServiceClick={handleServiceClick}
               onConfirmServiceCompletion={handleConfirmServiceCompletion}
@@ -573,6 +594,7 @@ export function MyServices({
               requests={requests}
               serviceTitles={serviceTitles}
               services={applicationServices}
+              serviceTransactions={serviceTransactions}
               currentUserId={currentUserId}
               onServiceClick={handleServiceClick}
               onConfirmServiceCompletion={handleConfirmServiceCompletion}
