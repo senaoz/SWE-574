@@ -497,6 +497,7 @@ class ServiceService:
             # Check whether TimeBank was already handled via the transaction path.
             # If every linked transaction is already completed, balances were
             # already updated there — skip to avoid double-crediting.
+            from ..models.transaction import TransactionStatus
             transactions_collection = self.db.transactions
             linked_total = await transactions_collection.count_documents(
                 {"service_id": ObjectId(service_id)}
@@ -559,6 +560,20 @@ class ServiceService:
             if not provider_success or not receiver_success:
                 print(f"WARNING: Service {service_id} marked as COMPLETED but some TimeBank transactions failed")
                 return False
+            
+            # Mark all linked transactions as completed so they appear completed in UI and become rateable
+            await transactions_collection.update_many(
+                {"service_id": ObjectId(service_id), "status": {"$ne": TransactionStatus.COMPLETED}},
+                {
+                    "$set": {
+                        "status": TransactionStatus.COMPLETED,
+                        "completed_at": datetime.utcnow(),
+                        "provider_confirmed": True,
+                        "requester_confirmed": True,
+                        "updated_at": datetime.utcnow(),
+                    }
+                }
+            )
             
             return True
         except Exception as e:
