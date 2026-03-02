@@ -556,7 +556,6 @@ export function MyServices({
             currentUserId={currentUserId}
             requiresNeedCreation={timebankData?.requires_need_creation ?? false}
             onSetServiceInProgress={handleSetServiceInProgress}
-            onMarkServiceAsDone={handleMarkServiceAsDone}
             onConfirmServiceCompletion={handleConfirmServiceCompletion}
             onConfirmTransactionCompletion={handleConfirmTransactionCompletion}
             onDeleteService={handleDeleteService}

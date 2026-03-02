@@ -609,6 +609,7 @@ export function ServiceDetail() {
                           });
                       }
                     }}
+                    isOwner={service.user_id === currentUserId ?? false}
                   />
                 )
               ) : isServingUser ? (
@@ -758,55 +759,6 @@ export function ServiceDetail() {
                 )}
             </div>
           </Card>
-
-          {/* Service Completion Status for in_progress services */}
-          {service.status === "in_progress" &&
-            service.matched_user_ids &&
-            service.matched_user_ids.length > 0 && (
-              <Card
-                className="p-4"
-                style={{ backgroundColor: "var(--blue-2)" }}
-              >
-                <Flex direction="column" gap="3">
-                  <Text size="3" weight="bold">
-                    Service Completion Status
-                  </Text>
-                  <Flex gap="4" wrap="wrap">
-                    <Flex direction="column" gap="1">
-                      <Text size="2" weight="medium">
-                        Provider:
-                      </Text>
-                      <Badge
-                        color={service.provider_confirmed ? "green" : "gray"}
-                        size="2"
-                      >
-                        {service.provider_confirmed ? "Confirmed" : "Pending"}
-                      </Badge>
-                    </Flex>
-                    <Flex direction="column" gap="1">
-                      <Text size="2" weight="medium">
-                        Receivers:
-                      </Text>
-                      <Badge
-                        color={
-                          service.receiver_confirmed_ids &&
-                          service.matched_user_ids &&
-                          service.receiver_confirmed_ids.length ===
-                            service.matched_user_ids.length
-                            ? "green"
-                            : "gray"
-                        }
-                        size="2"
-                      >
-                        {service.receiver_confirmed_ids
-                          ? `${service.receiver_confirmed_ids.length}/${service.matched_user_ids.length} Confirmed`
-                          : `0/${service.matched_user_ids.length} Confirmed`}
-                      </Badge>
-                    </Flex>
-                  </Flex>
-                </Flex>
-              </Card>
-            )}
         </div>
 
         {/* Sidebar */}

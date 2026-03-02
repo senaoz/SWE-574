@@ -18,7 +18,6 @@ interface MyServicesTabProps {
   currentUserId: string | null;
   requiresNeedCreation?: boolean;
   onSetServiceInProgress: (serviceId: string) => Promise<void>;
-  onMarkServiceAsDone: (serviceId: string) => Promise<void>;
   onConfirmServiceCompletion: (serviceId: string) => Promise<void>;
   onConfirmTransactionCompletion: (transactionId: string) => Promise<void>;
   onDeleteService: (serviceId: string) => Promise<void>;
@@ -35,7 +34,6 @@ export function MyServicesTab({
   currentUserId,
   requiresNeedCreation = false,
   onSetServiceInProgress,
-  onMarkServiceAsDone,
   onConfirmTransactionCompletion,
   onDeleteService,
   onCancelService,
@@ -183,98 +181,68 @@ export function MyServicesTab({
               {servicesInStatus.map((service) => (
                 <Card key={service._id} className="p-6">
                   <div className="flex flex-col gap-3">
-                    {/* Service header */}
-                    <Flex justify="between" align="start">
-                      <div className="flex-1 flex flex-col">
-                        <Flex align="center" gap="2">
+                    <Flex direction="column" gap="1">
+                      <Flex justify="between" gap="2" align="center">
+                        <Text
+                          size="4"
+                          weight="bold"
+                          className="cursor-pointer hover:text-lime-500 transition-colors duration-200"
+                          onClick={() => navigate(`/service/${service._id}`)}
+                        >
+                          {getServiceTypeLabel(service.service_type)}:{" "}
+                          {service.title}
+                        </Text>
+                        <Flex justify="end" gap="2" align="center">
                           <StatusBadge status={service.status} />
-                          <Badge
-                            color={getServiceTypeColor(service.service_type)}
-                          >
-                            {getServiceTypeLabel(service.service_type)}
-                          </Badge>
-                        </Flex>
-                      </div>
 
-                      {/* Action buttons for service owner */}
-                      {String(service.user_id) === String(currentUserId) && (
-                        <Flex gap="2" justify="end">
-                          {/* Set to In Progress button for active services */}
-                          {service.status === "active" && (
-                            <Button
-                              size="2"
-                              color="blue"
-                              onClick={() =>
-                                onSetServiceInProgress(service._id)
-                              }
-                              disabled={
-                                !service.matched_user_ids ||
-                                service.matched_user_ids.length === 0
-                              }
-                            >
-                              <ArrowRightIcon className="w-4 h-4 mr-2" />
-                              Start Service
-                            </Button>
-                          )}
-                          {/* Mark as Done button for active or in_progress services */}
-                          {(service.status === "active" ||
-                            service.status === "in_progress") &&
-                            !service.provider_confirmed && (
+                          {/* Action buttons for service owner */}
+                          {String(service.user_id) ===
+                            String(currentUserId) && (
+                            <>
+                              {/* Set to In Progress button for active services */}
+                              {service.status === "active" && (
+                                <Button
+                                  size="2"
+                                  color="blue"
+                                  onClick={() =>
+                                    onSetServiceInProgress(service._id)
+                                  }
+                                  disabled={
+                                    !service.matched_user_ids ||
+                                    service.matched_user_ids.length === 0
+                                  }
+                                >
+                                  <ArrowRightIcon className="w-4 h-4 mr-2" />
+                                  Start Service
+                                </Button>
+                              )}
+
                               <Button
                                 disabled={
-                                  !service.matched_user_ids ||
-                                  service.matched_user_ids.length === 0 ||
-                                  (service.service_type === "offer" &&
-                                    requiresNeedCreation)
+                                  service.status === "completed" ||
+                                  service.status === "cancelled" ||
+                                  service.status === "expired"
                                 }
                                 size="2"
-                                color="green"
-                                onClick={() => onMarkServiceAsDone(service._id)}
-                                title={
-                                  service.service_type === "offer" &&
-                                  requiresNeedCreation
-                                    ? "Create a Need before you can give help"
-                                    : undefined
-                                }
+                                variant="soft"
+                                color="orange"
+                                onClick={() => onCancelService(service._id)}
                               >
-                                <CheckCircledIcon className="w-4 h-4 mr-2" />
-                                Mark as Done
+                                <CrossCircledIcon className="w-4 h-4" />
                               </Button>
-                            )}
-                          <Button
-                            disabled={
-                              service.status === "completed" ||
-                              service.status === "cancelled" ||
-                              service.status === "expired"
-                            }
-                            size="2"
-                            variant="soft"
-                            color="orange"
-                            onClick={() => onCancelService(service._id)}
-                          >
-                            <CrossCircledIcon className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            disabled={service.status !== "active"}
-                            size="2"
-                            variant="soft"
-                            color="red"
-                            onClick={() => onDeleteService(service._id)}
-                          >
-                            <TrashIcon className="w-4 h-4" />
-                          </Button>
+                              <Button
+                                disabled={service.status !== "active"}
+                                size="2"
+                                variant="soft"
+                                color="red"
+                                onClick={() => onDeleteService(service._id)}
+                              >
+                                <TrashIcon className="w-4 h-4" />
+                              </Button>
+                            </>
+                          )}
                         </Flex>
-                      )}
-                    </Flex>
-                    <Flex
-                      direction="column"
-                      gap="1"
-                      className="cursor-pointer hover:text-lime-500 transition-colors duration-200"
-                      onClick={() => navigate(`/service/${service._id}`)}
-                    >
-                      <Text size="4" weight="bold">
-                        {service.title}
-                      </Text>
+                      </Flex>
                       <Text size="2" color="gray">
                         {service.description}
                       </Text>
@@ -293,54 +261,6 @@ export function MyServicesTab({
                         <Text size="2">{formatDate(service.created_at)}</Text>
                       </Flex>
                     </Flex>
-
-                    {/* Service Completion Status for in_progress services */}
-                    {service.status === "in_progress" &&
-                      service.matched_user_ids &&
-                      service.matched_user_ids.length > 0 && (
-                        <Flex direction="column" gap="2">
-                          <Text size="2" weight="bold">
-                            Completion Status
-                          </Text>
-                          <Flex gap="4" wrap="wrap">
-                            <Flex direction="column" gap="1">
-                              <Text size="1" weight="medium">
-                                Provider:
-                              </Text>
-                              <Badge
-                                color={
-                                  service.provider_confirmed ? "green" : "gray"
-                                }
-                                size="1"
-                              >
-                                {service.provider_confirmed
-                                  ? "Confirmed"
-                                  : "Pending"}
-                              </Badge>
-                            </Flex>
-                            <Flex direction="column" gap="1">
-                              <Text size="1" weight="medium">
-                                Receivers:
-                              </Text>
-                              <Badge
-                                color={
-                                  service.receiver_confirmed_ids &&
-                                  service.matched_user_ids &&
-                                  service.receiver_confirmed_ids.length ===
-                                    service.matched_user_ids.length
-                                    ? "green"
-                                    : "gray"
-                                }
-                                size="1"
-                              >
-                                {service.receiver_confirmed_ids
-                                  ? `${service.receiver_confirmed_ids.length}/${service.matched_user_ids.length} Confirmed`
-                                  : `0/${service.matched_user_ids.length} Confirmed`}
-                              </Badge>
-                            </Flex>
-                          </Flex>
-                        </Flex>
-                      )}
 
                     {/* Matched users info */}
                     {service.matched_user_ids &&
@@ -507,6 +427,7 @@ export function MyServicesTab({
                                           </Badge>
                                         </Flex>
                                       </Flex>
+
                                       {transaction.status === "completed" ? (
                                         <Text
                                           size="1"
@@ -516,30 +437,23 @@ export function MyServicesTab({
                                           ✓ Transaction completed
                                         </Text>
                                       ) : (
-                                        <Button
-                                          size="1"
-                                          color="green"
-                                          disabled={
-                                            requiresNeedCreation &&
+                                        <ConfirmCompletionButton
+                                          transaction={transaction}
+                                          onConfirmTransactionCompletion={
+                                            onConfirmTransactionCompletion
+                                          }
+                                          isProvider={
                                             transaction.provider_id ===
-                                              currentUserId
+                                            currentUserId
                                           }
-                                          title={
-                                            requiresNeedCreation &&
-                                            transaction.provider_id ===
-                                              currentUserId
-                                              ? "Create a Need before you can give help"
-                                              : undefined
+                                          isRequester={
+                                            transaction.requester_id ===
+                                            currentUserId
                                           }
-                                          onClick={() =>
-                                            onConfirmTransactionCompletion(
-                                              transaction._id,
-                                            )
+                                          requiresNeedCreation={
+                                            requiresNeedCreation
                                           }
-                                        >
-                                          <CheckCircledIcon className="w-3 h-3 mr-1" />
-                                          Confirm Completion
-                                        </Button>
+                                        />
                                       )}
                                     </Flex>
                                   </Card>
@@ -571,3 +485,40 @@ export function MyServicesTab({
     </div>
   );
 }
+
+const ConfirmCompletionButton = ({
+  transaction,
+  onConfirmTransactionCompletion,
+  isProvider,
+  isRequester,
+  requiresNeedCreation,
+}: {
+  transaction: Transaction;
+  onConfirmTransactionCompletion: (transactionId: string) => void;
+  isProvider: boolean;
+  isRequester: boolean;
+  requiresNeedCreation: boolean;
+}) => {
+  if (
+    (isProvider && !transaction.provider_confirmed) ||
+    (isRequester && !transaction.requester_confirmed)
+  ) {
+    return (
+      <Button
+        size="1"
+        color="green"
+        disabled={requiresNeedCreation}
+        title={
+          requiresNeedCreation
+            ? "Create a Need before you can give help"
+            : undefined
+        }
+        onClick={() => onConfirmTransactionCompletion(transaction._id)}
+      >
+        Confirm Completion
+      </Button>
+    );
+  }
+
+  return null;
+};

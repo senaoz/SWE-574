@@ -36,7 +36,7 @@ export function MyApplicationsTab({
     <div className="space-y-4">
       {requests.map((request) => (
         <Card key={request._id} className="p-4">
-          <Flex direction="column" gap="3">
+          <Flex direction="column" gap="4">
             <Flex
               justify="between"
               align="start"
@@ -90,7 +90,7 @@ export function MyApplicationsTab({
               <>
                 {(() => {
                   const service = services.find(
-                    (s) => s._id === request.service_id
+                    (s) => s._id === request.service_id,
                   );
                   if (!service) return null;
 
@@ -106,10 +106,9 @@ export function MyApplicationsTab({
                   return (
                     <>
                       {/* Service Completion Status for in_progress services */}
-                      {(service.status === "in_progress" || service.status === "completed") && (
-                        <Card
-                          className="p-3"
-                        >
+                      {(service.status === "in_progress" ||
+                        service.status === "completed") && (
+                        <div>
                           <Flex direction="column" gap="3">
                             <Text size="2" weight="bold">
                               Service Completion Status
@@ -151,8 +150,8 @@ export function MyApplicationsTab({
                                   service.matched_user_ids
                                     ? `${service.receiver_confirmed_ids.length}/${service.matched_user_ids.length} Confirmed`
                                     : service.matched_user_ids
-                                    ? `0/${service.matched_user_ids.length} Confirmed`
-                                    : "0/0 Confirmed"}
+                                      ? `0/${service.matched_user_ids.length} Confirmed`
+                                      : "0/0 Confirmed"}
                                 </Badge>
                               </Flex>
                             </Flex>
@@ -190,7 +189,7 @@ export function MyApplicationsTab({
                               </Flex>
                             )}
                           </Flex>
-                        </Card>
+                        </div>
                       )}
                     </>
                   );
