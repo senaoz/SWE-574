@@ -845,6 +845,7 @@ export function ServiceDetail() {
                 service.location.latitude,
                 service.location.longitude,
               ]}
+              sticky={false}
             />
           )}
 

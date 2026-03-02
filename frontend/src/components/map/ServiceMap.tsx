@@ -191,12 +191,16 @@ export function ServiceMap({
           return r.json();
         })
         .then((d) => {
-          if (d.latitude && d.longitude) setInternalUserPosition([d.latitude, d.longitude]);
+          if (d.latitude && d.longitude)
+            setInternalUserPosition([d.latitude, d.longitude]);
           else setInternalUserPosition([41.0082, 28.9784]);
         })
         .catch(() => setInternalUserPosition([41.0082, 28.9784]));
     };
-    if (!navigator.geolocation) { ipFallback(); return; }
+    if (!navigator.geolocation) {
+      ipFallback();
+      return;
+    }
     navigator.geolocation.getCurrentPosition(onSuccess, () => ipFallback(), {
       enableHighAccuracy: false,
       timeout: 10000,
@@ -271,7 +275,7 @@ export function ServiceMap({
 
   return (
     <div
-      className={`relative overflow-hidden ${sticky ? "sticky top-20 z-10" : ""}`}
+      className={`relative overflow-hidden ${sticky ? "sticky top-20 z-10" : "z-0"}`}
       style={{
         borderRadius: "1em",
         boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
