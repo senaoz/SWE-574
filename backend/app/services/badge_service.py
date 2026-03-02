@@ -60,6 +60,14 @@ BADGE_DEFINITIONS = [
         "target": 10,
     },
     {
+        "key": "first_exchange",
+        "name": "First Exchange",
+        "description": "Complete your first exchange",
+        "icon": "check-circle",
+        "metric": "exchange_count",
+        "target": 1,
+    },
+    {
         "key": "helper",
         "name": "Helper",
         "description": "Complete 5 exchanges",
@@ -91,14 +99,6 @@ BADGE_DEFINITIONS = [
         "metric": "contributed_hours",
         "target": 50,
     },
-    {
-        "key": "helper_hero",
-        "name": "Helper Hero",
-        "description": "Complete 10 exchanges",
-        "icon": "shield",
-        "metric": "exchange_count",
-        "target": 10,
-    }
 ]
 
 
