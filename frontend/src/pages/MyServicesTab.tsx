@@ -1,8 +1,10 @@
 import { Card, Text, Flex, Badge, Button, Heading } from "@radix-ui/themes";
-import { useEffect } from "react";
-import { Service, Transaction } from "@/types";
+import { useEffect, useState } from "react";
+import { Service, Transaction, Rating } from "@/types";
 import { ApplicantsList } from "@/components/ui/ApplicantsList";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { RatingForm, RatingStars } from "@/components/ui/RatingStars";
+import { ratingsApi } from "@/services/api";
 import {
   ClockIcon,
   CheckCircledIcon,
@@ -19,9 +21,10 @@ interface MyServicesTabProps {
   requiresNeedCreation?: boolean;
   onSetServiceInProgress: (serviceId: string) => Promise<void>;
   onConfirmServiceCompletion: (serviceId: string) => Promise<void>;
-  onConfirmTransactionCompletion: (transactionId: string) => Promise<void>;
   onDeleteService: (serviceId: string) => Promise<void>;
   onCancelService: (serviceId: string) => Promise<void>;
+  onStartChat: (transactionId: string) => Promise<void>;
+  onCancelTransaction: (transactionId: string) => Promise<void>;
   onRequestUpdate: () => void;
   formatDate: (dateString: string) => string;
   /** When set (from URL ?status=), scroll to this section and highlight the filter button. */
@@ -34,14 +37,57 @@ export function MyServicesTab({
   currentUserId,
   requiresNeedCreation = false,
   onSetServiceInProgress,
-  onConfirmTransactionCompletion,
+  onConfirmServiceCompletion,
   onDeleteService,
   onCancelService,
+  onStartChat,
+  onCancelTransaction,
   onRequestUpdate,
   formatDate,
   statusFilter,
 }: MyServicesTabProps) {
   const navigate = useNavigate();
+  const [transactionRatings, setTransactionRatings] = useState<
+    Record<string, Rating[]>
+  >({});
+  const [ratingLoading, setRatingLoading] = useState<string | null>(null);
+
+  // Fetch ratings for completed transactions (from all services)
+  useEffect(() => {
+    const allTransactions = Object.values(serviceTransactions).flat();
+    const completed = allTransactions.filter((t) => t.status === "completed");
+    completed.forEach(async (t) => {
+      try {
+        const res = await ratingsApi.getTransactionRatings(t._id);
+        setTransactionRatings((prev) => ({ ...prev, [t._id]: res.data }));
+      } catch {
+        // ratings not available yet
+      }
+    });
+  }, [serviceTransactions]);
+
+  const handleRatingSubmit = async (
+    transactionId: string,
+    ratedUserId: string,
+    score: number,
+    comment: string,
+  ) => {
+    setRatingLoading(transactionId);
+    try {
+      await ratingsApi.createRating({
+        transaction_id: transactionId,
+        rated_user_id: ratedUserId,
+        score,
+        comment: comment || undefined,
+      });
+      const res = await ratingsApi.getTransactionRatings(transactionId);
+      setTransactionRatings((prev) => ({ ...prev, [transactionId]: res.data }));
+    } catch (error: any) {
+      alert(error.response?.data?.detail || "Failed to submit rating");
+    } finally {
+      setRatingLoading(null);
+    }
+  };
 
   useEffect(() => {
     if (!statusFilter) return;
@@ -264,7 +310,8 @@ export function MyServicesTab({
 
                     {/* Matched users info */}
                     {service.matched_user_ids &&
-                      service.matched_user_ids.length > 0 && (
+                      service.matched_user_ids.length > 0 &&
+                      service.status === "in_progress" && (
                         <Card
                           className="p-3"
                           style={{ backgroundColor: "var(--lime-3)" }}
@@ -282,7 +329,7 @@ export function MyServicesTab({
                         </Card>
                       )}
 
-                    {/* Service Completion Confirmation */}
+                    {/* Confirm completion (service-level; related exchanges marked completed automatically) */}
                     {(service.status === "in_progress" ||
                       service.status === "completed") &&
                       serviceTransactions[service._id] &&
@@ -292,172 +339,213 @@ export function MyServicesTab({
                           style={{ backgroundColor: "var(--yellow-3)" }}
                         >
                           <Flex direction="column" gap="3">
-                            <Flex justify="between" align="center">
+                            <Flex
+                              justify="between"
+                              align="center"
+                              wrap="wrap"
+                              gap="2"
+                            >
                               <div className="grid">
                                 <Text size="3" weight="bold">
-                                  Service Completion Confirmation
+                                  Confirm completion
                                 </Text>
                                 <Text size="2" color="gray" className="mt-1">
-                                  Each transaction requires both parties to
-                                  confirm completion before TimeBank logs are
-                                  created.
+                                  When both sides confirm, the service is
+                                  completed, TimeBank is updated, and related
+                                  exchanges are marked completed automatically.
                                 </Text>
                               </div>
 
-                              {serviceTransactions[service._id].some(
-                                (transaction) =>
-                                  transaction.status === "pending" &&
-                                  ((transaction.provider_id === currentUserId &&
-                                    !transaction.provider_confirmed) ||
-                                    (transaction.requester_id ===
-                                      currentUserId &&
-                                      !transaction.requester_confirmed)),
-                              ) && (
-                                <Button
-                                  size="2"
-                                  color="green"
-                                  disabled={
-                                    requiresNeedCreation &&
-                                    serviceTransactions[service._id].some(
-                                      (t) =>
-                                        t.status === "pending" &&
-                                        t.provider_id === currentUserId &&
-                                        !t.provider_confirmed,
-                                    )
-                                  }
-                                  title={
-                                    requiresNeedCreation
-                                      ? "Create a Need before you can give help"
-                                      : undefined
-                                  }
-                                  onClick={() => {
-                                    const pendingTransactions =
-                                      serviceTransactions[service._id].filter(
-                                        (transaction) =>
-                                          transaction.status === "pending" &&
-                                          ((transaction.provider_id ===
-                                            currentUserId &&
-                                            !transaction.provider_confirmed) ||
-                                            (transaction.requester_id ===
-                                              currentUserId &&
-                                              !transaction.requester_confirmed)),
-                                      );
-                                    if (pendingTransactions.length > 0) {
-                                      const confirmed = window.confirm(
-                                        `Confirm completion for ${pendingTransactions.length} transaction(s)?`,
-                                      );
-                                      if (confirmed) {
-                                        pendingTransactions.forEach(
-                                          (transaction) => {
-                                            onConfirmTransactionCompletion(
-                                              transaction._id,
-                                            );
-                                          },
-                                        );
-                                      }
+                              {service.status === "in_progress" &&
+                                currentUserId &&
+                                ((String(service.user_id) === currentUserId &&
+                                  !service.provider_confirmed) ||
+                                  (service.matched_user_ids?.some(
+                                    (id) => String(id) === currentUserId,
+                                  ) &&
+                                    !(
+                                      service.receiver_confirmed_ids || []
+                                    ).includes(currentUserId))) && (
+                                  <Button
+                                    size="2"
+                                    color="green"
+                                    disabled={
+                                      requiresNeedCreation &&
+                                      String(service.user_id) === currentUserId
                                     }
-                                  }}
-                                >
-                                  <CheckCircledIcon className="w-4 h-4 mr-2" />
-                                  Confirm All Pending
-                                </Button>
-                              )}
+                                    title={
+                                      requiresNeedCreation
+                                        ? "Create a Need before you can give help"
+                                        : undefined
+                                    }
+                                    onClick={() =>
+                                      onConfirmServiceCompletion(service._id)
+                                    }
+                                  >
+                                    <CheckCircledIcon className="w-4 h-4 mr-2" />
+                                    Confirm completion
+                                  </Button>
+                                )}
                             </Flex>
 
                             <div className="space-y-3">
                               {serviceTransactions[service._id].map(
-                                (transaction) => (
-                                  <Card key={transaction._id} className="p-3">
-                                    <Flex direction="column" gap="2">
-                                      <Flex justify="between" align="center">
-                                        <Text size="2" weight="medium">
-                                          {transaction.provider?.full_name ||
-                                            transaction.provider?.username ||
-                                            "Provider"}{" "}
-                                          ↔{" "}
-                                          {transaction.requester?.full_name ||
-                                            transaction.requester?.username ||
-                                            "Requester"}
-                                        </Text>
-                                        <Badge color="blue" size="1">
-                                          {transaction.timebank_hours}h
-                                        </Badge>
-                                      </Flex>
-                                      <Flex gap="4" wrap="wrap">
-                                        <Flex
-                                          direction="row"
-                                          gap="1"
-                                          align="center"
-                                        >
-                                          <Text size="1" weight="medium">
-                                            Provider:
+                                (transaction) => {
+                                  const ratings =
+                                    transactionRatings[transaction._id] || [];
+                                  const myRating = ratings.find(
+                                    (r) =>
+                                      r.rater_id === currentUserId ||
+                                      (r.rater as any)?.id === currentUserId,
+                                  );
+                                  const otherUserId =
+                                    transaction.provider_id === currentUserId
+                                      ? transaction.requester_id
+                                      : transaction.provider_id;
+                                  return (
+                                    <Card key={transaction._id} className="p-3">
+                                      <Flex direction="column" gap="2">
+                                        <Flex justify="between" align="center">
+                                          <Text size="2" weight="medium">
+                                            {transaction.provider?.full_name ||
+                                              transaction.provider?.username ||
+                                              "Provider"}{" "}
+                                            ↔{" "}
+                                            {transaction.requester?.full_name ||
+                                              transaction.requester?.username ||
+                                              "Requester"}
                                           </Text>
-                                          <Badge
-                                            color={
-                                              transaction.provider_confirmed
-                                                ? "green"
-                                                : "gray"
-                                            }
-                                            size="1"
-                                          >
-                                            {transaction.provider_confirmed
-                                              ? "Confirmed"
-                                              : "Pending"}
+                                          <Badge color="blue" size="1">
+                                            {transaction.timebank_hours}h
                                           </Badge>
                                         </Flex>
-                                        <Flex
-                                          direction="row"
-                                          gap="1"
-                                          align="center"
-                                        >
-                                          <Text size="1" weight="medium">
-                                            Requester:
-                                          </Text>
-                                          <Badge
-                                            color={
-                                              transaction.requester_confirmed
-                                                ? "green"
-                                                : "gray"
-                                            }
-                                            size="1"
+                                        <Flex gap="4" wrap="wrap">
+                                          <Flex
+                                            direction="row"
+                                            gap="1"
+                                            align="center"
                                           >
-                                            {transaction.requester_confirmed
-                                              ? "Confirmed"
-                                              : "Pending"}
-                                          </Badge>
+                                            <Text size="1" weight="medium">
+                                              Provider:
+                                            </Text>
+                                            <Badge
+                                              color={
+                                                transaction.provider_confirmed
+                                                  ? "green"
+                                                  : "gray"
+                                              }
+                                              size="1"
+                                            >
+                                              {transaction.provider_confirmed
+                                                ? "Confirmed"
+                                                : "Pending"}
+                                            </Badge>
+                                          </Flex>
+                                          <Flex
+                                            direction="row"
+                                            gap="1"
+                                            align="center"
+                                          >
+                                            <Text size="1" weight="medium">
+                                              Requester:
+                                            </Text>
+                                            <Badge
+                                              color={
+                                                transaction.requester_confirmed
+                                                  ? "green"
+                                                  : "gray"
+                                              }
+                                              size="1"
+                                            >
+                                              {transaction.requester_confirmed
+                                                ? "Confirmed"
+                                                : "Pending"}
+                                            </Badge>
+                                          </Flex>
                                         </Flex>
+                                        {transaction.status === "completed" && (
+                                          <>
+                                            <Text
+                                              size="1"
+                                              color="green"
+                                              weight="medium"
+                                            >
+                                              ✓ Exchange completed
+                                            </Text>
+                                            <Card className="p-3">
+                                              {myRating ? (
+                                                <div>
+                                                  <Text
+                                                    size="2"
+                                                    weight="bold"
+                                                    className="block mb-1"
+                                                  >
+                                                    Your Rating
+                                                  </Text>
+                                                  <RatingStars
+                                                    value={myRating.score}
+                                                    readonly
+                                                    size={16}
+                                                  />
+                                                  {myRating.comment && (
+                                                    <Text
+                                                      size="1"
+                                                      color="gray"
+                                                      className="block mt-1"
+                                                    >
+                                                      "{myRating.comment}"
+                                                    </Text>
+                                                  )}
+                                                </div>
+                                              ) : (
+                                                <RatingForm
+                                                  onSubmit={(score, comment) =>
+                                                    handleRatingSubmit(
+                                                      transaction._id,
+                                                      otherUserId,
+                                                      score,
+                                                      comment,
+                                                    )
+                                                  }
+                                                  loading={
+                                                    ratingLoading ===
+                                                    transaction._id
+                                                  }
+                                                />
+                                              )}
+                                            </Card>
+                                          </>
+                                        )}
+                                        {transaction.status === "pending" && (
+                                          <Flex gap="2">
+                                            <Button
+                                              size="1"
+                                              color="blue"
+                                              variant="outline"
+                                              onClick={() =>
+                                                onStartChat(transaction._id)
+                                              }
+                                            >
+                                              Start Chat
+                                            </Button>
+                                            <Button
+                                              size="1"
+                                              color="red"
+                                              variant="outline"
+                                              onClick={() =>
+                                                onCancelTransaction(
+                                                  transaction._id,
+                                                )
+                                              }
+                                            >
+                                              Cancel
+                                            </Button>
+                                          </Flex>
+                                        )}
                                       </Flex>
-
-                                      {transaction.status === "completed" ? (
-                                        <Text
-                                          size="1"
-                                          color="green"
-                                          weight="medium"
-                                        >
-                                          ✓ Transaction completed
-                                        </Text>
-                                      ) : (
-                                        <ConfirmCompletionButton
-                                          transaction={transaction}
-                                          onConfirmTransactionCompletion={
-                                            onConfirmTransactionCompletion
-                                          }
-                                          isProvider={
-                                            transaction.provider_id ===
-                                            currentUserId
-                                          }
-                                          isRequester={
-                                            transaction.requester_id ===
-                                            currentUserId
-                                          }
-                                          requiresNeedCreation={
-                                            requiresNeedCreation
-                                          }
-                                        />
-                                      )}
-                                    </Flex>
-                                  </Card>
-                                ),
+                                    </Card>
+                                  );
+                                },
                               )}
                             </div>
                           </Flex>
@@ -485,40 +573,3 @@ export function MyServicesTab({
     </div>
   );
 }
-
-const ConfirmCompletionButton = ({
-  transaction,
-  onConfirmTransactionCompletion,
-  isProvider,
-  isRequester,
-  requiresNeedCreation,
-}: {
-  transaction: Transaction;
-  onConfirmTransactionCompletion: (transactionId: string) => void;
-  isProvider: boolean;
-  isRequester: boolean;
-  requiresNeedCreation: boolean;
-}) => {
-  if (
-    (isProvider && !transaction.provider_confirmed) ||
-    (isRequester && !transaction.requester_confirmed)
-  ) {
-    return (
-      <Button
-        size="1"
-        color="green"
-        disabled={requiresNeedCreation}
-        title={
-          requiresNeedCreation
-            ? "Create a Need before you can give help"
-            : undefined
-        }
-        onClick={() => onConfirmTransactionCompletion(transaction._id)}
-      >
-        Confirm Completion
-      </Button>
-    );
-  }
-
-  return null;
-};

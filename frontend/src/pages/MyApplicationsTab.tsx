@@ -105,13 +105,13 @@ export function MyApplicationsTab({
 
                   return (
                     <>
-                      {/* Service Completion Status for in_progress services */}
+                      {/* Confirm completion for in_progress services */}
                       {(service.status === "in_progress" ||
                         service.status === "completed") && (
                         <div>
                           <Flex direction="column" gap="3">
                             <Text size="2" weight="bold">
-                              Service Completion Status
+                              Confirm completion
                             </Text>
                             <Flex gap="4" wrap="wrap">
                               <Flex direction="column" gap="1">
@@ -171,7 +171,7 @@ export function MyApplicationsTab({
                                     }
                                   >
                                     <CheckCircledIcon className="w-4 h-4 mr-2" />
-                                    Confirm I Received This Service
+                                    Confirm completion
                                   </Button>
                                 </Flex>
                               )}

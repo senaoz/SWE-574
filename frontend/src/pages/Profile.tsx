@@ -50,7 +50,6 @@ import {
   Briefcase,
   BookmarkIcon,
   ClockIcon,
-  LucideArrowLeftRight,
   LucideList,
   UserIcon,
   LucideBriefcase,
@@ -123,7 +122,6 @@ export function Profile() {
     "profile",
     "services",
     "applications",
-    "transactions",
     "timebank",
     "saved",
     "chat",
@@ -478,13 +476,6 @@ export function Profile() {
             <LucideList className="w-4 h-4 mr-2" />
             My Applications
             {myservicesCounts.requests ? ` (${myservicesCounts.requests})` : ""}
-          </Tabs.Trigger>
-          <Tabs.Trigger value="transactions">
-            <LucideArrowLeftRight className="w-4 h-4 mr-2" />
-            Transactions
-            {myservicesCounts.transactions
-              ? ` (${myservicesCounts.transactions})`
-              : ""}
           </Tabs.Trigger>
           <Tabs.Trigger value="timebank">
             <ClockIcon className="w-4 h-4 mr-2" />
@@ -1147,13 +1138,6 @@ export function Profile() {
           <Tabs.Content value="applications">
             <MyServices
               activeTab="applications"
-              onDataLoad={setMyservicesCounts}
-            />
-          </Tabs.Content>
-
-          <Tabs.Content value="transactions">
-            <MyServices
-              activeTab="transactions"
               onDataLoad={setMyservicesCounts}
             />
           </Tabs.Content>
