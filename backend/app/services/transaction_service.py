@@ -370,7 +370,8 @@ class TransactionService:
             
             # If the parent service is already completed, TimeBank was already
             # handled by _finalize_service_completion — skip balance updates.
-            service = await self.services_collection.find_one({"_id": transaction["service_id"]})
+            svc_oid = ObjectId(str(transaction["service_id"]))
+            service = await self.services_collection.find_one({"_id": svc_oid})
             if service and service.get("status") == ServiceStatus.COMPLETED:
                 return True
             
@@ -382,7 +383,7 @@ class TransactionService:
             # Credit the provider only on the first completed transaction for
             # this service so multi-receiver services don't multiply credit.
             already_completed = await self.transactions_collection.count_documents({
-                "service_id": transaction["service_id"],
+                "service_id": svc_oid,
                 "status": TransactionStatus.COMPLETED,
                 "_id": {"$ne": ObjectId(transaction_id)}
             })
