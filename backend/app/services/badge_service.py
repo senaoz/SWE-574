@@ -91,6 +91,14 @@ BADGE_DEFINITIONS = [
         "metric": "contributed_hours",
         "target": 50,
     },
+    {
+        "key": "helper_hero",
+        "name": "Helper Hero",
+        "description": "Complete 10 exchanges",
+        "icon": "shield",
+        "metric": "exchange_count",
+        "target": 10,
+    }
 ]
 
 
