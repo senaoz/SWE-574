@@ -9,7 +9,7 @@ import {
   usersApi,
 } from "@/services/api";
 import { useNavigate } from "react-router-dom";
-import { useUser } from "@/App";
+import { useUser } from "@/contexts/UserContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MyServicesTab } from "./MyServicesTab";
 import { MyApplicationsTab } from "./MyApplicationsTab";
@@ -44,7 +44,7 @@ export function MyServices({
   statusFilter,
 }: MyServicesProps = {}) {
   const navigate = useNavigate();
-  const { currentUserId } = useUser();
+  const { currentUserId, refetchUser } = useUser();
   const [services, setServices] = useState<Service[]>([]);
   const [applicationServices, setApplicationServices] = useState<Service[]>([]); // Services for approved applications
   const [requests, setRequests] = useState<JoinRequest[]>([]);
@@ -321,6 +321,7 @@ export function MyServices({
 
       // Check if service was completed (both parties confirmed)
       if (updatedService.status === "completed") {
+        refetchUser();
         alert(
           "Service completed! Both parties confirmed. TimeBank transaction logs have been created.",
         );
@@ -369,6 +370,7 @@ export function MyServices({
 
           // Check if service was completed (both parties confirmed)
           if (updatedService.status === "completed") {
+            refetchUser();
             alert(
               "Service completed! Both parties confirmed. TimeBank transaction logs have been created.",
             );
@@ -419,6 +421,7 @@ export function MyServices({
           if (error.response?.status === 400) {
             try {
               await servicesApi.completeService(serviceId);
+              refetchUser();
               alert("Service marked as completed.");
             } catch (completeError: any) {
               throw error; // Throw original error
@@ -432,6 +435,7 @@ export function MyServices({
         await servicesApi.updateService(serviceId, {
           status: "completed",
         } as any);
+        refetchUser();
         alert("Service marked as completed.");
       }
 

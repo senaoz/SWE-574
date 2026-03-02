@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { authApi, usersApi } from "@/services/api";
+import { useUser } from "@/contexts/UserContext";
 import { Button, Card, TextField } from "@radix-ui/themes";
 import { Form } from "radix-ui";
 import { validateEmail, validatePassword } from "@/utils/utils";
@@ -20,12 +21,15 @@ interface RegisterFormData {
 export function RegisterForm({
   setLoginDialogOpen,
   onSwitchToLogin,
+  embedded,
 }: {
   setLoginDialogOpen?: (open: boolean) => void;
   onSwitchToLogin?: () => void;
+  embedded?: boolean;
 } = {}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { setAuthToken } = useUser();
   const [formData, setFormData] = useState<RegisterFormData>({
     username: "",
     email: "",
@@ -54,6 +58,7 @@ export function RegisterForm({
         if (user) {
           queryClient.setQueryData(["currentUser"], user);
         }
+        setAuthToken(true);
         setShowInterestOnboarding(true);
         setLoginDialogOpen?.(false);
         navigate("/profile?interests=true");
@@ -73,6 +78,7 @@ export function RegisterForm({
             if (loginUser) {
               queryClient.setQueryData(["currentUser"], loginUser);
             }
+            setAuthToken(true);
             setShowInterestOnboarding(true);
             setLoginDialogOpen?.(false);
             navigate("/profile?interests=true");

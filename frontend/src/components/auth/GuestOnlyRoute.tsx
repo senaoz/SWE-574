@@ -1,7 +1,6 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { usersApi } from "@/services/api";
+import { useUser } from "@/contexts/UserContext";
 
 interface GuestOnlyRouteProps {
   children: React.ReactNode;
@@ -16,12 +15,7 @@ export function GuestOnlyRoute({
   children,
   redirectTo = "/profile",
 }: GuestOnlyRouteProps) {
-  const { data: currentUser, isLoading } = useQuery({
-    queryKey: ["currentUser"],
-    queryFn: () => usersApi.getProfile().then((res) => res.data),
-    enabled: !!localStorage.getItem("access_token"),
-    retry: false,
-  });
+  const { user, isLoading } = useUser();
 
   if (isLoading) {
     return (
@@ -31,7 +25,7 @@ export function GuestOnlyRoute({
     );
   }
 
-  if (currentUser) {
+  if (user) {
     return <Navigate to={redirectTo} replace />;
   }
 

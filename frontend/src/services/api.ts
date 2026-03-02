@@ -59,6 +59,7 @@ api.interceptors.response.use(
     const isAuthEndpoint = error.config?.url?.includes('/auth/');
     if (error.response?.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem('access_token');
+      window.dispatchEvent(new CustomEvent('auth-logout'));
       window.location.href = '/?login=true';
     }
     return Promise.reject(error);

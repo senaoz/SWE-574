@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import {
   Button,
   Box,
@@ -8,17 +7,16 @@ import {
   Avatar,
   Tooltip,
 } from "@radix-ui/themes";
-import { usersApi } from "@/services/api";
 import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { CityFilter } from "@/components/ui/CityFilter";
 import { useTheme } from "@/App";
 import { useFilters } from "@/contexts/FilterContext";
+import { useUser } from "@/contexts/UserContext";
 import { LoginForm } from "../auth/LoginForm";
 import { RegisterForm } from "../auth/RegisterForm";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { HandIcon } from "@radix-ui/react-icons";
 import {
   ChatBubbleIcon,
   GearIcon,
@@ -42,20 +40,7 @@ export function Header() {
   const { appearance, toggleAppearance } = useTheme();
   const { selectedCity, setSelectedCity, setSearchQuery } = useFilters();
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
-
-  const { data: timebankData } = useQuery({
-    queryKey: ["timebank"],
-    queryFn: () => usersApi.getTimeBank().then((res) => res.data),
-    enabled: !!localStorage.getItem("access_token"),
-    retry: false,
-  });
-
-  const { data: currentUser } = useQuery({
-    queryKey: ["currentUser"],
-    queryFn: () => usersApi.getProfile().then((res) => res.data),
-    enabled: !!localStorage.getItem("access_token"),
-    retry: false,
-  });
+  const { user } = useUser();
 
   const scrolled = useScroll(25);
 
@@ -90,7 +75,7 @@ export function Header() {
           </h1>
 
           {/* Search and Filter - Only show for logged in users */}
-          {localStorage.getItem("access_token") ? (
+          {user ? (
             <Flex gap="2" className="w-full max-w-xl mx-auto">
               <SearchBar onSearchChange={setSearchQuery} />
               <CityFilter
@@ -108,7 +93,7 @@ export function Header() {
               appearance={appearance}
               onToggle={toggleAppearance}
             />
-            {!localStorage.getItem("access_token") ? (
+            {!user ? (
               <LoginDialog
                 open={loginDialogOpen}
                 onOpenChange={setLoginDialogOpen}
@@ -116,14 +101,14 @@ export function Header() {
               />
             ) : (
               <div className="flex items-center space-x-2 ml-2">
-                {timebankData?.balance !== undefined && (
+                {user.timebank_balance !== undefined && (
                   <Tooltip content="Timebank">
                     <IconButton
                       variant="outline"
                       className="text-sm font-bold"
                       onClick={() => navigate("/profile?tab=timebank")}
                     >
-                      {timebankData?.balance}
+                      {user.timebank_balance}
                     </IconButton>
                   </Tooltip>
                 )}
@@ -132,11 +117,11 @@ export function Header() {
                     onClick={() => navigate("/profile")}
                     style={{ borderRadius: "var(--radius-full)" }}
                   >
-                    {currentUser?.profile_picture ? (
+                    {user.profile_picture ? (
                       <Avatar
-                        src={currentUser.profile_picture}
+                        src={user.profile_picture}
                         fallback={
-                          currentUser.full_name?.[0] || currentUser.username[0]
+                          user.full_name?.[0] || user.username[0]
                         }
                         size="1"
                         radius="full"
@@ -161,8 +146,8 @@ export function Header() {
                     <ChatBubbleIcon className="w-4 h-4" />
                   </IconButton>
                 </Tooltip>
-                {(currentUser?.role === "admin" ||
-                  currentUser?.role === "moderator") && (
+                {(user.role === "admin" ||
+                  user.role === "moderator") && (
                   <Tooltip content="Admin Panel">
                     <IconButton
                       onClick={() => navigate("/admin")}

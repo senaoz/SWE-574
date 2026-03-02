@@ -27,7 +27,6 @@ import {
   ExclamationTriangleIcon,
 } from "@radix-ui/react-icons";
 import {
-  User,
   UserSettings,
   PasswordChangeForm,
   AccountDeletionForm,
@@ -35,6 +34,7 @@ import {
   SocialLinks,
 } from "@/types";
 import { usersApi, joinRequestsApi, ratingsApi } from "@/services/api";
+import { useUser } from "@/contexts/UserContext";
 import { MyServices } from "./MyServices";
 import { BadgeDisplay } from "@/components/ui/BadgeDisplay";
 import { RatingStars } from "@/components/ui/RatingStars";
@@ -61,8 +61,7 @@ import { Chat } from "./Chat";
 
 export function Profile() {
   const navigate = useNavigate();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, isLoading, refetchUser } = useUser();
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     full_name: "",
@@ -145,6 +144,43 @@ export function Profile() {
     }
   }, [selectInterests]);
 
+  // Sync edit form and settings when context user loads or updates
+  useEffect(() => {
+    if (!user) return;
+    setEditForm({
+      full_name: user.full_name || "",
+      bio: user.bio || "",
+      location: {
+        latitude: (user.location as any)?.latitude || 0,
+        longitude: (user.location as any)?.longitude || 0,
+        address:
+          typeof user.location === "string"
+            ? user.location
+            : (user.location as any)?.address || "",
+      },
+      email: user.email || "",
+      profile_picture: user.profile_picture || "",
+      social_links: {
+        linkedin: user.social_links?.linkedin || "",
+        github: user.social_links?.github || "",
+        twitter: user.social_links?.twitter || "",
+        instagram: user.social_links?.instagram || "",
+        website: user.social_links?.website || "",
+        portfolio: user.social_links?.portfolio || "",
+      },
+      interests: user.interests || [],
+    });
+    setSettings({
+      profile_visible: user.profile_visible ?? true,
+      show_email: user.show_email ?? false,
+      show_location: user.show_location ?? true,
+      email_notifications: user.email_notifications ?? true,
+      service_matches_notifications:
+        user.service_matches_notifications ?? true,
+      messages_notifications: user.messages_notifications ?? true,
+    });
+  }, [user]);
+
   // Fetch rejected requests
   const { data: rejectedRequestsData } = useQuery({
     queryKey: ["rejected-requests"],
@@ -167,56 +203,6 @@ export function Profile() {
       (Date.now() - rejectedDate.getTime()) / (1000 * 60 * 60 * 24);
     return daysSinceRejected <= 7; // Show notification for requests rejected in last 7 days
   }).length;
-
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        const response = await usersApi.getProfile();
-        const userData = response.data;
-        setUser(userData);
-        setEditForm({
-          full_name: userData.full_name || "",
-          bio: userData.bio || "",
-          location: {
-            latitude: (userData.location as any)?.latitude || 0,
-            longitude: (userData.location as any)?.longitude || 0,
-            address:
-              typeof userData.location === "string"
-                ? userData.location
-                : (userData.location as any)?.address || "",
-          },
-          email: userData.email || "",
-          profile_picture: userData.profile_picture || "",
-          social_links: {
-            linkedin: userData.social_links?.linkedin || "",
-            github: userData.social_links?.github || "",
-            twitter: userData.social_links?.twitter || "",
-            instagram: userData.social_links?.instagram || "",
-            website: userData.social_links?.website || "",
-            portfolio: userData.social_links?.portfolio || "",
-          },
-          interests: userData.interests || [],
-        });
-        // Load settings from user data
-        setSettings({
-          profile_visible: userData.profile_visible ?? true,
-          show_email: userData.show_email ?? false,
-          show_location: userData.show_location ?? true,
-          email_notifications: userData.email_notifications ?? true,
-          service_matches_notifications:
-            userData.service_matches_notifications ?? true,
-          messages_notifications: userData.messages_notifications ?? true,
-        });
-      } catch (error) {
-        console.error("Error fetching user profile:", error);
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUserProfile();
-  }, []);
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -242,8 +228,8 @@ export function Profile() {
           editForm.interests.length > 0 ? editForm.interests : undefined,
       };
 
-      const response = await usersApi.updateProfile(payload);
-      setUser(response.data);
+      await usersApi.updateProfile(payload);
+      refetchUser();
       setIsEditing(false);
     } catch (error) {
       console.error("Error updating user profile:", error);
@@ -296,10 +282,10 @@ export function Profile() {
   const handleInterestsSave = async (selected: string[]) => {
     setEditForm((prev) => ({ ...prev, interests: selected }));
     try {
-      const response = await usersApi.updateProfile({
+      await usersApi.updateProfile({
         interests: selected,
       } as any);
-      setUser(response.data);
+      refetchUser();
     } catch (error) {
       console.error("Error saving interests:", error);
     }
@@ -322,7 +308,7 @@ export function Profile() {
 
     try {
       const response = await usersApi.updateSettings({ [field]: value });
-      setUser(response.data);
+      refetchUser();
       // Update settings from response
       setSettings({
         profile_visible: response.data.profile_visible ?? true,
@@ -416,7 +402,7 @@ export function Profile() {
     window.location.reload();
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Text>Loading...</Text>

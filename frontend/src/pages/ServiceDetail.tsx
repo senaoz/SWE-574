@@ -62,7 +62,7 @@ export function ServiceDetail() {
   const [serviceTransactions, setServiceTransactions] = useState<Transaction[]>([]);
   const [transactionRatings, setTransactionRatings] = useState<Record<string, Rating[]>>({});
   const [ratingLoading, setRatingLoading] = useState<string | null>(null);
-  const { currentUserId } = useUser();
+  const { currentUserId, refetchUser } = useUser();
   const queryClient = useQueryClient();
 
   const { data: savedIdsData } = useQuery({
@@ -375,6 +375,7 @@ export function ServiceDetail() {
 
       // Check if service was completed (both parties confirmed)
       if (updatedService.status === "completed") {
+        refetchUser();
         alert(
           "Service completed! Both parties confirmed. TimeBank transaction logs have been created.",
         );
