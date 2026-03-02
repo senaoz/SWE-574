@@ -116,15 +116,17 @@ export function Header() {
               />
             ) : (
               <div className="flex items-center space-x-2 ml-2">
-                <Tooltip content="Timebank">
-                  <IconButton
-                    variant="outline"
-                    className="text-sm font-bold"
-                    onClick={() => navigate("/profile?tab=timebank")}
-                  >
-                    {timebankData?.balance}
-                  </IconButton>
-                </Tooltip>
+                {timebankData?.balance !== undefined && (
+                  <Tooltip content="Timebank">
+                    <IconButton
+                      variant="outline"
+                      className="text-sm font-bold"
+                      onClick={() => navigate("/profile?tab=timebank")}
+                    >
+                      {timebankData?.balance}
+                    </IconButton>
+                  </Tooltip>
+                )}
                 <Tooltip content="Profile">
                   <IconButton
                     onClick={() => navigate("/profile")}
