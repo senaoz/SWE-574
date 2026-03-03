@@ -10,13 +10,15 @@ import {
   Tooltip,
   DropdownMenu,
 } from "@radix-ui/themes";
-import { Service, User, JoinRequest, ForumEvent } from "@/types";
+import { Service, User, JoinRequest, ForumEvent, Transaction, Rating } from "@/types";
 import {
   chatApi,
   servicesApi,
   usersApi,
   joinRequestsApi,
   forumApi,
+  transactionsApi,
+  ratingsApi,
 } from "@/services/api";
 import { useUser } from "@/App";
 import {
@@ -38,6 +40,7 @@ import { CommentSection } from "@/components/ui/CommentSection";
 import { ParticipantAvatars } from "@/components/ui/ParticipantAvatars";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ClickableTag } from "@/components/ui/ClickableTag";
+import { RatingForm, RatingStars } from "@/components/ui/RatingStars";
 import ReactMarkdown from "react-markdown";
 
 export function ServiceDetail() {
@@ -56,7 +59,10 @@ export function ServiceDetail() {
   const [isCancellingRequest, setIsCancellingRequest] = useState(false);
   const [linkedEvents, setLinkedEvents] = useState<ForumEvent[]>([]);
   const [copied, setCopied] = useState(false);
-  const { currentUserId } = useUser();
+  const [serviceTransactions, setServiceTransactions] = useState<Transaction[]>([]);
+  const [transactionRatings, setTransactionRatings] = useState<Record<string, Rating[]>>({});
+  const [ratingLoading, setRatingLoading] = useState<string | null>(null);
+  const { currentUserId, refetchUser } = useUser();
   const queryClient = useQueryClient();
 
   const { data: savedIdsData } = useQuery({
@@ -196,6 +202,20 @@ export function ServiceDetail() {
             setPendingRequest(null);
           }
         }
+        // Fetch transactions when service is in progress or completed
+        if (
+          foundService.status === "in_progress" ||
+          foundService.status === "completed"
+        ) {
+          try {
+            const txRes = await transactionsApi.getServiceTransactions(id, 1, 50);
+            setServiceTransactions(txRes.data.transactions || []);
+          } catch {
+            setServiceTransactions([]);
+          }
+        } else {
+          setServiceTransactions([]);
+        }
       } catch (error) {
         console.error("Error fetching service:", error);
         setService(null);
@@ -207,6 +227,18 @@ export function ServiceDetail() {
 
     fetchServiceDetails();
   }, [id, currentUserId]);
+
+  useEffect(() => {
+    const completed = serviceTransactions.filter((t) => t.status === "completed");
+    completed.forEach(async (t) => {
+      try {
+        const res = await ratingsApi.getTransactionRatings(t._id);
+        setTransactionRatings((prev) => ({ ...prev, [t._id]: res.data }));
+      } catch {
+        // ratings not available yet
+      }
+    });
+  }, [serviceTransactions]);
 
   useEffect(() => {
     if (!id) return;
@@ -332,7 +364,7 @@ export function ServiceDetail() {
     if (!service || !id) return;
 
     const confirmed = window.confirm(
-      "Confirm that you have received this service? The service will be marked as completed once both parties confirm.",
+      "Confirm completion? When both sides confirm, the service is completed, TimeBank is updated, and related exchanges are marked completed.",
     );
     if (!confirmed) return;
 
@@ -343,6 +375,7 @@ export function ServiceDetail() {
 
       // Check if service was completed (both parties confirmed)
       if (updatedService.status === "completed") {
+        refetchUser();
         alert(
           "Service completed! Both parties confirmed. TimeBank transaction logs have been created.",
         );
@@ -401,6 +434,93 @@ export function ServiceDetail() {
   const openShareWindow = (url: string) => {
     window.open(url, "_blank", "noopener,noreferrer,width=600,height=400");
   };
+
+  const refetchServiceAndTransactions = async () => {
+    if (!id) return;
+    try {
+      const [svcRes, txRes] = await Promise.all([
+        servicesApi.getService(id),
+        transactionsApi.getServiceTransactions(id, 1, 50),
+      ]);
+      setService(svcRes.data);
+      setServiceTransactions(txRes.data.transactions || []);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleRatingSubmit = async (
+    transactionId: string,
+    ratedUserId: string,
+    score: number,
+    comment: string
+  ) => {
+    setRatingLoading(transactionId);
+    try {
+      await ratingsApi.createRating({
+        transaction_id: transactionId,
+        rated_user_id: ratedUserId,
+        score,
+        comment: comment || undefined,
+      });
+      const res = await ratingsApi.getTransactionRatings(transactionId);
+      setTransactionRatings((prev) => ({ ...prev, [transactionId]: res.data }));
+    } catch (error: any) {
+      alert(error.response?.data?.detail || "Failed to submit rating");
+    } finally {
+      setRatingLoading(null);
+    }
+  };
+
+  const handleStartChatForTransaction = async (transactionId: string) => {
+    const transaction = serviceTransactions.find((t) => t._id === transactionId);
+    try {
+      const { data } = await chatApi.createTransactionChatRoom(transactionId);
+      const roomId = data?._id;
+      navigate(
+        roomId ? `/profile?tab=chat&room_id=${roomId}` : "/profile?tab=chat",
+      );
+    } catch (error) {
+      console.error("Error starting chat:", error);
+      if (currentUserId && transaction) {
+        try {
+          const otherUserId =
+            transaction.provider_id === currentUserId
+              ? transaction.requester_id
+              : transaction.provider_id;
+          const { data } = await chatApi.createChatRoom({
+            participant_ids: [currentUserId, otherUserId],
+            transaction_id: transactionId,
+            name: `Transaction Chat - ${transaction.description || "Service Exchange"}`,
+            description: `Chat for transaction involving ${transaction.timebank_hours} hours`,
+          });
+          navigate(
+            data?._id
+              ? `/profile?tab=chat&room_id=${data._id}`
+              : "/profile?tab=chat",
+          );
+        } catch (fallbackError) {
+          console.error("Error creating fallback chat:", fallbackError);
+        }
+      }
+    }
+  };
+
+  const handleCancelTransaction = async (transactionId: string) => {
+    try {
+      await transactionsApi.updateTransaction(transactionId, { status: "cancelled" });
+      await refetchServiceAndTransactions();
+    } catch (error) {
+      console.error("Error cancelling transaction:", error);
+    }
+  };
+
+  const isParticipantInTransactions =
+    currentUserId &&
+    serviceTransactions.some(
+      (t) =>
+        t.provider_id === currentUserId || t.requester_id === currentUserId
+    );
 
   return (
     <>
@@ -609,6 +729,7 @@ export function ServiceDetail() {
                           });
                       }
                     }}
+                    isOwner={service.user_id === currentUserId ?? false}
                   />
                 )
               ) : isServingUser ? (
@@ -759,54 +880,99 @@ export function ServiceDetail() {
             </div>
           </Card>
 
-          {/* Service Completion Status for in_progress services */}
-          {service.status === "in_progress" &&
-            service.matched_user_ids &&
-            service.matched_user_ids.length > 0 && (
-              <Card
-                className="p-4"
-                style={{ backgroundColor: "var(--blue-2)" }}
-              >
-                <Flex direction="column" gap="3">
-                  <Text size="3" weight="bold">
-                    Service Completion Status
-                  </Text>
-                  <Flex gap="4" wrap="wrap">
-                    <Flex direction="column" gap="1">
-                      <Text size="2" weight="medium">
-                        Provider:
-                      </Text>
-                      <Badge
-                        color={service.provider_confirmed ? "green" : "gray"}
-                        size="2"
-                      >
-                        {service.provider_confirmed ? "Confirmed" : "Pending"}
-                      </Badge>
-                    </Flex>
-                    <Flex direction="column" gap="1">
-                      <Text size="2" weight="medium">
-                        Receivers:
-                      </Text>
-                      <Badge
-                        color={
-                          service.receiver_confirmed_ids &&
-                          service.matched_user_ids &&
-                          service.receiver_confirmed_ids.length ===
-                            service.matched_user_ids.length
-                            ? "green"
-                            : "gray"
-                        }
-                        size="2"
-                      >
-                        {service.receiver_confirmed_ids
-                          ? `${service.receiver_confirmed_ids.length}/${service.matched_user_ids.length} Confirmed`
-                          : `0/${service.matched_user_ids.length} Confirmed`}
-                      </Badge>
-                    </Flex>
-                  </Flex>
-                </Flex>
-              </Card>
-            )}
+          {/* Exchanges: rating, chat, cancel for participants */}
+          {isParticipantInTransactions && serviceTransactions.length > 0 && (
+            <Card className="p-4">
+              <Text size="3" weight="bold" className="mb-4 block">
+                Exchanges
+              </Text>
+              <div className="space-y-3">
+                {serviceTransactions.map((transaction) => {
+                  const ratings = transactionRatings[transaction._id] || [];
+                  const myRating = ratings.find(
+                    (r) =>
+                      r.rater_id === currentUserId ||
+                      (r.rater as any)?.id === currentUserId
+                  );
+                  const otherUserId =
+                    transaction.provider_id === currentUserId
+                      ? transaction.requester_id
+                      : transaction.provider_id;
+                  return (
+                    <Card key={transaction._id} className="p-3">
+                      <Flex direction="column" gap="2">
+                        <Flex justify="between" align="center">
+                          <Text size="2" weight="medium">
+                            {transaction.provider?.full_name ||
+                              transaction.provider?.username ||
+                              "Provider"}{" "}
+                            ↔{" "}
+                            {transaction.requester?.full_name ||
+                              transaction.requester?.username ||
+                              "Requester"}
+                          </Text>
+                          <Badge color="blue" size="1">
+                            {transaction.timebank_hours}h
+                          </Badge>
+                        </Flex>
+                        <StatusBadge status={transaction.status} size="1" />
+                        {transaction.status === "completed" && (
+                          <Card className="p-3">
+                            {myRating ? (
+                              <div>
+                                <Text size="2" weight="bold" className="block mb-1">
+                                  Your Rating
+                                </Text>
+                                <RatingStars value={myRating.score} readonly size={16} />
+                                {myRating.comment && (
+                                  <Text size="1" color="gray" className="block mt-1">
+                                    "{myRating.comment}"
+                                  </Text>
+                                )}
+                              </div>
+                            ) : (
+                              <RatingForm
+                                onSubmit={(score, comment) =>
+                                  handleRatingSubmit(
+                                    transaction._id,
+                                    otherUserId,
+                                    score,
+                                    comment
+                                  )
+                                }
+                                loading={ratingLoading === transaction._id}
+                              />
+                            )}
+                          </Card>
+                        )}
+                        {transaction.status === "pending" && (
+                          <Flex gap="2">
+                            <Button
+                              size="1"
+                              color="blue"
+                              variant="outline"
+                              onClick={() => handleStartChatForTransaction(transaction._id)}
+                            >
+                              Start Chat
+                            </Button>
+                            <Button
+                              size="1"
+                              color="red"
+                              variant="outline"
+                              onClick={() => handleCancelTransaction(transaction._id)}
+                            >
+                              Cancel
+                            </Button>
+                          </Flex>
+                        )}
+                      </Flex>
+                    </Card>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+
         </div>
 
         {/* Sidebar */}

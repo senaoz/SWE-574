@@ -9,19 +9,13 @@ import {
   usersApi,
 } from "@/services/api";
 import { useNavigate } from "react-router-dom";
-import { useUser } from "@/App";
+import { useUser } from "@/contexts/UserContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MyServicesTab } from "./MyServicesTab";
 import { MyApplicationsTab } from "./MyApplicationsTab";
-import { MyTransactionsTab } from "./MyTransactionsTab";
 import { MyTimebankTab } from "./MyTimebankTab";
 import { SavedServicesTab } from "./SavedServicesTab";
-import {
-  BookmarkIcon,
-  ClockIcon,
-  LucideArrowLeftRight,
-  LucideList,
-} from "lucide-react";
+import { BookmarkIcon, ClockIcon, LucideList } from "lucide-react";
 
 export type MyServicesTabValue =
   | "services"
@@ -50,11 +44,10 @@ export function MyServices({
   statusFilter,
 }: MyServicesProps = {}) {
   const navigate = useNavigate();
-  const { currentUserId } = useUser();
+  const { currentUserId, refetchUser } = useUser();
   const [services, setServices] = useState<Service[]>([]);
   const [applicationServices, setApplicationServices] = useState<Service[]>([]); // Services for approved applications
   const [requests, setRequests] = useState<JoinRequest[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [serviceTransactions, setServiceTransactions] = useState<
     Record<string, Transaction[]>
   >({});
@@ -88,7 +81,7 @@ export function MyServices({
     if (!onDataLoad || isLoading) return;
     onDataLoad({
       requests: requests.length,
-      transactions: transactions.length,
+      transactions: 0,
       saved: savedServicesData?.services?.length ?? 0,
       services: services?.length ?? 0,
       timebank: timebankData?.balance ?? 0,
@@ -98,7 +91,6 @@ export function MyServices({
     onDataLoad,
     isLoading,
     requests.length,
-    transactions.length,
     savedServicesData?.services?.length,
     services?.length,
     applicationServices.length,
@@ -192,14 +184,7 @@ export function MyServices({
         setServiceTitles((prev) => ({ ...prev, ...missingTitles }));
       }
 
-      // Fetch user's transactions
-      const transactionsResponse = await transactionsApi.getMyTransactions(
-        1,
-        50,
-      );
-      setTransactions(transactionsResponse.data.transactions);
-
-      // Fetch transactions for each service
+      // Fetch transactions for each service (user's own services)
       const serviceTransactionsMap: Record<string, Transaction[]> = {};
       for (const service of servicesResponse.data.services) {
         if (
@@ -220,12 +205,31 @@ export function MyServices({
           }
         }
       }
+      // Fetch transactions for application services (approved applications)
+      for (const service of applicationServicesList) {
+        if (
+          (service.status === "in_progress" || service.status === "completed") &&
+          !serviceTransactionsMap[service._id]
+        ) {
+          try {
+            const serviceTransactionsResponse =
+              await transactionsApi.getServiceTransactions(service._id, 1, 50);
+            serviceTransactionsMap[service._id] =
+              serviceTransactionsResponse.data.transactions;
+          } catch (error) {
+            console.error(
+              `Error fetching transactions for application service ${service._id}:`,
+              error,
+            );
+            serviceTransactionsMap[service._id] = [];
+          }
+        }
+      }
       setServiceTransactions(serviceTransactionsMap);
 
       console.log(
         servicesResponse.data.services,
         requestsResponse.data.requests,
-        transactionsResponse.data.transactions,
       );
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -248,39 +252,6 @@ export function MyServices({
     });
   };
 
-  const handleConfirmTransactionCompletion = async (transactionId: string) => {
-    const confirmed = window.confirm(
-      "Confirm that this transaction is completed? TimeBank logs will be created once both parties confirm.",
-    );
-    if (!confirmed) return;
-
-    try {
-      const response =
-        await transactionsApi.confirmTransactionCompletion(transactionId);
-      const transaction = response.data;
-
-      if (transaction.status === "completed") {
-        alert(
-          "Transaction completed! Both parties confirmed. TimeBank transaction logs have been created.",
-        );
-      } else {
-        const isProvider = transaction.provider_id === currentUserId;
-        const otherParty = isProvider ? "requester" : "provider";
-        alert(
-          `Your confirmation has been recorded. Waiting for ${otherParty} confirmation.`,
-        );
-      }
-      // Refresh data
-      await fetchData();
-    } catch (error: any) {
-      console.error("Error confirming transaction completion:", error);
-      alert(
-        error.response?.data?.detail ||
-          "Failed to confirm transaction completion. Please try again.",
-      );
-    }
-  };
-
   const handleCancelTransaction = async (transactionId: string) => {
     try {
       await transactionsApi.updateTransaction(transactionId, {
@@ -294,6 +265,8 @@ export function MyServices({
   };
 
   const handleStartChat = async (transactionId: string) => {
+    const allTransactions = Object.values(serviceTransactions).flat();
+    const transaction = allTransactions.find((t) => t._id === transactionId);
     try {
       const { data } = await chatApi.createTransactionChatRoom(transactionId);
       const roomId = data?._id;
@@ -303,35 +276,26 @@ export function MyServices({
     } catch (error) {
       console.error("Error starting chat:", error);
       try {
-        const currentUserId = localStorage.getItem("access_token")
-          ? JSON.parse(
-              atob(localStorage.getItem("access_token")!.split(".")[1]),
-            ).sub
-          : null;
+        if (currentUserId && transaction) {
+          const otherUserId =
+            transaction.provider_id === currentUserId
+              ? transaction.requester_id
+              : transaction.provider_id;
 
-        if (currentUserId) {
-          const transaction = transactions.find((t) => t._id === transactionId);
-          if (transaction) {
-            const otherUserId =
-              transaction.provider_id === currentUserId
-                ? transaction.requester_id
-                : transaction.provider_id;
-
-            const { data } = await chatApi.createChatRoom({
-              participant_ids: [currentUserId, otherUserId],
-              transaction_id: transactionId,
-              name: `Transaction Chat - ${
-                transaction.description || "Service Exchange"
-              }`,
-              description: `Chat for transaction involving ${transaction.timebank_hours} hours`,
-            });
-            const roomId = data?._id;
-            navigate(
-              roomId
-                ? `/profile?tab=chat&room_id=${roomId}`
-                : "/profile?tab=chat",
-            );
-          }
+          const { data } = await chatApi.createChatRoom({
+            participant_ids: [currentUserId, otherUserId],
+            transaction_id: transactionId,
+            name: `Transaction Chat - ${
+              transaction.description || "Service Exchange"
+            }`,
+            description: `Chat for transaction involving ${transaction.timebank_hours} hours`,
+          });
+          const roomId = data?._id;
+          navigate(
+            roomId
+              ? `/profile?tab=chat&room_id=${roomId}`
+              : "/profile?tab=chat",
+          );
         }
       } catch (fallbackError) {
         console.error("Error creating fallback chat:", fallbackError);
@@ -367,7 +331,7 @@ export function MyServices({
 
   const handleConfirmServiceCompletion = async (serviceId: string) => {
     const confirmed = window.confirm(
-      "Confirm that you have received this service? The service will be marked as completed once both parties confirm.",
+      "Confirm completion? When both sides confirm, the service is completed, TimeBank is updated, and related exchanges are marked completed.",
     );
     if (!confirmed) return;
 
@@ -377,6 +341,7 @@ export function MyServices({
 
       // Check if service was completed (both parties confirmed)
       if (updatedService.status === "completed") {
+        refetchUser();
         alert(
           "Service completed! Both parties confirmed. TimeBank transaction logs have been created.",
         );
@@ -401,7 +366,7 @@ export function MyServices({
     if (!service) return;
 
     const confirmed = window.confirm(
-      "Are you sure you want to mark this service as completed?",
+      "Confirm completion? When both sides confirm, the service is completed, TimeBank is updated, and related exchanges are marked completed.",
     );
     if (!confirmed) return;
 
@@ -425,6 +390,7 @@ export function MyServices({
 
           // Check if service was completed (both parties confirmed)
           if (updatedService.status === "completed") {
+            refetchUser();
             alert(
               "Service completed! Both parties confirmed. TimeBank transaction logs have been created.",
             );
@@ -475,6 +441,7 @@ export function MyServices({
           if (error.response?.status === 400) {
             try {
               await servicesApi.completeService(serviceId);
+              refetchUser();
               alert("Service marked as completed.");
             } catch (completeError: any) {
               throw error; // Throw original error
@@ -488,6 +455,7 @@ export function MyServices({
         await servicesApi.updateService(serviceId, {
           status: "completed",
         } as any);
+        refetchUser();
         alert("Service marked as completed.");
       }
 
@@ -556,11 +524,11 @@ export function MyServices({
             currentUserId={currentUserId}
             requiresNeedCreation={timebankData?.requires_need_creation ?? false}
             onSetServiceInProgress={handleSetServiceInProgress}
-            onMarkServiceAsDone={handleMarkServiceAsDone}
             onConfirmServiceCompletion={handleConfirmServiceCompletion}
-            onConfirmTransactionCompletion={handleConfirmTransactionCompletion}
             onDeleteService={handleDeleteService}
             onCancelService={handleCancelService}
+            onStartChat={handleStartChat}
+            onCancelTransaction={handleCancelTransaction}
             onRequestUpdate={fetchData}
             formatDate={formatDate}
             statusFilter={statusFilter}
@@ -575,24 +543,10 @@ export function MyServices({
               requests={requests}
               serviceTitles={serviceTitles}
               services={applicationServices}
+              serviceTransactions={serviceTransactions}
               currentUserId={currentUserId}
               onServiceClick={handleServiceClick}
               onConfirmServiceCompletion={handleConfirmServiceCompletion}
-              formatDate={formatDate}
-            />
-          )}
-          {effectiveTab === "transactions" && (
-            <MyTransactionsTab
-              transactions={transactions}
-              currentUserId={currentUserId}
-              requiresNeedCreation={
-                timebankData?.requires_need_creation ?? false
-              }
-              onConfirmTransactionCompletion={
-                handleConfirmTransactionCompletion
-              }
-              onCancelTransaction={handleCancelTransaction}
-              onStartChat={handleStartChat}
               formatDate={formatDate}
             />
           )}
@@ -625,10 +579,6 @@ export function MyServices({
               <LucideList className="w-4 h-4 mr-2" />
               My Applications ({requests.length})
             </Tabs.Trigger>
-            <Tabs.Trigger value="transactions">
-              <LucideArrowLeftRight className="w-4 h-4 mr-2" />
-              Transactions ({transactions.length})
-            </Tabs.Trigger>
             <Tabs.Trigger value="timebank">
               <ClockIcon className="w-4 h-4 mr-2" />
               Timebank Logs
@@ -644,25 +594,10 @@ export function MyServices({
               requests={requests}
               serviceTitles={serviceTitles}
               services={applicationServices}
+              serviceTransactions={serviceTransactions}
               currentUserId={currentUserId}
               onServiceClick={handleServiceClick}
               onConfirmServiceCompletion={handleConfirmServiceCompletion}
-              formatDate={formatDate}
-            />
-          </Tabs.Content>
-
-          <Tabs.Content value="transactions" className="mt-6">
-            <MyTransactionsTab
-              transactions={transactions}
-              currentUserId={currentUserId}
-              requiresNeedCreation={
-                timebankData?.requires_need_creation ?? false
-              }
-              onConfirmTransactionCompletion={
-                handleConfirmTransactionCompletion
-              }
-              onCancelTransaction={handleCancelTransaction}
-              onStartChat={handleStartChat}
               formatDate={formatDate}
             />
           </Tabs.Content>

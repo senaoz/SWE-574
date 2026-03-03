@@ -21,12 +21,14 @@ interface HandShakeModalProps {
   onJoin?: () => void;
   /** When true, user cannot give help (disable "Offer to Help" on needs) */
   requiresNeedCreation?: boolean;
+  isOwner?: boolean;
 }
 
 export function HandShakeModal({
   service,
   onJoin,
   requiresNeedCreation = false,
+  isOwner = false,
 }: HandShakeModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -121,11 +123,15 @@ export function HandShakeModal({
       <Dialog.Trigger>
         <Button
           size="3"
-          disabled={service.service_type === "need" && requiresNeedCreation}
+          disabled={
+            (service.service_type === "need" && requiresNeedCreation) || isOwner
+          }
           title={
-            service.service_type === "need" && requiresNeedCreation
-              ? "Create a Need before you can give help"
-              : undefined
+            (service.service_type === "need" && requiresNeedCreation) || isOwner
+              ? "You are the owner of this service"
+              : service.service_type === "need" && requiresNeedCreation
+                ? "Create a Need before you can give help"
+                : undefined
           }
         >
           {service.service_type === "offer"

@@ -20,7 +20,11 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { GuestOnlyRoute } from "@/components/auth/GuestOnlyRoute";
 import { FilterProvider } from "@/contexts/FilterContext";
+import { UserProvider, useUser } from "@/contexts/UserContext";
 import { useState, createContext, useContext, useEffect } from "react";
+
+// Re-export useUser for backward compatibility (components may import from App)
+export { useUser };
 
 // Create theme context
 interface ThemeContextType {
@@ -34,22 +38,6 @@ export const useTheme = () => {
   const context = useContext(ThemeContext);
   if (context === undefined) {
     throw new Error("useTheme must be used within a ThemeProvider");
-  }
-  return context;
-};
-
-// Create user context
-interface UserContextType {
-  getCurrentUserId: () => string | null;
-  currentUserId: string | null;
-}
-
-const UserContext = createContext<UserContextType | undefined>(undefined);
-
-export const useUser = () => {
-  const context = useContext(UserContext);
-  if (context === undefined) {
-    throw new Error("useUser must be used within a UserProvider");
   }
   return context;
 };
@@ -74,23 +62,8 @@ function App() {
     localStorage.setItem("theme", newTheme);
   };
 
-  const getCurrentUserId = () => {
-    const token = localStorage.getItem("access_token");
-    if (!token) return null;
-
-    try {
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      return payload.sub;
-    } catch (error) {
-      console.error("Error decoding token:", error);
-      return null;
-    }
-  };
-
-  const currentUserId = getCurrentUserId();
-
   return (
-    <UserContext.Provider value={{ getCurrentUserId, currentUserId }}>
+    <UserProvider>
       <ThemeContext.Provider value={{ appearance, toggleAppearance }}>
         <FilterProvider>
           <Theme accentColor="lime" radius="full" appearance={appearance}>
@@ -199,7 +172,7 @@ function App() {
           </Theme>
         </FilterProvider>
       </ThemeContext.Provider>
-    </UserContext.Provider>
+    </UserProvider>
   );
 }
 

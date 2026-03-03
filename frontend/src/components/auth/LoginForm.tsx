@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { authApi } from "@/services/api";
+import { useUser } from "@/contexts/UserContext";
 import { validateEmail } from "@/utils/utils";
 import { Button, TextField } from "@radix-ui/themes";
 import { Form } from "radix-ui";
@@ -23,6 +24,7 @@ export function LoginForm({
   });
   const [errors, setErrors] = useState<Partial<LoginFormData>>({});
   const queryClient = useQueryClient();
+  const { setAuthToken } = useUser();
 
   const loginMutation = useMutation({
     mutationFn: authApi.login,
@@ -34,6 +36,7 @@ export function LoginForm({
         if (user) {
           queryClient.setQueryData(["currentUser"], user);
         }
+        setAuthToken(true);
         setLoginDialogOpen(false);
         navigate("/dashboard");
       } else {

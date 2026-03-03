@@ -368,23 +368,36 @@ class TransactionService:
                 }
             )
             
-            # Create TimeBank transaction logs using UserService
+            # If the parent service is already completed, TimeBank was already
+            # handled by _finalize_service_completion — skip balance updates.
+            svc_oid = ObjectId(str(transaction["service_id"]))
+            service = await self.services_collection.find_one({"_id": svc_oid})
+            if service and service.get("status") == ServiceStatus.COMPLETED:
+                return True
+            
+            service_title = service.get("title", "Service") if service else "Service"
+            
             from .user_service import UserService
             user_service = UserService(self.db)
             
-            # Get service info for description
-            service = await self.services_collection.find_one({"_id": transaction["service_id"]})
-            service_title = service.get("title", "Service") if service else "Service"
+            # Credit the provider only on the first completed transaction for
+            # this service so multi-receiver services don't multiply credit.
+            already_completed = await self.transactions_collection.count_documents({
+                "service_id": svc_oid,
+                "status": TransactionStatus.COMPLETED,
+                "_id": {"$ne": ObjectId(transaction_id)}
+            })
             
-            # Provider earns hours
-            provider_success = await user_service.add_timebank_transaction(
-                str(transaction["provider_id"]),
-                float(transaction["timebank_hours"]),
-                f"Provided service: {service_title}",
-                str(transaction["service_id"])
-            )
+            provider_success = True
+            if already_completed == 0:
+                provider_success = await user_service.add_timebank_transaction(
+                    str(transaction["provider_id"]),
+                    float(transaction["timebank_hours"]),
+                    f"Provided service: {service_title}",
+                    str(transaction["service_id"])
+                )
             
-            # Requester spends hours
+            # Requester spends hours (always — each receiver pays independently)
             requester_success = await user_service.add_timebank_transaction(
                 str(transaction["requester_id"]),
                 -float(transaction["timebank_hours"]),

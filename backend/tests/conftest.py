@@ -51,7 +51,14 @@ class AsyncMockCollection:
             'modified_count': result.modified_count,
             'matched_count': result.matched_count
         })()
-    
+
+    async def update_many(self, filter, update, *args, **kwargs):
+        result = self._sync_collection.update_many(filter, update, *args, **kwargs)
+        return type('Result', (), {
+            'modified_count': result.modified_count,
+            'matched_count': result.matched_count
+        })()
+
     async def delete_one(self, filter, *args, **kwargs):
         result = self._sync_collection.delete_one(filter, *args, **kwargs)
         return type('Result', (), {'deleted_count': result.deleted_count})()

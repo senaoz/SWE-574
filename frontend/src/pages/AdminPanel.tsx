@@ -21,6 +21,7 @@ import {
 } from "@radix-ui/themes";
 import { Pencil1Icon } from "@radix-ui/react-icons";
 import api, { usersApi } from "@/services/api";
+import { useUser } from "@/contexts/UserContext";
 import { InterestChip } from "@/components/ui/InterestChip";
 
 export function AdminPanel() {
@@ -28,14 +29,7 @@ export function AdminPanel() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [roleUpdate, setRoleUpdate] = useState<UserRole>("user");
   const queryClient = useQueryClient();
-
-  // Current user (to enforce: moderators cannot change admin roles)
-  const { data: currentUser } = useQuery({
-    queryKey: ["currentUser"],
-    queryFn: () => usersApi.getProfile().then((res) => res.data),
-    enabled: !!localStorage.getItem("access_token"),
-    retry: false,
-  });
+  const { user: currentUser } = useUser();
 
   const canEditUserRole = (user: User) => {
     if (!currentUser) return false;
