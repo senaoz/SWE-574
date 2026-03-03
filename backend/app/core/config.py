@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     # App
     app_name: str = "The Hive Platform"
     debug: bool = True
+
+    # Uploads (local filesystem)
+    upload_dir: str = "uploads"
+    max_upload_size_mb: float = 5.0
     
     def get_allowed_origins(self) -> List[str]:
         """Get allowed origins as a list"""

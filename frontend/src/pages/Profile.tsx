@@ -33,7 +33,7 @@ import {
   JoinRequest,
   SocialLinks,
 } from "@/types";
-import { usersApi, joinRequestsApi, ratingsApi } from "@/services/api";
+import { usersApi, joinRequestsApi, ratingsApi, uploadApi, getImageUrl } from "@/services/api";
 import { useUser } from "@/contexts/UserContext";
 import { MyServices } from "./MyServices";
 import { BadgeDisplay } from "@/components/ui/BadgeDisplay";
@@ -90,6 +90,8 @@ export function Profile() {
   });
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [profilePictureUploading, setProfilePictureUploading] = useState(false);
+  const [profilePictureError, setProfilePictureError] = useState<string | null>(null);
   const [passwordForm, setPasswordForm] = useState<PasswordChangeForm>({
     current_password: "",
     new_password: "",
@@ -520,7 +522,11 @@ export function Profile() {
                       {/* Avatar and Basic Info */}
                       <Flex align="center" gap="4">
                         <Avatar
-                          src={user.profile_picture || undefined}
+                          src={
+                            isEditing
+                              ? getImageUrl(editForm.profile_picture) || undefined
+                              : getImageUrl(user.profile_picture) || undefined
+                          }
                           fallback={user.full_name?.[0] || user.username[0]}
                           size="6"
                         />
@@ -660,23 +666,62 @@ export function Profile() {
                         )}
                       </div>
 
-                      {/* Profile Picture URL */}
+                      {/* Profile Picture: upload or URL */}
                       {isEditing && (
-                        <div>
-                          <Text size="2" weight="bold" mr="2">
-                            Profile Picture URL
+                        <div className="space-y-2">
+                          <Text size="2" weight="bold" className="block">
+                            Profile Picture
                           </Text>
+                          <Flex gap="2" align="center" wrap="wrap">
+                            <label className="cursor-pointer">
+                              <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                className="sr-only"
+                                disabled={profilePictureUploading}
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  const maxMb = 5;
+                                  if (file.size > maxMb * 1024 * 1024) {
+                                    setProfilePictureError(`File must be under ${maxMb} MB`);
+                                    return;
+                                  }
+                                  setProfilePictureError(null);
+                                  setProfilePictureUploading(true);
+                                  try {
+                                    const res = await uploadApi.uploadProfilePicture(file);
+                                    handleInputChange("profile_picture", res.data.url);
+                                  } catch (err: any) {
+                                    setProfilePictureError(
+                                      err.response?.data?.detail || "Upload failed"
+                                    );
+                                  } finally {
+                                    setProfilePictureUploading(false);
+                                    e.target.value = "";
+                                  }
+                                }}
+                              />
+                              <Button type="button" size="2" variant="soft" asChild>
+                                <span>
+                                  {profilePictureUploading ? "Uploading..." : "Upload photo"}
+                                </span>
+                              </Button>
+                            </label>
+                            <Text size="2" color="gray">or paste URL:</Text>
+                          </Flex>
                           <TextField.Root
                             value={editForm.profile_picture}
-                            onChange={(e) =>
-                              handleInputChange(
-                                "profile_picture",
-                                e.target.value,
-                              )
-                            }
-                            placeholder="https://example.com/photo.jpg"
+                            onChange={(e) => {
+                              handleInputChange("profile_picture", e.target.value);
+                              setProfilePictureError(null);
+                            }}
+                            placeholder="https://example.com/photo.jpg or /uploads/..."
                             size="2"
                           />
+                          {profilePictureError && (
+                            <Text size="2" color="red">{profilePictureError}</Text>
+                          )}
                         </div>
                       )}
 

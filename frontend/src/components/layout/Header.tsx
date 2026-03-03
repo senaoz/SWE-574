@@ -17,6 +17,7 @@ import { LoginForm } from "../auth/LoginForm";
 import { RegisterForm } from "../auth/RegisterForm";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getImageUrl } from "@/services/api";
 import {
   ChatBubbleIcon,
   GearIcon,
@@ -119,7 +120,7 @@ export function Header() {
                   >
                     {user.profile_picture ? (
                       <Avatar
-                        src={user.profile_picture}
+                        src={getImageUrl(user.profile_picture)}
                         fallback={
                           user.full_name?.[0] || user.username[0]
                         }

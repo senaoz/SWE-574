@@ -61,6 +61,12 @@ class ServiceService:
         # Default is_remote for documents created before the field existed
         if "is_remote" not in service_doc:
             service_doc["is_remote"] = False
+
+        # Normalize image_url (legacy) -> image_urls for backward compatibility
+        if "image_urls" not in service_doc or service_doc["image_urls"] is None:
+            service_doc["image_urls"] = []
+        if not service_doc["image_urls"] and service_doc.get("image_url"):
+            service_doc["image_urls"] = [service_doc["image_url"]]
         
         # Normalize tags for backward compatibility
         if "tags" in service_doc:
