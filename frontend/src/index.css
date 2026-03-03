@@ -107,8 +107,13 @@ p {
     overflow-y: auto !important;
 }
 
+.border {
+    border-color: var(--gray-5);
+}
+
 .hover-card {
     @apply hover:shadow-md hover:cursor-pointer transition-all duration-200;
+    border-color: var(--gray-5) !important;
 }
 
 .hover-card-selected.offer {

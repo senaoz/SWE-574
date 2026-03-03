@@ -461,7 +461,6 @@ export function OfferNeedForm({
                 onClick={() => handleInputChange("is_remote", false)}
                 style={{
                   backgroundColor: formData.is_remote ? "" : "var(--gray-1)",
-                  borderColor: "var(--gray-3)",
                 }}
               >
                 <Crosshair1Icon className="w-4 h-4" /> In person Service
@@ -471,7 +470,6 @@ export function OfferNeedForm({
                 onClick={() => handleInputChange("is_remote", true)}
                 style={{
                   backgroundColor: formData.is_remote ? "var(--gray-1)" : "",
-                  borderColor: "var(--gray-3)",
                 }}
               >
                 <GlobeIcon className="w-4 h-4" />

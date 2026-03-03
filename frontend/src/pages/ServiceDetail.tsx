@@ -636,7 +636,7 @@ export function ServiceDetail() {
                 <Text size="3">{service.max_participants ?? "No limit"}</Text>
               </Flex>
 
-              <Flex align="center" gap="2">
+              <Flex align="center" gap="2" className="col-span-2">
                 <Crosshair1Icon className="w-5 h-5" color="gray" />
                 <Text size="3" weight="medium">
                   Location:
@@ -668,7 +668,7 @@ export function ServiceDetail() {
                     {formatSchedulingInfo()?.type}
                   </Text>
                 </div>
-                <Text size="2" className="text-gray-500">
+                <Text size="2" className="opacity-80">
                   {formatSchedulingInfo()?.value}
                 </Text>
               </Card>
