@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Card, Text, Flex, Heading, Box } from "@radix-ui/themes";
+import { Card, Text, Flex, Heading, Box, Tooltip } from "@radix-ui/themes";
 import {
   UserPlus,
   Image,
@@ -29,6 +29,33 @@ const ICON_MAP: Record<string, React.ElementType> = {
   award: Award,
   clock: Clock,
 };
+
+export function CustomBadge({
+  badge,
+  className,
+  size = 24,
+}: {
+  badge: BadgeType;
+  className?: string;
+  size?: number;
+}) {
+  const IconComponent = ICON_MAP[badge.icon] || Award;
+  return (
+    <Tooltip content={badge.name} side="right">
+      <Box
+        className={`p-2 custom-badge-icon ${className}`}
+        data-badge-key={badge.key}
+      >
+        <IconComponent
+          size={size}
+          style={{
+            color: badge.earned ? "var(--lime-11)" : "var(--gray-8)",
+          }}
+        />
+      </Box>
+    </Tooltip>
+  );
+}
 
 function BadgeCard({ badge }: { badge: BadgeType }) {
   const IconComponent = ICON_MAP[badge.icon] || Award;

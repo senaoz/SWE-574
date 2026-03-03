@@ -495,9 +495,6 @@ function ServicePopupContent({
         <Badge color="gray" variant="soft" size="1">
           {formatDuration(service.estimated_duration)}
         </Badge>
-        <Badge color="gray" variant="soft" size="1">
-          {service.category}
-        </Badge>
       </div>
       <h3 className="font-semibold text-sm mb-1 line-clamp-2">
         {service.title}

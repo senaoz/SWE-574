@@ -27,6 +27,8 @@ export interface BadgeSummary {
   badges: Badge[];
   earned_count: number;
   total_count: number;
+  earned_badges?: Badge[] | null;
+  last_earned_badge?: Badge | null;
 }
 
 export interface Rating {

@@ -193,3 +193,31 @@ p {
     background-color: var(--color-background) !important;
     color: var(--color-foreground) !important;
 }
+
+.custom-badge-icon {
+    background-color: var(--lime-3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    clip-path: polygon(
+        25% 6%,
+        75% 6%,
+        100% 50%,
+        75% 94%,
+        25% 94%,
+        0% 50%
+    );
+    transition: all 0.2s ease-in-out;
+    
+    &:hover {
+        transform: scale(1.1);
+    }
+}
+
+.custom-badge-icon svg {
+    stroke: var(--lime-8);
+    stroke-width: 2px;
+    fill: var(--lime-3);
+}
