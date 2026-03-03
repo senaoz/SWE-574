@@ -21,7 +21,7 @@ import {
   PersonIcon,
   CheckCircledIcon,
 } from "@radix-ui/react-icons";
-import { forumApi } from "@/services/api";
+import { forumApi, getImageUrl } from "@/services/api";
 import { ForumEvent, ForumComment } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import { useUser } from "@/App";
@@ -153,7 +153,7 @@ export function ForumEventDetail() {
         <Flex gap="3" align="start">
           <Avatar
             size="4"
-            src={event.user?.profile_picture}
+            src={getImageUrl(event.user?.profile_picture)}
             fallback={
               event.user?.full_name?.[0] || event.user?.username?.[0] || "?"
             }
@@ -279,7 +279,7 @@ export function ForumEventDetail() {
               <Tooltip key={a._id} content={a.full_name || a.username}>
                 <Avatar
                   fallback={a.full_name?.[0] || a.username[0]}
-                  src={a.profile_picture}
+                  src={getImageUrl(a.profile_picture)}
                   size="3"
                   className="cursor-pointer hover:ring-2 hover:ring-purple-500 transition-all"
                 />
@@ -338,7 +338,7 @@ export function ForumEventDetail() {
             <div key={c._id} className="flex gap-3">
               <Avatar
                 size="2"
-                src={c.user?.profile_picture}
+                src={getImageUrl(c.user?.profile_picture)}
                 fallback={
                   c.user?.full_name?.[0] || c.user?.username?.[0] || "?"
                 }

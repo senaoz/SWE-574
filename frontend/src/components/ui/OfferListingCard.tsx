@@ -10,7 +10,7 @@ import {
   StarIcon,
 } from "@radix-ui/react-icons";
 import { useEffect, useState } from "react";
-import { usersApi, ratingsApi } from "@/services/api";
+import { usersApi, ratingsApi, getImageUrl } from "@/services/api";
 import { StatusBadge } from "./StatusBadge";
 import { RatingStars } from "./RatingStars";
 import { CustomBadge } from "./BadgeDisplay";
@@ -92,7 +92,7 @@ export function OfferListingCard({ service }: { service: Service }) {
   return (
     <Card
       size="2"
-      className="hover-card flex flex-col h-full gap-2"
+      className="hover-card flex flex-col h-full gap-2 overflow-hidden"
       onClick={handleCardClick}
     >
       {/* Header with title and status */}

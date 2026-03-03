@@ -25,7 +25,7 @@ import {
   Cross2Icon,
   PersonIcon,
 } from "@radix-ui/react-icons";
-import { forumApi, servicesApi } from "@/services/api";
+import { forumApi, servicesApi, getImageUrl } from "@/services/api";
 import { ForumDiscussion, ForumEvent, TagEntity, Service } from "@/types";
 import { TagAutocomplete } from "@/components/forms/TagAutocomplete";
 import { ClickableTag } from "@/components/ui/ClickableTag";
@@ -204,7 +204,7 @@ export function Forum() {
                   <Flex gap="3" align="start">
                     <Avatar
                       size="3"
-                      src={d.user?.profile_picture}
+                      src={getImageUrl(d.user?.profile_picture)}
                       fallback={
                         d.user?.full_name?.[0] || d.user?.username?.[0] || "?"
                       }
@@ -292,7 +292,7 @@ export function Forum() {
                   <Flex gap="3" align="start">
                     <Avatar
                       size="3"
-                      src={ev.user?.profile_picture}
+                      src={getImageUrl(ev.user?.profile_picture)}
                       fallback={
                         ev.user?.full_name?.[0] || ev.user?.username?.[0] || "?"
                       }

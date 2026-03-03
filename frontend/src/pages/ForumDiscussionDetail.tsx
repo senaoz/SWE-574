@@ -15,7 +15,7 @@ import {
   ChatBubbleIcon,
   PaperPlaneIcon,
 } from "@radix-ui/react-icons";
-import { forumApi } from "@/services/api";
+import { forumApi, getImageUrl } from "@/services/api";
 import { ForumDiscussion, ForumComment } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import ReactMarkdown from "react-markdown";
@@ -111,7 +111,7 @@ export function ForumDiscussionDetail() {
         <Flex gap="3" align="start">
           <Avatar
             size="4"
-            src={discussion.user?.profile_picture}
+            src={getImageUrl(discussion.user?.profile_picture)}
             fallback={
               discussion.user?.full_name?.[0] ||
               discussion.user?.username?.[0] ||
@@ -194,7 +194,7 @@ export function ForumDiscussionDetail() {
             <div key={c._id} className="flex gap-3">
               <Avatar
                 size="2"
-                src={c.user?.profile_picture}
+                src={getImageUrl(c.user?.profile_picture)}
                 fallback={
                   c.user?.full_name?.[0] || c.user?.username?.[0] || "?"
                 }

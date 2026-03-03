@@ -13,12 +13,13 @@ import {
   Dialog,
 } from "@radix-ui/themes";
 import { Form } from "radix-ui";
-import { servicesApi } from "@/services/api";
+import { servicesApi, uploadApi } from "@/services/api";
 import { ServiceForm, ServiceFormErrors, TagEntity } from "@/types";
 import { TagAutocomplete } from "./TagAutocomplete";
 import { MarkdownEditor } from "./MarkdownEditor";
 import { MapLocationPicker } from "@/components/ui/MapLocationPicker";
 import { GlobeIcon, Crosshair1Icon } from "@radix-ui/react-icons";
+import { PlusIcon } from "lucide-react";
 
 interface OfferNeedFormProps {
   serviceType: "offer" | "need";
@@ -45,6 +46,15 @@ export function OfferNeedForm({
     is_remote: false,
   });
   const [errors, setErrors] = useState<ServiceFormErrors>({});
+  const MAX_SERVICE_IMAGES = 3;
+  const [serviceImageFiles, setServiceImageFiles] = useState<File[]>([]);
+  const [serviceImagePreviewUrls, setServiceImagePreviewUrls] = useState<
+    string[]
+  >([]);
+  const [serviceImageUploading, setServiceImageUploading] = useState(false);
+  const [serviceImageError, setServiceImageError] = useState<string | null>(
+    null,
+  );
   const formTopRef = useRef<HTMLDivElement>(null);
   const createServiceMutation = useMutation({
     mutationFn: servicesApi.createService,
@@ -156,9 +166,10 @@ export function OfferNeedForm({
     );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
+    setServiceImageError(null);
 
     const newErrors: ServiceFormErrors = {};
 
@@ -227,11 +238,36 @@ export function OfferNeedForm({
       return;
     }
 
-    createServiceMutation.mutate(formData);
+    let imageUrls: string[] = [];
+    if (serviceImageFiles.length > 0) {
+      setServiceImageUploading(true);
+      try {
+        for (const file of serviceImageFiles) {
+          const res = await uploadApi.uploadServiceImage(file);
+          imageUrls.push(res.data.url);
+        }
+      } catch (err: any) {
+        setServiceImageError(
+          err.response?.data?.detail || "Image upload failed",
+        );
+        setServiceImageUploading(false);
+        return;
+      }
+      setServiceImageUploading(false);
+    }
+
+    const payload = {
+      ...formData,
+      image_urls: imageUrls.length > 0 ? imageUrls : undefined,
+    };
+    createServiceMutation.mutate(payload);
   };
 
   const handleConfirmationClose = () => {
     setShowConfirmation(false);
+    serviceImagePreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+    setServiceImageFiles([]);
+    setServiceImagePreviewUrls([]);
     // Call onSuccess after closing confirmation modal
     if (onSuccess) onSuccess();
     if (onClose) onClose();
@@ -341,13 +377,90 @@ export function OfferNeedForm({
                 )}
               </Form.Field>
 
+              {/* Service images (optional, max 3) */}
+              <Form.Field
+                name="service_images"
+                className="space-y-1 col-span-2"
+              >
+                {serviceImageFiles.length < MAX_SERVICE_IMAGES && (
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="sr-only"
+                      disabled={serviceImageUploading}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (serviceImageFiles.length >= MAX_SERVICE_IMAGES)
+                          return;
+                        const maxMb = 5;
+                        if (file.size > maxMb * 1024 * 1024) {
+                          setServiceImageError(
+                            `File must be under ${maxMb} MB`,
+                          );
+                          return;
+                        }
+                        setServiceImageError(null);
+                        setServiceImageFiles((prev) => [...prev, file]);
+                        setServiceImagePreviewUrls((prev) => [
+                          ...prev,
+                          URL.createObjectURL(file),
+                        ]);
+                        e.target.value = "";
+                      }}
+                    />
+                    <span className="flex items-center justify-center gap-2 border rounded-lg p-2 hover-card text-center cursor-pointer font-medium text-sm w-full">
+                      <PlusIcon className="w-4 h-4" />
+                      Add Images (optional, max {MAX_SERVICE_IMAGES})
+                    </span>
+                  </label>
+                )}
+                {serviceImagePreviewUrls.length > 0 && (
+                  <Flex gap="2" wrap="wrap" className="border rounded-lg p-2">
+                    {serviceImagePreviewUrls.map((url, index) => (
+                      <Box key={index} className="relative">
+                        <img
+                          src={url}
+                          alt={`Preview ${index + 1}`}
+                          className="rounded-lg object-cover h-24 w-24"
+                        />
+                        <Button
+                          type="button"
+                          size="1"
+                          variant="solid"
+                          color="red"
+                          className="!absolute top-1 right-1 !p-1 w-5 h-5 cursor-pointer"
+                          onClick={() => {
+                            URL.revokeObjectURL(serviceImagePreviewUrls[index]);
+                            setServiceImageFiles((prev) =>
+                              prev.filter((_, i) => i !== index),
+                            );
+                            setServiceImagePreviewUrls((prev) =>
+                              prev.filter((_, i) => i !== index),
+                            );
+                            setServiceImageError(null);
+                          }}
+                        >
+                          ×
+                        </Button>
+                      </Box>
+                    ))}
+                  </Flex>
+                )}
+                {serviceImageError && (
+                  <Text color="red" size="1">
+                    {serviceImageError}
+                  </Text>
+                )}
+              </Form.Field>
+
               {/* In person or remote service selection */}
               <Box
                 className={`flex items-center justify-center gap-2 mb-4 border rounded-lg p-2 hover-card text-center cursor-pointer font-medium text-sm`}
                 onClick={() => handleInputChange("is_remote", false)}
                 style={{
                   backgroundColor: formData.is_remote ? "" : "var(--gray-1)",
-                  borderColor: "var(--gray-3)",
                 }}
               >
                 <Crosshair1Icon className="w-4 h-4" /> In person Service
@@ -357,7 +470,6 @@ export function OfferNeedForm({
                 onClick={() => handleInputChange("is_remote", true)}
                 style={{
                   backgroundColor: formData.is_remote ? "var(--gray-1)" : "",
-                  borderColor: "var(--gray-3)",
                 }}
               >
                 <GlobeIcon className="w-4 h-4" />
@@ -610,8 +722,17 @@ export function OfferNeedForm({
               Cancel
             </Button>
             <Form.Submit asChild>
-              <Button type="submit" disabled={createServiceMutation.isPending}>
-                {createServiceMutation.isPending ? "Creating..." : "Create"}
+              <Button
+                type="submit"
+                disabled={
+                  createServiceMutation.isPending || serviceImageUploading
+                }
+              >
+                {serviceImageUploading
+                  ? "Uploading image..."
+                  : createServiceMutation.isPending
+                    ? "Creating..."
+                    : "Create"}
               </Button>
             </Form.Submit>
           </Flex>

@@ -146,6 +146,7 @@ export interface Service {
   };
   open_availability?: string;
   is_remote?: boolean;
+  image_urls?: string[];
 }
 
 export interface TimeBankTransaction {
@@ -234,6 +235,7 @@ export interface ServiceForm {
   max_participants: number;
   attachment?: File;
   attachment_url?: string;
+  image_urls?: string[];
   is_remote?: boolean;
 }
 

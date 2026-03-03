@@ -4,7 +4,7 @@ import { AuthResponse, User, Service, ServiceListResponse, TimeBankResponse, Tim
 // Use relative URL /api to leverage nginx proxy, or absolute URL if provided via env var
 // This ensures requests go through the same HTTPS domain as the frontend
 // Normalize the URL: remove trailing slash and enforce HTTPS for production URLs
-const getApiBaseUrl = () => {
+export const getApiBaseUrl = () => {
   const envUrl = (import.meta as any).env?.VITE_API_URL;
   if (envUrl) {
     let url = envUrl.trim();
@@ -21,6 +21,14 @@ const getApiBaseUrl = () => {
     return url;
   }
   return "/api";
+};
+
+/** Build full URL for an image path returned by the API (e.g. /uploads/profile/...) */
+export const getImageUrl = (path: string | undefined | null): string | undefined => {
+  if (!path) return undefined;
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  const base = getApiBaseUrl();
+  return base + (path.startsWith("/") ? path : "/" + path);
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -65,6 +73,30 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Upload API: send FormData; omit Content-Type so browser sets multipart/form-data with boundary
+export const uploadApi = {
+  uploadProfilePicture: (file: File): Promise<AxiosResponse<{ url: string }>> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/upload/profile-picture', formData, {
+      transformRequest: [(data: unknown, headers?: Record<string, string>) => {
+        if (headers) delete headers['Content-Type'];
+        return data;
+      }],
+    });
+  },
+  uploadServiceImage: (file: File): Promise<AxiosResponse<{ url: string }>> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/upload/service-image', formData, {
+      transformRequest: [(data: unknown, headers?: Record<string, string>) => {
+        if (headers) delete headers['Content-Type'];
+        return data;
+      }],
+    });
+  },
+};
 
 // Auth API
 export const authApi = {

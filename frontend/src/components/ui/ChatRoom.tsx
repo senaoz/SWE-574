@@ -169,7 +169,7 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
                     className={
                       message.sender_id === currentUserId
                         ? "text-blue-100"
-                        : "text-gray-500"
+                        : "opacity-80"
                     }
                   >
                     {formatTime(message.created_at)}
@@ -180,7 +180,7 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
                       className={
                         message.sender_id === currentUserId
                           ? "text-blue-100"
-                          : "text-gray-500"
+                          : "opacity-80"
                       }
                     >
                       (edited)

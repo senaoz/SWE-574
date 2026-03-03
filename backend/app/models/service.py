@@ -113,7 +113,8 @@ class ServiceBase(BaseModel):
     specific_time: Optional[str] = None  # Time string in HH:MM format
     recurring_pattern: Optional[dict] = None  # RecurringPattern dict: {"days": [...], "time": "HH:MM"}
     open_availability: Optional[str] = None  # Free-form text description
-    
+    image_urls: Optional[List[str]] = Field(default_factory=list, max_items=3)  # Up to 3 uploaded service images
+
     @model_validator(mode='before')
     @classmethod
     def validate_max_participants(cls, data):
@@ -173,6 +174,7 @@ class ServiceUpdate(BaseModel):
     specific_time: Optional[str] = None  # Time string in HH:MM format
     recurring_pattern: Optional[dict] = None  # RecurringPattern dict: {"days": [...], "time": "HH:MM"}
     open_availability: Optional[str] = None  # Free-form text description
+    image_urls: Optional[List[str]] = Field(None, max_items=3)
 
     class Config:
         json_encoders = {ObjectId: str}

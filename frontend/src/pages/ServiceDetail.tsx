@@ -10,7 +10,14 @@ import {
   Tooltip,
   DropdownMenu,
 } from "@radix-ui/themes";
-import { Service, User, JoinRequest, ForumEvent, Transaction, Rating } from "@/types";
+import {
+  Service,
+  User,
+  JoinRequest,
+  ForumEvent,
+  Transaction,
+  Rating,
+} from "@/types";
 import {
   chatApi,
   servicesApi,
@@ -19,6 +26,7 @@ import {
   forumApi,
   transactionsApi,
   ratingsApi,
+  getImageUrl,
 } from "@/services/api";
 import { useUser } from "@/App";
 import {
@@ -59,8 +67,12 @@ export function ServiceDetail() {
   const [isCancellingRequest, setIsCancellingRequest] = useState(false);
   const [linkedEvents, setLinkedEvents] = useState<ForumEvent[]>([]);
   const [copied, setCopied] = useState(false);
-  const [serviceTransactions, setServiceTransactions] = useState<Transaction[]>([]);
-  const [transactionRatings, setTransactionRatings] = useState<Record<string, Rating[]>>({});
+  const [serviceTransactions, setServiceTransactions] = useState<Transaction[]>(
+    [],
+  );
+  const [transactionRatings, setTransactionRatings] = useState<
+    Record<string, Rating[]>
+  >({});
   const [ratingLoading, setRatingLoading] = useState<string | null>(null);
   const { currentUserId, refetchUser } = useUser();
   const queryClient = useQueryClient();
@@ -208,7 +220,11 @@ export function ServiceDetail() {
           foundService.status === "completed"
         ) {
           try {
-            const txRes = await transactionsApi.getServiceTransactions(id, 1, 50);
+            const txRes = await transactionsApi.getServiceTransactions(
+              id,
+              1,
+              50,
+            );
             setServiceTransactions(txRes.data.transactions || []);
           } catch {
             setServiceTransactions([]);
@@ -229,7 +245,9 @@ export function ServiceDetail() {
   }, [id, currentUserId]);
 
   useEffect(() => {
-    const completed = serviceTransactions.filter((t) => t.status === "completed");
+    const completed = serviceTransactions.filter(
+      (t) => t.status === "completed",
+    );
     completed.forEach(async (t) => {
       try {
         const res = await ratingsApi.getTransactionRatings(t._id);
@@ -453,7 +471,7 @@ export function ServiceDetail() {
     transactionId: string,
     ratedUserId: string,
     score: number,
-    comment: string
+    comment: string,
   ) => {
     setRatingLoading(transactionId);
     try {
@@ -473,7 +491,9 @@ export function ServiceDetail() {
   };
 
   const handleStartChatForTransaction = async (transactionId: string) => {
-    const transaction = serviceTransactions.find((t) => t._id === transactionId);
+    const transaction = serviceTransactions.find(
+      (t) => t._id === transactionId,
+    );
     try {
       const { data } = await chatApi.createTransactionChatRoom(transactionId);
       const roomId = data?._id;
@@ -508,7 +528,9 @@ export function ServiceDetail() {
 
   const handleCancelTransaction = async (transactionId: string) => {
     try {
-      await transactionsApi.updateTransaction(transactionId, { status: "cancelled" });
+      await transactionsApi.updateTransaction(transactionId, {
+        status: "cancelled",
+      });
       await refetchServiceAndTransactions();
     } catch (error) {
       console.error("Error cancelling transaction:", error);
@@ -519,7 +541,7 @@ export function ServiceDetail() {
     currentUserId &&
     serviceTransactions.some(
       (t) =>
-        t.provider_id === currentUserId || t.requester_id === currentUserId
+        t.provider_id === currentUserId || t.requester_id === currentUserId,
     );
 
   return (
@@ -534,7 +556,7 @@ export function ServiceDetail() {
         {/* Main content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Header */}
-          <Card className="p-6">
+          <Card className="p-6 overflow-hidden">
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
@@ -561,6 +583,39 @@ export function ServiceDetail() {
               </div>
             </div>
 
+            {/* Images */}
+            {service.image_urls?.length ? (
+              <div className="w-full mb-6 overflow-hidden rounded-lg">
+                {service.image_urls.length === 1 ? (
+                  <img
+                    src={
+                      getImageUrl(service.image_urls[0]) ??
+                      service.image_urls[0]
+                    }
+                    alt=""
+                    className="w-full max-h-60 object-cover"
+                  />
+                ) : (
+                  <div
+                    className={`grid gap-1 w-full ${
+                      service.image_urls.length === 2
+                        ? "grid-cols-2"
+                        : "grid-cols-3"
+                    }`}
+                  >
+                    {service.image_urls.map((url, i) => (
+                      <img
+                        key={i}
+                        src={getImageUrl(url) ?? url}
+                        alt=""
+                        className="w-full max-h-60 object-cover"
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : null}
+
             {/* Details */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
               <Flex align="center" gap="2">
@@ -581,7 +636,7 @@ export function ServiceDetail() {
                 <Text size="3">{service.max_participants ?? "No limit"}</Text>
               </Flex>
 
-              <Flex align="center" gap="2">
+              <Flex align="center" gap="2" className="col-span-2">
                 <Crosshair1Icon className="w-5 h-5" color="gray" />
                 <Text size="3" weight="medium">
                   Location:
@@ -606,16 +661,16 @@ export function ServiceDetail() {
 
             {/* Scheduling Information */}
             {formatSchedulingInfo() && (
-              <Card className="mb-2">
-                <Flex align="start" gap="2">
-                  <CalendarIcon className="w-5 h-5 mt-0.5" color="purple" />
-                  <div className="flex-1 flex flex-col">
-                    <Text size="2" weight="bold" color="gray">
-                      {formatSchedulingInfo()?.type}
-                    </Text>
-                    <Text size="3">{formatSchedulingInfo()?.value}</Text>
-                  </div>
-                </Flex>
+              <Card className="my-4 grid gap-2">
+                <div className="flex flex-row gap-1 items-center text-purple-500">
+                  <CalendarIcon className="w-5 h-5" />
+                  <Text size="2" weight="medium">
+                    {formatSchedulingInfo()?.type}
+                  </Text>
+                </div>
+                <Text size="2" className="opacity-80">
+                  {formatSchedulingInfo()?.value}
+                </Text>
               </Card>
             )}
 
@@ -642,7 +697,7 @@ export function ServiceDetail() {
                     />
                   ),
                   p: ({ node, ...props }) => (
-                    <div className="leading-relaxed mb-2">
+                    <div className="leading-relaxed">
                       <Text size="3">{props.children}</Text>
                     </div>
                   ),
@@ -892,7 +947,7 @@ export function ServiceDetail() {
                   const myRating = ratings.find(
                     (r) =>
                       r.rater_id === currentUserId ||
-                      (r.rater as any)?.id === currentUserId
+                      (r.rater as any)?.id === currentUserId,
                   );
                   const otherUserId =
                     transaction.provider_id === currentUserId
@@ -920,12 +975,24 @@ export function ServiceDetail() {
                           <Card className="p-3">
                             {myRating ? (
                               <div>
-                                <Text size="2" weight="bold" className="block mb-1">
+                                <Text
+                                  size="2"
+                                  weight="bold"
+                                  className="block mb-1"
+                                >
                                   Your Rating
                                 </Text>
-                                <RatingStars value={myRating.score} readonly size={16} />
+                                <RatingStars
+                                  value={myRating.score}
+                                  readonly
+                                  size={16}
+                                />
                                 {myRating.comment && (
-                                  <Text size="1" color="gray" className="block mt-1">
+                                  <Text
+                                    size="1"
+                                    color="gray"
+                                    className="block mt-1"
+                                  >
                                     "{myRating.comment}"
                                   </Text>
                                 )}
@@ -937,7 +1004,7 @@ export function ServiceDetail() {
                                     transaction._id,
                                     otherUserId,
                                     score,
-                                    comment
+                                    comment,
                                   )
                                 }
                                 loading={ratingLoading === transaction._id}
@@ -951,7 +1018,9 @@ export function ServiceDetail() {
                               size="1"
                               color="blue"
                               variant="outline"
-                              onClick={() => handleStartChatForTransaction(transaction._id)}
+                              onClick={() =>
+                                handleStartChatForTransaction(transaction._id)
+                              }
                             >
                               Start Chat
                             </Button>
@@ -959,7 +1028,9 @@ export function ServiceDetail() {
                               size="1"
                               color="red"
                               variant="outline"
-                              onClick={() => handleCancelTransaction(transaction._id)}
+                              onClick={() =>
+                                handleCancelTransaction(transaction._id)
+                              }
                             >
                               Cancel
                             </Button>
@@ -972,7 +1043,6 @@ export function ServiceDetail() {
               </div>
             </Card>
           )}
-
         </div>
 
         {/* Sidebar */}

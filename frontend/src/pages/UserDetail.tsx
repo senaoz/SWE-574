@@ -19,7 +19,7 @@ import {
 } from "@radix-ui/react-icons";
 import { useQuery } from "@tanstack/react-query";
 import { User, Service } from "@/types";
-import { servicesApi, usersApi, ratingsApi } from "@/services/api";
+import { servicesApi, usersApi, ratingsApi, getImageUrl } from "@/services/api";
 import { OfferListingCard } from "@/components/ui/OfferListingCard";
 import { BadgeDisplay } from "@/components/ui/BadgeDisplay";
 import { InterestChip } from "@/components/ui/InterestChip";
@@ -113,7 +113,7 @@ export function UserDetail() {
               {/* User Avatar and Basic Info */}
               <Flex align="center" gap="4">
                 <Avatar
-                  src={user.profile_picture || undefined}
+                  src={getImageUrl(user.profile_picture) || undefined}
                   fallback={user.full_name?.[0] || user.username[0]}
                   size="6"
                 />
