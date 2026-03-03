@@ -64,12 +64,16 @@ export function Dashboard() {
           return r.json();
         })
         .then((d) => {
-          if (d.latitude && d.longitude) setUserPosition([d.latitude, d.longitude]);
+          if (d.latitude && d.longitude)
+            setUserPosition([d.latitude, d.longitude]);
           else setUserPosition([41.0082, 28.9784]);
         })
         .catch(() => setUserPosition([41.0082, 28.9784]));
     };
-    if (!navigator.geolocation) { ipFallback(); return; }
+    if (!navigator.geolocation) {
+      ipFallback();
+      return;
+    }
     navigator.geolocation.getCurrentPosition(onSuccess, () => ipFallback(), {
       enableHighAccuracy: false,
       timeout: 10000,
@@ -125,9 +129,15 @@ export function Dashboard() {
     if (searchQuery.trim()) {
       filtered = filtered.filter(
         (service) =>
-          (service.title || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (service.description || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (service.category || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (service.title || "")
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase()) ||
+          (service.description || "")
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase()) ||
+          (service.category || "")
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase()) ||
           service.tags?.some((tag) => {
             const tagLabel = typeof tag === "string" ? tag : tag.label;
             return tagLabel?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -177,15 +187,6 @@ export function Dashboard() {
                 You've reached the 10-hour surplus limit. Create a Need to help
                 balance the community and use your hours.
               </Callout.Text>
-              <Button
-                size="2"
-                color="amber"
-                variant="soft"
-                onClick={() => setNeedDialogOpen(true)}
-                className="mt-2"
-              >
-                Create Need
-              </Button>
             </Callout.Root>
           )}
 
@@ -231,7 +232,9 @@ export function Dashboard() {
               <Button
                 size="1"
                 color="green"
-                variant={selectedStatusFilter === "active" ? "solid" : "outline"}
+                variant={
+                  selectedStatusFilter === "active" ? "solid" : "outline"
+                }
                 onClick={() => setSelectedStatusFilter("active")}
               >
                 Active
@@ -239,7 +242,9 @@ export function Dashboard() {
               <Button
                 size="1"
                 color="blue"
-                variant={selectedStatusFilter === "in_progress" ? "solid" : "outline"}
+                variant={
+                  selectedStatusFilter === "in_progress" ? "solid" : "outline"
+                }
                 onClick={() => setSelectedStatusFilter("in_progress")}
               >
                 In Progress
@@ -247,7 +252,9 @@ export function Dashboard() {
               <Button
                 size="1"
                 color="gray"
-                variant={selectedStatusFilter === "completed" ? "solid" : "outline"}
+                variant={
+                  selectedStatusFilter === "completed" ? "solid" : "outline"
+                }
                 onClick={() => setSelectedStatusFilter("completed")}
               >
                 Completed
@@ -255,7 +262,9 @@ export function Dashboard() {
               <Button
                 size="1"
                 color="red"
-                variant={selectedStatusFilter === "cancelled" ? "solid" : "outline"}
+                variant={
+                  selectedStatusFilter === "cancelled" ? "solid" : "outline"
+                }
                 onClick={() => setSelectedStatusFilter("cancelled")}
               >
                 Cancelled
@@ -263,7 +272,9 @@ export function Dashboard() {
               <Button
                 size="1"
                 color="orange"
-                variant={selectedStatusFilter === "expired" ? "solid" : "outline"}
+                variant={
+                  selectedStatusFilter === "expired" ? "solid" : "outline"
+                }
                 onClick={() => setSelectedStatusFilter("expired")}
               >
                 Expired
