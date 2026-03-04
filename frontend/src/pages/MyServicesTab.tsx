@@ -378,9 +378,10 @@ export function MyServicesTab({
                                   </Button>
                                 )}
                             </Flex>
+
                             <div className="space-y-3">
                               {serviceTransactions[service._id].map(
-                                (transaction) => {
+                                (transaction, index) => {
                                   const ratings =
                                     transactionRatings[transaction._id] || [];
                                   const myRating = ratings.find(
@@ -392,121 +393,95 @@ export function MyServicesTab({
                                     transaction.provider_id === currentUserId
                                       ? transaction.requester_id
                                       : transaction.provider_id;
+
                                   return (
                                     <Flex
                                       direction="column"
                                       gap="2"
                                       key={transaction._id}
+                                      className="mb-2 pb-3"
+                                      style={{
+                                        borderBottom:
+                                          index !==
+                                          serviceTransactions[service._id]
+                                            .length -
+                                            1
+                                            ? "1px solid var(--gray-3)"
+                                            : "none",
+                                      }}
                                     >
-                                      <Flex justify="between" align="center">
+                                      <Flex
+                                        justify="start"
+                                        align="center"
+                                        gap="2"
+                                      >
                                         <Text size="2" weight="medium">
-                                          {transaction.provider?.full_name ||
-                                            transaction.provider?.username ||
-                                            "Provider"}{" "}
-                                          ↔{" "}
+                                          You (Provider) ↔{" "}
                                           {transaction.requester?.full_name ||
                                             transaction.requester?.username ||
                                             "Requester"}
                                         </Text>
-                                        <Badge color="blue" size="1">
-                                          {transaction.timebank_hours}h
-                                        </Badge>
-                                      </Flex>
-                                      <Flex gap="4" wrap="wrap">
-                                        <Flex
-                                          direction="row"
-                                          gap="1"
-                                          align="center"
+                                        <Text
+                                          size="1"
+                                          color={
+                                            transaction.provider_confirmed &&
+                                            transaction.requester_confirmed
+                                              ? "green"
+                                              : transaction.provider_confirmed
+                                                ? "yellow"
+                                                : transaction.requester_confirmed
+                                                  ? "yellow"
+                                                  : "red"
+                                          }
                                         >
-                                          <Text size="1" weight="medium">
-                                            Provider:
-                                          </Text>
-                                          <Badge
-                                            color={
-                                              transaction.provider_confirmed
-                                                ? "green"
-                                                : "gray"
-                                            }
-                                            size="1"
-                                          >
-                                            {transaction.provider_confirmed
-                                              ? "Confirmed"
-                                              : "Pending"}
-                                          </Badge>
-                                        </Flex>
-                                        <Flex
-                                          direction="row"
-                                          gap="1"
-                                          align="center"
-                                        >
-                                          <Text size="1" weight="medium">
-                                            Requester:
-                                          </Text>
-                                          <Badge
-                                            color={
-                                              transaction.requester_confirmed
-                                                ? "green"
-                                                : "gray"
-                                            }
-                                            size="1"
-                                          >
-                                            {transaction.requester_confirmed
-                                              ? "Confirmed"
-                                              : "Pending"}
-                                          </Badge>
-                                        </Flex>
+                                          {transaction.provider_confirmed &&
+                                          transaction.requester_confirmed
+                                            ? "✓ Exchange completed"
+                                            : transaction.provider_confirmed
+                                              ? "✓ You confirmed but requester not confirmed - Exchange not completed"
+                                              : transaction.requester_confirmed
+                                                ? "✓ Requester confirmed but you not confirmed - Exchange not completed"
+                                                : "✗ Both you and requester not confirmed - Exchange not completed"}{" "}
+                                          for {transaction.timebank_hours}{" "}
+                                          hour(s)
+                                        </Text>
                                       </Flex>
+
                                       {transaction.status === "completed" && (
                                         <>
-                                          <Text
-                                            size="1"
-                                            color="green"
-                                            weight="medium"
-                                          >
-                                            ✓ Exchange completed
-                                          </Text>
-                                          <Card className="p-3">
-                                            {myRating ? (
-                                              <div>
-                                                <Text
-                                                  size="2"
-                                                  weight="bold"
-                                                  className="block mb-1"
-                                                >
-                                                  Your Rating
-                                                </Text>
-                                                <RatingStars
-                                                  value={myRating.score}
-                                                  readonly
-                                                  size={16}
-                                                />
-                                                {myRating.comment && (
-                                                  <Text
-                                                    size="1"
-                                                    color="gray"
-                                                    className="block mt-1"
-                                                  >
-                                                    "{myRating.comment}"
-                                                  </Text>
-                                                )}
-                                              </div>
-                                            ) : (
-                                              <RatingForm
-                                                onSubmit={(score, comment) =>
-                                                  handleRatingSubmit(
-                                                    transaction._id,
-                                                    otherUserId,
-                                                    score,
-                                                    comment,
-                                                  )
-                                                }
-                                                loading={
-                                                  ratingLoading ===
-                                                  transaction._id
-                                                }
+                                          {myRating ? (
+                                            <>
+                                              <RatingStars
+                                                value={myRating.score}
+                                                readonly
+                                                size={16}
                                               />
-                                            )}
-                                          </Card>
+                                              {myRating.comment && (
+                                                <Text
+                                                  size="1"
+                                                  color="gray"
+                                                  className="block mt-1"
+                                                >
+                                                  "{myRating.comment}"
+                                                </Text>
+                                              )}
+                                            </>
+                                          ) : (
+                                            <RatingForm
+                                              onSubmit={(score, comment) =>
+                                                handleRatingSubmit(
+                                                  transaction._id,
+                                                  otherUserId,
+                                                  score,
+                                                  comment,
+                                                )
+                                              }
+                                              loading={
+                                                ratingLoading ===
+                                                transaction._id
+                                              }
+                                            />
+                                          )}
                                         </>
                                       )}
                                       {currentUserId &&
