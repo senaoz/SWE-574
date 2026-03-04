@@ -291,9 +291,6 @@ export function MyServicesTab({
                           )}
                         </Flex>
                       </Flex>
-                      <Text size="2" color="gray">
-                        {service.description}
-                      </Text>
                     </Flex>
 
                     {/* Service details */}
