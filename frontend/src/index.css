@@ -226,3 +226,7 @@ p {
     stroke-width: 2px;
     fill: var(--lime-3);
 }
+
+.border-none-card.rt-Card:where(.rt-variant-surface)::after {
+    box-shadow: none !important;
+}
