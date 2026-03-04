@@ -466,7 +466,7 @@ export function MyServicesTab({
                                                 </Text>
                                               )}
                                             </>
-                                          ) : (
+                                          ) : transaction.provider_confirmed ? (
                                             <RatingForm
                                               onSubmit={(score, comment) =>
                                                 handleRatingSubmit(
@@ -481,7 +481,7 @@ export function MyServicesTab({
                                                 transaction._id
                                               }
                                             />
-                                          )}
+                                          ) : null}
                                         </>
                                       )}
                                       {currentUserId &&

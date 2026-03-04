@@ -154,7 +154,9 @@ export function MyApplicationsTab({
                     currentUserId &&
                     service.matched_user_ids &&
                     service.matched_user_ids.includes(currentUserId);
-                  const myTransaction = (serviceTransactions[service._id] ?? []).find(
+                  const myTransaction = (
+                    serviceTransactions[service._id] ?? []
+                  ).find(
                     (t) => String(t.requester_id) === String(currentUserId),
                   );
                   const hasConfirmed =
@@ -230,7 +232,8 @@ export function MyApplicationsTab({
                             {/* Rating section for completed services */}
                             {service.status === "completed" &&
                               isReceiver &&
-                              currentUserId && (() => {
+                              currentUserId &&
+                              (() => {
                                 const transactions =
                                   serviceTransactions[service._id] ?? [];
                                 const myTransaction = transactions.find(
@@ -249,7 +252,7 @@ export function MyApplicationsTab({
                                     String(currentUserId),
                                 );
                                 return (
-                                  <Card className="p-3 mt-2">
+                                  <div>
                                     {myRating ? (
                                       <div>
                                         <Text
@@ -289,7 +292,7 @@ export function MyApplicationsTab({
                                         }
                                       />
                                     )}
-                                  </Card>
+                                  </div>
                                 );
                               })()}
                           </Flex>
