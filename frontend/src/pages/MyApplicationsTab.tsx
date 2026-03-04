@@ -169,33 +169,28 @@ export function MyApplicationsTab({
                         service.status === "completed") && (
                         <div>
                           <Flex direction="column" gap="3">
-                            <Text size="2" weight="bold">
-                              Completion status
-                            </Text>
-                            <Flex gap="4" wrap="wrap">
-                              <Flex direction="column" gap="1">
-                                <Text size="1" weight="medium">
-                                  Receivers:
-                                </Text>
-                                <Badge
-                                  color={
-                                    service.receiver_confirmed_ids &&
-                                    service.matched_user_ids &&
-                                    service.receiver_confirmed_ids.length ===
-                                      service.matched_user_ids.length
-                                      ? "green"
-                                      : "gray"
-                                  }
-                                  size="1"
-                                >
-                                  {service.receiver_confirmed_ids &&
-                                  service.matched_user_ids
-                                    ? `${service.receiver_confirmed_ids.length}/${service.matched_user_ids.length} Confirmed`
-                                    : service.matched_user_ids
-                                      ? `0/${service.matched_user_ids.length} Confirmed`
-                                      : "0/0 Confirmed"}
-                                </Badge>
-                              </Flex>
+                            <Flex direction="column" gap="1">
+                              <Text size="1" weight="medium">
+                                Receivers:
+                              </Text>
+                              <Badge
+                                color={
+                                  service.receiver_confirmed_ids &&
+                                  service.matched_user_ids &&
+                                  service.receiver_confirmed_ids.length ===
+                                    service.matched_user_ids.length
+                                    ? "green"
+                                    : "gray"
+                                }
+                                size="1"
+                              >
+                                {service.receiver_confirmed_ids &&
+                                service.matched_user_ids
+                                  ? `${service.receiver_confirmed_ids.length}/${service.matched_user_ids.length} Confirmed`
+                                  : service.matched_user_ids
+                                    ? `0/${service.matched_user_ids.length} Confirmed`
+                                    : "0/0 Confirmed"}
+                              </Badge>
                             </Flex>
                             {/* Receiver confirms their transaction (Confirm I received) */}
                             {isReceiver &&
