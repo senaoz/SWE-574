@@ -32,7 +32,7 @@ export function ApplicantsList({
   const [isLoading, setIsLoading] = useState(true);
   const [updatingRequest, setUpdatingRequest] = useState<string | null>(null);
   const [adminMessage, setAdminMessage] = useState<{ [key: string]: string }>(
-    {}
+    {},
   );
 
   useEffect(() => {
@@ -61,7 +61,9 @@ export function ApplicantsList({
 
       // Optimistically update the local state with the response
       setRequests((prevRequests) =>
-        prevRequests.map((req) => (req._id === requestId ? response.data : req))
+        prevRequests.map((req) =>
+          req._id === requestId ? response.data : req,
+        ),
       );
 
       // Clear the admin message for this request
@@ -93,7 +95,9 @@ export function ApplicantsList({
 
       // Optimistically update the local state with the response
       setRequests((prevRequests) =>
-        prevRequests.map((req) => (req._id === requestId ? response.data : req))
+        prevRequests.map((req) =>
+          req._id === requestId ? response.data : req,
+        ),
       );
 
       // Clear the admin message for this request
@@ -169,7 +173,7 @@ export function ApplicantsList({
     <>
       <Flex align="center" justify="between" className="mb-2">
         <Flex align="center" gap="2">
-          <Text size="4" weight="bold">
+          <Text size="3" weight="bold">
             Applicants History
           </Text>
           {pendingCount > 0 && (
