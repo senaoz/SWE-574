@@ -49,7 +49,7 @@ class ServiceService:
         # Ensure optional confirmation fields are set
         if "provider_confirmed" not in service_doc:
             service_doc["provider_confirmed"] = False
-        if "receiver_confirmed_ids" not in service_doc:
+        if "receiver_confirmed_ids" not in service_doc or service_doc["receiver_confirmed_ids"] is None or not isinstance(service_doc["receiver_confirmed_ids"], list):
             service_doc["receiver_confirmed_ids"] = []
         
         # Normalize max_participants - ensure it's always a valid integer >= 1
@@ -404,13 +404,28 @@ class ServiceService:
                 )
             
             if is_receiver:
-                # Add user to receiver_confirmed_ids list
+                # Add user to receiver_confirmed_ids list (handle null/non-array from legacy data)
                 result = await self.services_collection.update_one(
                     {"_id": ObjectId(service_id)},
-                    {
-                        "$addToSet": {"receiver_confirmed_ids": user_id_obj},
-                        "$set": {"updated_at": datetime.utcnow()}
-                    }
+                    [
+                        {
+                            "$set": {
+                                "receiver_confirmed_ids": {
+                                    "$cond": {
+                                        "if": {
+                                            "$or": [
+                                                {"$eq": ["$receiver_confirmed_ids", None]},
+                                                {"$not": {"$isArray": "$receiver_confirmed_ids"}}
+                                            ]
+                                        },
+                                        "then": [user_id_obj],
+                                        "else": {"$setUnion": ["$receiver_confirmed_ids", [user_id_obj]]}
+                                    }
+                                },
+                                "updated_at": datetime.utcnow()
+                            }
+                        }
+                    ]
                 )
             
             # Fetch the latest service document from database to check completion status
@@ -420,8 +435,8 @@ class ServiceService:
                 raise ValueError("Service not found after update")
             
             provider_confirmed = service_doc.get("provider_confirmed", False)
-            receiver_confirmed_ids = service_doc.get("receiver_confirmed_ids", [])
-            matched_user_ids = service_doc.get("matched_user_ids", [])
+            receiver_confirmed_ids = service_doc.get("receiver_confirmed_ids") or []
+            matched_user_ids = service_doc.get("matched_user_ids") or []
             
             # Convert all IDs to strings for comparison
             matched_user_ids_str = [str(mid) for mid in matched_user_ids]

@@ -208,9 +208,11 @@ class TransactionService:
                 update_doc["status"] = update_data.status
                 if update_data.status == TransactionStatus.COMPLETED:
                     update_doc["completed_at"] = datetime.utcnow()
-            
-            if update_data.description is not None:
-                update_doc["description"] = update_data.description
+
+            if update_data.completion_notes is not None:
+                update_doc["completion_notes"] = update_data.completion_notes
+            if update_data.dispute_reason is not None:
+                update_doc["dispute_reason"] = update_data.dispute_reason
 
             result = await self.transactions_collection.update_one(
                 {"_id": ObjectId(transaction_id)},
