@@ -10,12 +10,7 @@ import {
   Tooltip,
   DropdownMenu,
 } from "@radix-ui/themes";
-import {
-  Service,
-  User,
-  JoinRequest,
-  ForumEvent,
-} from "@/types";
+import { Service, User, JoinRequest, ForumEvent } from "@/types";
 import {
   chatApi,
   servicesApi,
@@ -544,6 +539,15 @@ export function ServiceDetail() {
                       }}
                     />
                   ),
+                  ul: ({ node, ...props }) => (
+                    <ul className="list-disc list-inside" {...props} />
+                  ),
+                  ol: ({ node, ...props }) => (
+                    <ol className="list-decimal list-inside" {...props} />
+                  ),
+                  li: ({ node, ...props }) => (
+                    <li className="list-item" {...props} />
+                  ),
                   a: ({ node, ...props }) => (
                     <a
                       {...props}
@@ -784,7 +788,6 @@ export function ServiceDetail() {
                     Mark as completed
                   </Button>
                 )}
-
             </div>
           </Card>
         </div>
