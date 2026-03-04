@@ -294,6 +294,7 @@ export interface JoinRequest {
     username: string;
     full_name?: string;
     bio?: string;
+    profile_picture?: string;
   };
   service?: {
     id: string;

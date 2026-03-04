@@ -148,12 +148,13 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
             return (
               <div key={comment._id} className="flex gap-3">
                 <Avatar
-                  src={getImageUrl(user?.profile_picture)}
+                  src={getImageUrl(user?.profile_picture as string | undefined)}
                   fallback={user?.full_name?.[0] || user?.username?.[0] || "?"}
                   size="3"
                   onClick={() => {
                     navigate(`/profile/${user?._id}`);
                   }}
+                  className="cursor-pointer"
                 />
                 <div className="flex-1">
                   <Flex align="center" gap="2" className="mb-1">
