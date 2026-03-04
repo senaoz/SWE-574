@@ -332,36 +332,13 @@ async def match_service(
             detail=f"Error matching service: {str(e)}"
         )
 
-@router.post("/{service_id}/confirm-completion", response_model=ServiceResponse)
-async def confirm_service_completion(
-    service_id: str,
-    current_user: UserResponse = Depends(get_current_user),
-    db=Depends(get_database)
-):
-    """Confirm service completion (requires both provider and receiver to confirm)"""
-    service_service = ServiceService(db)
-    
-    try:
-        updated_service = await service_service.confirm_service_completion(service_id, str(current_user.id))
-        return updated_service
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error confirming service completion: {str(e)}"
-        )
-
 @router.post("/{service_id}/complete")
 async def complete_service(
     service_id: str,
     current_user: UserResponse = Depends(get_current_user),
     db=Depends(get_database)
 ):
-    """Complete a service exchange and update TimeBank (deprecated - use confirm-completion instead)"""
+    """Mark service as completed (provider only). Updates status, TimeBank, and linked transactions."""
     service_service = ServiceService(db)
     
     try:

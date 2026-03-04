@@ -172,7 +172,11 @@ class JoinRequestService:
                     "status": JoinRequestStatus.APPROVED
                 })
                 
-                max_participants = service.get("max_participants", 1)
+                max_participants = service.get("max_participants")
+                if max_participants is None:
+                    max_participants = 1000
+                elif not isinstance(max_participants, int):
+                    max_participants = int(max_participants)
                 # Check if adding this approval would exceed the limit
                 if approved_count >= max_participants:
                     raise ValueError(f"Service has reached maximum participants limit ({max_participants})")

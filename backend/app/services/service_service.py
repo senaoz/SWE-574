@@ -47,9 +47,7 @@ class ServiceService:
     def _normalize_service_doc(self, service_doc: dict) -> dict:
         """Normalize service document for response (handles backward compatibility)"""
         # Ensure optional confirmation fields are set
-        if "provider_confirmed" not in service_doc:
-            service_doc["provider_confirmed"] = False
-        if "receiver_confirmed_ids" not in service_doc:
+        if "receiver_confirmed_ids" not in service_doc or service_doc["receiver_confirmed_ids"] is None or not isinstance(service_doc["receiver_confirmed_ids"], list):
             service_doc["receiver_confirmed_ids"] = []
         
         # Normalize max_participants - ensure it's always a valid integer >= 1
@@ -352,127 +350,25 @@ class ServiceService:
         except Exception as e:
             raise ValueError(f"Error matching service: {str(e)}")
 
-    async def confirm_service_completion(self, service_id: str, user_id: str) -> ServiceResponse:
-        """Confirm service completion by provider or receiver"""
-        try:
-            service = await self.get_service_by_id(service_id)
-            if not service:
-                raise ValueError("Service not found")
-            
-            if service.status != ServiceStatus.IN_PROGRESS:
-                raise ValueError("Service is not in progress")
-            
-            if not service.matched_user_ids or len(service.matched_user_ids) == 0:
-                raise ValueError("Service has no matched users")
-            
-            # Determine which confirmation to update
-            # Convert user_id to ObjectId for comparison
-            user_id_obj = ObjectId(user_id) if ObjectId.is_valid(user_id) else None
-            if not user_id_obj:
-                raise ValueError("Invalid user ID")
-            
-            is_provider = str(service.user_id) == user_id
-            is_receiver = any(
-                str(matched_id) == user_id or (isinstance(matched_id, ObjectId) and str(matched_id) == user_id)
-                for matched_id in service.matched_user_ids
+    async def complete_service(self, service_id: str, user_id: str) -> bool:
+        """Mark service as completed (provider only). Updates status, TimeBank, and linked transactions."""
+        service = await self.get_service_by_id(service_id)
+        if not service:
+            raise ValueError("Service not found")
+        if str(service.user_id) != user_id:
+            raise ValueError("Only the service owner (provider) can mark the service as completed")
+        if service.status not in (ServiceStatus.ACTIVE, ServiceStatus.IN_PROGRESS):
+            raise ValueError("Service is not in a state that can be completed")
+        # Optional: provider must create a Need first when giving help
+        from .user_service import UserService
+        user_service = UserService(self.db)
+        if await user_service.requires_need_creation(user_id):
+            raise ValueError(
+                "You must create a Need before you can give help. "
+                "You've reached the 10-hour surplus limit."
             )
-            
-            if not is_provider and not is_receiver:
-                raise ValueError("Not authorized to confirm this service")
-            
-            # Provider cannot confirm (give help) when they must create a Need first
-            if is_provider:
-                from .user_service import UserService
-                user_service = UserService(self.db)
-                if await user_service.requires_need_creation(user_id):
-                    raise ValueError(
-                        "You must create a Need before you can give help. "
-                        "You've reached the 10-hour surplus limit."
-                    )
-            
-            # Update the appropriate confirmation
-            if is_provider:
-                # Set provider_confirmed
-                result = await self.services_collection.update_one(
-                    {"_id": ObjectId(service_id)},
-                    {
-                        "$set": {
-                            "provider_confirmed": True,
-                            "updated_at": datetime.utcnow()
-                        }
-                    }
-                )
-            
-            if is_receiver:
-                # Add user to receiver_confirmed_ids list
-                result = await self.services_collection.update_one(
-                    {"_id": ObjectId(service_id)},
-                    {
-                        "$addToSet": {"receiver_confirmed_ids": user_id_obj},
-                        "$set": {"updated_at": datetime.utcnow()}
-                    }
-                )
-            
-            # Fetch the latest service document from database to check completion status
-            # We need fresh data after the update
-            service_doc = await self.services_collection.find_one({"_id": ObjectId(service_id)})
-            if not service_doc:
-                raise ValueError("Service not found after update")
-            
-            provider_confirmed = service_doc.get("provider_confirmed", False)
-            receiver_confirmed_ids = service_doc.get("receiver_confirmed_ids", [])
-            matched_user_ids = service_doc.get("matched_user_ids", [])
-            
-            # Convert all IDs to strings for comparison
-            matched_user_ids_str = [str(mid) for mid in matched_user_ids]
-            receiver_confirmed_ids_str = [str(rid) for rid in receiver_confirmed_ids]
-            
-            # Check if all receivers have confirmed
-            all_receivers_confirmed = (
-                len(matched_user_ids) > 0 and
-                len(receiver_confirmed_ids_str) == len(matched_user_ids_str) and
-                all(rid_str in matched_user_ids_str for rid_str in receiver_confirmed_ids_str)
-            )
-            
-            # Debug logging (can be removed in production)
-            print(f"Service {service_id} completion check:")
-            print(f"  provider_confirmed: {provider_confirmed}")
-            print(f"  matched_user_ids: {matched_user_ids_str}")
-            print(f"  receiver_confirmed_ids: {receiver_confirmed_ids_str}")
-            print(f"  all_receivers_confirmed: {all_receivers_confirmed}")
-            
-            if provider_confirmed and all_receivers_confirmed:
-                # Provider and all receivers confirmed - complete the service and update TimeBank
-                print(f"Both parties confirmed for service {service_id}, finalizing completion...")
-                # Get the service response object for finalization
-                updated_service = await self.get_service_by_id(service_id)
-                try:
-                    finalize_result = await self._finalize_service_completion(service_id, updated_service)
-                    # Verify the status was updated
-                    final_service_doc = await self.services_collection.find_one({"_id": ObjectId(service_id)})
-                    if final_service_doc and final_service_doc.get("status") == ServiceStatus.COMPLETED:
-                        if finalize_result:
-                            print(f"Service {service_id} successfully finalized: status=COMPLETED, TimeBank updated")
-                        else:
-                            print(f"WARNING: Service {service_id} marked as COMPLETED but TimeBank transactions failed (check logs above for details)")
-                    else:
-                        print(f"ERROR: Service {service_id} finalization completed but status is {final_service_doc.get('status') if final_service_doc else 'unknown'}")
-                except Exception as finalize_error:
-                    print(f"Error finalizing service completion: {str(finalize_error)}")
-                    import traceback
-                    print(traceback.format_exc())
-                    # Don't fail the confirmation, but log the error
-                    raise ValueError(f"Service confirmed but failed to finalize: {str(finalize_error)}")
-            
-            # Return updated service with confirmation fields
-            final_service = await self.get_service_by_id(service_id)
-            # Log the final status for debugging
-            if final_service:
-                print(f"Returning service {service_id} with status: {final_service.status}")
-            return final_service
-        except Exception as e:
-            raise ValueError(f"Error confirming service completion: {str(e)}")
-    
+        return await self._finalize_service_completion(service_id, service)
+
     async def _finalize_service_completion(self, service_id: str, service: ServiceResponse) -> bool:
         """Finalize service completion and update TimeBank (called when both parties confirm)"""
         try:

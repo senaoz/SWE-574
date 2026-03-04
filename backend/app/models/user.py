@@ -156,6 +156,14 @@ class UserRoleUpdate(BaseModel):
         json_encoders = {ObjectId: str}
 
 
+class TimeBankBalanceUpdate(BaseModel):
+    """Admin/moderator update of a user's TimeBank balance"""
+    balance: float = Field(..., ge=0, description="New balance in hours")
+
+    class Config:
+        json_encoders = {ObjectId: str}
+
+
 class OAuthUserCreate(BaseModel):
     email: EmailStr
     username: str

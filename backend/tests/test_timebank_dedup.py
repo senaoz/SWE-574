@@ -138,10 +138,9 @@ class TestTimeBankDedup:
         assert bal_provider_after_tx == 5.0  # 3 + 2
         assert bal_receiver_after_tx == 3.0  # 5 - 2
 
-        # Now complete the service (both confirm)
+        # Now complete the service (provider marks as completed)
         svc_svc = ServiceService(mock_db)
-        await svc_svc.confirm_service_completion(str(service.id), str(provider.id))
-        await svc_svc.confirm_service_completion(str(service.id), str(receiver.id))
+        await svc_svc.complete_service(str(service.id), str(provider.id))
 
         # Balances must NOT change again
         assert await _get_balance(mock_db, str(provider.id)) == bal_provider_after_tx
@@ -159,9 +158,8 @@ class TestTimeBankDedup:
         tx = await _match_and_create_transaction(mock_db, service, str(receiver.id))
 
         svc_svc = ServiceService(mock_db)
-        # Both parties confirm the service
-        await svc_svc.confirm_service_completion(str(service.id), str(provider.id))
-        await svc_svc.confirm_service_completion(str(service.id), str(receiver.id))
+        # Provider marks service as completed
+        await svc_svc.complete_service(str(service.id), str(provider.id))
 
         bal_provider_after_svc = await _get_balance(mock_db, str(provider.id))
         bal_receiver_after_svc = await _get_balance(mock_db, str(receiver.id))
@@ -220,8 +218,7 @@ class TestTimeBankDedup:
         await _match_and_create_transaction(mock_db, service, str(receiver.id))
 
         svc_svc = ServiceService(mock_db)
-        await svc_svc.confirm_service_completion(str(service.id), str(provider.id))
-        await svc_svc.confirm_service_completion(str(service.id), str(receiver.id))
+        await svc_svc.complete_service(str(service.id), str(provider.id))
 
         assert await _get_balance(mock_db, str(provider.id)) == 5.0  # 3 + 2
         assert await _get_balance(mock_db, str(receiver.id)) == 3.0  # 5 - 2

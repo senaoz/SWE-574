@@ -302,6 +302,36 @@ class UserService:
         except Exception:
             return None
 
+    async def set_timebank_balance(
+        self,
+        user_id: str,
+        new_balance: float,
+        admin_user_id: str,
+        admin_username: str,
+    ) -> Optional[UserResponse]:
+        """Set a user's TimeBank balance (admin/moderator only). Logs an audit transaction."""
+        try:
+            user = await self.get_user_by_id(user_id)
+            if not user:
+                return None
+            old_balance = user.timebank_balance
+            amount = new_balance - old_balance
+            await self.users_collection.update_one(
+                {"_id": ObjectId(user_id)},
+                {"$set": {"timebank_balance": new_balance, "updated_at": datetime.utcnow()}},
+            )
+            description = f"Admin adjustment by {admin_username}: {old_balance:.1f}h → {new_balance:.1f}h"
+            await self.transactions_collection.insert_one({
+                "user_id": ObjectId(user_id),
+                "amount": amount,
+                "description": description,
+                "service_id": None,
+                "created_at": datetime.utcnow(),
+            })
+            return await self.get_user_by_id(user_id)
+        except Exception:
+            return None
+
     async def get_users_by_role(self, role: UserRole) -> List[UserResponse]:
         """Get all users with a specific role"""
         try:

@@ -378,35 +378,26 @@ export function ServiceDetail() {
     }
   };
 
-  const handleConfirmServiceCompletion = async () => {
+  const handleMarkServiceComplete = async () => {
     if (!service || !id) return;
 
     const confirmed = window.confirm(
-      "Confirm completion? When both sides confirm, the service is completed, TimeBank is updated, and related exchanges are marked completed.",
+      "Mark this service as completed? TimeBank will be updated and related exchanges will be marked completed.",
     );
     if (!confirmed) return;
 
     try {
-      const response = await servicesApi.confirmServiceCompletion(id);
-      const updatedService = response.data;
-      setService(updatedService);
-
-      // Check if service was completed (both parties confirmed)
-      if (updatedService.status === "completed") {
-        refetchUser();
-        alert(
-          "Service completed! Both parties confirmed. TimeBank transaction logs have been created.",
-        );
-      } else {
-        alert(
-          "Your confirmation has been recorded. Waiting for provider confirmation.",
-        );
-      }
+      await servicesApi.completeService(id);
+      refetchUser();
+      alert("Service marked as completed.");
+      // Refetch service to get updated status
+      const res = await servicesApi.getService(id);
+      setService(res.data);
     } catch (error: any) {
-      console.error("Error confirming service completion:", error);
+      console.error("Error completing service:", error);
       alert(
         error.response?.data?.detail ||
-          "Failed to confirm service completion. Please try again.",
+          "Failed to mark service as completed. Please try again.",
       );
     }
   };
@@ -926,7 +917,7 @@ export function ServiceDetail() {
                   <Button
                     color="green"
                     size="3"
-                    onClick={handleConfirmServiceCompletion}
+                    onClick={handleMarkServiceComplete}
                   >
                     <CheckCircledIcon className="w-4 h-4" />
                     Confirm I Received This Service

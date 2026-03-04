@@ -20,7 +20,7 @@ interface MyServicesTabProps {
   currentUserId: string | null;
   requiresNeedCreation?: boolean;
   onSetServiceInProgress: (serviceId: string) => Promise<void>;
-  onConfirmServiceCompletion: (serviceId: string) => Promise<void>;
+  onMarkServiceComplete: (serviceId: string) => Promise<void>;
   onDeleteService: (serviceId: string) => Promise<void>;
   onCancelService: (serviceId: string) => Promise<void>;
   onStartChat: (transactionId: string) => Promise<void>;
@@ -37,7 +37,7 @@ export function MyServicesTab({
   currentUserId,
   requiresNeedCreation = false,
   onSetServiceInProgress,
-  onConfirmServiceCompletion,
+  onMarkServiceComplete,
   onDeleteService,
   onCancelService,
   onStartChat,
@@ -223,7 +223,7 @@ export function MyServicesTab({
                 {servicesInStatus.length}
               </Badge>
             </Flex>
-            <div className="space-y-6">
+            <div className="space-y-6 max-w-[calc(100vw-5rem)]">
               {servicesInStatus.map((service) => (
                 <Card key={service._id} className="p-6">
                   <div className="flex flex-col gap-3">
@@ -307,7 +307,6 @@ export function MyServicesTab({
                         <Text size="2">{formatDate(service.created_at)}</Text>
                       </Flex>
                     </Flex>
-
                     {/* Matched users info */}
                     {service.matched_user_ids &&
                       service.matched_user_ids.length > 0 &&
@@ -329,7 +328,7 @@ export function MyServicesTab({
                         </Card>
                       )}
 
-                    {/* Confirm completion (service-level; related exchanges marked completed automatically) */}
+                    {/* Mark as completed (provider only); TimeBank and related transactions updated */}
                     {(service.status === "in_progress" ||
                       service.status === "completed") &&
                       serviceTransactions[service._id] &&
@@ -347,47 +346,36 @@ export function MyServicesTab({
                             >
                               <div className="grid">
                                 <Text size="3" weight="bold">
-                                  Confirm completion
+                                  Mark as completed
                                 </Text>
                                 <Text size="2" color="gray" className="mt-1">
-                                  When both sides confirm, the service is
-                                  completed, TimeBank is updated, and related
-                                  exchanges are marked completed automatically.
+                                  As the service owner, you can mark the service
+                                  as completed. TimeBank will be updated and
+                                  related exchanges marked completed.
                                 </Text>
                               </div>
 
                               {service.status === "in_progress" &&
                                 currentUserId &&
-                                ((String(service.user_id) === currentUserId &&
-                                  !service.provider_confirmed) ||
-                                  (service.matched_user_ids?.some(
-                                    (id) => String(id) === currentUserId,
-                                  ) &&
-                                    !(
-                                      service.receiver_confirmed_ids || []
-                                    ).includes(currentUserId))) && (
+                                String(service.user_id) === currentUserId && (
                                   <Button
                                     size="2"
                                     color="green"
-                                    disabled={
-                                      requiresNeedCreation &&
-                                      String(service.user_id) === currentUserId
-                                    }
+                                    disabled={requiresNeedCreation}
                                     title={
                                       requiresNeedCreation
                                         ? "Create a Need before you can give help"
                                         : undefined
                                     }
                                     onClick={() =>
-                                      onConfirmServiceCompletion(service._id)
+                                      onMarkServiceComplete(service._id)
                                     }
                                   >
                                     <CheckCircledIcon className="w-4 h-4 mr-2" />
-                                    Confirm completion
+                                    Mark as completed
                                   </Button>
                                 )}
                             </Flex>
-
                             <div className="space-y-3">
                               {serviceTransactions[service._id].map(
                                 (transaction) => {
@@ -403,147 +391,149 @@ export function MyServicesTab({
                                       ? transaction.requester_id
                                       : transaction.provider_id;
                                   return (
-                                    <Card key={transaction._id} className="p-3">
-                                      <Flex direction="column" gap="2">
-                                        <Flex justify="between" align="center">
-                                          <Text size="2" weight="medium">
-                                            {transaction.provider?.full_name ||
-                                              transaction.provider?.username ||
-                                              "Provider"}{" "}
-                                            ↔{" "}
-                                            {transaction.requester?.full_name ||
-                                              transaction.requester?.username ||
-                                              "Requester"}
+                                    <Flex
+                                      direction="column"
+                                      gap="2"
+                                      key={transaction._id}
+                                    >
+                                      <Flex justify="between" align="center">
+                                        <Text size="2" weight="medium">
+                                          {transaction.provider?.full_name ||
+                                            transaction.provider?.username ||
+                                            "Provider"}{" "}
+                                          ↔{" "}
+                                          {transaction.requester?.full_name ||
+                                            transaction.requester?.username ||
+                                            "Requester"}
+                                        </Text>
+                                        <Badge color="blue" size="1">
+                                          {transaction.timebank_hours}h
+                                        </Badge>
+                                      </Flex>
+                                      <Flex gap="4" wrap="wrap">
+                                        <Flex
+                                          direction="row"
+                                          gap="1"
+                                          align="center"
+                                        >
+                                          <Text size="1" weight="medium">
+                                            Provider:
                                           </Text>
-                                          <Badge color="blue" size="1">
-                                            {transaction.timebank_hours}h
+                                          <Badge
+                                            color={
+                                              transaction.provider_confirmed
+                                                ? "green"
+                                                : "gray"
+                                            }
+                                            size="1"
+                                          >
+                                            {transaction.provider_confirmed
+                                              ? "Confirmed"
+                                              : "Pending"}
                                           </Badge>
                                         </Flex>
-                                        <Flex gap="4" wrap="wrap">
-                                          <Flex
-                                            direction="row"
-                                            gap="1"
-                                            align="center"
+                                        <Flex
+                                          direction="row"
+                                          gap="1"
+                                          align="center"
+                                        >
+                                          <Text size="1" weight="medium">
+                                            Requester:
+                                          </Text>
+                                          <Badge
+                                            color={
+                                              transaction.requester_confirmed
+                                                ? "green"
+                                                : "gray"
+                                            }
+                                            size="1"
                                           >
-                                            <Text size="1" weight="medium">
-                                              Provider:
-                                            </Text>
-                                            <Badge
-                                              color={
-                                                transaction.provider_confirmed
-                                                  ? "green"
-                                                  : "gray"
-                                              }
-                                              size="1"
-                                            >
-                                              {transaction.provider_confirmed
-                                                ? "Confirmed"
-                                                : "Pending"}
-                                            </Badge>
-                                          </Flex>
-                                          <Flex
-                                            direction="row"
-                                            gap="1"
-                                            align="center"
-                                          >
-                                            <Text size="1" weight="medium">
-                                              Requester:
-                                            </Text>
-                                            <Badge
-                                              color={
-                                                transaction.requester_confirmed
-                                                  ? "green"
-                                                  : "gray"
-                                              }
-                                              size="1"
-                                            >
-                                              {transaction.requester_confirmed
-                                                ? "Confirmed"
-                                                : "Pending"}
-                                            </Badge>
-                                          </Flex>
+                                            {transaction.requester_confirmed
+                                              ? "Confirmed"
+                                              : "Pending"}
+                                          </Badge>
                                         </Flex>
-                                        {transaction.status === "completed" && (
-                                          <>
-                                            <Text
-                                              size="1"
-                                              color="green"
-                                              weight="medium"
-                                            >
-                                              ✓ Exchange completed
-                                            </Text>
-                                            <Card className="p-3">
-                                              {myRating ? (
-                                                <div>
-                                                  <Text
-                                                    size="2"
-                                                    weight="bold"
-                                                    className="block mb-1"
-                                                  >
-                                                    Your Rating
-                                                  </Text>
-                                                  <RatingStars
-                                                    value={myRating.score}
-                                                    readonly
-                                                    size={16}
-                                                  />
-                                                  {myRating.comment && (
-                                                    <Text
-                                                      size="1"
-                                                      color="gray"
-                                                      className="block mt-1"
-                                                    >
-                                                      "{myRating.comment}"
-                                                    </Text>
-                                                  )}
-                                                </div>
-                                              ) : (
-                                                <RatingForm
-                                                  onSubmit={(score, comment) =>
-                                                    handleRatingSubmit(
-                                                      transaction._id,
-                                                      otherUserId,
-                                                      score,
-                                                      comment,
-                                                    )
-                                                  }
-                                                  loading={
-                                                    ratingLoading ===
-                                                    transaction._id
-                                                  }
-                                                />
-                                              )}
-                                            </Card>
-                                          </>
-                                        )}
-                                        {transaction.status === "pending" && (
-                                          <Flex gap="2">
-                                            <Button
-                                              size="1"
-                                              color="blue"
-                                              variant="outline"
-                                              onClick={() =>
-                                                onStartChat(transaction._id)
-                                              }
-                                            >
-                                              Start Chat
-                                            </Button>
-                                            <Button
-                                              size="1"
-                                              color="red"
-                                              variant="outline"
-                                              onClick={() =>
-                                                onCancelTransaction(
-                                                  transaction._id,
-                                                )
-                                              }
-                                            >
-                                              Cancel
-                                            </Button>
-                                          </Flex>
-                                        )}
                                       </Flex>
-                                    </Card>
+                                      {transaction.status === "completed" && (
+                                        <>
+                                          <Text
+                                            size="1"
+                                            color="green"
+                                            weight="medium"
+                                          >
+                                            ✓ Exchange completed
+                                          </Text>
+                                          <Card className="p-3">
+                                            {myRating ? (
+                                              <div>
+                                                <Text
+                                                  size="2"
+                                                  weight="bold"
+                                                  className="block mb-1"
+                                                >
+                                                  Your Rating
+                                                </Text>
+                                                <RatingStars
+                                                  value={myRating.score}
+                                                  readonly
+                                                  size={16}
+                                                />
+                                                {myRating.comment && (
+                                                  <Text
+                                                    size="1"
+                                                    color="gray"
+                                                    className="block mt-1"
+                                                  >
+                                                    "{myRating.comment}"
+                                                  </Text>
+                                                )}
+                                              </div>
+                                            ) : (
+                                              <RatingForm
+                                                onSubmit={(score, comment) =>
+                                                  handleRatingSubmit(
+                                                    transaction._id,
+                                                    otherUserId,
+                                                    score,
+                                                    comment,
+                                                  )
+                                                }
+                                                loading={
+                                                  ratingLoading ===
+                                                  transaction._id
+                                                }
+                                              />
+                                            )}
+                                          </Card>
+                                        </>
+                                      )}
+                                      {transaction.status === "pending" && (
+                                        <Flex gap="2">
+                                          <Button
+                                            size="1"
+                                            color="blue"
+                                            variant="outline"
+                                            onClick={() =>
+                                              onStartChat(transaction._id)
+                                            }
+                                          >
+                                            Start Chat
+                                          </Button>
+                                          <Button
+                                            size="1"
+                                            color="red"
+                                            variant="outline"
+                                            onClick={() =>
+                                              onCancelTransaction(
+                                                transaction._id,
+                                              )
+                                            }
+                                          >
+                                            Cancel
+                                          </Button>
+                                        </Flex>
+                                      )}
+                                    </Flex>
                                   );
                                 },
                               )}
