@@ -13,7 +13,7 @@ interface MyApplicationsTabProps {
   serviceTransactions: Record<string, Transaction[]>;
   currentUserId: string | null;
   onServiceClick: (id: string) => void;
-  onConfirmServiceCompletion: (serviceId: string) => Promise<void>;
+  onMarkServiceComplete: (serviceId: string) => Promise<void>;
   formatDate: (dateString: string) => string;
 }
 
@@ -24,7 +24,7 @@ export function MyApplicationsTab({
   serviceTransactions,
   currentUserId,
   onServiceClick,
-  onConfirmServiceCompletion,
+  onMarkServiceComplete,
   formatDate,
 }: MyApplicationsTabProps) {
   const [transactionRatings, setTransactionRatings] = useState<
@@ -161,32 +161,15 @@ export function MyApplicationsTab({
 
                   return (
                     <>
-                      {/* Confirm completion for in_progress services */}
+                      {/* Completion status for in_progress / completed services */}
                       {(service.status === "in_progress" ||
                         service.status === "completed") && (
                         <div>
                           <Flex direction="column" gap="3">
                             <Text size="2" weight="bold">
-                              Confirm completion
+                              Completion status
                             </Text>
                             <Flex gap="4" wrap="wrap">
-                              <Flex direction="column" gap="1">
-                                <Text size="1" weight="medium">
-                                  Provider:
-                                </Text>
-                                <Badge
-                                  color={
-                                    service.provider_confirmed
-                                      ? "green"
-                                      : "gray"
-                                  }
-                                  size="1"
-                                >
-                                  {service.provider_confirmed
-                                    ? "Confirmed"
-                                    : "Pending"}
-                                </Badge>
-                              </Flex>
                               <Flex direction="column" gap="1">
                                 <Text size="1" weight="medium">
                                   Receivers:
@@ -211,26 +194,7 @@ export function MyApplicationsTab({
                                 </Badge>
                               </Flex>
                             </Flex>
-                            {/* Receiver confirmation button */}
-                            {isReceiver &&
-                              !hasConfirmed &&
-                              currentUserId &&
-                              service.matched_user_ids &&
-                              String(service.user_id) !==
-                                String(currentUserId) && (
-                                <Flex gap="2" justify="end">
-                                  <Button
-                                    size="2"
-                                    color="green"
-                                    onClick={() =>
-                                      onConfirmServiceCompletion(service._id)
-                                    }
-                                  >
-                                    <CheckCircledIcon className="w-4 h-4 mr-2" />
-                                    Confirm completion
-                                  </Button>
-                                </Flex>
-                              )}
+                            {/* Receiver can confirm per transaction below; no service-level confirm */}
 
                             {/* Already confirmed message */}
                             {isReceiver && hasConfirmed && (

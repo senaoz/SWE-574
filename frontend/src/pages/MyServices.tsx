@@ -208,7 +208,8 @@ export function MyServices({
       // Fetch transactions for application services (approved applications)
       for (const service of applicationServicesList) {
         if (
-          (service.status === "in_progress" || service.status === "completed") &&
+          (service.status === "in_progress" ||
+            service.status === "completed") &&
           !serviceTransactionsMap[service._id]
         ) {
           try {
@@ -329,143 +330,22 @@ export function MyServices({
     }
   };
 
-  const handleConfirmServiceCompletion = async (serviceId: string) => {
+  const handleMarkServiceComplete = async (serviceId: string) => {
     const confirmed = window.confirm(
-      "Confirm completion? When both sides confirm, the service is completed, TimeBank is updated, and related exchanges are marked completed.",
+      "Mark this service as completed? TimeBank will be updated and related exchanges will be marked completed.",
     );
     if (!confirmed) return;
 
     try {
-      const response = await servicesApi.confirmServiceCompletion(serviceId);
-      const updatedService = response.data;
-
-      // Check if service was completed (both parties confirmed)
-      if (updatedService.status === "completed") {
-        refetchUser();
-        alert(
-          "Service completed! Both parties confirmed. TimeBank transaction logs have been created.",
-        );
-      } else {
-        alert(
-          "Your confirmation has been recorded. Waiting for provider confirmation.",
-        );
-      }
-      // Refresh data
+      await servicesApi.completeService(serviceId);
+      refetchUser();
+      alert("Service marked as completed.");
       await fetchData();
     } catch (error: any) {
-      console.error("Error confirming service completion:", error);
+      console.error("Error completing service:", error);
       alert(
         error.response?.data?.detail ||
-          "Failed to confirm service completion. Please try again.",
-      );
-    }
-  };
-
-  const handleMarkServiceAsDone = async (serviceId: string) => {
-    const service = services.find((s) => s._id === serviceId);
-    if (!service) return;
-
-    const confirmed = window.confirm(
-      "Confirm completion? When both sides confirm, the service is completed, TimeBank is updated, and related exchanges are marked completed.",
-    );
-    if (!confirmed) return;
-
-    try {
-      console.log(service);
-      // Check if service has matched users
-      if (service.matched_user_ids && service.matched_user_ids.length > 0) {
-        // Service has matches - need to use confirm completion
-        // First, if status is "active", update it to "in_progress"
-        if (service.status === "active") {
-          await servicesApi.updateService(serviceId, {
-            status: "in_progress",
-          } as any);
-        }
-
-        // Then confirm completion (this requires in_progress status)
-        try {
-          const response =
-            await servicesApi.confirmServiceCompletion(serviceId);
-          const updatedService = response.data;
-
-          // Check if service was completed (both parties confirmed)
-          if (updatedService.status === "completed") {
-            refetchUser();
-            alert(
-              "Service completed! Both parties confirmed. TimeBank transaction logs have been created.",
-            );
-          } else {
-            // Check confirmation status
-            const isProvider =
-              String(updatedService.user_id) === String(currentUserId);
-            const isReceiver = updatedService.matched_user_ids?.includes(
-              currentUserId || "",
-            );
-
-            if (isProvider) {
-              const allReceiversConfirmed =
-                updatedService.receiver_confirmed_ids &&
-                updatedService.matched_user_ids &&
-                updatedService.receiver_confirmed_ids.length ===
-                  updatedService.matched_user_ids.length;
-
-              if (allReceiversConfirmed) {
-                alert(
-                  "Your confirmation has been recorded. All receivers have confirmed. Service should be completed.",
-                );
-              } else {
-                alert(
-                  "Your confirmation has been recorded. Waiting for receiver confirmation.",
-                );
-              }
-            } else if (isReceiver) {
-              const providerConfirmed =
-                updatedService.provider_confirmed || false;
-              if (providerConfirmed) {
-                alert(
-                  "Your confirmation has been recorded. Provider has confirmed. Service should be completed.",
-                );
-              } else {
-                alert(
-                  "Your confirmation has been recorded. Waiting for provider confirmation.",
-                );
-              }
-            } else {
-              alert(
-                "Service completion confirmed. Waiting for other party confirmation.",
-              );
-            }
-          }
-        } catch (error: any) {
-          // If confirm completion fails, try the deprecated complete endpoint
-          if (error.response?.status === 400) {
-            try {
-              await servicesApi.completeService(serviceId);
-              refetchUser();
-              alert("Service marked as completed.");
-            } catch (completeError: any) {
-              throw error; // Throw original error
-            }
-          } else {
-            throw error;
-          }
-        }
-      } else {
-        // No matches - directly update status to completed
-        await servicesApi.updateService(serviceId, {
-          status: "completed",
-        } as any);
-        refetchUser();
-        alert("Service marked as completed.");
-      }
-
-      // Refresh data
-      await fetchData();
-    } catch (error: any) {
-      console.error("Error marking service as done:", error);
-      alert(
-        error.response?.data?.detail ||
-          "Failed to mark service as done. Please try again.",
+          "Failed to mark service as completed. Please try again.",
       );
     }
   };
@@ -524,7 +404,7 @@ export function MyServices({
             currentUserId={currentUserId}
             requiresNeedCreation={timebankData?.requires_need_creation ?? false}
             onSetServiceInProgress={handleSetServiceInProgress}
-            onConfirmServiceCompletion={handleConfirmServiceCompletion}
+            onMarkServiceComplete={handleMarkServiceComplete}
             onDeleteService={handleDeleteService}
             onCancelService={handleCancelService}
             onStartChat={handleStartChat}
@@ -546,7 +426,7 @@ export function MyServices({
               serviceTransactions={serviceTransactions}
               currentUserId={currentUserId}
               onServiceClick={handleServiceClick}
-              onConfirmServiceCompletion={handleConfirmServiceCompletion}
+              onMarkServiceComplete={handleMarkServiceComplete}
               formatDate={formatDate}
             />
           )}
@@ -597,7 +477,7 @@ export function MyServices({
               serviceTransactions={serviceTransactions}
               currentUserId={currentUserId}
               onServiceClick={handleServiceClick}
-              onConfirmServiceCompletion={handleConfirmServiceCompletion}
+              onMarkServiceComplete={handleMarkServiceComplete}
               formatDate={formatDate}
             />
           </Tabs.Content>

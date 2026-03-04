@@ -134,7 +134,6 @@ export interface Service {
   completed_at?: string;
   matched_user_ids?: string[];
   max_participants: number;
-  provider_confirmed?: boolean;
   receiver_confirmed_ids?: string[];
   // Scheduling fields
   scheduling_type?: 'specific' | 'recurring' | 'open';

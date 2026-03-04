@@ -195,9 +195,6 @@ export const servicesApi = {
   
   completeService: (id: string): Promise<AxiosResponse<{ message: string }>> =>
     api.post(`/services/${id}/complete`),
-  
-  confirmServiceCompletion: (id: string): Promise<AxiosResponse<Service>> =>
-    api.post(`/services/${id}/confirm-completion`),
 
   saveService: (id: string): Promise<AxiosResponse<{ message: string }>> =>
     api.post(`/services/${id}/save`),

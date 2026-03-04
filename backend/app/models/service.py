@@ -188,7 +188,6 @@ class ServiceResponse(ServiceBase):
     updated_at: datetime
     completed_at: Optional[datetime] = None
     matched_user_ids: List[PyObjectId] = Field(default_factory=list)
-    provider_confirmed: Optional[bool] = False
     receiver_confirmed_ids: Optional[List[PyObjectId]] = Field(default_factory=list)
 
     class Config:
