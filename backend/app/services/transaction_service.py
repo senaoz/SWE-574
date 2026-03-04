@@ -304,11 +304,33 @@ class TransactionService:
                 update_fields["provider_confirmed"] = True
             if is_requester:
                 update_fields["requester_confirmed"] = True
+                # Also add requester to service.receiver_confirmed_ids (handle null/legacy docs)
+                requester_oid = transaction["requester_id"]
+                if isinstance(requester_oid, str) and ObjectId.is_valid(requester_oid):
+                    requester_oid = ObjectId(requester_oid)
                 await self.services_collection.update_one(
                     {"_id": ObjectId(transaction["service_id"])},
-                    {"$push": {"receiver_confirmed_ids": transaction["requester_id"]}}
+                    [
+                        {
+                            "$set": {
+                                "receiver_confirmed_ids": {
+                                    "$cond": {
+                                        "if": {
+                                            "$or": [
+                                                {"$eq": ["$receiver_confirmed_ids", None]},
+                                                {"$not": {"$isArray": "$receiver_confirmed_ids"}},
+                                            ]
+                                        },
+                                        "then": [requester_oid],
+                                        "else": {"$setUnion": ["$receiver_confirmed_ids", [requester_oid]]},
+                                    }
+                                },
+                                "updated_at": datetime.utcnow(),
+                            }
+                        }
+                    ],
                 )
-            
+
             await self.transactions_collection.update_one(
                 {"_id": ObjectId(transaction_id)},
                 {"$set": update_fields}
