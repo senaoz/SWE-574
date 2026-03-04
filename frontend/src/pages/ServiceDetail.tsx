@@ -526,7 +526,7 @@ export function ServiceDetail() {
             )}
 
             {/* Description */}
-            <div className="mb-6 prose prose-sm max-w-none">
+            <div className="mb-6 prose prose-sm max-w-none space-y-2">
               <ReactMarkdown
                 components={{
                   img: ({ node, ...props }) => (
