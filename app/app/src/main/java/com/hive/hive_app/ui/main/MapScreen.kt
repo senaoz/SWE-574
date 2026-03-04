@@ -22,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +36,7 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.hive.hive_app.data.api.dto.ServiceResponse
+import androidx.activity.compose.LocalActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -64,7 +66,9 @@ private fun distanceKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): 
 fun MapScreen(
     modifier: Modifier = Modifier,
     viewModel: MapViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
-    onServiceSelected: ((String) -> Unit)? = null
+    onServiceSelected: ((String) -> Unit)? = null,
+    onStartChat: ((String) -> Unit)? = null,
+    onOpenUserProfile: ((String) -> Unit)? = null
 ) {
     var selectedServiceId by remember { mutableStateOf<String?>(null) }
     val detailViewModel: ServiceDetailViewModel = androidx.hilt.navigation.compose.hiltViewModel()
@@ -80,6 +84,9 @@ fun MapScreen(
         val detailAcceptedUsers by detailViewModel.acceptedUsers.collectAsState()
         val detailLoading by detailViewModel.isLoading.collectAsState()
         val detailError by detailViewModel.error.collectAsState()
+        val detailCreatorBadges by detailViewModel.creatorBadges.collectAsState()
+        val detailCreatorRating by detailViewModel.creatorRating.collectAsState()
+        val detailIsSaved by detailViewModel.isSaved.collectAsState()
         ServiceDetailScreen(
             service = detailState,
             creator = detailCreator,
@@ -88,7 +95,12 @@ fun MapScreen(
             error = detailError,
             onBack = { selectedServiceId = null },
             viewModel = detailViewModel,
-            modifier = modifier
+            modifier = modifier,
+            creatorBadges = detailCreatorBadges,
+            creatorRating = detailCreatorRating,
+            isSaved = detailIsSaved,
+            onStartChat = onStartChat,
+            onOpenUserProfile = onOpenUserProfile
         )
         return
     }
@@ -116,6 +128,16 @@ fun MapScreen(
     }
 
     var mapView by remember { mutableStateOf<MapView?>(null) }
+    val activity = LocalActivity.current
+    SideEffect {
+        activity?.window?.statusBarColor = android.graphics.Color.WHITE
+        activity?.window?.decorView?.systemUiVisibility = activity?.window?.decorView?.systemUiVisibility?.or(android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR) ?: 0
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            activity?.window?.statusBarColor = android.graphics.Color.TRANSPARENT
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         // Map first so it stays behind the bar

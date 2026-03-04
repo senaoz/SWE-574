@@ -2,11 +2,15 @@ package com.hive.hive_app.ui.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hive.hive_app.data.api.dto.BadgesResponse
 import com.hive.hive_app.data.api.dto.JoinRequestResponse
+import com.hive.hive_app.data.api.dto.RatingListResponse
 import com.hive.hive_app.data.api.dto.ServiceResponse
 import com.hive.hive_app.data.api.dto.UserResponse
 import com.hive.hive_app.data.repository.AuthRepository
+import com.hive.hive_app.data.repository.ChatRepository
 import com.hive.hive_app.data.repository.JoinRequestsRepository
+import com.hive.hive_app.data.repository.RatingsRepository
 import com.hive.hive_app.data.repository.ServicesRepository
 import com.hive.hive_app.data.repository.UsersRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,7 +25,9 @@ class ServiceDetailViewModel @Inject constructor(
     private val servicesRepository: ServicesRepository,
     private val usersRepository: UsersRepository,
     private val authRepository: AuthRepository,
-    private val joinRequestsRepository: JoinRequestsRepository
+    private val joinRequestsRepository: JoinRequestsRepository,
+    private val chatRepository: ChatRepository,
+    private val ratingsRepository: RatingsRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<ServiceResponse?>(null)
@@ -52,6 +58,15 @@ class ServiceDetailViewModel @Inject constructor(
     private val _myJoinRequestForService = MutableStateFlow<JoinRequestResponse?>(null)
     val myJoinRequestForService: StateFlow<JoinRequestResponse?> = _myJoinRequestForService.asStateFlow()
 
+    private val _isSaved = MutableStateFlow(false)
+    val isSaved: StateFlow<Boolean> = _isSaved.asStateFlow()
+
+    private val _creatorBadges = MutableStateFlow<BadgesResponse?>(null)
+    val creatorBadges: StateFlow<BadgesResponse?> = _creatorBadges.asStateFlow()
+
+    private val _creatorRating = MutableStateFlow<RatingListResponse?>(null)
+    val creatorRating: StateFlow<RatingListResponse?> = _creatorRating.asStateFlow()
+
     fun load(serviceId: String) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -61,6 +76,8 @@ class ServiceDetailViewModel @Inject constructor(
             _acceptedUsers.value = emptyList()
             _joinRequests.value = emptyList()
             _myJoinRequestForService.value = null
+            _creatorBadges.value = null
+            _creatorRating.value = null
             val currentUser = authRepository.getCurrentUser().getOrNull()
             servicesRepository.getService(serviceId).fold(
                 onSuccess = { service ->
@@ -68,9 +85,14 @@ class ServiceDetailViewModel @Inject constructor(
                     _isOwner.value = currentUser?._id == service.userId
                     _isLoading.value = false
                     usersRepository.getUser(service.userId).fold(
-                        onSuccess = { _creator.value = it },
+                        onSuccess = { user ->
+                            _creator.value = user
+                            usersRepository.getUserBadges(service.userId).onSuccess { _creatorBadges.value = it }
+                            ratingsRepository.getUserRatings(service.userId).onSuccess { _creatorRating.value = it }
+                        },
                         onFailure = { _creator.value = null }
                     )
+                    servicesRepository.getSavedServiceIds().onSuccess { ids -> _isSaved.value = ids.contains(serviceId) }
                     val ids = service.matchedUserIds?.distinct().orEmpty()
                     _acceptedUsers.value = ids.mapNotNull { id ->
                         usersRepository.getUser(id).getOrNull()
@@ -149,6 +171,44 @@ class ServiceDetailViewModel @Inject constructor(
                     onResult(true)
                 },
                 onFailure = { onResult(false) }
+            )
+        }
+    }
+
+    fun toggleSave(serviceId: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val currentlySaved = _isSaved.value
+            val result = if (currentlySaved) {
+                servicesRepository.unsaveService(serviceId)
+            } else {
+                servicesRepository.saveService(serviceId)
+            }
+            result.fold(
+                onSuccess = {
+                    _isSaved.value = !currentlySaved
+                    onResult(true)
+                },
+                onFailure = { onResult(false) }
+            )
+        }
+    }
+
+    fun startChat(serviceId: String, creatorId: String, onResult: (Result<String?>) -> Unit) {
+        viewModelScope.launch {
+            val currentUser = authRepository.getCurrentUser().getOrNull() ?: run {
+                onResult(Result.failure(Exception("Not logged in")))
+                return@launch
+            }
+            if (currentUser._id == creatorId) {
+                onResult(Result.failure(Exception("Cannot chat with yourself")))
+                return@launch
+            }
+            chatRepository.createRoom(
+                participantIds = listOf(currentUser._id, creatorId),
+                serviceId = serviceId
+            ).fold(
+                onSuccess = { room -> onResult(Result.success(room._id)) },
+                onFailure = { onResult(Result.failure(it)) }
             )
         }
     }

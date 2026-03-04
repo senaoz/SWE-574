@@ -4,8 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hive.hive_app.data.api.dto.ChatRoomResponse
 import com.hive.hive_app.data.api.dto.MessageResponse
+import com.hive.hive_app.data.api.dto.UserResponse
 import com.hive.hive_app.data.repository.AuthRepository
 import com.hive.hive_app.data.repository.ChatRepository
+import com.hive.hive_app.data.repository.UsersRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,14 +18,16 @@ import javax.inject.Inject
 @HiltViewModel
 class ChatRoomViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val usersRepository: UsersRepository
 ) : ViewModel() {
 
     data class ChatRoomState(
         val messages: List<MessageResponse> = emptyList(),
         val isLoading: Boolean = false,
         val error: String? = null,
-        val currentUserId: String? = null
+        val currentUserId: String? = null,
+        val otherUser: UserResponse? = null
     )
 
     private val _state = MutableStateFlow(ChatRoomState())
@@ -35,25 +39,37 @@ class ChatRoomViewModel @Inject constructor(
         return status == "completed"
     }
 
-    fun loadMessages(roomId: String) {
+    fun loadMessages(roomId: String, room: ChatRoomResponse) {
         viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
+            _state.value = _state.value.copy(isLoading = true, error = null, otherUser = null)
             val userResult = authRepository.getCurrentUser()
             val userId = userResult.getOrNull()?._id
             chatRepository.getMessages(roomId, page = 1, limit = 100).fold(
                 onSuccess = { response ->
+                    val otherId = room.participants?.firstOrNull { it._id != userId }?._id
+                    var otherUser: UserResponse? = null
+                    if (otherId != null) {
+                        usersRepository.getUser(otherId).onSuccess { otherUser = it }
+                    }
                     _state.value = _state.value.copy(
                         messages = response.messages,
                         isLoading = false,
                         error = null,
-                        currentUserId = userId
+                        currentUserId = userId,
+                        otherUser = otherUser
                     )
                 },
                 onFailure = {
+                    val otherId = room.participants?.firstOrNull { it._id != userId }?._id
+                    var otherUser: UserResponse? = null
+                    if (otherId != null) {
+                        usersRepository.getUser(otherId).onSuccess { otherUser = it }
+                    }
                     _state.value = _state.value.copy(
                         isLoading = false,
                         error = it.message ?: "Failed to load messages",
-                        currentUserId = userId
+                        currentUserId = userId,
+                        otherUser = otherUser
                     )
                 }
             )

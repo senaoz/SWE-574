@@ -23,8 +23,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -44,12 +44,20 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.hive.hive_app.data.api.dto.ServiceResponse
 import com.hive.hive_app.util.formatDurationHours
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.ui.draw.clip
+import coil.compose.AsyncImage
 
 @Composable
 fun DiscoverScreen(
     modifier: Modifier = Modifier,
-    viewModel: DiscoverViewModel = hiltViewModel()
+    viewModel: DiscoverViewModel = hiltViewModel(),
+    onStartChat: ((String) -> Unit)? = null,
+    onOpenUserProfile: ((String) -> Unit)? = null
 ) {
     var selectedServiceId by remember { mutableStateOf<String?>(null) }
     val detailViewModel: ServiceDetailViewModel = hiltViewModel()
@@ -63,6 +71,9 @@ fun DiscoverScreen(
         val detailAcceptedUsers by detailViewModel.acceptedUsers.collectAsState()
         val detailLoading by detailViewModel.isLoading.collectAsState()
         val detailError by detailViewModel.error.collectAsState()
+        val detailCreatorBadges by detailViewModel.creatorBadges.collectAsState()
+        val detailCreatorRating by detailViewModel.creatorRating.collectAsState()
+        val detailIsSaved by detailViewModel.isSaved.collectAsState()
         ServiceDetailScreen(
             service = detailState,
             creator = detailCreator,
@@ -71,7 +82,12 @@ fun DiscoverScreen(
             error = detailError,
             onBack = { selectedServiceId = null },
             viewModel = detailViewModel,
-            modifier = modifier
+            modifier = modifier,
+            creatorBadges = detailCreatorBadges,
+            creatorRating = detailCreatorRating,
+            isSaved = detailIsSaved,
+            onStartChat = onStartChat,
+            onOpenUserProfile = onOpenUserProfile
         )
         return
     }
@@ -227,9 +243,11 @@ fun DiscoverScreen(
                     key = { it._id }
                 ) { service ->
                     val distanceKm = viewModel.distanceToService(service)
+                    val creator = state.creatorInfo[service.userId]
                     DiscoverServiceCard(
                         service = service,
                         distanceKm = distanceKm,
+                        creator = creator,
                         onClick = { selectedServiceId = service._id }
                     )
                 }
@@ -242,6 +260,7 @@ fun DiscoverScreen(
 private fun DiscoverServiceCard(
     service: ServiceResponse,
     distanceKm: Double?,
+    creator: CreatorInfo?,
     onClick: () -> Unit
 ) {
     val accepted = service.matchedUserIds?.size ?: 0
@@ -250,6 +269,9 @@ private fun DiscoverServiceCard(
     val locationText = service.location?.address?.takeIf { it.isNotBlank() }
         ?: service.location?.let { "%.4f, %.4f".format(it.latitude, it.longitude) }
         ?: "—"
+    val userName = creator?.user?.fullName?.takeIf { it.isNotBlank() }
+        ?: creator?.user?.username
+        ?: "User"
 
     Card(
         modifier = Modifier
@@ -264,6 +286,57 @@ private fun DiscoverServiceCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (creator?.user?.profilePicture?.isNotBlank() == true) {
+                    AsyncImage(
+                        model = creator.user!!.profilePicture,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = userName.firstOrNull()?.uppercase() ?: "?",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = userName,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    creator?.rating?.let { avg ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Star,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = "%.1f".format(avg),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
             Text(
                 text = service.title,
                 style = MaterialTheme.typography.titleMedium,

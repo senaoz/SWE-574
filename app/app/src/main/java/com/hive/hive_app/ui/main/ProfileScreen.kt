@@ -97,7 +97,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 fun ProfileScreen(
     onLogout: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: ProfileViewModel = hiltViewModel()
+    viewModel: ProfileViewModel = hiltViewModel(),
+    onOpenSaved: (() -> Unit)? = null
 ) {
     val profile by viewModel.profile.collectAsState()
     val timeBank by viewModel.timeBank.collectAsState()
@@ -191,6 +192,42 @@ fun ProfileScreen(
                         badges = badges,
                         onEditProfile = { showEditProfile = true }
                     )
+
+                    // Saved services (if callback provided)
+                    if (onOpenSaved != null) {
+                        Spacer(Modifier.height(12.dp))
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClick = onOpenSaved),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Favorite,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = "Saved",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
 
                     // 2. Bio section (always show)
                     Spacer(Modifier.height(12.dp))

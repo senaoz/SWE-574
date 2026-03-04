@@ -3,16 +3,21 @@ package com.hive.hive_app.ui.main
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -21,7 +26,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -31,7 +35,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.hive.hive_app.data.api.dto.ChatRoomResponse
@@ -49,7 +52,16 @@ fun ChatRoomScreen(
     val state by viewModel.state.collectAsState()
     val canSend = !viewModel.isExchangeCompleted(room)
 
-    LaunchedEffect(room._id) { viewModel.loadMessages(room._id) }
+    LaunchedEffect(room._id) { viewModel.loadMessages(room._id, room) }
+
+    val otherParticipant = room.participants?.firstOrNull { it._id != state.currentUserId }
+        ?: room.participants?.firstOrNull()
+    val otherName = state.otherUser?.fullName?.takeIf { it.isNotBlank() }
+        ?: state.otherUser?.username
+        ?: otherParticipant?.fullName?.takeIf { it.isNotBlank() }
+        ?: otherParticipant?.username
+        ?: "Chat"
+    val otherInitials = otherName.take(2).uppercase()
 
     Column(modifier = modifier.fillMaxSize()) {
         Row(
@@ -61,14 +73,47 @@ fun ChatRoomScreen(
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
-            Text(
-                text = room.name
-                    ?: room.participants?.joinToString(", ") { it.username ?: it.fullName ?: "Chat" }
-                    ?: "Chat",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f)
-            )
+            if (state.otherUser?.profilePicture?.isNotBlank() == true) {
+                coil.compose.AsyncImage(
+                    model = state.otherUser!!.profilePicture,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = otherInitials,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 8.dp)
+            ) {
+                Text(
+                    text = room.name ?: otherName,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (room.participants != null && room.participants!!.size > 1) {
+                    Text(
+                        text = otherName,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             if (!canSend) {
                 Text(
                     text = "Exchange completed",
@@ -202,7 +247,7 @@ private fun MessageInput(onSend: (String) -> Unit) {
             placeholder = { Text("Message") },
             maxLines = 4
         )
-        TextButton(
+        IconButton(
             onClick = {
                 if (text.isNotBlank()) {
                     onSend(text)
@@ -210,7 +255,10 @@ private fun MessageInput(onSend: (String) -> Unit) {
                 }
             }
         ) {
-            Text("Send")
+            Icon(
+                Icons.Filled.Send,
+                contentDescription = "Send"
+            )
         }
     }
 }

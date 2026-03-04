@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.hive.hive_app.data.api.dto.ForumCommentResponse
 import com.hive.hive_app.data.api.dto.ForumDiscussionResponse
 import com.hive.hive_app.data.api.dto.ForumEventResponse
+import com.hive.hive_app.data.api.dto.ForumUserEmbed
 import com.hive.hive_app.data.repository.ForumRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -60,6 +61,7 @@ class ForumViewModel @Inject constructor(
         val event: ForumEventResponse? = null,
         val comments: List<ForumCommentResponse> = emptyList(),
         val commentsTotal: Int = 0,
+        val attendees: List<ForumUserEmbed> = emptyList(),
         val isLoading: Boolean = false,
         val commentsLoading: Boolean = false,
         val error: String? = null
@@ -314,6 +316,9 @@ class ForumViewModel @Inject constructor(
                         it.copy(event = event, isLoading = false, error = null)
                     }
                     loadCommentsForEvent(eventId)
+                    forumRepository.getEventAttendees(eventId).onSuccess { attendees ->
+                        _eventDetailState.update { it.copy(attendees = attendees) }
+                    }
                 }
                 .onFailure { e ->
                     _eventDetailState.update {

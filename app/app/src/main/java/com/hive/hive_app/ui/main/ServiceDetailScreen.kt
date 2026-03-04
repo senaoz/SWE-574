@@ -1,7 +1,9 @@
 package com.hive.hive_app.ui.main
 
 import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
@@ -30,7 +33,16 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Label
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Tag
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -56,8 +68,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import coil.compose.AsyncImage
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.hive.hive_app.data.api.dto.BadgesResponse
 import com.hive.hive_app.data.api.dto.JoinRequestResponse
 import com.hive.hive_app.data.api.dto.ServiceResponse
 import com.hive.hive_app.data.api.dto.UserResponse
@@ -79,7 +93,12 @@ fun ServiceDetailScreen(
     error: String?,
     onBack: () -> Unit = {},
     viewModel: ServiceDetailViewModel? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    creatorBadges: BadgesResponse? = null,
+    creatorRating: com.hive.hive_app.data.api.dto.RatingListResponse? = null,
+    isSaved: Boolean = false,
+    onStartChat: ((String) -> Unit)? = null,
+    onOpenUserProfile: ((String) -> Unit)? = null
 ) {
     when {
         isLoading -> {
@@ -202,6 +221,7 @@ fun ServiceDetailScreen(
                     )
                 }
 
+                val context = LocalContext.current
                 Column(modifier = Modifier.padding(16.dp)) {
                     // Type & status chips
                     Row(
@@ -214,7 +234,7 @@ fun ServiceDetailScreen(
                             color = MaterialTheme.colorScheme.primaryContainer
                         ) {
                             Text(
-                                text = service.serviceType,
+                                text = service.serviceType.replaceFirstChar { it.uppercase() },
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
@@ -238,15 +258,113 @@ fun ServiceDetailScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Creator (on top of description)
+                    // Share, Save, Start Chat buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(onClick = {
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_SUBJECT, service.title)
+                                putExtra(Intent.EXTRA_TEXT, "${service.title}\n\n${service.description}")
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent, "Share service"))
+                        }) {
+                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.size(8.dp))
+                            Text("Share")
+                        }
+                        if (viewModel != null) {
+                            OutlinedButton(onClick = {
+                                viewModel.toggleSave(service._id) { }
+                            }) {
+                                Icon(
+                                    if (isSaved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.size(8.dp))
+                                Text(if (isSaved) "Saved" else "Save")
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Creator (photo, rating, badges, clickable)
                     DetailSection(title = "Creator", icon = Icons.Default.Person) {
-                        Text(
-                            text = creator?.fullName?.takeIf { it.isNotBlank() }
-                                ?: creator?.username
-                                ?: "User #${service.userId.take(8)}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        val creatorId = creator?._id ?: service.userId
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .then(
+                                    if (onOpenUserProfile != null) Modifier.clickable { onOpenUserProfile(creatorId) }
+                                    else Modifier
+                                ),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            if (creator?.profilePicture?.isNotBlank() == true) {
+                                AsyncImage(
+                                    model = creator.profilePicture,
+                                    contentDescription = "Profile photo",
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(CircleShape)
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primaryContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = (creator?.fullName?.takeIf { it.isNotBlank() } ?: creator?.username ?: "?")?.firstOrNull()?.uppercase() ?: "?",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = creator?.fullName?.takeIf { it.isNotBlank() }
+                                        ?: creator?.username
+                                        ?: "User #${service.userId.take(8)}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                creatorRating?.averageScore?.let { avg ->
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                                        Text(
+                                            text = "%.1f".format(avg),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.weight(1f))
+                            if (!creatorBadges?.badges.isNullOrEmpty()) {
+                                Row(
+                                    modifier = Modifier.padding(start = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    creatorBadges?.badges?.filter { it.earned }?.take(5)?.forEach { badge ->
+                                        Icon(
+                                            imageVector = creatorBadgeIcon(badge.key),
+                                            contentDescription = badge.name ?: badge.key,
+                                            modifier = Modifier.size(20.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     // Description in a box
@@ -281,11 +399,25 @@ fun ServiceDetailScreen(
                         DetailSection(title = "Accepted users", icon = Icons.Default.Person) {
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 acceptedUsers.forEach { user ->
-                                    Text(
-                                        text = user.fullName?.takeIf { it.isNotBlank() } ?: user.username,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .then(
+                                                if (onOpenUserProfile != null) Modifier.clickable { onOpenUserProfile(user._id) }
+                                                else Modifier
+                                            ),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = user.fullName?.takeIf { it.isNotBlank() } ?: user.username,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        if (onOpenUserProfile != null) {
+                                            Icon(Icons.Default.Person, contentDescription = "View profile", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -348,7 +480,23 @@ fun ServiceDetailScreen(
                                 StatusChip(status = myJoinRequest!!.status)
                             } else {
                                 val buttonLabel = if (service.serviceType == "need") "Offer Help" else "Request Service"
-                                Button(onClick = { showApplyDialog = true }) { Text(buttonLabel) }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Button(onClick = { showApplyDialog = true }) { Text(buttonLabel) }
+                                    if (creator != null && onStartChat != null) {
+                                        OutlinedButton(onClick = {
+                                            viewModel.startChat(service._id, creator._id) { result ->
+                                                result.getOrNull()?.let { roomId -> onStartChat(roomId) }
+                                            }
+                                        }) {
+                                            Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Spacer(modifier = Modifier.size(8.dp))
+                                            Text("Start Chat")
+                                        }
+                                    }
+                                }
                                 applyMessage?.let { msg ->
                                     Text(
                                         text = msg,
@@ -467,17 +615,32 @@ private fun StatusChip(status: String) {
         "pending" -> HiveTheme.semanticColors.pending to MaterialTheme.colorScheme.onSurface
         else -> HiveTheme.semanticColors.active to MaterialTheme.colorScheme.onSurface
     }
+    val displayStatus = status.replace("_", " ").split(" ").joinToString(" ") { word ->
+        word.replaceFirstChar { it.uppercase() }
+    }
     Surface(
         shape = RoundedCornerShape(percent = 50),
         color = bg.copy(alpha = 0.5f)
     ) {
         Text(
-            text = status.replaceFirstChar { it.uppercase() },
+            text = displayStatus,
             style = MaterialTheme.typography.labelMedium,
             color = onBg,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
         )
     }
+}
+
+private fun creatorBadgeIcon(key: String?): ImageVector = when (key) {
+    "newcomer" -> Icons.Default.Person
+    "profile_complete" -> Icons.Default.Image
+    "tagged", "well_tagged" -> Icons.Default.Label
+    "rated" -> Icons.Default.Star
+    "popular" -> Icons.Default.TrendingUp
+    "community_favorite" -> Icons.Default.Favorite
+    "helper", "helper_hero", "master_helper" -> Icons.Default.School
+    "generous_giver" -> Icons.Default.Schedule
+    else -> Icons.Default.Star
 }
 
 @Composable

@@ -1,12 +1,18 @@
 package com.hive.hive_app.ui.main
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
@@ -25,16 +31,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.hive.hive_app.data.api.dto.ChatParticipant
 import com.hive.hive_app.data.api.dto.ChatRoomResponse
 import com.hive.hive_app.util.formatApplicationDate
 
 @Composable
 fun ChatScreen(
     modifier: Modifier = Modifier,
-    viewModel: ChatViewModel = hiltViewModel()
+    viewModel: ChatViewModel = hiltViewModel(),
+    initialRoomId: String? = null,
+    onInitialRoomConsumed: () -> Unit = {}
 ) {
     var selectedRoom by remember { mutableStateOf<ChatRoomResponse?>(null) }
     val state by viewModel.state.collectAsState()
+
+    LaunchedEffect(initialRoomId) {
+        if (initialRoomId != null) {
+            viewModel.openRoom(initialRoomId) { room ->
+                selectedRoom = room
+                onInitialRoomConsumed()
+            }
+        }
+    }
 
     if (selectedRoom != null) {
         val room = selectedRoom!!
@@ -105,6 +123,7 @@ fun ChatScreen(
             items(state.rooms, key = { it._id }) { room ->
                 ChatRoomListItem(
                     room = room,
+                    currentUserId = state.currentUserId,
                     onClick = { selectedRoom = room }
                 )
             }
@@ -112,12 +131,22 @@ fun ChatScreen(
     }
 }
 
+private fun chatParticipantInitials(p: ChatParticipant?): String {
+    val name = p?.fullName?.takeIf { it.isNotBlank() } ?: p?.username ?: "?"
+    return name.take(2).uppercase()
+}
+
 @Composable
 private fun ChatRoomListItem(
     room: ChatRoomResponse,
+    currentUserId: String?,
     onClick: () -> Unit
 ) {
+    val otherParticipant = room.participants?.firstOrNull { it._id != currentUserId }
+        ?: room.participants?.firstOrNull()
     val title = room.name
+        ?: otherParticipant?.fullName?.takeIf { it.isNotBlank() }
+        ?: otherParticipant?.username
         ?: room.participants?.joinToString(", ") { it.username ?: it.fullName ?: "Unknown" }
         ?: "Chat ${room._id.take(8)}…"
     val subtitle = room.transactionId?.let { "Transaction" } ?: "Chat"
@@ -127,24 +156,43 @@ private fun ChatRoomListItem(
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            room.lastMessageAt?.let { at ->
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
                 Text(
-                    text = "Last message: ${formatApplicationDate(at)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp)
+                    text = chatParticipantInitials(otherParticipant),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                room.lastMessageAt?.let { at ->
+                    Text(
+                        text = "Last message: ${formatApplicationDate(at)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
             }
         }
     }

@@ -4,6 +4,15 @@ import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
 @JsonClass(generateAdapter = true)
+data class ChatRoomCreate(
+    @Json(name = "participant_ids") val participantIds: List<String>,
+    @Json(name = "service_id") val serviceId: String? = null,
+    val name: String? = null,
+    val description: String? = null,
+    @Json(name = "is_active") val isActive: Boolean = true
+)
+
+@JsonClass(generateAdapter = true)
 data class ChatRoomResponse(
     val _id: String,
     @Json(name = "participant_ids") val participantIds: List<String>,

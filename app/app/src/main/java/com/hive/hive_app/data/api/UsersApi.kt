@@ -44,4 +44,7 @@ interface UsersApi {
 
     @GET("users/{user_id}")
     suspend fun getUser(@Path("user_id") userId: String): Response<UserResponse>
+
+    @GET("users/{user_id}/badges")
+    suspend fun getUserBadges(@Path("user_id") userId: String): Response<BadgesResponse>
 }

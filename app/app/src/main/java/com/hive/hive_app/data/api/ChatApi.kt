@@ -1,5 +1,6 @@
 package com.hive.hive_app.data.api
 
+import com.hive.hive_app.data.api.dto.ChatRoomCreate
 import com.hive.hive_app.data.api.dto.ChatRoomListResponse
 import com.hive.hive_app.data.api.dto.ChatRoomResponse
 import com.hive.hive_app.data.api.dto.MessageCreate
@@ -13,6 +14,9 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface ChatApi {
+    @POST("chat/rooms")
+    suspend fun createRoom(@Body body: ChatRoomCreate): Response<ChatRoomResponse>
+
     @GET("chat/rooms")
     suspend fun getRooms(
         @Query("page") page: Int = 1,

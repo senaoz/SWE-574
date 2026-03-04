@@ -12,6 +12,7 @@ import com.hive.hive_app.data.api.dto.ForumEventCreate
 import com.hive.hive_app.data.api.dto.ForumEventListResponse
 import com.hive.hive_app.data.api.dto.ForumEventResponse
 import com.hive.hive_app.data.api.dto.ForumEventUpdate
+import com.hive.hive_app.data.api.dto.ForumUserEmbed
 import retrofit2.HttpException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -120,6 +121,20 @@ class ForumRepository @Inject constructor(
             val response = forumApi.getEvent(eventId)
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
+            } else {
+                Result.failure(HttpException(response))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getEventAttendees(eventId: String): Result<List<ForumUserEmbed>> {
+        return try {
+            val response = forumApi.getEventAttendees(eventId)
+            if (response.isSuccessful && response.body() != null) {
+                val list = response.body()!!.attendees ?: emptyList()
+                Result.success(list)
             } else {
                 Result.failure(HttpException(response))
             }

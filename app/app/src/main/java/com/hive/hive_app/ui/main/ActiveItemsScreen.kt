@@ -44,7 +44,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 @Composable
 fun ActiveItemsScreen(
     modifier: Modifier = Modifier,
-    viewModel: ActiveItemsViewModel = hiltViewModel()
+    viewModel: ActiveItemsViewModel = hiltViewModel(),
+    onStartChat: ((String) -> Unit)? = null,
+    onOpenUserProfile: ((String) -> Unit)? = null
 ) {
     var selectedServiceId by remember { mutableStateOf<String?>(null) }
     val detailViewModel: ServiceDetailViewModel = hiltViewModel()
@@ -58,6 +60,9 @@ fun ActiveItemsScreen(
         val detailAcceptedUsers by detailViewModel.acceptedUsers.collectAsState()
         val detailLoading by detailViewModel.isLoading.collectAsState()
         val detailError by detailViewModel.error.collectAsState()
+        val detailCreatorBadges by detailViewModel.creatorBadges.collectAsState()
+        val detailCreatorRating by detailViewModel.creatorRating.collectAsState()
+        val detailIsSaved by detailViewModel.isSaved.collectAsState()
         ServiceDetailScreen(
             service = detailState,
             creator = detailCreator,
@@ -66,7 +71,12 @@ fun ActiveItemsScreen(
             error = detailError,
             onBack = { selectedServiceId = null },
             viewModel = detailViewModel,
-            modifier = modifier
+            modifier = modifier,
+            creatorBadges = detailCreatorBadges,
+            creatorRating = detailCreatorRating,
+            isSaved = detailIsSaved,
+            onStartChat = onStartChat,
+            onOpenUserProfile = onOpenUserProfile
         )
         return
     }

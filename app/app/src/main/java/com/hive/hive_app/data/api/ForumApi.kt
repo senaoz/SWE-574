@@ -10,6 +10,7 @@ import com.hive.hive_app.data.api.dto.ForumDiscussionResponse
 import com.hive.hive_app.data.api.dto.ForumDiscussionUpdate
 import com.hive.hive_app.data.api.dto.ForumEventCreate
 import com.hive.hive_app.data.api.dto.ForumEventListResponse
+import com.hive.hive_app.data.api.dto.ForumEventAttendeesResponse
 import com.hive.hive_app.data.api.dto.ForumEventResponse
 import com.hive.hive_app.data.api.dto.ForumEventUpdate
 import retrofit2.Response
@@ -69,6 +70,9 @@ interface ForumApi {
 
     @DELETE("forum/events/{event_id}")
     suspend fun deleteEvent(@Path("event_id") eventId: String): Response<Unit>
+
+    @GET("forum/events/{event_id}/attendees")
+    suspend fun getEventAttendees(@Path("event_id") eventId: String): Response<ForumEventAttendeesResponse>
 
     @GET("forum/comments")
     suspend fun listComments(

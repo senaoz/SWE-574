@@ -1,6 +1,7 @@
 package com.hive.hive_app.data.repository
 
 import com.hive.hive_app.data.api.ChatApi
+import com.hive.hive_app.data.api.dto.ChatRoomCreate
 import com.hive.hive_app.data.api.dto.ChatRoomResponse
 import com.hive.hive_app.data.api.dto.MessageCreate
 import com.hive.hive_app.data.api.dto.MessageListResponse
@@ -32,6 +33,17 @@ class ChatRepository @Inject constructor(
                 response.code() == 404 -> Result.success(null)
                 else -> Result.failure(HttpException(response))
             }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /** Create a chat room with participants and optional service. */
+    suspend fun createRoom(participantIds: List<String>, serviceId: String? = null): Result<ChatRoomResponse> {
+        return try {
+            val response = api.createRoom(ChatRoomCreate(participantIds = participantIds, serviceId = serviceId))
+            if (response.isSuccessful && response.body() != null) Result.success(response.body()!!)
+            else Result.failure(HttpException(response))
         } catch (e: Exception) {
             Result.failure(e)
         }

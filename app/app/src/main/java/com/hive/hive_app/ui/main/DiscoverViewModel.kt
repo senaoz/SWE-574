@@ -7,7 +7,10 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hive.hive_app.data.api.dto.ServiceResponse
+import com.hive.hive_app.data.api.dto.UserResponse
+import com.hive.hive_app.data.repository.RatingsRepository
 import com.hive.hive_app.data.repository.ServicesRepository
+import com.hive.hive_app.data.repository.UsersRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,9 +33,13 @@ enum class DiscoverSortOrder(val label: String) {
     DISTANCE("Distance")
 }
 
+data class CreatorInfo(val user: UserResponse?, val rating: Double?)
+
 @HiltViewModel
 class DiscoverViewModel @Inject constructor(
     private val servicesRepository: ServicesRepository,
+    private val usersRepository: UsersRepository,
+    private val ratingsRepository: RatingsRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -48,7 +55,8 @@ class DiscoverViewModel @Inject constructor(
         val sortOrder: DiscoverSortOrder = DiscoverSortOrder.DISTANCE,
         val userLat: Double? = null,
         val userLon: Double? = null,
-        val locationPermissionGranted: Boolean = false
+        val locationPermissionGranted: Boolean = false,
+        val creatorInfo: Map<String, CreatorInfo> = emptyMap()
     )
 
     private val _state = MutableStateFlow(DiscoverState())
@@ -108,6 +116,7 @@ class DiscoverViewModel @Inject constructor(
                         )
                     }
                     applySearchAndSort()
+                    loadCreatorInfo(filtered.map { it.userId }.distinct())
                 },
                 onFailure = { failure ->
                     _state.update { state ->
@@ -176,6 +185,19 @@ class DiscoverViewModel @Inject constructor(
             cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLon / 2) * sin(dLon / 2)
         val c = 2 * atan2(sqrt(a), sqrt(1 - a))
         return r * c
+    }
+
+    private fun loadCreatorInfo(userIds: List<String>) {
+        if (userIds.isEmpty()) return
+        viewModelScope.launch {
+            val map = mutableMapOf<String, CreatorInfo>()
+            userIds.forEach { userId ->
+                val user = usersRepository.getUser(userId).getOrNull()
+                val rating = ratingsRepository.getUserRatings(userId).getOrNull()?.averageScore
+                map[userId] = CreatorInfo(user = user, rating = rating)
+            }
+            _state.update { it.copy(creatorInfo = it.creatorInfo + map) }
+        }
     }
 
     /** Distance in km from user to service, or null if no location. */

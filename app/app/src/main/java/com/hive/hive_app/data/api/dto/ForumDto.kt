@@ -119,7 +119,14 @@ data class ForumEventResponse(
     @Json(name = "updated_at") val updatedAt: String,
     val user: ForumUserEmbed? = null,
     val service: Any? = null,
-    @Json(name = "comment_count") val commentCount: Int = 0
+    @Json(name = "comment_count") val commentCount: Int = 0,
+    @Json(name = "attendee_ids") val attendeeIds: List<String>? = null,
+    @Json(name = "attendee_count") val attendeeCount: Int = 0
+)
+
+@JsonClass(generateAdapter = true)
+data class ForumEventAttendeesResponse(
+    val attendees: List<ForumUserEmbed>? = null
 )
 
 @JsonClass(generateAdapter = true)

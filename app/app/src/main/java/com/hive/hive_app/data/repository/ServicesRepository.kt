@@ -122,4 +122,44 @@ class ServicesRepository @Inject constructor(
             Result.failure(e)
         }
     }
+
+    suspend fun saveService(serviceId: String): Result<Unit> {
+        return try {
+            val response = servicesApi.saveService(serviceId)
+            if (response.isSuccessful) Result.success(Unit)
+            else Result.failure(HttpException(response))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun unsaveService(serviceId: String): Result<Unit> {
+        return try {
+            val response = servicesApi.unsaveService(serviceId)
+            if (response.isSuccessful) Result.success(Unit)
+            else Result.failure(HttpException(response))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getSavedServices(page: Int = 1, limit: Int = 50): Result<com.hive.hive_app.data.api.dto.ServiceListResponse> {
+        return try {
+            val response = servicesApi.getSavedServices(page = page, limit = limit)
+            if (response.isSuccessful && response.body() != null) Result.success(response.body()!!)
+            else Result.failure(HttpException(response))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getSavedServiceIds(): Result<List<String>> {
+        return try {
+            val response = servicesApi.getSavedServiceIds()
+            if (response.isSuccessful && response.body() != null) Result.success(response.body()!!)
+            else Result.failure(HttpException(response))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

@@ -41,4 +41,19 @@ interface ServicesApi {
 
     @DELETE("services/{service_id}")
     suspend fun deleteService(@Path("service_id") serviceId: String): Response<Unit>
+
+    @POST("services/{service_id}/save")
+    suspend fun saveService(@Path("service_id") serviceId: String): Response<Unit>
+
+    @DELETE("services/{service_id}/save")
+    suspend fun unsaveService(@Path("service_id") serviceId: String): Response<Unit>
+
+    @GET("services/saved")
+    suspend fun getSavedServices(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 50
+    ): Response<com.hive.hive_app.data.api.dto.ServiceListResponse>
+
+    @GET("services/saved/ids")
+    suspend fun getSavedServiceIds(): Response<List<String>>
 }
