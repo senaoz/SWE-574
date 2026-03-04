@@ -1,5 +1,6 @@
 import { Avatar, Text, Flex, Tooltip } from "@radix-ui/themes";
 import { User } from "@/types";
+import { useNavigate } from "react-router-dom";
 
 interface ParticipantAvatarsProps {
   participants: User[];
@@ -12,6 +13,7 @@ export function ParticipantAvatars({
 }: ParticipantAvatarsProps) {
   const visibleParticipants = participants.slice(0, maxVisible);
   const remainingCount = participants.length - maxVisible;
+  const navigate = useNavigate();
 
   return (
     <Flex align="center" gap="2" wrap="wrap">
@@ -21,6 +23,9 @@ export function ParticipantAvatars({
           content={`${participant.full_name || participant.username}`}
         >
           <Avatar
+            onClick={() => {
+              navigate(`/profile/${participant._id}`);
+            }}
             fallback={participant.full_name?.[0] || participant.username[0]}
             size="3"
             className="cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"

@@ -35,6 +35,7 @@ import {
 import { ProviderProfileSummary } from "@/components/ui/ProviderProfileSummary";
 import { ServiceMap } from "@/components/map/ServiceMap";
 import { HandShakeModal } from "@/components/ui/HandShakeModal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CommentSection } from "@/components/ui/CommentSection";
 import { ParticipantAvatars } from "@/components/ui/ParticipantAvatars";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -57,6 +58,7 @@ export function ServiceDetail() {
   const [isCancellingRequest, setIsCancellingRequest] = useState(false);
   const [linkedEvents, setLinkedEvents] = useState<ForumEvent[]>([]);
   const [copied, setCopied] = useState(false);
+  const [completeConfirmOpen, setCompleteConfirmOpen] = useState(false);
   const { currentUserId, refetchUser } = useUser();
   const queryClient = useQueryClient();
 
@@ -331,17 +333,15 @@ export function ServiceDetail() {
 
   const handleMarkServiceComplete = async () => {
     if (!service || !id) return;
+    setCompleteConfirmOpen(true);
+  };
 
-    const confirmed = window.confirm(
-      "Mark this service as completed? TimeBank will be updated and related exchanges will be marked completed.",
-    );
-    if (!confirmed) return;
-
+  const handleConfirmMarkComplete = async () => {
+    if (!id) return;
     try {
       await servicesApi.completeService(id);
       refetchUser();
       alert("Service marked as completed.");
-      // Refetch service to get updated status
       const res = await servicesApi.getService(id);
       setService(res.data);
     } catch (error: any) {
@@ -397,6 +397,14 @@ export function ServiceDetail() {
 
   return (
     <>
+      <ConfirmDialog
+        open={completeConfirmOpen}
+        onOpenChange={setCompleteConfirmOpen}
+        title="Mark service as completed?"
+        description="TimeBank will be updated and related exchanges will be marked completed."
+        confirmLabel="Mark complete"
+        onConfirm={handleConfirmMarkComplete}
+      />
       {/* Back button */}
       <Button variant="ghost" onClick={() => navigate(-1)} className="mb-6">
         <ArrowLeftIcon className="w-4 h-4 mr-2" />

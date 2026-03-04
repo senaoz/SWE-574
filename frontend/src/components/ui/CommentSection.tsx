@@ -8,9 +8,10 @@ import {
   TextArea,
   Badge,
 } from "@radix-ui/themes";
-import { Comment, Service } from "@/types";
+import { Comment, Service, User } from "@/types";
 import { ChatBubbleIcon, PaperPlaneIcon } from "@radix-ui/react-icons";
-import { commentsApi, servicesApi } from "@/services/api";
+import { commentsApi, getImageUrl, servicesApi } from "@/services/api";
+import { useNavigate } from "react-router-dom";
 
 interface CommentSectionProps {
   serviceId: string;
@@ -22,7 +23,7 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [service, setService] = useState<Service | null>(null);
-
+  const navigate = useNavigate();
   // Fetch comments and service on component mount
   useEffect(() => {
     fetchComments();
@@ -139,7 +140,7 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
           </Text>
         ) : (
           comments.map((comment) => {
-            const user = comment.user;
+            const user = comment.user as unknown as User;
             const isParticipant =
               service &&
               (service.user_id === comment.user_id ||
@@ -147,8 +148,12 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
             return (
               <div key={comment._id} className="flex gap-3">
                 <Avatar
+                  src={getImageUrl(user?.profile_picture)}
                   fallback={user?.full_name?.[0] || user?.username?.[0] || "?"}
                   size="3"
+                  onClick={() => {
+                    navigate(`/profile/${user?._id}`);
+                  }}
                 />
                 <div className="flex-1">
                   <Flex align="center" gap="2" className="mb-1">

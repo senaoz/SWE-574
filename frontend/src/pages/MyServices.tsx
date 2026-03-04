@@ -15,6 +15,7 @@ import { MyServicesTab } from "./MyServicesTab";
 import { MyApplicationsTab } from "./MyApplicationsTab";
 import { MyTimebankTab } from "./MyTimebankTab";
 import { SavedServicesTab } from "./SavedServicesTab";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { BookmarkIcon, ClockIcon, LucideList } from "lucide-react";
 
 export type MyServicesTabValue =
@@ -308,86 +309,112 @@ export function MyServices({
     navigate(`/service/${id}`);
   };
 
-  const handleSetServiceInProgress = async (serviceId: string) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to set this service to 'In Progress'?",
-    );
-    if (!confirmed) return;
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: "default" | "danger";
+    onConfirm: () => Promise<void>;
+  }>({
+    open: false,
+    title: "",
+    description: "",
+    variant: "default",
+    onConfirm: async () => {},
+  });
 
-    try {
-      await servicesApi.updateService(serviceId, {
-        status: "in_progress",
-      } as any);
-      alert("Service status updated to 'In Progress'.");
-      // Refresh data
-      await fetchData();
-    } catch (error: any) {
-      console.error("Error setting service to in progress:", error);
-      alert(
-        error.response?.data?.detail ||
-          "Failed to update service status. Please try again.",
-      );
-    }
+  const handleSetServiceInProgress = async (serviceId: string) => {
+    setConfirmState({
+      open: true,
+      title: "Set service to In Progress?",
+      description:
+        "Are you sure you want to set this service to 'In Progress'?",
+      variant: "default",
+      onConfirm: async () => {
+        try {
+          await servicesApi.updateService(serviceId, {
+            status: "in_progress",
+          } as any);
+          alert("Service status updated to 'In Progress'.");
+          await fetchData();
+        } catch (error: any) {
+          console.error("Error setting service to in progress:", error);
+          alert(
+            error.response?.data?.detail ||
+              "Failed to update service status. Please try again.",
+          );
+        }
+      },
+    });
   };
 
   const handleMarkServiceComplete = async (serviceId: string) => {
-    const confirmed = window.confirm(
-      "Mark this service as completed? TimeBank will be updated and related exchanges will be marked completed.",
-    );
-    if (!confirmed) return;
-
-    try {
-      await servicesApi.completeService(serviceId);
-      refetchUser();
-      alert("Service marked as completed.");
-      await fetchData();
-    } catch (error: any) {
-      console.error("Error completing service:", error);
-      alert(
-        error.response?.data?.detail ||
-          "Failed to mark service as completed. Please try again.",
-      );
-    }
+    setConfirmState({
+      open: true,
+      title: "Mark service as completed?",
+      description:
+        "TimeBank will be updated and related exchanges will be marked completed.",
+      variant: "default",
+      onConfirm: async () => {
+        try {
+          await servicesApi.completeService(serviceId);
+          refetchUser();
+          alert("Service marked as completed.");
+          await fetchData();
+        } catch (error: any) {
+          console.error("Error completing service:", error);
+          alert(
+            error.response?.data?.detail ||
+              "Failed to mark service as completed. Please try again.",
+          );
+        }
+      },
+    });
   };
 
   const handleDeleteService = async (serviceId: string) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this service? This action cannot be undone.",
-    );
-    if (!confirmed) return;
-
-    try {
-      await servicesApi.deleteService(serviceId);
-      alert("Service deleted successfully.");
-      // Refresh data
-      await fetchData();
-    } catch (error: any) {
-      console.error("Error deleting service:", error);
-      alert(
-        error.response?.data?.detail ||
-          "Failed to delete service. Please try again.",
-      );
-    }
+    setConfirmState({
+      open: true,
+      title: "Delete this service?",
+      description:
+        "Are you sure you want to delete this service? This action cannot be undone.",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await servicesApi.deleteService(serviceId);
+          alert("Service deleted successfully.");
+          await fetchData();
+        } catch (error: any) {
+          console.error("Error deleting service:", error);
+          alert(
+            error.response?.data?.detail ||
+              "Failed to delete service. Please try again.",
+          );
+        }
+      },
+    });
   };
 
   const handleCancelService = async (serviceId: string) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to cancel this service?",
-    );
-    if (!confirmed) return;
-
-    try {
-      await servicesApi.cancelService(serviceId);
-      alert("Service cancelled successfully.");
-      // Refresh data
-      await fetchData();
-    } catch (error: any) {
-      console.error("Error cancelling service:", error);
-      alert(
-        error.response?.data?.detail ||
-          "Failed to cancel service. Please try again.",
-      );
-    }
+    setConfirmState({
+      open: true,
+      title: "Cancel this service?",
+      description: "Are you sure you want to cancel this service?",
+      variant: "default",
+      onConfirm: async () => {
+        try {
+          await servicesApi.cancelService(serviceId);
+          alert("Service cancelled successfully.");
+          await fetchData();
+        } catch (error: any) {
+          console.error("Error cancelling service:", error);
+          alert(
+            error.response?.data?.detail ||
+              "Failed to cancel service. Please try again.",
+          );
+        }
+      },
+    });
   };
 
   const handleConfirmTransactionCompletion = async (transactionId: string) => {
@@ -409,6 +436,16 @@ export function MyServices({
 
   return (
     <div>
+      <ConfirmDialog
+        open={confirmState.open}
+        onOpenChange={(open) =>
+          setConfirmState((prev) => ({ ...prev, open }))
+        }
+        title={confirmState.title}
+        description={confirmState.description}
+        variant={confirmState.variant}
+        onConfirm={confirmState.onConfirm}
+      />
       {(isManagedByParent ? effectiveTab === "services" : true) && (
         <div className="mb-8 grid">
           <MyServicesTab
