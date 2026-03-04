@@ -114,29 +114,6 @@ async def confirm_transaction_completion(
             detail=str(e)
         )
 
-@router.post("/{transaction_id}/complete", response_model=TransactionResponse)
-async def complete_transaction(
-    transaction_id: str,
-    completion_notes: str = None,
-    current_user: UserResponse = Depends(get_current_user),
-    db=Depends(get_database)
-):
-    """Mark a transaction as completed (deprecated - use confirm-completion instead)"""
-    transaction_service = TransactionService(db)
-    try:
-        completed_transaction = await transaction_service.complete_transaction(transaction_id, str(current_user.id), completion_notes)
-        if not completed_transaction:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to complete transaction"
-            )
-        return completed_transaction
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-
 @router.get("/{transaction_id}", response_model=TransactionResponse)
 async def get_transaction(
     transaction_id: str,

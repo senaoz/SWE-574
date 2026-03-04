@@ -267,10 +267,7 @@ export const transactionsApi = {
   
   updateTransaction: (transactionId: string, data: { status?: string; description?: string }): Promise<AxiosResponse<Transaction>> =>
     api.put(`/transactions/${transactionId}`, data),
-  
-  completeTransaction: (transactionId: string, completionNotes?: string): Promise<AxiosResponse<Transaction>> =>
-    api.post(`/transactions/${transactionId}/complete`, { completion_notes: completionNotes }),
-  
+
   confirmTransactionCompletion: (transactionId: string): Promise<AxiosResponse<Transaction>> =>
     api.post(`/transactions/${transactionId}/confirm-completion`),
   

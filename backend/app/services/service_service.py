@@ -463,15 +463,11 @@ class ServiceService:
                 print(f"WARNING: Service {service_id} marked as COMPLETED but some TimeBank transactions failed")
                 return False
             
-            # Mark all linked transactions as completed so they appear completed in UI and become rateable
             await transactions_collection.update_many(
                 {"service_id": ObjectId(service_id), "status": {"$ne": TransactionStatus.COMPLETED}},
                 {
                     "$set": {
-                        "status": TransactionStatus.COMPLETED,
-                        "completed_at": datetime.utcnow(),
                         "provider_confirmed": True,
-                        "requester_confirmed": True,
                         "updated_at": datetime.utcnow(),
                     }
                 }

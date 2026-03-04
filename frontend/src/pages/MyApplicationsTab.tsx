@@ -13,7 +13,7 @@ interface MyApplicationsTabProps {
   serviceTransactions: Record<string, Transaction[]>;
   currentUserId: string | null;
   onServiceClick: (id: string) => void;
-  onMarkServiceComplete: (serviceId: string) => Promise<void>;
+  onConfirmTransactionCompletion: (transactionId: string) => Promise<void>;
   formatDate: (dateString: string) => string;
 }
 
@@ -24,7 +24,7 @@ export function MyApplicationsTab({
   serviceTransactions,
   currentUserId,
   onServiceClick,
-  onMarkServiceComplete,
+  onConfirmTransactionCompletion,
   formatDate,
 }: MyApplicationsTabProps) {
   const [transactionRatings, setTransactionRatings] = useState<
@@ -154,10 +154,11 @@ export function MyApplicationsTab({
                     currentUserId &&
                     service.matched_user_ids &&
                     service.matched_user_ids.includes(currentUserId);
+                  const myTransaction = (serviceTransactions[service._id] ?? []).find(
+                    (t) => String(t.requester_id) === String(currentUserId),
+                  );
                   const hasConfirmed =
-                    currentUserId &&
-                    service.receiver_confirmed_ids &&
-                    service.receiver_confirmed_ids.includes(currentUserId);
+                    myTransaction && myTransaction.requester_confirmed;
 
                   return (
                     <>
@@ -194,7 +195,24 @@ export function MyApplicationsTab({
                                 </Badge>
                               </Flex>
                             </Flex>
-                            {/* Receiver can confirm per transaction below; no service-level confirm */}
+                            {/* Receiver confirms their transaction (Confirm I received) */}
+                            {isReceiver &&
+                              myTransaction &&
+                              !myTransaction.requester_confirmed &&
+                              myTransaction.status !== "completed" && (
+                                <Button
+                                  size="2"
+                                  color="green"
+                                  onClick={() =>
+                                    onConfirmTransactionCompletion(
+                                      myTransaction._id,
+                                    )
+                                  }
+                                >
+                                  <CheckCircledIcon className="w-4 h-4 mr-2" />
+                                  Confirm I received
+                                </Button>
+                              )}
 
                             {/* Already confirmed message */}
                             {isReceiver && hasConfirmed && (

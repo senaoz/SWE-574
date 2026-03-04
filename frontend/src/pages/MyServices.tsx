@@ -390,6 +390,19 @@ export function MyServices({
     }
   };
 
+  const handleConfirmTransactionCompletion = async (transactionId: string) => {
+    try {
+      await transactionsApi.confirmTransactionCompletion(transactionId);
+      await fetchData();
+    } catch (error: any) {
+      console.error("Error confirming transaction:", error);
+      alert(
+        error.response?.data?.detail ||
+          "Failed to confirm. Please try again.",
+      );
+    }
+  };
+
   if (isLoading) {
     return <></>;
   }
@@ -409,6 +422,7 @@ export function MyServices({
             onCancelService={handleCancelService}
             onStartChat={handleStartChat}
             onCancelTransaction={handleCancelTransaction}
+            onConfirmTransactionCompletion={handleConfirmTransactionCompletion}
             onRequestUpdate={fetchData}
             formatDate={formatDate}
             statusFilter={statusFilter}
@@ -426,7 +440,7 @@ export function MyServices({
               serviceTransactions={serviceTransactions}
               currentUserId={currentUserId}
               onServiceClick={handleServiceClick}
-              onMarkServiceComplete={handleMarkServiceComplete}
+              onConfirmTransactionCompletion={handleConfirmTransactionCompletion}
               formatDate={formatDate}
             />
           )}
@@ -477,7 +491,7 @@ export function MyServices({
               serviceTransactions={serviceTransactions}
               currentUserId={currentUserId}
               onServiceClick={handleServiceClick}
-              onMarkServiceComplete={handleMarkServiceComplete}
+              onConfirmTransactionCompletion={handleConfirmTransactionCompletion}
               formatDate={formatDate}
             />
           </Tabs.Content>

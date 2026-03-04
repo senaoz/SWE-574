@@ -25,6 +25,7 @@ interface MyServicesTabProps {
   onCancelService: (serviceId: string) => Promise<void>;
   onStartChat: (transactionId: string) => Promise<void>;
   onCancelTransaction: (transactionId: string) => Promise<void>;
+  onConfirmTransactionCompletion: (transactionId: string) => Promise<void>;
   onRequestUpdate: () => void;
   formatDate: (dateString: string) => string;
   /** When set (from URL ?status=), scroll to this section and highlight the filter button. */
@@ -42,6 +43,7 @@ export function MyServicesTab({
   onCancelService,
   onStartChat,
   onCancelTransaction,
+  onConfirmTransactionCompletion,
   onRequestUpdate,
   formatDate,
   statusFilter,
@@ -507,6 +509,24 @@ export function MyServicesTab({
                                           </Card>
                                         </>
                                       )}
+                                      {currentUserId &&
+                                        String(transaction.requester_id) ===
+                                          String(currentUserId) &&
+                                        !transaction.requester_confirmed &&
+                                        transaction.status !== "completed" && (
+                                          <Button
+                                            size="2"
+                                            color="green"
+                                            onClick={() =>
+                                              onConfirmTransactionCompletion(
+                                                transaction._id,
+                                              )
+                                            }
+                                          >
+                                            <CheckCircledIcon className="w-4 h-4 mr-2" />
+                                            Confirm I received
+                                          </Button>
+                                        )}
                                       {transaction.status === "pending" && (
                                         <Flex gap="2">
                                           <Button

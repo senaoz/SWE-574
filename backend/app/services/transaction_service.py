@@ -304,6 +304,10 @@ class TransactionService:
                 update_fields["provider_confirmed"] = True
             if is_requester:
                 update_fields["requester_confirmed"] = True
+                await self.services_collection.update_one(
+                    {"_id": ObjectId(transaction["service_id"])},
+                    {"$push": {"receiver_confirmed_ids": transaction["requester_id"]}}
+                )
             
             await self.transactions_collection.update_one(
                 {"_id": ObjectId(transaction_id)},
