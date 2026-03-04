@@ -21,6 +21,7 @@ import {
 } from "@radix-ui/themes";
 import { Pencil1Icon } from "@radix-ui/react-icons";
 import api, { usersApi } from "@/services/api";
+import { TextField } from "@radix-ui/themes";
 import { useUser } from "@/contexts/UserContext";
 import { InterestChip } from "@/components/ui/InterestChip";
 
@@ -28,10 +29,19 @@ export function AdminPanel() {
   const [activeTab, setActiveTab] = useState("users");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [roleUpdate, setRoleUpdate] = useState<UserRole>("user");
+  const [selectedUserForBalance, setSelectedUserForBalance] = useState<User | null>(null);
+  const [balanceEditValue, setBalanceEditValue] = useState<string>("");
   const queryClient = useQueryClient();
   const { user: currentUser } = useUser();
 
   const canEditUserRole = (user: User) => {
+    if (!currentUser) return false;
+    if (currentUser.role === "admin") return true;
+    if (currentUser.role === "moderator" && user.role !== "admin") return true;
+    return false;
+  };
+
+  const canEditTimebank = (user: User) => {
     if (!currentUser) return false;
     if (currentUser.role === "admin") return true;
     if (currentUser.role === "moderator" && user.role !== "admin") return true;
@@ -96,6 +106,31 @@ export function AdminPanel() {
         role: roleUpdate,
       });
     }
+  };
+
+  const updateTimebankMutation = useMutation({
+    mutationFn: ({ userId, balance }: { userId: string; balance: number }) =>
+      usersApi.updateUserTimebank(userId, { balance }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      setSelectedUserForBalance(null);
+      setBalanceEditValue("");
+    },
+  });
+
+  const openBalanceEdit = (user: User) => {
+    setSelectedUserForBalance(user);
+    setBalanceEditValue(user.timebank_balance.toFixed(1));
+  };
+
+  const confirmBalanceUpdate = () => {
+    if (!selectedUserForBalance) return;
+    const value = parseFloat(balanceEditValue);
+    if (Number.isNaN(value) || value < 0) return;
+    updateTimebankMutation.mutate({
+      userId: selectedUserForBalance._id,
+      balance: value,
+    });
   };
 
   const getRoleColor = (role: UserRole) => {
@@ -357,8 +392,8 @@ export function AdminPanel() {
                         <Text>{user.timebank_balance.toFixed(1)}h</Text>
                       </Table.Cell>
                       <Table.Cell>
-                        <Flex gap="2">
-                          {canEditUserRole(user) ? (
+                        <Flex gap="2" wrap="wrap">
+                          {canEditUserRole(user) && (
                             <Button
                               size="1"
                               variant="soft"
@@ -367,10 +402,19 @@ export function AdminPanel() {
                               <Pencil1Icon />
                               Edit Role
                             </Button>
-                          ) : (
-                            <Text size="2" color="gray">
-                              —
-                            </Text>
+                          )}
+                          {canEditTimebank(user) && (
+                            <Button
+                              size="1"
+                              variant="soft"
+                              color="green"
+                              onClick={() => openBalanceEdit(user)}
+                            >
+                              Edit Balance
+                            </Button>
+                          )}
+                          {!canEditUserRole(user) && !canEditTimebank(user) && (
+                            <Text size="2" color="gray">—</Text>
                           )}
                         </Flex>
                       </Table.Cell>
@@ -747,6 +791,82 @@ export function AdminPanel() {
                     {updateRoleMutation.isPending
                       ? "Updating..."
                       : "Update Role"}
+                  </Button>
+                </Flex>
+              </>
+            )}
+          </Flex>
+        </Dialog.Content>
+      </Dialog.Root>
+
+      {/* TimeBank Balance Update Dialog */}
+      <Dialog.Root
+        open={!!selectedUserForBalance}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedUserForBalance(null);
+            setBalanceEditValue("");
+          }
+        }}
+      >
+        <Dialog.Content
+          className="max-w-md w-full"
+          aria-describedby={undefined}
+        >
+          <Flex direction="column" gap="4">
+            <Dialog.Title>
+              <Text size="4" weight="bold">
+                Update TimeBank Balance
+              </Text>
+            </Dialog.Title>
+            {selectedUserForBalance && (
+              <>
+                <Text size="2">
+                  User: <Text weight="medium">{selectedUserForBalance.username}</Text>
+                  {selectedUserForBalance.full_name && (
+                    <> ({selectedUserForBalance.full_name})</>
+                  )}
+                </Text>
+                <Text size="2" color="gray">
+                  Current balance: {selectedUserForBalance.timebank_balance.toFixed(1)}h
+                </Text>
+                <Flex direction="column" gap="2">
+                  <Text size="2" weight="medium">
+                    New balance (hours):
+                  </Text>
+                  <TextField.Root
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    value={balanceEditValue}
+                    onChange={(e) => setBalanceEditValue(e.target.value)}
+                    placeholder="e.g. 5.0"
+                  />
+                </Flex>
+                <Flex gap="3" justify="end">
+                  <Dialog.Close>
+                    <Button
+                      variant="soft"
+                      onClick={() => {
+                        setSelectedUserForBalance(null);
+                        setBalanceEditValue("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </Dialog.Close>
+                  <Button
+                    color="green"
+                    onClick={confirmBalanceUpdate}
+                    disabled={
+                      updateTimebankMutation.isPending ||
+                      Number.isNaN(parseFloat(balanceEditValue)) ||
+                      parseFloat(balanceEditValue) < 0
+                    }
+                  >
+                    {updateTimebankMutation.isPending
+                      ? "Updating..."
+                      : "Update Balance"}
                   </Button>
                 </Flex>
               </>

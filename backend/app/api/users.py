@@ -2,7 +2,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Optional
 
-from ..models.user import UserResponse, UserUpdate, TimeBankResponse, UserRole, UserRoleUpdate, UserSettingsUpdate, PasswordChange, AccountDeletion
+from ..models.user import UserResponse, UserUpdate, TimeBankResponse, UserRole, UserRoleUpdate, UserSettingsUpdate, PasswordChange, AccountDeletion, TimeBankBalanceUpdate
 from ..services.user_service import UserService
 from ..services.badge_service import BadgeService
 from ..api.auth import get_current_user
@@ -256,6 +256,36 @@ async def update_user_role(
         )
     
     return updated_user
+
+
+@router.put("/{user_id}/timebank", response_model=UserResponse)
+async def update_user_timebank_balance(
+    user_id: str,
+    body: TimeBankBalanceUpdate,
+    current_user: UserResponse = Depends(require_moderator_or_admin()),
+    db=Depends(get_database),
+):
+    """Update a user's TimeBank balance (admin or moderator only)"""
+    user_service = UserService(db)
+    target_user = await user_service.get_user_by_id(user_id)
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    updated_user = await user_service.set_timebank_balance(
+        user_id=user_id,
+        new_balance=body.balance,
+        admin_user_id=str(current_user.id),
+        admin_username=current_user.username,
+    )
+    if not updated_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to update TimeBank balance",
+        )
+    return updated_user
+
 
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user_by_id(
