@@ -141,7 +141,7 @@ export function MyApplicationsTab({
               direction="column"
               gap="3"
               mb="5"
-              className="my-application-item hover:bg-[var(--accent-a2)] rounded-lg p-2"
+              className="my-application-item bg-[var(--accent-a2)] rounded-lg p-2"
             >
               <Flex justify="between" align="center">
                 <Flex gap="3" align="center">
@@ -177,7 +177,7 @@ export function MyApplicationsTab({
                           request.service_id ||
                           "Service"}
                       </Text>
-                      <Text as="div" size="1" color="gray">
+                      <Text as="div" size="1" color="gray" className="mb-4">
                         by {providerLabel}
                       </Text>
                     </Flex>
