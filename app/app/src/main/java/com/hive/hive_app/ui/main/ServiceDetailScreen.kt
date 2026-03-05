@@ -24,10 +24,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -44,6 +47,7 @@ import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -65,10 +69,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
@@ -80,9 +86,12 @@ import com.hive.hive_app.data.api.dto.BadgesResponse
 import com.hive.hive_app.data.api.dto.JoinRequestResponse
 import com.hive.hive_app.data.api.dto.ServiceResponse
 import com.hive.hive_app.data.api.dto.UserResponse
+import com.hive.hive_app.data.api.dto.CommentResponse
+import com.hive.hive_app.data.api.dto.CommentUserEmbed
 import com.hive.hive_app.ui.theme.HiveTheme
 import com.hive.hive_app.ui.theme.SurfaceVariantLight
 import com.hive.hive_app.util.formatDurationHours
+import com.hive.hive_app.util.formatApplicationDate
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.GeoPoint
@@ -135,6 +144,15 @@ fun ServiceDetailScreen(
             val joinRequests by viewModel?.joinRequests?.collectAsState(initial = emptyList()) ?: remember { mutableStateOf(emptyList<JoinRequestResponse>()) }
             val applyMessage by viewModel?.applyMessage?.collectAsState(initial = null) ?: remember { mutableStateOf<String?>(null) }
             val myJoinRequest by viewModel?.myJoinRequestForService?.collectAsState(initial = null) ?: remember { mutableStateOf<JoinRequestResponse?>(null) }
+            val comments by viewModel?.comments?.collectAsState(initial = emptyList())
+                ?: remember { mutableStateOf(emptyList<CommentResponse>()) }
+            val commentsTotal by viewModel?.commentsTotal?.collectAsState(initial = 0)
+                ?: remember { mutableStateOf(0) }
+            val commentsLoading by viewModel?.commentsLoading?.collectAsState(initial = false)
+                ?: remember { mutableStateOf(false) }
+            val newCommentText by viewModel?.newCommentText?.collectAsState(initial = "")
+                ?: remember { mutableStateOf("") }
+            val focusManager = LocalFocusManager.current
             var showApplyDialog by remember { mutableStateOf(false) }
             var showManageRequests by remember { mutableStateOf(false) }
             if (showApplyDialog && viewModel != null) {
@@ -499,6 +517,81 @@ fun ServiceDetailScreen(
                         }
                     }
 
+                    // Comments
+                    if (viewModel != null) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        DetailSection(
+                            title = "Comments (${commentsTotal})",
+                            icon = Icons.Default.Chat
+                        ) {
+                            if (commentsLoading && comments.isEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            } else if (comments.isEmpty()) {
+                                Text(
+                                    text = "No comments yet. Be the first to comment!",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            } else {
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    comments.forEach { comment ->
+                                        ServiceCommentItem(comment = comment)
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                verticalAlignment = Alignment.Bottom,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = newCommentText,
+                                    onValueChange = { viewModel.setNewCommentText(it) },
+                                    modifier = Modifier.weight(1f),
+                                    placeholder = { Text("Add a comment…") },
+                                    maxLines = 3,
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                                    keyboardActions = KeyboardActions(
+                                        onSend = {
+                                            viewModel.submitComment(service._id)
+                                            focusManager.clearFocus()
+                                        }
+                                    ),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                                    )
+                                )
+                                IconButton(
+                                    onClick = {
+                                        viewModel.submitComment(service._id)
+                                        focusManager.clearFocus()
+                                    }
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Send,
+                                        contentDescription = "Send comment"
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     // Apply / Manage requests (FR-5)
                     if (viewModel != null && service.status in listOf("active", "in_progress")) {
                         Spacer(modifier = Modifier.height(12.dp))
@@ -572,6 +665,56 @@ fun ServiceDetailScreen(
             }
         }
     }
+}
+
+@Composable
+private fun ServiceCommentItem(comment: CommentResponse) {
+    val author = comment.user?.username ?: comment.user?.fullName ?: "Unknown"
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = serviceCommentInitials(comment.user),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = comment.content,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "$author · ${formatApplicationDate(comment.createdAt)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+private fun serviceCommentInitials(user: CommentUserEmbed?): String {
+    val name = user?.fullName?.takeIf { it.isNotBlank() } ?: user?.username ?: "?"
+    return name.take(2).uppercase()
 }
 
 @Composable

@@ -4,12 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hive.hive_app.data.api.dto.BadgesResponse
 import com.hive.hive_app.data.api.dto.JoinRequestResponse
+import com.hive.hive_app.data.api.dto.CommentResponse
 import com.hive.hive_app.data.api.dto.RatingListResponse
 import com.hive.hive_app.data.api.dto.ServiceResponse
 import com.hive.hive_app.data.api.dto.UserResponse
 import com.hive.hive_app.data.repository.AuthRepository
 import com.hive.hive_app.data.repository.ChatRepository
 import com.hive.hive_app.data.repository.JoinRequestsRepository
+import com.hive.hive_app.data.repository.CommentsRepository
 import com.hive.hive_app.data.repository.RatingsRepository
 import com.hive.hive_app.data.repository.ServicesRepository
 import com.hive.hive_app.data.repository.UsersRepository
@@ -27,7 +29,8 @@ class ServiceDetailViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val joinRequestsRepository: JoinRequestsRepository,
     private val chatRepository: ChatRepository,
-    private val ratingsRepository: RatingsRepository
+    private val ratingsRepository: RatingsRepository,
+    private val commentsRepository: CommentsRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<ServiceResponse?>(null)
@@ -67,6 +70,18 @@ class ServiceDetailViewModel @Inject constructor(
     private val _creatorRating = MutableStateFlow<RatingListResponse?>(null)
     val creatorRating: StateFlow<RatingListResponse?> = _creatorRating.asStateFlow()
 
+    private val _comments = MutableStateFlow<List<CommentResponse>>(emptyList())
+    val comments: StateFlow<List<CommentResponse>> = _comments.asStateFlow()
+
+    private val _commentsTotal = MutableStateFlow(0)
+    val commentsTotal: StateFlow<Int> = _commentsTotal.asStateFlow()
+
+    private val _commentsLoading = MutableStateFlow(false)
+    val commentsLoading: StateFlow<Boolean> = _commentsLoading.asStateFlow()
+
+    private val _newCommentText = MutableStateFlow("")
+    val newCommentText: StateFlow<String> = _newCommentText.asStateFlow()
+
     fun load(serviceId: String) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -78,6 +93,10 @@ class ServiceDetailViewModel @Inject constructor(
             _myJoinRequestForService.value = null
             _creatorBadges.value = null
             _creatorRating.value = null
+            _comments.value = emptyList()
+            _commentsTotal.value = 0
+            _commentsLoading.value = false
+            _newCommentText.value = ""
             val currentUser = authRepository.getCurrentUser().getOrNull()
             servicesRepository.getService(serviceId).fold(
                 onSuccess = { service ->
@@ -93,6 +112,7 @@ class ServiceDetailViewModel @Inject constructor(
                         onFailure = { _creator.value = null }
                     )
                     servicesRepository.getSavedServiceIds().onSuccess { ids -> _isSaved.value = ids.contains(serviceId) }
+                    loadComments(serviceId)
                     val ids = service.matchedUserIds?.distinct().orEmpty()
                     _acceptedUsers.value = ids.mapNotNull { id ->
                         usersRepository.getUser(id).getOrNull()
@@ -209,6 +229,42 @@ class ServiceDetailViewModel @Inject constructor(
             ).fold(
                 onSuccess = { room -> onResult(Result.success(room._id)) },
                 onFailure = { onResult(Result.failure(it)) }
+            )
+        }
+    }
+
+    fun setNewCommentText(text: String) {
+        _newCommentText.value = text
+    }
+
+    fun loadComments(serviceId: String, page: Int = 1, limit: Int = 20) {
+        viewModelScope.launch {
+            _commentsLoading.value = true
+            commentsRepository.getServiceComments(serviceId, page, limit).fold(
+                onSuccess = { response ->
+                    _comments.value = response.comments
+                    _commentsTotal.value = response.total
+                    _commentsLoading.value = false
+                },
+                onFailure = {
+                    _commentsLoading.value = false
+                }
+            )
+        }
+    }
+
+    fun submitComment(serviceId: String) {
+        val content = _newCommentText.value.trim()
+        if (content.isBlank()) return
+        viewModelScope.launch {
+            commentsRepository.createComment(serviceId, content).fold(
+                onSuccess = {
+                    _newCommentText.value = ""
+                    loadComments(serviceId)
+                },
+                onFailure = {
+                    // keep text so user can retry/edit
+                }
             )
         }
     }
