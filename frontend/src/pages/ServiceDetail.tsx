@@ -635,6 +635,10 @@ export function ServiceDetail() {
                     requiresNeedCreation={
                       timebankData?.requires_need_creation ?? false
                     }
+                    disabled={
+                      !!service.max_participants &&
+                      service.max_participants <= participants.length
+                    }
                     onJoin={() => {
                       // Refresh pending request after joining
                       if (id && currentUserId) {

@@ -4,18 +4,15 @@ import {
   Flex,
   Badge,
   Button,
-  Link,
   Separator,
   Box,
   Avatar,
 } from "@radix-ui/themes";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { JoinRequest, Service, Transaction, Rating } from "@/types";
-import { StatusBadge } from "@/components/ui/StatusBadge";
 import { RatingForm, RatingStars } from "@/components/ui/RatingStars";
-import { ratingsApi } from "@/services/api";
+import { ratingsApi, usersApi } from "@/services/api";
 import { CheckCircledIcon } from "@radix-ui/react-icons";
-import { allPeople } from "@/components/ui/people";
 
 interface MyApplicationsTabProps {
   requests: JoinRequest[];
@@ -42,6 +39,33 @@ export function MyApplicationsTab({
     Record<string, Rating[]>
   >({});
   const [ratingLoading, setRatingLoading] = useState<string | null>(null);
+  const [providerNames, setProviderNames] = useState<
+    Record<string, { username: string; full_name?: string }>
+  >({});
+
+  // Resolve provider IDs from services and fetch their display names
+  useEffect(() => {
+    const providerIds = new Set<string>();
+    requests.forEach((request) => {
+      const service = services.find((s) => s._id === request.service_id);
+      if (service?.user_id) providerIds.add(service.user_id);
+    });
+    providerIds.forEach(async (userId) => {
+      try {
+        const res = await usersApi.getUserById(userId);
+        const u = res.data;
+        setProviderNames((prev) => ({
+          ...prev,
+          [userId]: {
+            username: u.username,
+            full_name: u.full_name,
+          },
+        }));
+      } catch {
+        // keep fallback
+      }
+    });
+  }, [requests, services]);
 
   // Fetch ratings for completed transactions (where we are the requester)
   useEffect(() => {
@@ -101,259 +125,278 @@ export function MyApplicationsTab({
 
   return (
     <div className="space-y-4">
-      {requests.map((request, index) => (
-        <>
-          <Flex
-            direction="column"
-            gap="3"
-            mb="5"
-            key={request._id}
-            onClick={() => onServiceClick(request.service_id)}
-            className="cursor-pointer hover:bg-[var(--accent-a3)] rounded-lg p-2"
-          >
-            <Flex justify="between" align="center">
-              <Flex gap="3" align="center">
-                <Avatar
-                  size="3"
-                  color={
-                    request.status === "approved"
-                      ? "green"
-                      : request.status === "rejected" ||
-                          request.status === "cancelled"
-                        ? "red"
-                        : "gray"
-                  }
-                  fallback={
-                    request.status === "approved"
-                      ? "✓"
-                      : request.status === "rejected" ||
-                          request.status === "cancelled"
-                        ? "✗"
-                        : "?"
-                  }
-                />
-                <Box>
-                  <Text as="div" size="3" weight="bold">
-                    {request.service?.title ||
-                      serviceTitles[request.service_id] ||
-                      request.service_id ||
-                      "Service"}
-                  </Text>
-                  <Text as="div" size="2" color="gray">
-                    {request.message && (
-                      <div>
-                        <Text size="2" weight="medium" className="block mb-1">
-                          Your message:
-                        </Text>
-                        <Text size="2" className="italic">
-                          "{request.message}"
-                        </Text>
-                      </div>
-                    )}
+      {requests.map((request, index) => {
+        const service = services.find((s) => s._id === request.service_id);
+        const providerId = service?.user_id;
+        const provider = providerId ? providerNames[providerId] : null;
+        const providerLabel = provider
+          ? provider.full_name || `@${provider.username}`
+          : providerId
+            ? "Provider"
+            : "—";
 
-                    {request.admin_message && (
-                      <div>
-                        <Text size="2" weight="medium" className="block mb-1">
-                          Provider response:
-                        </Text>
-                        <Text size="2" className="italic">
-                          "{request.admin_message}"
-                        </Text>
-                      </div>
-                    )}
+        return (
+          <Fragment key={request._id}>
+            <Flex
+              direction="column"
+              gap="3"
+              mb="5"
+              onClick={() => onServiceClick(request.service_id)}
+              className="my-application-item cursor-pointer hover:bg-[var(--accent-a3)] rounded-lg p-2"
+            >
+              <Flex justify="between" align="center">
+                <Flex gap="3" align="center">
+                  <Avatar
+                    size="3"
+                    color={
+                      request.status === "approved"
+                        ? "green"
+                        : request.status === "rejected" ||
+                            request.status === "cancelled"
+                          ? "red"
+                          : "gray"
+                    }
+                    fallback={
+                      request.status === "approved"
+                        ? "✓"
+                        : request.status === "rejected" ||
+                            request.status === "cancelled"
+                          ? "✗"
+                          : "?"
+                    }
+                  />
+                  <Box>
+                    <Flex direction="column" gap="1">
+                      <Text as="div" size="3" weight="bold">
+                        {request.service?.title ||
+                          serviceTitles[request.service_id] ||
+                          request.service_id ||
+                          "Service"}
+                      </Text>
+                      <Text as="div" size="1" color="gray">
+                        by {providerLabel}
+                      </Text>
+                    </Flex>
+                    <Text as="div" size="2" color="gray">
+                      {request.message && (
+                        <div>
+                          <Text size="2" weight="medium" className="block mb-1">
+                            Your message:
+                          </Text>
+                          <Text size="2" className="italic">
+                            "{request.message}"
+                          </Text>
+                        </div>
+                      )}
 
-                    {/* Service completion section for approved applications */}
-                    {request.status === "approved" && (
-                      <>
-                        {(() => {
-                          const service = services.find(
-                            (s) => s._id === request.service_id,
-                          );
-                          if (!service) return null;
+                      {request.admin_message && (
+                        <div>
+                          <Text size="2" weight="medium" className="block mb-1">
+                            Provider response:
+                          </Text>
+                          <Text size="2" className="italic">
+                            "{request.admin_message}"
+                          </Text>
+                        </div>
+                      )}
 
-                          const isReceiver =
-                            currentUserId &&
-                            service.matched_user_ids &&
-                            service.matched_user_ids.includes(currentUserId);
-                          const myTransaction = (
-                            serviceTransactions[service._id] ?? []
-                          ).find(
-                            (t) =>
-                              String(t.requester_id) === String(currentUserId),
-                          );
-                          const hasConfirmed =
-                            myTransaction && myTransaction.requester_confirmed;
+                      {/* Service completion section for approved applications */}
+                      {request.status === "approved" && (
+                        <>
+                          {(() => {
+                            const service = services.find(
+                              (s) => s._id === request.service_id,
+                            );
+                            if (!service) return null;
 
-                          return (
-                            <>
-                              {/* Completion status for in_progress / completed services */}
-                              {(service.status === "in_progress" ||
-                                service.status === "completed") && (
-                                <div>
-                                  <Flex direction="column" gap="3">
-                                    <Flex
-                                      direction="row"
-                                      gap="1"
-                                      align="center"
-                                    >
-                                      <Text size="1" weight="medium">
-                                        Receivers:
-                                      </Text>
-                                      <Badge
-                                        color={
-                                          service.receiver_confirmed_ids &&
-                                          service.matched_user_ids &&
-                                          service.receiver_confirmed_ids
-                                            .length ===
-                                            service.matched_user_ids.length
-                                            ? "green"
-                                            : "gray"
-                                        }
-                                        size="1"
+                            const isReceiver =
+                              currentUserId &&
+                              service.matched_user_ids &&
+                              service.matched_user_ids.includes(currentUserId);
+                            const myTransaction = (
+                              serviceTransactions[service._id] ?? []
+                            ).find(
+                              (t) =>
+                                String(t.requester_id) ===
+                                String(currentUserId),
+                            );
+                            const hasConfirmed =
+                              myTransaction &&
+                              myTransaction.requester_confirmed;
+
+                            return (
+                              <>
+                                {/* Completion status for in_progress / completed services */}
+                                {(service.status === "in_progress" ||
+                                  service.status === "completed") && (
+                                  <div>
+                                    <Flex direction="column" gap="3">
+                                      <Flex
+                                        direction="row"
+                                        gap="1"
+                                        align="center"
                                       >
-                                        {service.receiver_confirmed_ids &&
-                                        service.matched_user_ids
-                                          ? `${service.receiver_confirmed_ids.length}/${service.matched_user_ids.length} Confirmed`
-                                          : service.matched_user_ids
-                                            ? `0/${service.matched_user_ids.length} Confirmed`
-                                            : "0/0 Confirmed"}
-                                      </Badge>
-                                    </Flex>
-                                    {/* Receiver confirms their transaction (Confirm I received) */}
-                                    {isReceiver &&
-                                      myTransaction &&
-                                      !myTransaction.requester_confirmed &&
-                                      myTransaction.status !== "completed" && (
-                                        <Button
-                                          size="2"
-                                          color="green"
-                                          onClick={() =>
-                                            onConfirmTransactionCompletion(
-                                              myTransaction._id,
-                                            )
+                                        <Text size="1" weight="medium">
+                                          Receivers:
+                                        </Text>
+                                        <Badge
+                                          color={
+                                            service.receiver_confirmed_ids &&
+                                            service.matched_user_ids &&
+                                            service.receiver_confirmed_ids
+                                              .length ===
+                                              service.matched_user_ids.length
+                                              ? "green"
+                                              : "gray"
                                           }
+                                          size="1"
                                         >
-                                          <CheckCircledIcon className="w-4 h-4 mr-2" />
-                                          Confirm I received
-                                        </Button>
+                                          {service.receiver_confirmed_ids &&
+                                          service.matched_user_ids
+                                            ? `${service.receiver_confirmed_ids.length}/${service.matched_user_ids.length} Confirmed`
+                                            : service.matched_user_ids
+                                              ? `0/${service.matched_user_ids.length} Confirmed`
+                                              : "0/0 Confirmed"}
+                                        </Badge>
+                                      </Flex>
+                                      {/* Receiver confirms their transaction (Confirm I received) */}
+                                      {isReceiver &&
+                                        myTransaction &&
+                                        !myTransaction.requester_confirmed &&
+                                        myTransaction.status !==
+                                          "completed" && (
+                                          <Button
+                                            size="2"
+                                            color="green"
+                                            onClick={() =>
+                                              onConfirmTransactionCompletion(
+                                                myTransaction._id,
+                                              )
+                                            }
+                                          >
+                                            <CheckCircledIcon className="w-4 h-4 mr-2" />
+                                            Confirm I received
+                                          </Button>
+                                        )}
+
+                                      {/* Already confirmed message */}
+                                      {isReceiver && hasConfirmed && (
+                                        <Flex gap="2" align="center">
+                                          <CheckCircledIcon
+                                            className="w-4 h-4"
+                                            color="green"
+                                          />
+                                          <Text
+                                            size="2"
+                                            color="green"
+                                            weight="medium"
+                                          >
+                                            You have confirmed receipt of this
+                                            service
+                                          </Text>
+                                        </Flex>
                                       )}
 
-                                    {/* Already confirmed message */}
-                                    {isReceiver && hasConfirmed && (
-                                      <Flex gap="2" align="center">
-                                        <CheckCircledIcon
-                                          className="w-4 h-4"
-                                          color="green"
-                                        />
-                                        <Text
-                                          size="2"
-                                          color="green"
-                                          weight="medium"
-                                        >
-                                          You have confirmed receipt of this
-                                          service
-                                        </Text>
-                                      </Flex>
-                                    )}
-
-                                    {/* Rating section for completed services */}
-                                    {service.status === "completed" &&
-                                      isReceiver &&
-                                      currentUserId &&
-                                      (() => {
-                                        const transactions =
-                                          serviceTransactions[service._id] ??
-                                          [];
-                                        const myTransaction = transactions.find(
-                                          (t) =>
-                                            t.status === "completed" &&
-                                            String(t.requester_id) ===
+                                      {/* Rating section for completed services */}
+                                      {service.status === "completed" &&
+                                        isReceiver &&
+                                        currentUserId &&
+                                        (() => {
+                                          const transactions =
+                                            serviceTransactions[service._id] ??
+                                            [];
+                                          const myTransaction =
+                                            transactions.find(
+                                              (t) =>
+                                                t.status === "completed" &&
+                                                String(t.requester_id) ===
+                                                  String(currentUserId),
+                                            );
+                                          if (!myTransaction) return null;
+                                          const providerId = service.user_id;
+                                          const ratings =
+                                            transactionRatings[
+                                              myTransaction._id
+                                            ] ?? [];
+                                          const myRating = ratings.find(
+                                            (r) =>
+                                              String(r.rater_id) ===
                                               String(currentUserId),
-                                        );
-                                        if (!myTransaction) return null;
-                                        const providerId = service.user_id;
-                                        const ratings =
-                                          transactionRatings[
-                                            myTransaction._id
-                                          ] ?? [];
-                                        const myRating = ratings.find(
-                                          (r) =>
-                                            String(r.rater_id) ===
-                                            String(currentUserId),
-                                        );
-                                        return (
-                                          <div>
-                                            {myRating ? (
-                                              <div>
-                                                <Text
-                                                  size="2"
-                                                  weight="bold"
-                                                  className="block mb-1"
-                                                >
-                                                  Your rating for the provider
-                                                </Text>
-                                                <RatingStars
-                                                  value={myRating.score}
-                                                  readonly
-                                                  size={16}
-                                                />
-                                                {myRating.comment && (
+                                          );
+                                          return (
+                                            <div>
+                                              {myRating ? (
+                                                <div>
                                                   <Text
-                                                    size="1"
-                                                    color="gray"
-                                                    className="block mt-1"
+                                                    size="2"
+                                                    weight="bold"
+                                                    className="block mb-1"
                                                   >
-                                                    &quot;{myRating.comment}
-                                                    &quot;
+                                                    Your rating for the provider
                                                   </Text>
-                                                )}
-                                              </div>
-                                            ) : (
-                                              <RatingForm
-                                                onSubmit={(score, comment) =>
-                                                  handleRatingSubmit(
-                                                    myTransaction._id,
-                                                    providerId,
-                                                    score,
-                                                    comment,
-                                                  )
-                                                }
-                                                loading={
-                                                  ratingLoading ===
-                                                  myTransaction._id
-                                                }
-                                              />
-                                            )}
-                                          </div>
-                                        );
-                                      })()}
-                                  </Flex>
-                                </div>
-                              )}
-                            </>
-                          );
-                        })()}
-                      </>
-                    )}
-                  </Text>
+                                                  <RatingStars
+                                                    value={myRating.score}
+                                                    readonly
+                                                    size={16}
+                                                  />
+                                                  {myRating.comment && (
+                                                    <Text
+                                                      size="1"
+                                                      color="gray"
+                                                      className="block mt-1"
+                                                    >
+                                                      &quot;{myRating.comment}
+                                                      &quot;
+                                                    </Text>
+                                                  )}
+                                                </div>
+                                              ) : (
+                                                <RatingForm
+                                                  onSubmit={(score, comment) =>
+                                                    handleRatingSubmit(
+                                                      myTransaction._id,
+                                                      providerId,
+                                                      score,
+                                                      comment,
+                                                    )
+                                                  }
+                                                  loading={
+                                                    ratingLoading ===
+                                                    myTransaction._id
+                                                  }
+                                                />
+                                              )}
+                                            </div>
+                                          );
+                                        })()}
+                                    </Flex>
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </>
+                      )}
+                    </Text>
+                  </Box>
+                </Flex>
+
+                <Text size="2" color="gray">
+                  {formatDate(request.created_at)}
+                </Text>
+              </Flex>
+            </Flex>
+
+            {index < requests.length - 1 && (
+              <Flex direction="column">
+                <Box>
+                  <Separator size="4" />
                 </Box>
               </Flex>
-
-              <Text size="2" color="gray">
-                {formatDate(request.created_at)}
-              </Text>
-            </Flex>
-          </Flex>
-
-          {index < requests.length - 1 && (
-            <Flex direction="column">
-              <Box>
-                <Separator size="4" />
-              </Box>
-            </Flex>
-          )}
-        </>
-      ))}
+            )}
+          </Fragment>
+        );
+      })}
     </div>
   );
 }
