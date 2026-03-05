@@ -335,7 +335,7 @@ export function MyServices({
           await servicesApi.updateService(serviceId, {
             status: "in_progress",
           } as any);
-          alert("Service status updated to 'In Progress'.");
+          // alert("Service status updated to 'In Progress'.");
           await fetchData();
         } catch (error: any) {
           console.error("Error setting service to in progress:", error);
@@ -359,7 +359,7 @@ export function MyServices({
         try {
           await servicesApi.completeService(serviceId);
           refetchUser();
-          alert("Service marked as completed.");
+          // alert("Service marked as completed.");
           await fetchData();
         } catch (error: any) {
           console.error("Error completing service:", error);
@@ -382,7 +382,7 @@ export function MyServices({
       onConfirm: async () => {
         try {
           await servicesApi.deleteService(serviceId);
-          alert("Service deleted successfully.");
+          // alert("Service deleted successfully.");
           await fetchData();
         } catch (error: any) {
           console.error("Error deleting service:", error);
@@ -404,7 +404,7 @@ export function MyServices({
       onConfirm: async () => {
         try {
           await servicesApi.cancelService(serviceId);
-          alert("Service cancelled successfully.");
+          // alert("Service cancelled successfully.");
           await fetchData();
         } catch (error: any) {
           console.error("Error cancelling service:", error);

@@ -200,13 +200,15 @@ export function ApplicantsList({
           {/* Show pending requests first */}
           {requests
             .filter((r) => r.status === "pending")
-            .map((request) => (
-              <Card
+            .map((request, index) => (
+              <div
                 key={request._id}
-                className="p-4"
+                className="p-4 rounded-lg bg-[var(--accent-a2)] transition-colors duration-200"
                 style={{
-                  border: "2px solid var(--yellow-9)",
-                  backgroundColor: "var(--yellow-2)",
+                  borderBottom:
+                    index !== requests.length - 1
+                      ? "1px solid var(--gray-3)"
+                      : "none",
                 }}
               >
                 <Flex direction="column" gap="3">
@@ -229,7 +231,15 @@ export function ApplicantsList({
                       className="cursor-pointer"
                     />
                     <div className="flex-1 flex flex-col">
-                      <Text size="3" weight="bold">
+                      <Text
+                        size="3"
+                        weight="bold"
+                        className="cursor-pointer"
+                        onClick={() => {
+                          if (request.user?.id)
+                            navigate(`/user/${request.user.id}`);
+                        }}
+                      >
                         {request.user?.full_name ||
                           request.user?.username ||
                           "Unknown User"}
@@ -329,83 +339,91 @@ export function ApplicantsList({
                     </div>
                   )}
                 </Flex>
-              </Card>
+              </div>
             ))}
 
           {/* Show other requests (approved/rejected) */}
           {requests
             .filter((r) => r.status !== "pending")
-            .map((request) => (
-              <Card key={request._id} className="p-4">
-                <Flex direction="column" gap="3">
-                  {/* User info */}
-                  <Flex align="center" gap="3">
-                    <Avatar
+            .map((request, index) => (
+              <div
+                key={request._id}
+                className="p-4 rounded-lg bg-[var(--accent-a2)] transition-colors duration-200 flex flex-col gap-3"
+              >
+                <Flex align="center" gap="3">
+                  <Avatar
+                    onClick={() => {
+                      if (request.user?.id)
+                        navigate(`/user/${request.user.id}`);
+                    }}
+                    src={
+                      getImageUrl(request.user?.profile_picture) ?? undefined
+                    }
+                    fallback={
+                      request.user?.full_name?.[0] ||
+                      request.user?.username?.[0] ||
+                      "?"
+                    }
+                    size="3"
+                    className="cursor-pointer"
+                  />
+                  <div className="flex-1 flex flex-col">
+                    <Text
+                      size="3"
+                      weight="bold"
+                      className="cursor-pointer"
                       onClick={() => {
                         if (request.user?.id)
                           navigate(`/user/${request.user.id}`);
                       }}
-                      src={
-                        getImageUrl(request.user?.profile_picture) ?? undefined
-                      }
-                      fallback={
-                        request.user?.full_name?.[0] ||
-                        request.user?.username?.[0] ||
-                        "?"
-                      }
-                      size="3"
-                      className="cursor-pointer"
-                    />
-                    <div className="flex-1 flex flex-col">
-                      <Text size="3" weight="bold">
-                        {request.user?.full_name ||
-                          request.user?.username ||
-                          "Unknown User"}
-                      </Text>
-                      <Text size="2" color="gray">
-                        @{request.user?.username}
-                      </Text>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {getStatusBadge(request.status)}
-                      <Text size="1" color="gray">
-                        {formatDate(request.created_at)}
-                      </Text>
-                    </div>
-                  </Flex>
-
-                  {/* User bio */}
-                  {request.user?.bio && (
-                    <Text size="2" color="gray">
-                      {request.user.bio}
+                    >
+                      {request.user?.full_name ||
+                        request.user?.username ||
+                        "Unknown User"}
                     </Text>
-                  )}
-
-                  {/* Request message */}
-                  {request.message && (
-                    <div>
-                      <Text size="2" weight="medium" className="block mb-1">
-                        Message:
-                      </Text>
-                      <Text size="2" className="italic">
-                        "{request.message}"
-                      </Text>
-                    </div>
-                  )}
-
-                  {/* Admin message */}
-                  {request.admin_message && (
-                    <div>
-                      <Text size="2" weight="medium" className="block mb-1">
-                        Your response:
-                      </Text>
-                      <Text size="2" className="italic">
-                        "{request.admin_message}"
-                      </Text>
-                    </div>
-                  )}
+                    <Text size="2" color="gray">
+                      @{request.user?.username}
+                    </Text>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {getStatusBadge(request.status)}
+                    <Text size="1" color="gray">
+                      {formatDate(request.created_at)}
+                    </Text>
+                  </div>
                 </Flex>
-              </Card>
+
+                {/* User bio */}
+                {request.user?.bio && (
+                  <Text size="2" color="gray">
+                    {request.user.bio}
+                  </Text>
+                )}
+
+                {/* Request message */}
+                {request.message && (
+                  <div>
+                    <Text size="2" weight="medium" className="block mb-1">
+                      Message:
+                    </Text>
+                    <Text size="2" className="italic">
+                      "{request.message}"
+                    </Text>
+                  </div>
+                )}
+
+                {/* Admin message */}
+                {request.admin_message && (
+                  <div>
+                    <Text size="2" weight="medium" className="block mb-1">
+                      Your response:
+                    </Text>
+                    <Text size="2" className="italic">
+                      "{request.admin_message}"
+                    </Text>
+                  </div>
+                )}
+              </div>
             ))}
         </div>
       )}

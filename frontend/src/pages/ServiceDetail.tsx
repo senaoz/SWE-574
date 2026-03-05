@@ -341,7 +341,7 @@ export function ServiceDetail() {
     try {
       await servicesApi.completeService(id);
       refetchUser();
-      alert("Service marked as completed.");
+      // alert("Service marked as completed.");
       const res = await servicesApi.getService(id);
       setService(res.data);
     } catch (error: any) {

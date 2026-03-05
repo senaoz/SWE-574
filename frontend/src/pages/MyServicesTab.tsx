@@ -310,21 +310,13 @@ export function MyServicesTab({
                     {service.matched_user_ids &&
                       service.matched_user_ids.length > 0 &&
                       service.status === "in_progress" && (
-                        <Card
-                          className="p-3"
-                          style={{ backgroundColor: "var(--lime-3)" }}
-                        >
-                          <Flex align="center" gap="2">
-                            <CheckCircledIcon
-                              className="w-4 h-4"
-                              color="green"
-                            />
-                            <Text size="2" weight="medium">
-                              Matched with {service.matched_user_ids.length}{" "}
-                              user(s) - Service in progress
-                            </Text>
-                          </Flex>
-                        </Card>
+                        <Flex align="center" gap="2">
+                          <CheckCircledIcon className="w-4 h-4" color="green" />
+                          <Text size="2" weight="medium">
+                            Matched with {service.matched_user_ids.length}{" "}
+                            user(s) - Service in progress
+                          </Text>
+                        </Flex>
                       )}
 
                     {/* Mark as completed (provider only); TimeBank and related transactions updated */}
@@ -332,10 +324,7 @@ export function MyServicesTab({
                       service.status === "completed") &&
                       serviceTransactions[service._id] &&
                       serviceTransactions[service._id].length > 0 && (
-                        <Card
-                          className="p-4"
-                          style={{ backgroundColor: "var(--yellow-3)" }}
-                        >
+                        <div className="p-4 rounded-lg bg-[var(--accent-a2)] transition-colors duration-200">
                           <Flex direction="column" gap="3">
                             <Flex
                               justify="between"
@@ -396,16 +385,7 @@ export function MyServicesTab({
                                       direction="column"
                                       gap="2"
                                       key={transaction._id}
-                                      className="mb-2 pb-3"
-                                      style={{
-                                        borderBottom:
-                                          index !==
-                                          serviceTransactions[service._id]
-                                            .length -
-                                            1
-                                            ? "1px solid var(--gray-3)"
-                                            : "none",
-                                      }}
+                                      className={`${index !== serviceTransactions[service._id].length - 1 && "mb-2 pb-3 border-b border-gray-3"}`}
                                     >
                                       <Flex
                                         justify="start"
@@ -531,7 +511,7 @@ export function MyServicesTab({
                               )}
                             </div>
                           </Flex>
-                        </Card>
+                        </div>
                       )}
 
                     {/* Applicants section */}

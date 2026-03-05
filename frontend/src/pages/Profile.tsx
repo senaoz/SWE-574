@@ -354,7 +354,7 @@ export function Profile() {
     setPasswordLoading(true);
     try {
       await usersApi.changePassword(passwordForm);
-      alert("Password changed successfully");
+      // alert("Password changed successfully");
       setShowPasswordDialog(false);
       setPasswordForm({
         current_password: "",
@@ -387,7 +387,7 @@ export function Profile() {
     setDeleteLoading(true);
     try {
       await usersApi.deleteAccount(deleteForm);
-      alert("Account deleted successfully");
+      // alert("Account deleted successfully");
       localStorage.removeItem("access_token");
       window.location.href = "/";
     } catch (error: any) {

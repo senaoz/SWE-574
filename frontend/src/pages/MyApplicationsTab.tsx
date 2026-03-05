@@ -141,8 +141,7 @@ export function MyApplicationsTab({
               direction="column"
               gap="3"
               mb="5"
-              onClick={() => onServiceClick(request.service_id)}
-              className="my-application-item cursor-pointer hover:bg-[var(--accent-a3)] rounded-lg p-2"
+              className="my-application-item hover:bg-[var(--accent-a2)] rounded-lg p-2"
             >
               <Flex justify="between" align="center">
                 <Flex gap="3" align="center">
@@ -166,7 +165,12 @@ export function MyApplicationsTab({
                     }
                   />
                   <Box>
-                    <Flex direction="column" gap="1">
+                    <Flex
+                      direction="column"
+                      gap="1"
+                      className="cursor-pointer"
+                      onClick={() => onServiceClick(request.service_id)}
+                    >
                       <Text as="div" size="3" weight="bold">
                         {request.service?.title ||
                           serviceTitles[request.service_id] ||
