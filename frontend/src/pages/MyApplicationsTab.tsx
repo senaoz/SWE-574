@@ -141,10 +141,10 @@ export function MyApplicationsTab({
               direction="column"
               gap="3"
               mb="5"
-              className="my-application-item bg-[var(--accent-a2)] rounded-lg p-2"
+              className="my-application-item bg-[var(--accent-a2)] rounded-lg p-4"
             >
-              <Flex justify="between" align="center">
-                <Flex gap="3" align="center">
+              <Flex justify="between" gap="3">
+                <Flex gap="3" className="flex-1">
                   <Avatar
                     size="3"
                     color={
@@ -164,7 +164,7 @@ export function MyApplicationsTab({
                           : "?"
                     }
                   />
-                  <Box>
+                  <Box className="flex-1">
                     <Flex
                       direction="column"
                       gap="1"
@@ -241,6 +241,18 @@ export function MyApplicationsTab({
                                         align="center"
                                       >
                                         <Text size="1" weight="medium">
+                                          Provider confirmed:
+                                        </Text>
+                                        <Badge color="green" size="1">
+                                          {myTransaction?.provider_confirmed
+                                            ? "Yes"
+                                            : "No"}
+                                        </Badge>
+                                        <Text
+                                          size="1"
+                                          weight="medium"
+                                          className="ml-2"
+                                        >
                                           Receivers:
                                         </Text>
                                         <Badge
@@ -282,7 +294,6 @@ export function MyApplicationsTab({
                                             Confirm I received
                                           </Button>
                                         )}
-
                                       {/* Already confirmed message */}
                                       {isReceiver && hasConfirmed && (
                                         <Flex gap="2" align="center">
@@ -300,23 +311,23 @@ export function MyApplicationsTab({
                                           </Text>
                                         </Flex>
                                       )}
-
                                       {/* Rating section for completed services */}
-                                      {service.status === "completed" &&
-                                        isReceiver &&
+                                      {isReceiver &&
                                         currentUserId &&
                                         (() => {
                                           const transactions =
                                             serviceTransactions[service._id] ??
                                             [];
+                                          console.log({ transactions });
                                           const myTransaction =
                                             transactions.find(
                                               (t) =>
-                                                t.status === "completed" &&
+                                                t.requester_confirmed &&
                                                 String(t.requester_id) ===
                                                   String(currentUserId),
                                             );
                                           if (!myTransaction) return null;
+
                                           const providerId = service.user_id;
                                           const ratings =
                                             transactionRatings[
@@ -327,6 +338,7 @@ export function MyApplicationsTab({
                                               String(r.rater_id) ===
                                               String(currentUserId),
                                           );
+
                                           return (
                                             <div>
                                               {myRating ? (
@@ -385,7 +397,7 @@ export function MyApplicationsTab({
                   </Box>
                 </Flex>
 
-                <Text size="2" color="gray">
+                <Text size="2" color="gray" className="text-right">
                   {formatDate(request.created_at)}
                 </Text>
               </Flex>

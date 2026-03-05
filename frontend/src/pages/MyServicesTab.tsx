@@ -424,43 +424,44 @@ export function MyServicesTab({
                                         </Text>
                                       </Flex>
 
-                                      {transaction.status === "completed" && (
-                                        <>
-                                          {myRating ? (
-                                            <>
-                                              <RatingStars
-                                                value={myRating.score}
-                                                readonly
-                                                size={16}
+                                      {transaction.provider_confirmed &&
+                                        transaction.requester_confirmed && (
+                                          <>
+                                            {myRating ? (
+                                              <>
+                                                <RatingStars
+                                                  value={myRating.score}
+                                                  readonly
+                                                  size={16}
+                                                />
+                                                {myRating.comment && (
+                                                  <Text
+                                                    size="1"
+                                                    color="gray"
+                                                    className="block mt-1"
+                                                  >
+                                                    "{myRating.comment}"
+                                                  </Text>
+                                                )}
+                                              </>
+                                            ) : transaction.provider_confirmed ? (
+                                              <RatingForm
+                                                onSubmit={(score, comment) =>
+                                                  handleRatingSubmit(
+                                                    transaction._id,
+                                                    otherUserId,
+                                                    score,
+                                                    comment,
+                                                  )
+                                                }
+                                                loading={
+                                                  ratingLoading ===
+                                                  transaction._id
+                                                }
                                               />
-                                              {myRating.comment && (
-                                                <Text
-                                                  size="1"
-                                                  color="gray"
-                                                  className="block mt-1"
-                                                >
-                                                  "{myRating.comment}"
-                                                </Text>
-                                              )}
-                                            </>
-                                          ) : transaction.provider_confirmed ? (
-                                            <RatingForm
-                                              onSubmit={(score, comment) =>
-                                                handleRatingSubmit(
-                                                  transaction._id,
-                                                  otherUserId,
-                                                  score,
-                                                  comment,
-                                                )
-                                              }
-                                              loading={
-                                                ratingLoading ===
-                                                transaction._id
-                                              }
-                                            />
-                                          ) : null}
-                                        </>
-                                      )}
+                                            ) : null}
+                                          </>
+                                        )}
                                       {currentUserId &&
                                         String(transaction.requester_id) ===
                                           String(currentUserId) &&

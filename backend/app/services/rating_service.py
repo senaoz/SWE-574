@@ -19,8 +19,8 @@ class RatingService:
         if not transaction:
             raise ValueError("Transaction not found")
 
-        if transaction.get("status") != "completed":
-            raise ValueError("Can only rate completed transactions")
+        # if transaction.get("requester_confirmed") != True or transaction.get("provider_confirmed") != True:
+        #     raise ValueError("Can only rate transactions that have been confirmed by both parties")
 
         provider_id = str(transaction["provider_id"])
         requester_id = str(transaction["requester_id"])
