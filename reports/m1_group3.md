@@ -14,6 +14,21 @@
 
 ---
 
+## SRS
+
+The purpose of this Software Requirements Specification (SRS) document is to define in detail the functional and non-functional requirements of **The Hive** platform. The Hive is a community-oriented, open-source web application designed to enable the mutual exchange of services based on time rather than money.
+
+This document serves as a reference for the following stakeholders:
+
+- **Developers**, who design, implement, and maintain the platform.
+- **Project stakeholders**, who ensure that the product aligns with its vision of inclusivity and cooperation.
+- **Testers and quality engineers**, who verify that the delivered software meets the stated requirements.
+- **Community moderators and administrators**, who oversee system behavior and enforce community standards.
+
+The SRS establishes a shared understanding of the platform’s intended capabilities, performance expectations, and design constraints. It provides a foundation for system design, implementation, testing, and future expansion.
+
+For the complete document with detailed specifications, please visit the SRS page in our wiki: https://github.com/senaoz/SWE-574/wiki/SRS
+
 ## Software Design (UML Diagrams)
 
 ### Table of Contents for Software Design
@@ -843,6 +858,16 @@ stateDiagram-v2
 
 ---
 
+## Scenarios and Mockups
+
+This section presents the primary user interaction flows of **The Hive** platform through detailed user scenarios and interface mockups. These scenarios illustrate how different users interact with the system to accomplish key tasks such as creating services, requesting help, joining activities, and managing their profiles.
+
+The mockups provide visual representations of the platform’s user interface, helping to demonstrate the intended layout, navigation structure, and overall user experience. Together, the scenarios and mockups serve as a bridge between requirements and system design, allowing stakeholders to better understand how the platform’s functionality will be realized from a user perspective.
+
+To explore the full set of scenarios and interface mockups, please visit the wiki page: https://github.com/senaoz/SWE-574/wiki/Scenarios-&-Mockups
+
+---
+
 ## Project Plan
 
 ### 1. Project Overview
@@ -1284,3 +1309,16 @@ Compiled collaboratively before each deadline:
 - Roles are guidelines — in a small team of 4, flexibility and cross-functional collaboration are essential.
 - If a team member is unavailable, their accountable tasks should be temporarily reassigned by the All members.
 - This matrix should be reviewed and updated at each milestone retrospective.
+
+
+## Weekly Reports and Additional Meeting Notes
+
+This section documents the ongoing progress of the project throughout the development process. It includes summaries of weekly team meetings, discussions, decisions, and action items that guide the project's development.
+
+These reports provide transparency into the team’s workflow by highlighting completed tasks, current challenges, and planned next steps for each week. Additional meeting notes capture important discussions, design decisions, and coordination activities that occur outside the regular weekly meetings.
+
+Maintaining these records helps ensure clear communication among team members and provides a traceable history of the project’s evolution over time.
+
+To review the weekly reports and meeting notes in detail, please visit the wiki page:
+
+https://github.com/senaoz/SWE-574/wiki/Meeting-Notes
