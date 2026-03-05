@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -21,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -29,7 +31,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Schedule
@@ -64,9 +65,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
 import androidx.lifecycle.Lifecycle
@@ -100,6 +105,8 @@ fun ServiceDetailScreen(
     onStartChat: ((String) -> Unit)? = null,
     onOpenUserProfile: ((String) -> Unit)? = null
 ) {
+    var expandedImageUrl by remember { mutableStateOf<String?>(null) }
+
     when {
         isLoading -> {
             Column(
@@ -195,30 +202,49 @@ fun ServiceDetailScreen(
                     )
                 }
 
-                // Mock image placeholder (for future images)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(SurfaceVariantLight),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.Image,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                    )
-                    Text(
-                        text = "Image coming soon",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                val imageUrls = service.imageUrls
+                    ?.mapNotNull { toAbsoluteUrl(it) }
+                    ?.take(3)
+                    .orEmpty()
+                if (imageUrls.isNotEmpty()) {
+                    androidx.compose.foundation.lazy.LazyRow(
                         modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(12.dp)
-                    )
+                            .fillMaxWidth()
+                            .height(220.dp)
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(imageUrls) { url ->
+                            AsyncImage(
+                                model = url,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { expandedImageUrl = url }
+                            )
+                        }
+                    }
+                }
+
+                expandedImageUrl?.let { url ->
+                    Dialog(onDismissRequest = { expandedImageUrl = null }) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.95f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            AsyncImage(
+                                model = url,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 400.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                            )
+                        }
+                    }
                 }
 
                 val context = LocalContext.current
@@ -306,8 +332,9 @@ fun ServiceDetailScreen(
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             if (creator?.profilePicture?.isNotBlank() == true) {
+                                val context = LocalContext.current
                                 AsyncImage(
-                                    model = creator.profilePicture,
+                                    model = buildImageRequest(context, creator.profilePicture),
                                     contentDescription = "Profile photo",
                                     modifier = Modifier
                                         .size(48.dp)
@@ -374,7 +401,7 @@ fun ServiceDetailScreen(
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(
-                            text = service.description,
+                            text = simpleMarkdownToAnnotatedString(service.description),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.padding(16.dp)
@@ -633,7 +660,7 @@ private fun StatusChip(status: String) {
 
 private fun creatorBadgeIcon(key: String?): ImageVector = when (key) {
     "newcomer" -> Icons.Default.Person
-    "profile_complete" -> Icons.Default.Image
+    "profile_complete" -> Icons.Default.Person
     "tagged", "well_tagged" -> Icons.Default.Label
     "rated" -> Icons.Default.Star
     "popular" -> Icons.Default.TrendingUp
@@ -641,6 +668,64 @@ private fun creatorBadgeIcon(key: String?): ImageVector = when (key) {
     "helper", "helper_hero", "master_helper" -> Icons.Default.School
     "generous_giver" -> Icons.Default.Schedule
     else -> Icons.Default.Star
+}
+
+fun simpleMarkdownToAnnotatedString(text: String): androidx.compose.ui.text.AnnotatedString {
+    return buildAnnotatedString {
+        val lines = text.split('\n')
+        lines.forEachIndexed { index, rawLine ->
+            var line = rawLine
+            var isHeading = false
+            if (line.trimStart().startsWith("#")) {
+                val trimmed = line.trimStart()
+                val hashes = trimmed.takeWhile { it == '#' }
+                if (hashes.isNotEmpty()) {
+                    isHeading = true
+                    line = trimmed.removePrefix(hashes).trimStart()
+                }
+            }
+
+            if (isHeading) {
+                pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
+            }
+
+            var i = 0
+            while (i < line.length) {
+                if (i + 3 < line.length && line[i] == '*' && line[i + 1] == '*') {
+                    val end = line.indexOf("**", startIndex = i + 2)
+                    if (end != -1) {
+                        val content = line.substring(i + 2, end)
+                        pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
+                        append(content)
+                        pop()
+                        i = end + 2
+                        continue
+                    }
+                }
+                if (line[i] == '*' && (i == 0 || line[i - 1] != '*')) {
+                    val end = line.indexOf('*', startIndex = i + 1)
+                    if (end != -1) {
+                        val content = line.substring(i + 1, end)
+                        pushStyle(SpanStyle(fontStyle = FontStyle.Italic))
+                        append(content)
+                        pop()
+                        i = end + 1
+                        continue
+                    }
+                }
+                append(line[i])
+                i++
+            }
+
+            if (isHeading) {
+                pop()
+            }
+
+            if (index != lines.lastIndex) {
+                append('\n')
+            }
+        }
+    }
 }
 
 @Composable

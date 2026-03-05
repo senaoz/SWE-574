@@ -86,6 +86,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.hive.hive_app.data.api.dto.BadgesResponse
 import com.hive.hive_app.data.api.dto.SocialLinks
 import com.hive.hive_app.data.api.dto.TimeBankResponse
@@ -298,34 +299,44 @@ private fun ProfileHeaderCard(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Profile photo placeholder with initials, Instagram‑style gradient
-            val initials = remember(user) {
-                (user.fullName ?: user.username)
-                    .trim()
-                    .split(" ")
-                    .filter { it.isNotBlank() }
-                    .take(2)
-                    .joinToString("") { it.first().uppercase() }
-            }
-            Box(
-                modifier = Modifier
-                    .size(96.dp)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.linearGradient(
-                            listOf(
-                                MaterialTheme.colorScheme.primary,
-                                MaterialTheme.colorScheme.secondary
-                            )
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = initials,
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onPrimary
+            if (user.profilePicture?.isNotBlank() == true) {
+                val context = LocalContext.current
+                AsyncImage(
+                    model = buildImageRequest(context, user.profilePicture),
+                    contentDescription = "Profile photo",
+                    modifier = Modifier
+                        .size(96.dp)
+                        .clip(CircleShape)
                 )
+            } else {
+                val initials = remember(user) {
+                    (user.fullName ?: user.username)
+                        .trim()
+                        .split(" ")
+                        .filter { it.isNotBlank() }
+                        .take(2)
+                        .joinToString("") { it.first().uppercase() }
+                }
+                Box(
+                    modifier = Modifier
+                        .size(96.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.linearGradient(
+                                listOf(
+                                    MaterialTheme.colorScheme.primary,
+                                    MaterialTheme.colorScheme.secondary
+                                )
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = initials,
+                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
             }
 
             Spacer(Modifier.height(12.dp))

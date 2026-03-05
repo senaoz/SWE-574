@@ -16,6 +16,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Label
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -48,9 +55,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.ui.draw.clip
 import coil.compose.AsyncImage
+import androidx.compose.ui.graphics.vector.ImageVector
 
 @Composable
 fun DiscoverScreen(
@@ -256,6 +263,19 @@ fun DiscoverScreen(
     }
 }
 
+private fun discoverBadgeIcon(key: String?): ImageVector = when (key) {
+    "newcomer" -> Icons.Filled.Person
+    "profile_complete" -> Icons.Filled.Label
+    "tagged", "well_tagged" -> Icons.Filled.Label
+    "rated" -> Icons.Filled.Star
+    "popular" -> Icons.Filled.TrendingUp
+    "community_favorite" -> Icons.Filled.Favorite
+    "helper", "helper_hero", "master_helper" -> Icons.Filled.School
+    "generous_giver" -> Icons.Filled.Schedule
+    else -> Icons.Filled.Label
+}
+
+
 @Composable
 private fun DiscoverServiceCard(
     service: ServiceResponse,
@@ -292,8 +312,9 @@ private fun DiscoverServiceCard(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 if (creator?.user?.profilePicture?.isNotBlank() == true) {
+                    val context = LocalContext.current
                     AsyncImage(
-                        model = creator.user!!.profilePicture,
+                        model = buildImageRequest(context, creator.user!!.profilePicture),
                         contentDescription = null,
                         modifier = Modifier
                             .size(40.dp)
@@ -320,19 +341,35 @@ private fun DiscoverServiceCard(
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    creator?.rating?.let { avg ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Default.Star,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = "%.1f".format(avg),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                    val primaryBadgeKey = creator?.primaryBadgeKey
+                    if (creator?.rating != null || primaryBadgeKey != null) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            creator?.rating?.let { avg ->
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.Star,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = "%.1f".format(avg),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            if (primaryBadgeKey != null) {
+                                Icon(
+                                    imageVector = discoverBadgeIcon(primaryBadgeKey),
+                                    contentDescription = "Badge",
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     }
                 }
@@ -342,8 +379,9 @@ private fun DiscoverServiceCard(
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            val previewText = service.description.take(180) + if (service.description.length > 180) "…" else ""
             Text(
-                text = service.description.take(120) + if (service.description.length > 120) "…" else "",
+                text = simpleMarkdownToAnnotatedString(previewText),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

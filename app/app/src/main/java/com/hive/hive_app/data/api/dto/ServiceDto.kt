@@ -31,7 +31,8 @@ data class ServiceCreate(
     @Json(name = "scheduling_type") val schedulingType: String? = "open",
     @Json(name = "specific_date") val specificDate: String? = null,
     @Json(name = "specific_time") val specificTime: String? = null,
-    @Json(name = "open_availability") val openAvailability: String? = null
+    @Json(name = "open_availability") val openAvailability: String? = null,
+    @Json(name = "image_urls") val imageUrls: List<String>? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -57,7 +58,8 @@ data class ServiceResponse(
     @Json(name = "scheduling_type") val schedulingType: String? = null,
     @Json(name = "specific_date") val specificDate: String? = null,
     @Json(name = "specific_time") val specificTime: String? = null,
-    @Json(name = "open_availability") val openAvailability: String? = null
+    @Json(name = "open_availability") val openAvailability: String? = null,
+    @Json(name = "image_urls") val imageUrls: List<String>? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -73,7 +75,8 @@ data class ServiceUpdate(
     @Json(name = "scheduling_type") val schedulingType: String? = null,
     @Json(name = "specific_date") val specificDate: String? = null,
     @Json(name = "specific_time") val specificTime: String? = null,
-    @Json(name = "open_availability") val openAvailability: String? = null
+    @Json(name = "open_availability") val openAvailability: String? = null,
+    @Json(name = "image_urls") val imageUrls: List<String>? = null
 )
 
 @JsonClass(generateAdapter = true)

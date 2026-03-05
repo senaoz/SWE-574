@@ -74,8 +74,9 @@ fun ChatRoomScreen(
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
             if (state.otherUser?.profilePicture?.isNotBlank() == true) {
+                val context = androidx.compose.ui.platform.LocalContext.current
                 coil.compose.AsyncImage(
-                    model = state.otherUser!!.profilePicture,
+                    model = buildImageRequest(context, state.otherUser!!.profilePicture),
                     contentDescription = null,
                     modifier = Modifier
                         .size(40.dp)
@@ -148,6 +149,11 @@ fun ChatRoomScreen(
         }
 
         val listState = rememberLazyListState()
+        LaunchedEffect(state.messages.size) {
+            if (state.messages.isNotEmpty()) {
+                listState.animateScrollToItem(state.messages.lastIndex)
+            }
+        }
         LazyColumn(
             modifier = Modifier
                 .weight(1f)

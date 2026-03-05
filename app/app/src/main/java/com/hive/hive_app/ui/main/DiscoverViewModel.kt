@@ -33,7 +33,7 @@ enum class DiscoverSortOrder(val label: String) {
     DISTANCE("Distance")
 }
 
-data class CreatorInfo(val user: UserResponse?, val rating: Double?)
+data class CreatorInfo(val user: UserResponse?, val rating: Double?, val primaryBadgeKey: String?)
 
 @HiltViewModel
 class DiscoverViewModel @Inject constructor(
@@ -194,7 +194,12 @@ class DiscoverViewModel @Inject constructor(
             userIds.forEach { userId ->
                 val user = usersRepository.getUser(userId).getOrNull()
                 val rating = ratingsRepository.getUserRatings(userId).getOrNull()?.averageScore
-                map[userId] = CreatorInfo(user = user, rating = rating)
+                val badgesResponse = usersRepository.getUserBadges(userId).getOrNull()
+                // Use API order: first earned badge is considered most important.
+                val primaryBadgeKey = badgesResponse?.badges
+                    ?.firstOrNull { it.earned }
+                    ?.key
+                map[userId] = CreatorInfo(user = user, rating = rating, primaryBadgeKey = primaryBadgeKey)
             }
             _state.update { it.copy(creatorInfo = it.creatorInfo + map) }
         }

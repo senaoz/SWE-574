@@ -66,6 +66,7 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
     implementation("org.osmdroid:osmdroid-android:6.1.18")
     implementation("io.coil-kt:coil-compose:2.5.0")
+    implementation("io.coil-kt:coil-svg:2.5.0")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

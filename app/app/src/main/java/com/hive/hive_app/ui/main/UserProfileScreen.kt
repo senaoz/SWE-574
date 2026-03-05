@@ -66,6 +66,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import androidx.compose.ui.platform.LocalContext
 import com.hive.hive_app.data.api.dto.BadgesResponse
 import com.hive.hive_app.data.api.dto.SocialLinks
 import com.hive.hive_app.data.api.dto.UserResponse
@@ -162,13 +163,15 @@ private fun UserProfileHeaderCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(12.dp)
     ) {
+        val context = LocalContext.current
         Column(
             modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (user.profilePicture?.isNotBlank() == true) {
+                val context = LocalContext.current
                 AsyncImage(
-                    model = user.profilePicture,
+                    model = buildImageRequest(context, user.profilePicture),
                     contentDescription = "Profile photo",
                     modifier = Modifier
                         .size(96.dp)
