@@ -1,5 +1,6 @@
 import { Avatar, Text, Flex, Tooltip } from "@radix-ui/themes";
 import { User } from "@/types";
+import { getImageUrl } from "@/services/api";
 import { useNavigate } from "react-router-dom";
 
 interface ParticipantAvatarsProps {
@@ -22,14 +23,19 @@ export function ParticipantAvatars({
           key={participant._id}
           content={`${participant.full_name || participant.username}`}
         >
-          <Avatar
-            onClick={() => {
-              navigate(`/profile/${participant._id}`);
-            }}
-            fallback={participant.full_name?.[0] || participant.username[0]}
-            size="3"
-            className="cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
-          />
+          <button
+            type="button"
+            onClick={() => navigate(`/user/${participant._id}`)}
+            className="cursor-pointer rounded-full p-0 border-0 bg-transparent hover:opacity-90 transition-all"
+            aria-label={`View ${participant.full_name || participant.username}`}
+          >
+            <Avatar
+              src={getImageUrl(participant.profile_picture) ?? undefined}
+              fallback={participant.full_name?.[0] || participant.username[0]}
+              size="3"
+              className="transition-all"
+            />
+          </button>
         </Tooltip>
       ))}
 
@@ -38,7 +44,7 @@ export function ParticipantAvatars({
           <Avatar
             size="3"
             fallback="+"
-            className="cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all bg-gray-100"
+            className="cursor-pointer transition-all bg-gray-100"
           >
             <Text size="2" weight="bold" color="gray">
               +{remainingCount}

@@ -9,12 +9,13 @@ import {
   TextArea,
 } from "@radix-ui/themes";
 import { JoinRequest } from "@/types";
-import { joinRequestsApi } from "@/services/api";
+import { getImageUrl, joinRequestsApi } from "@/services/api";
 import {
   CheckCircledIcon,
   CrossCircledIcon,
   ClockIcon,
 } from "@radix-ui/react-icons";
+import { useNavigate } from "react-router-dom";
 
 interface ApplicantsListProps {
   serviceId: string;
@@ -34,7 +35,7 @@ export function ApplicantsList({
   const [adminMessage, setAdminMessage] = useState<{ [key: string]: string }>(
     {},
   );
-
+  const navigate = useNavigate();
   useEffect(() => {
     fetchRequests();
   }, [serviceId]);
@@ -212,12 +213,20 @@ export function ApplicantsList({
                   {/* User info */}
                   <Flex align="center" gap="3">
                     <Avatar
+                      onClick={() => {
+                        if (request.user?.id)
+                          navigate(`/user/${request.user.id}`);
+                      }}
+                      src={
+                        getImageUrl(request.user?.profile_picture) ?? undefined
+                      }
                       fallback={
                         request.user?.full_name?.[0] ||
                         request.user?.username?.[0] ||
                         "?"
                       }
                       size="3"
+                      className="cursor-pointer"
                     />
                     <div className="flex-1 flex flex-col">
                       <Text size="3" weight="bold">
@@ -332,12 +341,20 @@ export function ApplicantsList({
                   {/* User info */}
                   <Flex align="center" gap="3">
                     <Avatar
+                      onClick={() => {
+                        if (request.user?.id)
+                          navigate(`/user/${request.user.id}`);
+                      }}
+                      src={
+                        getImageUrl(request.user?.profile_picture) ?? undefined
+                      }
                       fallback={
                         request.user?.full_name?.[0] ||
                         request.user?.username?.[0] ||
                         "?"
                       }
                       size="3"
+                      className="cursor-pointer"
                     />
                     <div className="flex-1 flex flex-col">
                       <Text size="3" weight="bold">

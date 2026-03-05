@@ -130,11 +130,11 @@ p {
 }
 
 .hover-card-selected.offer {
-    @apply border-orange-500;
+    @apply border-orange-500 !important;
 }
 
 .hover-card-selected.need {
-    @apply border-blue-500;
+    @apply border-blue-500 !important;
 }
 
 .rounded-md {
