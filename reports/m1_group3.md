@@ -4,13 +4,13 @@
 
 ---
 
-- [Software Requirements Specification](https://github.com/senaoz/SWE-574/wiki/SRS)
+- [Software Requirements Specification (Wiki Page)](https://github.com/senaoz/SWE-574/wiki/SRS)
 - [Software Design (UML Diagrams)](#software-design-uml-diagrams)
-- [Scenarios and Mockups](https://github.com/senaoz/SWE-574/wiki/Scenarios-&-Mockups)
+- [Scenarios and Mockups (Wiki Page)](https://github.com/senaoz/SWE-574/wiki/Scenarios-&-Mockups)
 - [Project Plan](#project-plan)
 - [Communication Plan](#communication-plan)
 - [Responsibility Assignment Matrix (RACI)](#responsibility-assignment-matrix-raci)
-- [Weekly reports and any additional meeting notes](https://github.com/senaoz/SWE-574/wiki/Meeting-Notes)
+- [Weekly reports and any additional meeting notes (Wiki Page)](https://github.com/senaoz/SWE-574/wiki/Meeting-Notes)
 
 ---
 
