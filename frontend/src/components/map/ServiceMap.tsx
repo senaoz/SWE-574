@@ -499,7 +499,6 @@ function ServicePopupContent({
       <h3 className="font-semibold text-sm mb-1 line-clamp-2">
         {service.title}
       </h3>
-      <p className="text-xs line-clamp-3">{service.description}</p>
       <div className="flex items-center gap-2 w-full">
         <Button
           variant="soft"

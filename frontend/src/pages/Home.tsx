@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { ServiceMap } from "@/components/map/ServiceMap";
 import { useState, useEffect } from "react";
 import { Service } from "@/types";
+import ReactMarkdown from "react-markdown";
 
 export function Home() {
   const navigate = useNavigate();
@@ -251,12 +252,31 @@ export function Home() {
                   >
                     <div className="flex flex-col gap-2">
                       <Text className="font-medium">{service.title}</Text>
-                      <Text
-                        size="2"
-                        className="line-clamp-2 text-ellipsis overflow-hidden"
-                      >
-                        {service.description}
-                      </Text>
+                      <div className="line-clamp-2 text-ellipsis overflow-hidden text-xs prose prose-sm max-w-none [&_p]:my-0 [&_p]:inline">
+                        <ReactMarkdown
+                          components={{
+                            p: ({ node, ...props }) => <span {...props} />,
+                            a: ({ node, ...props }) => (
+                              <a
+                                {...props}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              />
+                            ),
+                            h1: ({ node, ...props }) => (
+                              <h1 className="text-base font-bold" {...props} />
+                            ),
+                            h2: ({ node, ...props }) => (
+                              <h2 className="text-sm font-bold" {...props} />
+                            ),
+                            h3: ({ node, ...props }) => (
+                              <h3 className="text-xs font-bold" {...props} />
+                            ),
+                          }}
+                        >
+                          {service.description}
+                        </ReactMarkdown>
+                      </div>
                     </div>
                     <Badge color="green" variant="soft">
                       Offer
@@ -283,12 +303,31 @@ export function Home() {
                   >
                     <div className="flex flex-col gap-2">
                       <Text className="font-medium ">{service.title}</Text>
-                      <Text
-                        size="2"
-                        className="line-clamp-2 text-ellipsis overflow-hidden"
-                      >
-                        {service.description}
-                      </Text>
+                      <div className="line-clamp-2 text-ellipsis overflow-hidden text-sm prose prose-sm max-w-none [&_p]:my-0 [&_p]:inline">
+                        <ReactMarkdown
+                          components={{
+                            p: ({ node, ...props }) => <span {...props} />,
+                            a: ({ node, ...props }) => (
+                              <a
+                                {...props}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              />
+                            ),
+                            h1: ({ node, ...props }) => (
+                              <h1 className="text-base font-bold" {...props} />
+                            ),
+                            h2: ({ node, ...props }) => (
+                              <h2 className="text-sm font-bold" {...props} />
+                            ),
+                            h3: ({ node, ...props }) => (
+                              <h3 className="text-xs font-bold" {...props} />
+                            ),
+                          }}
+                        >
+                          {service.description}
+                        </ReactMarkdown>
+                      </div>
                     </div>
                     <Badge color="blue" variant="soft">
                       Need

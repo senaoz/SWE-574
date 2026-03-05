@@ -85,7 +85,7 @@ export function MyServices({
       transactions: 0,
       saved: savedServicesData?.services?.length ?? 0,
       services: services?.length ?? 0,
-      timebank: timebankData?.balance ?? 0,
+      timebank: timebankData?.transactions?.length ?? 0,
       applications: applicationServices.length,
     });
   }, [
@@ -95,7 +95,7 @@ export function MyServices({
     savedServicesData?.services?.length,
     services?.length,
     applicationServices.length,
-    timebankData?.balance,
+    timebankData?.transactions?.length,
   ]);
 
   const fetchTimebankData = async () => {
@@ -424,8 +424,7 @@ export function MyServices({
     } catch (error: any) {
       console.error("Error confirming transaction:", error);
       alert(
-        error.response?.data?.detail ||
-          "Failed to confirm. Please try again.",
+        error.response?.data?.detail || "Failed to confirm. Please try again.",
       );
     }
   };
@@ -438,9 +437,7 @@ export function MyServices({
     <div>
       <ConfirmDialog
         open={confirmState.open}
-        onOpenChange={(open) =>
-          setConfirmState((prev) => ({ ...prev, open }))
-        }
+        onOpenChange={(open) => setConfirmState((prev) => ({ ...prev, open }))}
         title={confirmState.title}
         description={confirmState.description}
         variant={confirmState.variant}
@@ -477,7 +474,9 @@ export function MyServices({
               serviceTransactions={serviceTransactions}
               currentUserId={currentUserId}
               onServiceClick={handleServiceClick}
-              onConfirmTransactionCompletion={handleConfirmTransactionCompletion}
+              onConfirmTransactionCompletion={
+                handleConfirmTransactionCompletion
+              }
               formatDate={formatDate}
             />
           )}
@@ -528,7 +527,9 @@ export function MyServices({
               serviceTransactions={serviceTransactions}
               currentUserId={currentUserId}
               onServiceClick={handleServiceClick}
-              onConfirmTransactionCompletion={handleConfirmTransactionCompletion}
+              onConfirmTransactionCompletion={
+                handleConfirmTransactionCompletion
+              }
               formatDate={formatDate}
             />
           </Tabs.Content>

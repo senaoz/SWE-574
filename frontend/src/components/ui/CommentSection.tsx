@@ -8,7 +8,7 @@ import {
   TextArea,
   Badge,
 } from "@radix-ui/themes";
-import { Comment, Service, User } from "@/types";
+import { Comment, Service } from "@/types";
 import { ChatBubbleIcon, PaperPlaneIcon } from "@radix-ui/react-icons";
 import { commentsApi, getImageUrl, servicesApi } from "@/services/api";
 import { useNavigate } from "react-router-dom";
@@ -140,15 +140,20 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
           </Text>
         ) : (
           comments.map((comment) => {
-            const user = comment.user as unknown as User;
+            const user = comment.user;
+            const commentUserId = String(comment.user_id ?? "");
+            const isOwner =
+              service && String(service.user_id ?? "") === commentUserId;
             const isParticipant =
               service &&
-              (service.user_id === comment.user_id ||
-                service.matched_user_ids?.includes(comment.user_id));
+              !isOwner &&
+              service.matched_user_ids?.some(
+                (id) => String(id ?? "") === commentUserId,
+              );
             return (
               <div key={comment._id} className="flex gap-3">
                 <Avatar
-                  src={getImageUrl(user?.profile_picture as string | undefined)}
+                  src={getImageUrl(user?.profile_picture)}
                   fallback={user?.full_name?.[0] || user?.username?.[0] || "?"}
                   size="3"
                   onClick={() => {
@@ -161,6 +166,11 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
                     <Text size="2" weight="bold">
                       {user?.full_name || user?.username || "Unknown User"}
                     </Text>
+                    {isOwner && (
+                      <Badge color="amber" size="1">
+                        Owner
+                      </Badge>
+                    )}
                     {isParticipant && (
                       <Badge color="blue" size="1">
                         Participant

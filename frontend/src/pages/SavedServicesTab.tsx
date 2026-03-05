@@ -1,12 +1,9 @@
 import { Card, Text, Flex, Badge, Button } from "@radix-ui/themes";
 import { Service } from "@/types";
 import { useNavigate } from "react-router-dom";
+import ReactMarkdown from "react-markdown";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import {
-  ClockIcon,
-  HeartFilledIcon,
-  Cross2Icon,
-} from "@radix-ui/react-icons";
+import { ClockIcon, HeartFilledIcon, Cross2Icon } from "@radix-ui/react-icons";
 import { useState } from "react";
 
 interface SavedServicesTabProps {
@@ -14,7 +11,10 @@ interface SavedServicesTabProps {
   onUnsave: (serviceId: string) => Promise<void>;
 }
 
-export function SavedServicesTab({ services, onUnsave }: SavedServicesTabProps) {
+export function SavedServicesTab({
+  services,
+  onUnsave,
+}: SavedServicesTabProps) {
   const navigate = useNavigate();
   const [removingId, setRemovingId] = useState<string | null>(null);
 
@@ -37,7 +37,8 @@ export function SavedServicesTab({ services, onUnsave }: SavedServicesTabProps) 
             You haven't saved any services yet.
           </Text>
           <Text size="2" color="gray" className="text-center">
-            Browse offers and needs, then click "Save" to bookmark them for later.
+            Browse offers and needs, then click "Save" to bookmark them for
+            later.
           </Text>
           <Button
             variant="soft"
@@ -87,9 +88,18 @@ export function SavedServicesTab({ services, onUnsave }: SavedServicesTabProps) 
               {service.title}
             </Text>
 
-            <Text size="2" color="gray" className="line-clamp-2">
-              {service.description}
-            </Text>
+            <div className="line-clamp-2 text-ellipsis overflow-hidden text-sm opacity-80 prose prose-sm max-w-none [&_p]:my-0 [&_p]:inline">
+              <ReactMarkdown
+                components={{
+                  p: ({ node, ...props }) => <span {...props} />,
+                  a: ({ node, ...props }) => (
+                    <a {...props} target="_blank" rel="noopener noreferrer" />
+                  ),
+                }}
+              >
+                {service.description}
+              </ReactMarkdown>
+            </div>
 
             <Flex gap="3" wrap="wrap" className="mt-1">
               <Flex align="center" gap="1">
