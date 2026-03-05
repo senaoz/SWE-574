@@ -13,14 +13,21 @@ class RatingService:
         self.users_collection = db.users
 
     async def create_rating(self, rater_id: str, rating_data: RatingCreate) -> RatingResponse:
+        """
+        Create a rating for a transaction. Allowed only when BOTH provider and
+        requester have confirmed (provider_confirmed and requester_confirmed).
+        We do NOT require transaction.status == "completed" — confirmations are
+        the single source of truth. Frontend should fetch ratings for any
+        transaction where both parties confirmed, not only status=="completed".
+        """
         transaction = await self.transactions_collection.find_one(
             {"_id": ObjectId(rating_data.transaction_id)}
         )
         if not transaction:
             raise ValueError("Transaction not found")
 
-        # if transaction.get("requester_confirmed") != True or transaction.get("provider_confirmed") != True:
-        #     raise ValueError("Can only rate transactions that have been confirmed by both parties")
+        if transaction.get("requester_confirmed") != True or transaction.get("provider_confirmed") != True:
+           raise ValueError("Can only rate transactions that have been confirmed by both parties")
 
         provider_id = str(transaction["provider_id"])
         requester_id = str(transaction["requester_id"])

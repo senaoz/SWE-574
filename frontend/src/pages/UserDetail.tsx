@@ -35,7 +35,6 @@ import {
 
 export function UserDetail() {
   const { userId } = useParams<{ userId: string }>();
-  console.log("userId", userId);
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [services, setServices] = useState<Service[]>([]);
@@ -53,7 +52,6 @@ export function UserDetail() {
           page: 1,
           limit: 50,
         });
-        console.log("servicesResponse", servicesResponse);
         setServices(servicesResponse.data.services);
       } catch (error) {
         console.error("Error fetching user data:", error);

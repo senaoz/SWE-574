@@ -92,7 +92,6 @@ export function Dashboard() {
     try {
       setLoading(true);
       const response = await servicesApi.getServices();
-      console.log(response.data);
       setServices(response.data.services || []);
       setFilteredServices(response.data.services || []);
     } catch (error) {

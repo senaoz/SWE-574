@@ -228,11 +228,6 @@ export function MyServices({
         }
       }
       setServiceTransactions(serviceTransactionsMap);
-
-      console.log(
-        servicesResponse.data.services,
-        requestsResponse.data.requests,
-      );
     } catch (error) {
       console.error("Error fetching data:", error);
       if (

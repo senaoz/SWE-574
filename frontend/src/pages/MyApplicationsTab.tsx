@@ -95,19 +95,33 @@ export function MyApplicationsTab({
     score: number,
     comment: string,
   ) => {
-    setRatingLoading(transactionId);
+    const id = String(transactionId);
+    setRatingLoading(id);
     try {
       await ratingsApi.createRating({
-        transaction_id: transactionId,
+        transaction_id: id,
         rated_user_id: ratedUserId,
         score,
         comment: comment || undefined,
       });
-      const res = await ratingsApi.getTransactionRatings(transactionId);
-      setTransactionRatings((prev) => ({ ...prev, [transactionId]: res.data }));
+      const res = await ratingsApi.getTransactionRatings(id);
+      setTransactionRatings((prev) => ({ ...prev, [id]: res.data }));
     } catch (error: unknown) {
       const err = error as { response?: { data?: { detail?: string } } };
-      alert(err.response?.data?.detail || "Failed to submit rating");
+      const message = err.response?.data?.detail ?? "Failed to submit rating";
+      const alreadyRated =
+        typeof message === "string" &&
+        message.toLowerCase().includes("already rated");
+      if (alreadyRated) {
+        try {
+          const res = await ratingsApi.getTransactionRatings(id);
+          setTransactionRatings((prev) => ({ ...prev, [id]: res.data }));
+        } catch {
+          // ignore refetch error
+        }
+      } else {
+        alert(message);
+      }
     } finally {
       setRatingLoading(null);
     }
@@ -311,21 +325,47 @@ export function MyApplicationsTab({
                                           </Text>
                                         </Flex>
                                       )}
-                                      {/* Rating section for completed services */}
+                                      {/* Rating section: only when both parties have confirmed */}
                                       {isReceiver &&
                                         currentUserId &&
                                         (() => {
                                           const transactions =
                                             serviceTransactions[service._id] ??
                                             [];
-                                          console.log({ transactions });
                                           const myTransaction =
                                             transactions.find(
                                               (t) =>
                                                 t.requester_confirmed &&
+                                                t.provider_confirmed &&
                                                 String(t.requester_id) ===
                                                   String(currentUserId),
                                             );
+                                          const myTransactionAny =
+                                            transactions.find(
+                                              (t) =>
+                                                String(t.requester_id) ===
+                                                String(currentUserId),
+                                            );
+                                          const cannotRateYet =
+                                            myTransactionAny &&
+                                            !(
+                                              myTransactionAny.requester_confirmed &&
+                                              myTransactionAny.provider_confirmed
+                                            );
+
+                                          if (cannotRateYet) {
+                                            return (
+                                              <Text
+                                                size="2"
+                                                color="gray"
+                                                className="block mt-1"
+                                              >
+                                                You can rate the provider once
+                                                both parties have confirmed this
+                                                exchange. Check it again later.
+                                              </Text>
+                                            );
+                                          }
                                           if (!myTransaction) return null;
 
                                           const providerId = service.user_id;

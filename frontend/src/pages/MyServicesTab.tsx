@@ -54,19 +54,26 @@ export function MyServicesTab({
   >({});
   const [ratingLoading, setRatingLoading] = useState<string | null>(null);
 
-  // Fetch ratings for completed transactions (from all services)
+  // Fetch ratings for transactions where both parties confirmed (rateable).
+  // Also refetch when transactionRatings is missing a rateable tx (e.g. data arrived after first load).
   useEffect(() => {
     const allTransactions = Object.values(serviceTransactions).flat();
-    const completed = allTransactions.filter((t) => t.status === "completed");
-    completed.forEach(async (t) => {
+    const rateable = allTransactions.filter(
+      (t) => t.provider_confirmed && t.requester_confirmed,
+    );
+    const toFetch = rateable.filter(
+      (t) => transactionRatings[String(t._id)] === undefined,
+    );
+    toFetch.forEach(async (t) => {
       try {
-        const res = await ratingsApi.getTransactionRatings(t._id);
-        setTransactionRatings((prev) => ({ ...prev, [t._id]: res.data }));
+        const id = String(t._id);
+        const res = await ratingsApi.getTransactionRatings(id);
+        setTransactionRatings((prev) => ({ ...prev, [id]: res.data }));
       } catch {
         // ratings not available yet
       }
     });
-  }, [serviceTransactions]);
+  }, [serviceTransactions, transactionRatings]);
 
   const handleRatingSubmit = async (
     transactionId: string,
@@ -74,18 +81,32 @@ export function MyServicesTab({
     score: number,
     comment: string,
   ) => {
-    setRatingLoading(transactionId);
+    const id = String(transactionId);
+    setRatingLoading(id);
     try {
       await ratingsApi.createRating({
-        transaction_id: transactionId,
+        transaction_id: id,
         rated_user_id: ratedUserId,
         score,
         comment: comment || undefined,
       });
-      const res = await ratingsApi.getTransactionRatings(transactionId);
-      setTransactionRatings((prev) => ({ ...prev, [transactionId]: res.data }));
+      const res = await ratingsApi.getTransactionRatings(id);
+      setTransactionRatings((prev) => ({ ...prev, [id]: res.data }));
     } catch (error: any) {
-      alert(error.response?.data?.detail || "Failed to submit rating");
+      const message = error.response?.data?.detail ?? "Failed to submit rating";
+      const alreadyRated =
+        typeof message === "string" &&
+        message.toLowerCase().includes("already rated");
+      if (alreadyRated) {
+        try {
+          const res = await ratingsApi.getTransactionRatings(id);
+          setTransactionRatings((prev) => ({ ...prev, [id]: res.data }));
+        } catch {
+          // ignore refetch error
+        }
+      } else {
+        alert(message);
+      }
     } finally {
       setRatingLoading(null);
     }
@@ -368,13 +389,17 @@ export function MyServicesTab({
                             <div className="space-y-3">
                               {serviceTransactions[service._id].map(
                                 (transaction, index) => {
+                                  const txId = String(transaction._id);
                                   const ratings =
-                                    transactionRatings[transaction._id] || [];
+                                    transactionRatings[txId] || [];
+
                                   const myRating = ratings.find(
                                     (r) =>
-                                      r.rater_id === currentUserId ||
+                                      String(r.rater_id) ===
+                                        String(currentUserId) ||
                                       (r.rater as any)?.id === currentUserId,
                                   );
+
                                   const otherUserId =
                                     transaction.provider_id === currentUserId
                                       ? transaction.requester_id
@@ -384,7 +409,7 @@ export function MyServicesTab({
                                     <Flex
                                       direction="column"
                                       gap="2"
-                                      key={transaction._id}
+                                      key={txId}
                                       className={`${index !== serviceTransactions[service._id].length - 1 && "mb-2 pb-3 border-b border-gray-3"}`}
                                     >
                                       <Flex
@@ -424,6 +449,20 @@ export function MyServicesTab({
                                         </Text>
                                       </Flex>
 
+                                      {!(
+                                        transaction.provider_confirmed &&
+                                        transaction.requester_confirmed
+                                      ) && (
+                                        <Text
+                                          size="1"
+                                          color="gray"
+                                          className="block mt-1"
+                                        >
+                                          You can rate the requester once both
+                                          you and the requester have confirmed
+                                          this exchange.
+                                        </Text>
+                                      )}
                                       {transaction.provider_confirmed &&
                                         transaction.requester_confirmed && (
                                           <>
@@ -444,22 +483,19 @@ export function MyServicesTab({
                                                   </Text>
                                                 )}
                                               </>
-                                            ) : transaction.provider_confirmed ? (
+                                            ) : (
                                               <RatingForm
                                                 onSubmit={(score, comment) =>
                                                   handleRatingSubmit(
-                                                    transaction._id,
+                                                    txId,
                                                     otherUserId,
                                                     score,
                                                     comment,
                                                   )
                                                 }
-                                                loading={
-                                                  ratingLoading ===
-                                                  transaction._id
-                                                }
+                                                loading={ratingLoading === txId}
                                               />
-                                            ) : null}
+                                            )}
                                           </>
                                         )}
                                       {currentUserId &&
@@ -496,6 +532,10 @@ export function MyServicesTab({
                                             size="1"
                                             color="red"
                                             variant="outline"
+                                            disabled={
+                                              transaction.provider_confirmed &&
+                                              transaction.requester_confirmed
+                                            }
                                             onClick={() =>
                                               onCancelTransaction(
                                                 transaction._id,

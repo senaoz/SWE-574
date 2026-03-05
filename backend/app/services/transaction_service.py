@@ -127,7 +127,15 @@ class TransactionService:
                     transaction_doc["provider_confirmed"] = False
                 if transaction_doc.get("requester_confirmed") is None:
                     transaction_doc["requester_confirmed"] = False
-                
+                # Normalize: both confirmed => treat as completed for API consistency
+                if (
+                    transaction_doc.get("provider_confirmed")
+                    and transaction_doc.get("requester_confirmed")
+                    and transaction_doc.get("status") != TransactionStatus.COMPLETED
+                ):
+                    transaction_doc["status"] = TransactionStatus.COMPLETED
+                    if not transaction_doc.get("completed_at"):
+                        transaction_doc["completed_at"] = datetime.utcnow()
                 transactions.append(TransactionResponse(**transaction_doc))
             
             return transactions, total
@@ -177,7 +185,16 @@ class TransactionService:
                     transaction_doc["provider_confirmed"] = False
                 if transaction_doc.get("requester_confirmed") is None:
                     transaction_doc["requester_confirmed"] = False
-                
+                # Normalize: if both parties confirmed, treat as completed for API consistency.
+                # (Rating is allowed by confirmations; frontend should not rely on status alone.)
+                if (
+                    transaction_doc.get("provider_confirmed")
+                    and transaction_doc.get("requester_confirmed")
+                    and transaction_doc.get("status") != TransactionStatus.COMPLETED
+                ):
+                    transaction_doc["status"] = TransactionStatus.COMPLETED
+                    if not transaction_doc.get("completed_at"):
+                        transaction_doc["completed_at"] = datetime.utcnow()
                 transactions.append(TransactionResponse(**transaction_doc))
             
             return transactions, total
@@ -268,7 +285,15 @@ class TransactionService:
                     transaction_doc["provider_confirmed"] = False
                 if transaction_doc.get("requester_confirmed") is None:
                     transaction_doc["requester_confirmed"] = False
-                
+                # Normalize: both confirmed => treat as completed for API consistency
+                if (
+                    transaction_doc.get("provider_confirmed")
+                    and transaction_doc.get("requester_confirmed")
+                    and transaction_doc.get("status") != TransactionStatus.COMPLETED
+                ):
+                    transaction_doc["status"] = TransactionStatus.COMPLETED
+                    if not transaction_doc.get("completed_at"):
+                        transaction_doc["completed_at"] = datetime.utcnow()
                 return TransactionResponse(**transaction_doc)
             return None
         except Exception:
@@ -376,7 +401,15 @@ class TransactionService:
                 updated_transaction["provider_confirmed"] = False
             if updated_transaction.get("requester_confirmed") is None:
                 updated_transaction["requester_confirmed"] = False
-            
+            # Normalize: both confirmed => treat as completed for API consistency
+            if (
+                updated_transaction.get("provider_confirmed")
+                and updated_transaction.get("requester_confirmed")
+                and updated_transaction.get("status") != TransactionStatus.COMPLETED
+            ):
+                updated_transaction["status"] = TransactionStatus.COMPLETED
+                if not updated_transaction.get("completed_at"):
+                    updated_transaction["completed_at"] = datetime.utcnow()
             return TransactionResponse(**updated_transaction)
         except Exception as e:
             raise ValueError(f"Error confirming transaction completion: {str(e)}")
@@ -567,7 +600,15 @@ class TransactionService:
                     transaction_doc["provider_confirmed"] = False
                 if transaction_doc.get("requester_confirmed") is None:
                     transaction_doc["requester_confirmed"] = False
-                
+                # Normalize: both confirmed => treat as completed for API consistency
+                if (
+                    transaction_doc.get("provider_confirmed")
+                    and transaction_doc.get("requester_confirmed")
+                    and transaction_doc.get("status") != TransactionStatus.COMPLETED
+                ):
+                    transaction_doc["status"] = TransactionStatus.COMPLETED
+                    if not transaction_doc.get("completed_at"):
+                        transaction_doc["completed_at"] = datetime.utcnow()
                 transactions.append(TransactionResponse(**transaction_doc))
             
             return transactions, total
