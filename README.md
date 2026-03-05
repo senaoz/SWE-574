@@ -39,10 +39,12 @@ See [`backend/README.md`](backend/README.md) for local development setup and CI/
 
 ## Milestones
 
-- 9 March 2026: Milestone 1
+- 9 March 2026: Milestone 1 - [Milestone 1 Deliverables](https://github.com/senaoz/SWE-574/blob/main/reports/m1_group3.md)
 - 13 April 2026: Milestone 2
 
 ## Wiki
 
+- [Repository Rules](https://github.com/senaoz/SWE-574/wiki/Repository-Rules)
 - [Elicitation Questions](https://github.com/senaoz/SWE-574/wiki/Elicitation-Questions)
+- [SRS](https://github.com/senaoz/SWE-574/wiki/SRS)
 - [Meeting Notes](https://github.com/senaoz/SWE-574/wiki/Meeting-Notes)
