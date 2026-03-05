@@ -333,27 +333,20 @@ class TransactionService:
                 requester_oid = transaction["requester_id"]
                 if isinstance(requester_oid, str) and ObjectId.is_valid(requester_oid):
                     requester_oid = ObjectId(requester_oid)
+                service_doc = await self.services_collection.find_one(
+                    {"_id": ObjectId(transaction["service_id"])}
+                )
+                current_ids = service_doc.get("receiver_confirmed_ids") if service_doc else None
+                if not isinstance(current_ids, list):
+                    current_ids = []
+                if requester_oid not in current_ids:
+                    current_ids.append(requester_oid)
                 await self.services_collection.update_one(
                     {"_id": ObjectId(transaction["service_id"])},
-                    [
-                        {
-                            "$set": {
-                                "receiver_confirmed_ids": {
-                                    "$cond": {
-                                        "if": {
-                                            "$or": [
-                                                {"$eq": ["$receiver_confirmed_ids", None]},
-                                                {"$not": {"$isArray": "$receiver_confirmed_ids"}},
-                                            ]
-                                        },
-                                        "then": [requester_oid],
-                                        "else": {"$setUnion": ["$receiver_confirmed_ids", [requester_oid]]},
-                                    }
-                                },
-                                "updated_at": datetime.utcnow(),
-                            }
-                        }
-                    ],
+                    {"$set": {
+                        "receiver_confirmed_ids": current_ids,
+                        "updated_at": datetime.utcnow(),
+                    }},
                 )
 
             await self.transactions_collection.update_one(
