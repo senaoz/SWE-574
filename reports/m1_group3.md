@@ -1,12 +1,22 @@
-# The Hive Platform
+# Milestone 1: The Hive Platform
 
 > SWE 574 — Boğaziçi University, Spring 2026
 
 ---
 
+- [Software Requirements Specification](https://github.com/senaoz/SWE-574/wiki/SRS)
+- [Software Design (UML Diagrams)](#software-design-uml-diagrams)
+- [Scenarios and Mockups](https://github.com/senaoz/SWE-574/wiki/Scenarios-&-Mockups)
+- [Project Plan](#project-plan)
+- [Communication Plan](#communication-plan)
+- [Responsibility Assignment Matrix (RACI)](#responsibility-assignment-matrix-raci)
+- [Weekly reports and any additional meeting notes](https://github.com/senaoz/SWE-574/wiki/Meeting-Notes)
+
+---
+
 ## Software Design (UML Diagrams)
 
-### Table of Contents
+### Table of Contents for Software Design
 
 1. [Use Case Diagram](#1-use-case-diagram)
 2. [Class Diagram (Domain Model)](#2-class-diagram-domain-model)
@@ -830,3 +840,447 @@ stateDiagram-v2
     completed --> [*] : Credits transferred<br/>& ratings submitted
     cancelled --> [*]
 ```
+
+---
+
+## Project Plan
+
+### 1. Project Overview
+
+**The Hive Platform** is a community-oriented time-bank service exchange platform where users offer and request services, earn and spend time credits, and interact through forums, chat, and events.
+
+| Item              | Detail                                                              |
+|-------------------|---------------------------------------------------------------------|
+| Course            | SWE 574 — Software Development as a Team                           |
+| University        | Boğaziçi University                                                |
+| Semester          | Spring 2026                                                        |
+| Live Application  | https://swe.gnahh5.easypanel.host/                                 |
+| Repository        | https://github.com/senaoz/SWE-574                                 |
+| Backend API Docs  | https://backend-swe.gnahh5.easypanel.host/docs                    |
+
+### 2. Team Members
+
+| #  | Name                  | Github                         |
+|----|-----------------------|--------------------------------|
+| 1  | Sena Öz               |                                |
+| 2  | Yusuf Savaş           |                                |
+| 3  | Ayşe Nur Ünal         |                                |
+| 4  | Kenan Onur Altunbaş   |                                |
+
+### 3. Tech Stack
+
+| Layer          | Technology                                         |
+|----------------|----------------------------------------------------|
+| Frontend       | React 18, TypeScript, Vite, Tailwind CSS, Radix UI |
+| Backend        | Python 3.11, FastAPI, Pydantic v2                  |
+| Database       | MongoDB 7 (Motor async driver)                     |
+| Auth           | JWT (python-jose), bcrypt                          |
+| Maps           | Leaflet, react-leaflet                             |
+| State Mgmt     | Zustand, TanStack React Query                      |
+| Infrastructure | Docker, Nginx, GitHub Actions, Easypanel           |
+| External APIs  | Wikidata (tag search)                              |
+
+### 4. Milestones & Timeline
+
+#### Milestone 1 — 9 March 2026
+
+| Phase | Period | Activities |
+|-------|--------|------------|
+| **Planning & Requirements** | Week 1–2 (Feb 3 – Feb 16) | Elicitation questions, requirements gathering, use case analysis, team role assignment |
+| **Design & Architecture** | Week 3–4 (Feb 17 – Mar 2) | UML diagrams (use case, class, component, sequence, activity, deployment, state), database schema design, API contract definition |
+| **Core Implementation** | Week 3–5 (Feb 17 – Mar 9) | Project scaffolding, Docker setup, CI/CD pipeline, authentication (register/login), user profiles, service CRUD, TimeBank core |
+| **M1 Deliverables** | Mar 9 | Software design document, deployed application, initial feature set, M1 report |
+
+#### Milestone 2 — 13 April 2026
+
+| Phase | Period | Activities |
+|-------|--------|------------|
+| **Feature Expansion** | Week 6–8 (Mar 10 – Mar 30) | Handshake/join-request flow, transaction confirmation, ratings & reviews, chat system, forum (discussions & events), badge system |
+| **Integration & Polish** | Week 9–10 (Mar 31 – Apr 13) | Map integration (services + events), image uploads, admin panel, Wikidata tag search, UI/UX refinements, responsive design |
+| **Testing & QA** | Week 9–10 (Mar 31 – Apr 13) | Unit tests (pytest), integration tests, cross-browser testing, bug fixes |
+| **M2 Deliverables** | Apr 13 | Updated software design, fully deployed application, test reports, M2 report |
+
+#### Post-Milestone 2 (Stretch Goals)
+
+| Item | Description |
+|------|-------------|
+| Mobile (PWA) | Progressive Web App or React Native wrapper |
+| Push Notifications | Forum, events, matches, TimeBank, handshake, chat notifications |
+| Recommendations | Tag-based, trending, location-aware, history-driven recommendations |
+| Onboarding | Guided new-user interest selection, popular/trending content |
+
+### 5. Work Breakdown Structure (WBS)
+
+```
+The Hive Platform
+├── 1. Project Management
+│   ├── 1.1 Requirements elicitation
+│   ├── 1.2 Sprint planning & retrospectives
+│   ├── 1.3 Milestone reports
+│   └── 1.4 Risk management
+│
+├── 2. Design & Architecture
+│   ├── 2.1 UML diagrams
+│   ├── 2.2 Database schema
+│   ├── 2.3 API contract (OpenAPI)
+│   └── 2.4 UI/UX wireframes
+│
+├── 3. Backend Development
+│   ├── 3.1 Auth module (register, login, JWT)
+│   ├── 3.2 User management (profiles, roles, badges)
+│   ├── 3.3 Service module (CRUD, matching, lifecycle)
+│   ├── 3.4 Handshake / join-request flow
+│   ├── 3.5 TimeBank & transactions
+│   ├── 3.6 Chat system
+│   ├── 3.7 Forum (discussions, events, comments)
+│   ├── 3.8 Ratings & reviews
+│   ├── 3.9 Admin & analytics
+│   ├── 3.10 File uploads
+│   └── 3.11 Wikidata integration
+│
+├── 4. Frontend Development
+│   ├── 4.1 Auth pages (register, login)
+│   ├── 4.2 Dashboard & map view
+│   ├── 4.3 Service detail & comments
+│   ├── 4.4 User profiles & settings
+│   ├── 4.5 Forum pages (discussions, events)
+│   ├── 4.6 Chat UI
+│   ├── 4.7 Admin panel
+│   └── 4.8 Responsive design & accessibility
+│
+├── 5. Infrastructure & DevOps
+│   ├── 5.1 Docker containerization
+│   ├── 5.2 CI/CD pipeline (GitHub Actions → Easypanel)
+│   ├── 5.3 Nginx reverse proxy
+│   └── 5.4 Database migrations
+│
+├── 6. Testing & QA
+│   ├── 6.1 Unit tests (backend)
+│   ├── 6.2 Integration tests
+│   ├── 6.3 Frontend testing
+│   └── 6.4 Manual QA & bug triage
+│
+└── 7. Documentation
+    ├── 7.1 README & setup guides
+    ├── 7.2 API documentation
+    ├── 7.3 Software design report
+    └── 7.4 Meeting notes & wiki
+```
+
+### 6. Risks & Mitigations
+
+| # | Risk | Likelihood | Impact | Mitigation |
+|---|------|------------|--------|------------|
+| R1 | Scope creep beyond milestone deadlines | High | High | Strict backlog prioritization; defer stretch goals |
+| R2 | Integration issues between frontend/backend | Medium | High | API contract first; parallel development with mocks |
+| R3 | Team member unavailability | Medium | Medium | Cross-training; shared code ownership; documentation |
+| R4 | Database performance with growing data | Low | Medium | Indexing strategy; pagination; load testing |
+| R5 | Third-party API downtime (Wikidata) | Low | Low | Graceful degradation; cached fallbacks |
+| R6 | Deployment/infrastructure failures | Low | High | Docker reproducibility; rollback strategy; health checks |
+
+### 7. Definition of Done
+
+A feature is considered **done** when:
+
+- [ ] Code is implemented and follows project conventions
+- [ ] Unit/integration tests pass
+- [ ] Code is reviewed by at least one other team member
+- [ ] Feature is deployed to the live environment
+- [ ] API documentation is updated (if applicable)
+- [ ] No critical or high-severity bugs remain
+
+### 8. Tools & Platforms
+
+| Purpose | Tool |
+|---------|------|
+| Version Control | Git / GitHub |
+| Project Tracking | GitHub Issues & Projects |
+| CI/CD | GitHub Actions |
+| Hosting | Easypanel |
+| Documentation | GitHub Wiki, Markdown reports |
+| Communication | See Communication Plan |
+| Design | Mermaid (UML), Figma (optional) |
+
+---
+
+## Communication Plan
+
+### 1. Objectives
+
+- Ensure all team members stay aligned on project goals, progress, and blockers
+- Maintain transparent decision-making and knowledge sharing
+- Facilitate timely resolution of issues and conflicts
+- Keep stakeholders (instructor, TAs) informed through milestone deliverables
+
+### 2. Communication Channels
+
+| Channel | Purpose | Audience | Frequency |
+|---------|---------|----------|-----------|
+| **GitHub Issues** | Feature tracking, bug reports, task assignment | All team members | Continuous |
+| **GitHub Pull Requests** | Code reviews, technical discussions | All team members | Per feature/fix |
+| **GitHub Wiki** | Meeting notes, elicitation questions, knowledge base | All team members + stakeholders | Updated after each meeting |
+| **GitHub Projects** | Sprint board, task status tracking | All team members | Updated daily |
+| **Team Chat (WhatsApp/Discord)** | Quick questions, coordination, informal updates | All team members | As needed (daily) |
+| **Video Calls (Zoom/Google Meet)** | Weekly syncs, sprint planning, retrospectives | All team members | Weekly |
+| **Email** | Formal communication with instructor/TAs | Communication lead → stakeholders | As needed |
+
+### 3. Meeting Schedule
+
+#### 3.1 Weekly Team Sync
+
+| Item | Detail |
+|------|--------|
+| Frequency | Weekly |
+| Duration | 45–60 minutes |
+| Participants | All 4 team members |
+| Format | Video call |
+| Agenda | Progress updates, blockers, upcoming tasks, decisions |
+| Notes | Published to GitHub Wiki within 24 hours |
+
+**Standing Agenda:**
+
+1. **Check-in** (5 min) — Each member's status (what I did, what I'll do, any blockers)
+2. **Demo** (10 min) — Show completed features (if any)
+3. **Discussion** (20 min) — Design decisions, technical issues, requirement clarifications
+4. **Planning** (15 min) — Assign tasks for the coming week, update GitHub Issues
+5. **Action items** (5 min) — Summarize decisions and next steps
+
+#### 3.2 Ad-Hoc Technical Sessions
+
+| Item | Detail |
+|------|--------|
+| Frequency | As needed |
+| Duration | 30 minutes max |
+| Participants | Relevant members (min. 2) |
+| Format | Video call or pair programming |
+| Purpose | Unblock a specific issue, design review, debugging |
+
+#### 3.3 Sprint Planning & Retrospective
+
+| Item | Detail |
+|------|--------|
+| Frequency | Bi-weekly (aligned with sprints) |
+| Duration | 60–90 minutes |
+| Participants | All 4 team members |
+| Format | Video call |
+| Purpose | Review sprint goals, velocity, lessons learned; plan next sprint |
+
+#### 3.4 Milestone Review
+
+| Item | Detail |
+|------|--------|
+| Frequency | Per milestone (Mar 9, Apr 13) |
+| Duration | 90 minutes |
+| Participants | All team members |
+| Format | Video call + shared screen |
+| Purpose | Final review before submission, report preparation, deployment verification |
+
+### 4. Communication Protocols
+
+#### 4.1 Response Time Expectations
+
+| Channel | Expected Response Time |
+|---------|----------------------|
+| Team Chat | Within 4 hours during working days |
+| GitHub Issues/PRs | Within 24 hours |
+| Email | Within 48 hours |
+| Urgent (tagged @urgent) | Within 2 hours |
+
+#### 4.2 Code Review Protocol
+
+1. Every PR must be reviewed by **at least 1** other team member before merging
+2. Reviewer should respond within **24 hours** of assignment
+3. Use GitHub review features: Approve, Request Changes, or Comment
+4. Prefix PR titles with category: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`
+
+#### 4.3 Decision-Making
+
+| Decision Type | Process |
+|---------------|---------|
+| Minor (naming, small refactors) | Individual; inform team via commit message |
+| Medium (API design, new dependency) | Discuss on GitHub Issue or PR; 1 approval needed |
+| Major (architecture, scope change) | Team meeting discussion; majority consensus required |
+| Conflict resolution | Escalate to team members; if unresolved, consult instructor |
+
+#### 4.4 Blocker Escalation
+
+1. Attempt to resolve independently (documentation, Stack Overflow)
+2. Post in team chat with context and what you've tried
+3. If unresolved within 24 hours, create a GitHub Issue labeled `blocker`
+4. Discuss at next sync meeting; if urgent, schedule ad-hoc session
+
+### 5. Documentation Standards
+
+| Document | Location | Owner | Update Frequency |
+|----------|----------|-------|-----------------|
+| Meeting Notes | GitHub Wiki | Kenan | After each meeting |
+| Requirements & Elicitation | GitHub Wiki | All members |  As needed |
+| Software Design (UML) | `reports/m1_group3.md` | All members | Per milestone |
+| API Documentation | Auto-generated (FastAPI `/docs`) | All members | Continuous |
+| README & Setup Guides | `README.md`, `backend/README.md`, `frontend/README.md` | Respective owners | As needed |
+| Project Plan & Reports | `reports/` | All members | Per milestone |
+
+### 6. Status Reporting
+
+#### Weekly Status Update (async via GitHub)
+
+Each team member updates their assigned GitHub Issues by end of week:
+- Move completed items to "Done"
+- Add comments on in-progress items with current status
+- Flag any items at risk of delay
+
+#### Milestone Report
+
+Compiled collaboratively before each deadline:
+- Feature completion status
+- Demo of working application
+- Known issues and technical debt
+- Lessons learned and process improvements
+
+### 7. Conflict Resolution
+
+| Step | Action |
+|------|--------|
+| 1 | Direct conversation between involved parties |
+| 2 | Mediation by a neutral team member |
+| 3 | Team meeting discussion with all members |
+| 4 | Escalation to course instructor (last resort) |
+
+---
+
+## Responsibility Assignment Matrix (RACI)
+
+### RACI Legend
+
+| Code | Role | Description |
+|------|------|-------------|
+| **R** | Responsible | Does the work to complete the task |
+| **A** | Accountable | Ultimately answerable; approves the work (one per task) |
+| **C** | Consulted | Provides input or expertise before/during work |
+| **I** | Informed | Kept up-to-date on progress or decisions |
+
+**Team Members:**
+
+| Abbr. | Name                  |
+|-------|-----------------------|
+| **SO** | Sena Öz              | 
+| **YS** | Yusuf Savaş          | 
+| **AU** | Ayşe Nur Ünal        | 
+| **KA** | Kenan Onur Altunbaş  | 
+
+### 1. Project Management
+
+| Task | SO | YS | AU | KA |
+|------|----|----|----|----|
+| Requirements elicitation & analysis | A/R | C | C | C |
+| Sprint planning & task assignment | A/R | C | C | C |
+| Milestone report preparation | A | R | R | R |
+| Risk management & escalation | A/R | I | I | I |
+| Stakeholder communication (instructor) | A/R | I | I | I |
+| Meeting facilitation & notes | R | R | R | R |
+| GitHub project board maintenance | A/R | C | C | C |
+
+### 2. Design & Architecture
+
+| Task | SO | YS | AU | KA |
+|------|----|----|----|----|
+| System architecture design | A/R | C | C | R |
+| Database schema design | A | R | I | C |
+| API contract definition (OpenAPI) | C | A/R | C | R |
+| UML diagrams (use case, class, sequence) | A/R | R | R | R |
+| UI/UX design & wireframes | C | I | A/R | C |
+| Deployment architecture | A/R | C | I | C |
+
+### 3. Backend Development
+
+| Task | SO | YS | AU | KA |
+|------|----|----|----|----|
+| Auth module (register, login, JWT) | C | A/R | I | R |
+| User management (profiles, roles, badges) | R | A/R | I | C |
+| Service module (CRUD, matching, lifecycle) | C | A/R | I | R |
+| Handshake / join-request flow | I | A/R | I | R |
+| TimeBank & transactions | C | A/R | I | R |
+| Chat system (backend) | I | A/R | I | C |
+| Forum module (discussions, events) | R | C | I | A/R |
+| Ratings & reviews | I | A/R | I | C |
+| Admin & analytics endpoints | R | C | I | A/R |
+| File uploads (images) | I | R | I | A |
+| Wikidata integration | I | R | C | A |
+| Database migrations | C | A/R | I | C |
+
+### 4. Frontend Development
+
+| Task | SO | YS | AU | KA |
+|------|----|----|----|----|
+| Auth pages (register, login) | C | I | A/R | C |
+| Dashboard & map view (Leaflet) | R | I | A/R | C |
+| Service detail & comments | C | I | A/R | C |
+| User profile & settings pages | C | I | A/R | R |
+| Forum pages (discussions, events) | C | I | R | A/R |
+| Chat UI | I | I | A/R | C |
+| Admin panel | R | I | A/R | C |
+| Landing / home page | C | I | A/R | C |
+| Responsive design & accessibility | C | I | A/R | R |
+| State management (Zustand, React Query) | C | I | A/R | C |
+
+### 5. Infrastructure & DevOps
+
+| Task | SO | YS | AU | KA |
+|------|----|----|----|----|
+| Docker containerization | A/R | C | I | C |
+| CI/CD pipeline (GitHub Actions) | A/R | C | I | C |
+| Nginx configuration | A/R | I | I | C |
+| Easypanel deployment & monitoring | A/R | I | I | C |
+| Environment configuration (.env) | A/R | C | I | C |
+
+### 6. Testing & Quality Assurance
+
+| Task | SO | YS | AU | KA |
+|------|----|----|----|----|
+| Backend unit tests (pytest) | C | A/R | I | R |
+| Backend integration tests | C | A/R | I | R |
+| Frontend testing | C | I | A/R | C |
+| Manual QA & bug triage | R | R | R | R |
+| Code review (PR reviews) | R | R | R | R |
+| Performance & load testing | C | R | I | A |
+
+### 7. Documentation
+
+| Task | SO | YS | AU | KA |
+|------|----|----|----|----|
+| Main README | A/R | C | C | C |
+| Backend README & API docs | C | A/R | I | C |
+| Frontend README | C | I | A/R | C |
+| Software design document | A | R | R | R |
+| GitHub Wiki (meeting notes, elicitation) | R | R | R | R |
+| Project plan & communication plan | A/R | C | C | C |
+
+### 8. Feature Ownership Summary
+
+| Feature Area | Primary Owner | Secondary Owner |
+|-------------|---------------|-----------------|
+| Authentication & Authorization | YS | KA |
+| User Profiles & Badges | YS | SO |
+| Service Management | YS | KA |
+| TimeBank & Transactions | YS | KA |
+| Handshake Flow | YS | KA |
+| Chat System | YS | AU |
+| Forum & Events | KA | SO |
+| Ratings & Reviews | YS | KA |
+| Admin Panel | KA | SO |
+| Map Integration | AU | SO |
+| File Uploads | YS | KA |
+| Wikidata Tags | YS | KA |
+| UI/UX & Design | AU | KA |
+| Infrastructure & CI/CD | SO | KA |
+| Testing (Backend) | YS | KA |
+| Testing (Frontend) | AU | KA |
+| Documentation | SO | All |
+
+### Notes
+
+- **Accountability** (A) means the person is the final decision-maker and approver for that task. There should be exactly one accountable person per task.
+- **Responsibility** (R) means the person performs the work. Multiple people can be responsible.
+- Roles are guidelines — in a small team of 4, flexibility and cross-functional collaboration are essential.
+- If a team member is unavailable, their accountable tasks should be temporarily reassigned by the All members.
+- This matrix should be reviewed and updated at each milestone retrospective.
