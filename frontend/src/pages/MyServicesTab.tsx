@@ -132,8 +132,8 @@ export function MyServicesTab({
 
   // Define status order for display
   const statusOrder = [
-    "active",
     "in_progress",
+    "active",
     "completed",
     "cancelled",
     "expired",
