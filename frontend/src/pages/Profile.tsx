@@ -47,6 +47,7 @@ import { RatingStars } from "@/components/ui/RatingStars";
 import { InterestSelector } from "@/components/ui/InterestSelector";
 import { InterestChip } from "@/components/ui/InterestChip";
 import { MapLocationPicker } from "@/components/ui/MapLocationPicker";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { PROFILE_PICTURE_PRESETS } from "@/constants/profilePicturePresets";
 import {
   Linkedin,
@@ -353,7 +354,7 @@ export function Profile() {
     setPasswordLoading(true);
     try {
       await usersApi.changePassword(passwordForm);
-      alert("Password changed successfully");
+      // alert("Password changed successfully");
       setShowPasswordDialog(false);
       setPasswordForm({
         current_password: "",
@@ -371,22 +372,22 @@ export function Profile() {
     }
   };
 
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+
   const handleDeleteAccount = async () => {
     if (!deleteForm.password) {
       alert("Please enter your password to confirm account deletion");
       return;
     }
+    setDeleteConfirmOpen(true);
+  };
 
-    const confirmed = window.confirm(
-      "Are you sure you want to delete your account? This action cannot be undone.",
-    );
-    if (!confirmed) return;
-
+  const handleConfirmDeleteAccount = async () => {
     setDeleteLoading(true);
     try {
       await usersApi.deleteAccount(deleteForm);
-      alert("Account deleted successfully");
-      // Redirect to home page and clear auth
+      // alert("Account deleted successfully");
       localStorage.removeItem("access_token");
       window.location.href = "/";
     } catch (error: any) {
@@ -401,14 +402,12 @@ export function Profile() {
   };
 
   const handleLogout = () => {
-    const confirmed = window.confirm("Are you sure you want to logout?");
-    if (!confirmed) return;
+    setLogoutConfirmOpen(true);
+  };
 
-    // Clear auth token
+  const handleConfirmLogout = () => {
     localStorage.removeItem("access_token");
-    // Redirect to home page
     navigate("/");
-    // Force page reload to clear any cached user data
     window.location.reload();
   };
 
@@ -1405,6 +1404,23 @@ export function Profile() {
         </Dialog.Content>
       </Dialog.Root>
 
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Delete your account?"
+        description="Are you sure you want to delete your account? This action cannot be undone."
+        confirmLabel="Delete account"
+        variant="danger"
+        onConfirm={handleConfirmDeleteAccount}
+      />
+      <ConfirmDialog
+        open={logoutConfirmOpen}
+        onOpenChange={setLogoutConfirmOpen}
+        title="Log out?"
+        description="Are you sure you want to logout?"
+        confirmLabel="Log out"
+        onConfirm={handleConfirmLogout}
+      />
       {/* Rejected Requests Dialog */}
       <Dialog.Root
         open={showRejectedRequestsDialog}

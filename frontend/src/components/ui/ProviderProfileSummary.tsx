@@ -1,7 +1,7 @@
 import { Card, Text, Flex, Avatar, Badge, Button } from "@radix-ui/themes";
 import { BadgeSummary, User } from "@/types";
 import { useNavigate } from "react-router-dom";
-import { usersApi } from "@/services/api";
+import { getImageUrl, usersApi } from "@/services/api";
 import { useState, useEffect } from "react";
 import { CheckIcon, ClockIcon, LocateIcon } from "lucide-react";
 
@@ -39,7 +39,11 @@ export function ProviderProfileSummary({ user }: ProviderProfileSummaryProps) {
       <Flex direction="column" gap="3">
         {/* User info */}
         <Flex align="center" gap="3">
-          <Avatar fallback={user.full_name?.[0] || user.username[0]} size="4" />
+          <Avatar
+            fallback={user.full_name?.[0] || user.username[0]}
+            src={getImageUrl(user.profile_picture)}
+            size="4"
+          />
           <div className="flex-1 flex flex-col">
             <Text size="3" weight="bold">
               {user.full_name || user.username}

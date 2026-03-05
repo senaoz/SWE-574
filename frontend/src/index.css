@@ -31,17 +31,37 @@ p {
     @apply text-base;
 }
 
+.rt-BaseDialogOverlay::before {
+    backdrop-filter: blur(2px);
+}
+
+.rt-BaseDialogContent {
+    background-color: var(--color-panel-solid) !important;
+    border: 1px solid var(--gray-5) !important;
+    border-radius: 1rem !important;
+    box-shadow: var(--shadow-4) !important;
+    max-height: 85vh !important;
+    overflow-y: auto !important;
+}
+
+.rt-BaseDialogContent:focus {
+    outline: none;
+}
+
+/* Legacy Radix Primitives dialog (if used elsewhere) */
 .DialogOverlay {
-    background-color: var(--black-a9);
+    background-color: var(--gray-a9);
     position: fixed;
     inset: 0;
+    backdrop-filter: blur(2px);
     animation: overlayShow 150ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .DialogContent {
-    background-color: var(--gray-1);
-    border-radius: 6px;
-    box-shadow: var(--shadow-6);
+    background-color: var(--color-panel-solid);
+    border: 1px solid var(--gray-5);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-4);
     position: fixed;
     top: 50%;
     left: 50%;
@@ -59,14 +79,14 @@ p {
 
 .DialogTitle {
     margin: 0;
-    font-weight: 500;
-    color: var(--mauve-12);
-    font-size: 17px;
+    font-weight: 600;
+    color: var(--gray-12);
+    font-size: 1.25rem;
 }
 
 .DialogDescription {
     margin: 10px 0 20px;
-    color: var(--mauve-11);
+    color: var(--gray-11);
     font-size: 15px;
     line-height: 1.5;
 }
@@ -75,7 +95,6 @@ p {
     from {
         opacity: 0;
     }
-
     to {
         opacity: 1;
     }
@@ -86,7 +105,6 @@ p {
         opacity: 0;
         transform: translate(-50%, -48%) scale(0.96);
     }
-
     to {
         opacity: 1;
         transform: translate(-50%, -50%) scale(1);
@@ -102,11 +120,6 @@ p {
     background-color: var(--color-background) !important;
 }
 
-.rt-BaseDialogContent {
-    max-height: 85vh !important;
-    overflow-y: auto !important;
-}
-
 .border {
     border-color: var(--gray-5);
 }
@@ -117,11 +130,11 @@ p {
 }
 
 .hover-card-selected.offer {
-    @apply border-orange-500;
+    @apply border-orange-500 !important;
 }
 
 .hover-card-selected.need {
-    @apply border-blue-500;
+    @apply border-blue-500 !important;
 }
 
 .rounded-md {
@@ -225,4 +238,8 @@ p {
     stroke: var(--lime-8);
     stroke-width: 2px;
     fill: var(--lime-3);
+}
+
+.border-none-card.rt-Card:where(.rt-variant-surface)::after {
+    box-shadow: none !important;
 }

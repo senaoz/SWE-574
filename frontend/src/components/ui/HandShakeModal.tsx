@@ -5,7 +5,6 @@ import {
   Dialog,
   Flex,
   Text,
-  Card,
   TextArea,
   Callout,
 } from "@radix-ui/themes";
@@ -22,6 +21,7 @@ interface HandShakeModalProps {
   /** When true, user cannot give help (disable "Offer to Help" on needs) */
   requiresNeedCreation?: boolean;
   isOwner?: boolean;
+  disabled?: boolean;
 }
 
 export function HandShakeModal({
@@ -29,6 +29,7 @@ export function HandShakeModal({
   onJoin,
   requiresNeedCreation = false,
   isOwner = false,
+  disabled = false,
 }: HandShakeModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -124,19 +125,25 @@ export function HandShakeModal({
         <Button
           size="3"
           disabled={
-            (service.service_type === "need" && requiresNeedCreation) || isOwner
+            disabled ||
+            (service.service_type === "need" && requiresNeedCreation) ||
+            isOwner
           }
           title={
             (service.service_type === "need" && requiresNeedCreation) || isOwner
               ? "You are the owner of this service"
               : service.service_type === "need" && requiresNeedCreation
                 ? "Create a Need before you can give help"
-                : undefined
+                : disabled
+                  ? "This service is full"
+                  : undefined
           }
         >
-          {service.service_type === "offer"
-            ? "Request Service"
-            : "Offer to Help"}
+          {disabled
+            ? "Service is full"
+            : service.service_type === "offer"
+              ? "Request Service"
+              : "Offer to Help"}
         </Button>
       </Dialog.Trigger>
       <Dialog.Content className="max-w-md mx-auto" aria-describedby={undefined}>
@@ -197,7 +204,6 @@ export function HandShakeModal({
               <Text size="4" weight="bold" className="flex-1">
                 {service.title}
               </Text>
-              <Text size="2">{service.description}</Text>
 
               <Flex direction="column" gap="2">
                 <Flex justify="between">

@@ -10,7 +10,8 @@ import {
 } from "@radix-ui/themes";
 import { Comment, Service } from "@/types";
 import { ChatBubbleIcon, PaperPlaneIcon } from "@radix-ui/react-icons";
-import { commentsApi, servicesApi } from "@/services/api";
+import { commentsApi, getImageUrl, servicesApi } from "@/services/api";
+import { useNavigate } from "react-router-dom";
 
 interface CommentSectionProps {
   serviceId: string;
@@ -22,7 +23,7 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [service, setService] = useState<Service | null>(null);
-
+  const navigate = useNavigate();
   // Fetch comments and service on component mount
   useEffect(() => {
     fetchComments();
@@ -140,21 +141,36 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
         ) : (
           comments.map((comment) => {
             const user = comment.user;
+            const commentUserId = String(comment.user_id ?? "");
+            const isOwner =
+              service && String(service.user_id ?? "") === commentUserId;
             const isParticipant =
               service &&
-              (service.user_id === comment.user_id ||
-                service.matched_user_ids?.includes(comment.user_id));
+              !isOwner &&
+              service.matched_user_ids?.some(
+                (id) => String(id ?? "") === commentUserId,
+              );
             return (
               <div key={comment._id} className="flex gap-3">
                 <Avatar
+                  src={getImageUrl(user?.profile_picture)}
                   fallback={user?.full_name?.[0] || user?.username?.[0] || "?"}
                   size="3"
+                  onClick={() => {
+                    navigate(`/profile/${user?._id}`);
+                  }}
+                  className="cursor-pointer"
                 />
                 <div className="flex-1">
                   <Flex align="center" gap="2" className="mb-1">
                     <Text size="2" weight="bold">
                       {user?.full_name || user?.username || "Unknown User"}
                     </Text>
+                    {isOwner && (
+                      <Badge color="amber" size="1">
+                        Owner
+                      </Badge>
+                    )}
                     {isParticipant && (
                       <Badge color="blue" size="1">
                         Participant

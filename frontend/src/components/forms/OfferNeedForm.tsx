@@ -27,6 +27,37 @@ interface OfferNeedFormProps {
   onClose?: () => void;
 }
 
+const placeholderTexts: Record<
+  "offer" | "need",
+  {
+    title: string;
+    description: string;
+    tags: string;
+    open_availability: string;
+    estimated_duration: string;
+    max_participants: string;
+  }
+> = {
+  offer: {
+    title: "Italian cooking lessons at home",
+    description:
+      "I can teach 2 hours of Italian cooking at home per week. Ingredients from you. You can use **bold** and *italic*.",
+    tags: "cooking, gardening, programming, language, math...",
+    open_availability: "Weekday evenings after 6 PM, weekends anytime",
+    estimated_duration: "2",
+    max_participants: "5",
+  },
+  need: {
+    title: "Garden help, pruning the Roses, weeding the garden",
+    description:
+      "I need help with pruning the Roses, weeding the garden, etc. Ingredients from us. You can use **bold** and *italic*.",
+    tags: "cooking, gardening, programming, language, math...",
+    open_availability: "Weekday evenings after 6 PM, weekends anytime",
+    estimated_duration: "2",
+    max_participants: "5",
+  },
+};
+
 export function OfferNeedForm({
   serviceType,
   onSuccess,
@@ -330,7 +361,7 @@ export function OfferNeedForm({
                 <Form.Label className="text-sm font-medium">Title *</Form.Label>
                 <Form.Control asChild>
                   <TextField.Root
-                    placeholder="e.g. Home cooking class, Garden landscaping help"
+                    placeholder={placeholderTexts[serviceType].title}
                     value={formData.title}
                     onChange={(e) => handleInputChange("title", e.target.value)}
                     className={errors.title ? "border-red-500" : ""}
@@ -351,7 +382,7 @@ export function OfferNeedForm({
                   onTagAdd={handleTagAdd}
                   onTagRemove={handleTagRemove}
                   error={errors.tags}
-                  placeholder="e.g. cooking, gardening, programming, language, math..."
+                  placeholder={placeholderTexts[serviceType].tags}
                   maxTags={10}
                 />
               </Form.Field>
@@ -364,7 +395,7 @@ export function OfferNeedForm({
                   Description *
                 </Form.Label>
                 <MarkdownEditor
-                  placeholder="e.g. I can teach 2 hours of Italian cooking at home per week. Ingredients from you. You can use **bold** and *italic*."
+                  placeholder={placeholderTexts[serviceType].description}
                   value={formData.description}
                   onChange={(value) => handleInputChange("description", value)}
                   error={!!errors.description}
@@ -639,7 +670,9 @@ export function OfferNeedForm({
                 </Form.Label>
                 <Form.Control asChild>
                   <TextArea
-                    placeholder="e.g. Weekday evenings after 6 PM, weekends anytime"
+                    placeholder={
+                      placeholderTexts[serviceType].open_availability
+                    }
                     value={formData.open_availability || ""}
                     onChange={(e) =>
                       handleInputChange("open_availability", e.target.value)
@@ -668,7 +701,9 @@ export function OfferNeedForm({
                   <TextField.Root
                     type="number"
                     min="1"
-                    placeholder="e.g. 2"
+                    placeholder={
+                      placeholderTexts[serviceType].estimated_duration
+                    }
                     value={formData.estimated_duration}
                     onChange={(e) =>
                       handleInputChange(
@@ -696,7 +731,7 @@ export function OfferNeedForm({
                   <TextField.Root
                     type="number"
                     min="1"
-                    placeholder="e.g. 5"
+                    placeholder={placeholderTexts[serviceType].max_participants}
                     value={formData.max_participants}
                     onChange={(e) =>
                       handleInputChange(

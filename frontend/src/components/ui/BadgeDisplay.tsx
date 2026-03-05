@@ -66,7 +66,7 @@ function BadgeCard({ badge }: { badge: BadgeType }) {
 
   return (
     <Card
-      className="p-4 transition-all"
+      className="p-4 transition-all border-none-card"
       style={{
         opacity: badge.earned ? 1 : 0.55,
         borderColor: badge.earned ? "var(--lime-8)" : undefined,

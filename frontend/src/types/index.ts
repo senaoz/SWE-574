@@ -260,12 +260,7 @@ export interface Comment {
   content: string;
   created_at: string;
   updated_at: string;
-  user?: {
-    id: string;
-    username: string;
-    full_name?: string;
-    bio?: string;
-  };
+  user?: User;
 }
 
 export interface CommentListResponse {
@@ -294,6 +289,7 @@ export interface JoinRequest {
     username: string;
     full_name?: string;
     bio?: string;
+    profile_picture?: string;
   };
   service?: {
     id: string;
