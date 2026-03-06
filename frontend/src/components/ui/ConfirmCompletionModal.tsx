@@ -23,6 +23,14 @@ const PROVIDER_TAGS = [
   "Patient",
   "Respectful",
   "Creative",
+  "Reliable",
+  "Trustworthy",
+  "Helpful",
+  "Kind",
+  "Communicative",
+  "Detail-Oriented",
+  "Efficient",
+  "Problem Solver",
 ];
 
 const CONSUMER_TAGS = [
@@ -31,6 +39,16 @@ const CONSUMER_TAGS = [
   "Organized",
   "Respectful",
   "Flexible",
+  "Patient",
+  "Responsible",
+  "Reliable",
+  "Trustworthy",
+  "Helpful",
+  "Kind",
+  "Collaborative",
+  "Understanding",
+  "Appreciative",
+  "Easy to Work With",
 ];
 
 function tagToValue(tag: string): string {
@@ -38,9 +56,7 @@ function tagToValue(tag: string): string {
 }
 
 export function tagToLabel(tag: string): string {
-  return tag
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return tag.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export interface ConfirmCompletionRatingData {
@@ -162,7 +178,12 @@ export function ConfirmCompletionModal({
             </Text>
           </label>
 
-          <Flex gap="2" align="start" className="rounded p-2" style={{ backgroundColor: "var(--amber-3)" }}>
+          <Flex
+            gap="2"
+            align="start"
+            className="rounded p-2"
+            style={{ backgroundColor: "var(--amber-3)" }}
+          >
             <AlertTriangle
               size={16}
               className="shrink-0 mt-0.5"
@@ -189,8 +210,7 @@ export function ConfirmCompletionModal({
 
           <div>
             <Text size="2" weight="bold" className="block mb-2">
-              Feedback{" "}
-              <span style={{ color: "var(--red-9)" }}>*</span>
+              Feedback <span style={{ color: "var(--red-9)" }}>*</span>
             </Text>
             <Flex wrap="wrap" gap="2">
               {availableTags.map((tag) => (
@@ -200,7 +220,7 @@ export function ConfirmCompletionModal({
                   selected={selectedTags.includes(tagToValue(tag))}
                   onClick={() => toggleTag(tag)}
                   size="sm"
-                  showIcon={false}
+                  showIcon
                 />
               ))}
             </Flex>

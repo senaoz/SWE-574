@@ -20,8 +20,25 @@ import {
   Leaf,
   Trophy,
   HeartHandshake,
+  Clock,
+  Briefcase,
+  Smile,
+  CheckCircle,
+  Hammer,
+  Brain,
+  RefreshCcw,
+  Heart,
+  Lightbulb,
+  ShieldCheck,
+  MessageCircle,
+  Star,
+  Zap,
+  Users,
+  ClipboardCheck,
 } from "lucide-react";
 import { Flex, Text } from "@radix-ui/themes";
+
+export const TAG_ICONS: Record<string, LucideIcon> = {};
 
 const INTEREST_ICONS: Record<string, LucideIcon> = {
   Technology: Cpu,
@@ -44,6 +61,32 @@ const INTEREST_ICONS: Record<string, LucideIcon> = {
   Environment: Leaf,
   Sports: Trophy,
   Volunteering: HeartHandshake,
+  Punctual: Clock,
+  Professional: Briefcase,
+  Friendly: Smile,
+  Thorough: CheckCircle,
+  Hardworking: Hammer,
+  Knowledgeable: Brain,
+  Flexible: RefreshCcw,
+  Patient: Heart,
+  Respectful: HeartHandshake,
+  Creative: Lightbulb,
+  Reliable: ShieldCheck,
+  Trustworthy: ShieldCheck,
+  Helpful: Heart,
+  Kind: Heart,
+  Communicative: MessageCircle,
+  "Detail-Oriented": ClipboardCheck,
+  Efficient: Zap,
+  "Problem Solver": Sparkles,
+  "Clear Communicator": MessageCircle,
+  Prepared: ClipboardCheck,
+  Organized: ClipboardCheck,
+  Responsible: ShieldCheck,
+  Collaborative: Users,
+  Understanding: Heart,
+  Appreciative: Star,
+  "Easy to Work With": Users,
 };
 
 /** Radix theme color for each interest */
@@ -70,10 +113,34 @@ const INTEREST_COLORS: Record<string, string> = {
   Volunteering: "crimson",
 };
 
-const FALLBACK_COLORS = ["blue", "green", "purple", "amber", "teal", "pink", "indigo", "crimson"];
+const FALLBACK_COLORS = [
+  "blue",
+  "green",
+  "grass",
+  "teal",
+  "cyan",
+  "indigo",
+  "violet",
+  "purple",
+  "plum",
+  "pink",
+  "crimson",
+  "red",
+  "ruby",
+  "orange",
+  "amber",
+  "yellow",
+  "lime",
+  "mint",
+  "sky",
+  "iris",
+];
 
 function getInterestColor(interest: string): string {
-  return INTEREST_COLORS[interest] ?? FALLBACK_COLORS[interest.length % FALLBACK_COLORS.length];
+  return (
+    INTEREST_COLORS[interest] ??
+    FALLBACK_COLORS[interest.length % FALLBACK_COLORS.length]
+  );
 }
 
 export function getInterestIcon(interest: string): LucideIcon | null {
