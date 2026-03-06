@@ -11,6 +11,12 @@ import {
 import { Fragment, useEffect, useState } from "react";
 import { JoinRequest, Service, Transaction, Rating } from "@/types";
 import { RatingForm, RatingStars } from "@/components/ui/RatingStars";
+import {
+  ConfirmCompletionModal,
+  tagToLabel,
+  type ConfirmCompletionRatingData,
+} from "@/components/ui/ConfirmCompletionModal";
+import { InterestChip } from "@/components/ui/InterestChip";
 import { ratingsApi, usersApi } from "@/services/api";
 import { CheckCircledIcon } from "@radix-ui/react-icons";
 
@@ -21,7 +27,15 @@ interface MyApplicationsTabProps {
   serviceTransactions: Record<string, Transaction[]>;
   currentUserId: string | null;
   onServiceClick: (id: string) => void;
-  onConfirmTransactionCompletion: (transactionId: string) => Promise<void>;
+  onConfirmTransactionCompletion: (
+    transactionId: string,
+    ratingData?: {
+      ratedUserId: string;
+      score: number;
+      comment?: string;
+      tags: string[];
+    },
+  ) => Promise<void>;
   formatDate: (dateString: string) => string;
 }
 
@@ -39,6 +53,8 @@ export function MyApplicationsTab({
     Record<string, Rating[]>
   >({});
   const [ratingLoading, setRatingLoading] = useState<string | null>(null);
+  const [confirmModalTransaction, setConfirmModalTransaction] =
+    useState<Transaction | null>(null);
   const [providerNames, setProviderNames] = useState<
     Record<string, { username: string; full_name?: string }>
   >({});
@@ -67,18 +83,19 @@ export function MyApplicationsTab({
     });
   }, [requests, services]);
 
-  // Fetch ratings for completed transactions (where we are the requester)
+  // Fetch ratings for transactions where user confirmed or transaction completed.
   useEffect(() => {
     const applicationServiceIds = services.map((s) => s._id);
     applicationServiceIds.forEach((serviceId) => {
       const transactions = serviceTransactions[serviceId] ?? [];
-      const completedAsRequester = transactions.filter(
+      const relevantTransactions = transactions.filter(
         (t) =>
-          t.status === "completed" &&
           currentUserId &&
-          String(t.requester_id) === String(currentUserId),
+          String(t.requester_id) === String(currentUserId) &&
+          (t.status === "completed" || t.requester_confirmed),
       );
-      completedAsRequester.forEach(async (t) => {
+      relevantTransactions.forEach(async (t) => {
+        if (transactionRatings[t._id] !== undefined) return;
         try {
           const res = await ratingsApi.getTransactionRatings(t._id);
           setTransactionRatings((prev) => ({ ...prev, [t._id]: res.data }));
@@ -87,7 +104,7 @@ export function MyApplicationsTab({
         }
       });
     });
-  }, [services, serviceTransactions, currentUserId]);
+  }, [services, serviceTransactions, currentUserId, transactionRatings]);
 
   const handleRatingSubmit = async (
     transactionId: string,
@@ -124,6 +141,29 @@ export function MyApplicationsTab({
       }
     } finally {
       setRatingLoading(null);
+    }
+  };
+
+  const handleConfirmWithRating = async (data: ConfirmCompletionRatingData) => {
+    if (!confirmModalTransaction || !currentUserId) return;
+    const tx = confirmModalTransaction;
+    const otherUserId =
+      String(tx.provider_id) === String(currentUserId)
+        ? tx.requester_id
+        : tx.provider_id;
+
+    await onConfirmTransactionCompletion(tx._id, {
+      ratedUserId: otherUserId,
+      score: data.score,
+      comment: data.comment || undefined,
+      tags: data.tags,
+    });
+
+    try {
+      const res = await ratingsApi.getTransactionRatings(tx._id);
+      setTransactionRatings((prev) => ({ ...prev, [tx._id]: res.data }));
+    } catch {
+      // ignore refetch error
     }
   };
 
@@ -289,7 +329,7 @@ export function MyApplicationsTab({
                                               : "0/0 Confirmed"}
                                         </Badge>
                                       </Flex>
-                                      {/* Receiver confirms their transaction (Confirm I received) */}
+                                      {/* Confirm Completion button */}
                                       {isReceiver &&
                                         myTransaction &&
                                         !myTransaction.requester_confirmed &&
@@ -299,13 +339,13 @@ export function MyApplicationsTab({
                                             size="2"
                                             color="green"
                                             onClick={() =>
-                                              onConfirmTransactionCompletion(
-                                                myTransaction._id,
+                                              setConfirmModalTransaction(
+                                                myTransaction,
                                               )
                                             }
                                           >
                                             <CheckCircledIcon className="w-4 h-4 mr-2" />
-                                            Confirm I received
+                                            Confirm Completion
                                           </Button>
                                         )}
                                       {/* Already confirmed message */}
@@ -325,53 +365,29 @@ export function MyApplicationsTab({
                                           </Text>
                                         </Flex>
                                       )}
-                                      {/* Rating section: only when both parties have confirmed */}
+                                      {/* Rating display / fallback form */}
                                       {isReceiver &&
                                         currentUserId &&
                                         (() => {
                                           const transactions =
                                             serviceTransactions[service._id] ??
                                             [];
-                                          const myTransaction =
-                                            transactions.find(
-                                              (t) =>
-                                                t.requester_confirmed &&
-                                                t.provider_confirmed &&
-                                                String(t.requester_id) ===
-                                                  String(currentUserId),
-                                            );
                                           const myTransactionAny =
                                             transactions.find(
                                               (t) =>
                                                 String(t.requester_id) ===
                                                 String(currentUserId),
                                             );
-                                          const cannotRateYet =
-                                            myTransactionAny &&
-                                            !(
-                                              myTransactionAny.requester_confirmed &&
-                                              myTransactionAny.provider_confirmed
-                                            );
-
-                                          if (cannotRateYet) {
-                                            return (
-                                              <Text
-                                                size="2"
-                                                color="gray"
-                                                className="block mt-1"
-                                              >
-                                                You can rate the provider once
-                                                both parties have confirmed this
-                                                exchange. Check it again later.
-                                              </Text>
-                                            );
-                                          }
-                                          if (!myTransaction) return null;
+                                          if (
+                                            !myTransactionAny ||
+                                            !myTransactionAny.requester_confirmed
+                                          )
+                                            return null;
 
                                           const providerId = service.user_id;
                                           const ratings =
                                             transactionRatings[
-                                              myTransaction._id
+                                              myTransactionAny._id
                                             ] ?? [];
                                           const myRating = ratings.find(
                                             (r) =>
@@ -382,7 +398,10 @@ export function MyApplicationsTab({
                                           return (
                                             <div>
                                               {myRating ? (
-                                                <div>
+                                                <Flex
+                                                  direction="column"
+                                                  gap="1"
+                                                >
                                                   <Text
                                                     size="2"
                                                     weight="bold"
@@ -395,22 +414,44 @@ export function MyApplicationsTab({
                                                     readonly
                                                     size={16}
                                                   />
+                                                  {myRating.tags &&
+                                                    myRating.tags.length >
+                                                      0 && (
+                                                      <Flex
+                                                        wrap="wrap"
+                                                        gap="1"
+                                                        className="mt-1"
+                                                      >
+                                                        {myRating.tags.map(
+                                                          (tag) => (
+                                                            <InterestChip
+                                                              key={tag}
+                                                              name={tagToLabel(
+                                                                tag,
+                                                              )}
+                                                              selected
+                                                              size="sm"
+                                                              showIcon={false}
+                                                            />
+                                                          ),
+                                                        )}
+                                                      </Flex>
+                                                    )}
                                                   {myRating.comment && (
                                                     <Text
                                                       size="1"
                                                       color="gray"
                                                       className="block mt-1"
                                                     >
-                                                      &quot;{myRating.comment}
-                                                      &quot;
+                                                      "{myRating.comment}"
                                                     </Text>
                                                   )}
-                                                </div>
-                                              ) : (
+                                                </Flex>
+                                              ) : myTransactionAny.provider_confirmed ? (
                                                 <RatingForm
                                                   onSubmit={(score, comment) =>
                                                     handleRatingSubmit(
-                                                      myTransaction._id,
+                                                      myTransactionAny._id,
                                                       providerId,
                                                       score,
                                                       comment,
@@ -418,10 +459,10 @@ export function MyApplicationsTab({
                                                   }
                                                   loading={
                                                     ratingLoading ===
-                                                    myTransaction._id
+                                                    myTransactionAny._id
                                                   }
                                                 />
-                                              )}
+                                              ) : null}
                                             </div>
                                           );
                                         })()}
@@ -453,6 +494,18 @@ export function MyApplicationsTab({
           </Fragment>
         );
       })}
+
+      {confirmModalTransaction && currentUserId && (
+        <ConfirmCompletionModal
+          open={!!confirmModalTransaction}
+          onOpenChange={(open) => {
+            if (!open) setConfirmModalTransaction(null);
+          }}
+          transaction={confirmModalTransaction}
+          currentUserId={currentUserId}
+          onSubmit={handleConfirmWithRating}
+        />
+      )}
     </div>
   );
 }

@@ -4,6 +4,12 @@ import { Service, Transaction, Rating } from "@/types";
 import { ApplicantsList } from "@/components/ui/ApplicantsList";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { RatingForm, RatingStars } from "@/components/ui/RatingStars";
+import {
+  ConfirmCompletionModal,
+  tagToLabel,
+  type ConfirmCompletionRatingData,
+} from "@/components/ui/ConfirmCompletionModal";
+import { InterestChip } from "@/components/ui/InterestChip";
 import { ratingsApi } from "@/services/api";
 import {
   ClockIcon,
@@ -25,7 +31,15 @@ interface MyServicesTabProps {
   onCancelService: (serviceId: string) => Promise<void>;
   onStartChat: (transactionId: string) => Promise<void>;
   onCancelTransaction: (transactionId: string) => Promise<void>;
-  onConfirmTransactionCompletion: (transactionId: string) => Promise<void>;
+  onConfirmTransactionCompletion: (
+    transactionId: string,
+    ratingData?: {
+      ratedUserId: string;
+      score: number;
+      comment?: string;
+      tags: string[];
+    },
+  ) => Promise<void>;
   onRequestUpdate: () => void;
   formatDate: (dateString: string) => string;
   /** When set (from URL ?status=), scroll to this section and highlight the filter button. */
@@ -53,14 +67,21 @@ export function MyServicesTab({
     Record<string, Rating[]>
   >({});
   const [ratingLoading, setRatingLoading] = useState<string | null>(null);
+  const [confirmModalTransaction, setConfirmModalTransaction] =
+    useState<Transaction | null>(null);
 
-  // Fetch ratings for transactions where both parties confirmed (rateable).
-  // Also refetch when transactionRatings is missing a rateable tx (e.g. data arrived after first load).
+  // Fetch ratings for transactions where the current user has confirmed or both confirmed.
   useEffect(() => {
     const allTransactions = Object.values(serviceTransactions).flat();
-    const rateable = allTransactions.filter(
-      (t) => t.provider_confirmed && t.requester_confirmed,
-    );
+    const rateable = allTransactions.filter((t) => {
+      const bothConfirmed = t.provider_confirmed && t.requester_confirmed;
+      const isProvider = String(t.provider_id) === String(currentUserId);
+      const isRequester = String(t.requester_id) === String(currentUserId);
+      const myConfirmed =
+        (isProvider && t.provider_confirmed) ||
+        (isRequester && t.requester_confirmed);
+      return bothConfirmed || myConfirmed;
+    });
     const toFetch = rateable.filter(
       (t) => transactionRatings[String(t._id)] === undefined,
     );
@@ -73,7 +94,7 @@ export function MyServicesTab({
         // ratings not available yet
       }
     });
-  }, [serviceTransactions, transactionRatings]);
+  }, [serviceTransactions, transactionRatings, currentUserId]);
 
   const handleRatingSubmit = async (
     transactionId: string,
@@ -109,6 +130,29 @@ export function MyServicesTab({
       }
     } finally {
       setRatingLoading(null);
+    }
+  };
+
+  const handleConfirmWithRating = async (data: ConfirmCompletionRatingData) => {
+    if (!confirmModalTransaction || !currentUserId) return;
+    const tx = confirmModalTransaction;
+    const otherUserId =
+      String(tx.provider_id) === String(currentUserId)
+        ? tx.requester_id
+        : tx.provider_id;
+
+    await onConfirmTransactionCompletion(tx._id, {
+      ratedUserId: otherUserId,
+      score: data.score,
+      comment: data.comment || undefined,
+      tags: data.tags,
+    });
+
+    try {
+      const res = await ratingsApi.getTransactionRatings(tx._id);
+      setTransactionRatings((prev) => ({ ...prev, [tx._id]: res.data }));
+    } catch {
+      // ignore refetch error
     }
   };
 
@@ -449,72 +493,100 @@ export function MyServicesTab({
                                         </Text>
                                       </Flex>
 
-                                      {!(
-                                        transaction.provider_confirmed &&
-                                        transaction.requester_confirmed
-                                      ) && (
-                                        <Text
-                                          size="1"
-                                          color="gray"
-                                          className="block mt-1"
-                                        >
-                                          You can rate the requester once both
-                                          you and the requester have confirmed
-                                          this exchange.
-                                        </Text>
-                                      )}
-                                      {transaction.provider_confirmed &&
-                                        transaction.requester_confirmed && (
-                                          <>
-                                            {myRating ? (
-                                              <>
-                                                <RatingStars
-                                                  value={myRating.score}
-                                                  readonly
-                                                  size={16}
-                                                />
-                                                {myRating.comment && (
-                                                  <Text
-                                                    size="1"
-                                                    color="gray"
-                                                    className="block mt-1"
-                                                  >
-                                                    "{myRating.comment}"
-                                                  </Text>
-                                                )}
-                                              </>
-                                            ) : (
-                                              <RatingForm
-                                                onSubmit={(score, comment) =>
-                                                  handleRatingSubmit(
-                                                    txId,
-                                                    otherUserId,
-                                                    score,
-                                                    comment,
-                                                  )
-                                                }
-                                                loading={ratingLoading === txId}
-                                              />
+                                      {/* Rating display: show when user has confirmed */}
+                                      {myRating && (
+                                        <Flex direction="column" gap="1">
+                                          <RatingStars
+                                            value={myRating.score}
+                                            readonly
+                                            size={16}
+                                          />
+                                          {myRating.tags &&
+                                            myRating.tags.length > 0 && (
+                                              <Flex
+                                                wrap="wrap"
+                                                gap="1"
+                                                className="mt-1"
+                                              >
+                                                {myRating.tags.map((tag) => (
+                                                  <InterestChip
+                                                    key={tag}
+                                                    name={tagToLabel(tag)}
+                                                    selected
+                                                    size="sm"
+                                                    showIcon={false}
+                                                  />
+                                                ))}
+                                              </Flex>
                                             )}
-                                          </>
-                                        )}
-                                      {currentUserId &&
-                                        String(transaction.requester_id) ===
-                                          String(currentUserId) &&
-                                        !transaction.requester_confirmed &&
-                                        transaction.status !== "completed" && (
-                                          <Button
-                                            size="2"
-                                            color="green"
-                                            onClick={() =>
-                                              onConfirmTransactionCompletion(
-                                                transaction._id,
+                                          {myRating.comment && (
+                                            <Text
+                                              size="1"
+                                              color="gray"
+                                              className="block mt-1"
+                                            >
+                                              "{myRating.comment}"
+                                            </Text>
+                                          )}
+                                        </Flex>
+                                      )}
+
+                                      {/* Inline rating form: fallback for old confirmations without rating */}
+                                      {!myRating &&
+                                        transaction.provider_confirmed &&
+                                        transaction.requester_confirmed && (
+                                          <RatingForm
+                                            onSubmit={(score, comment) =>
+                                              handleRatingSubmit(
+                                                txId,
+                                                otherUserId,
+                                                score,
+                                                comment,
                                               )
                                             }
-                                          >
-                                            <CheckCircledIcon className="w-4 h-4 mr-2" />
-                                            Confirm I received
-                                          </Button>
+                                            loading={ratingLoading === txId}
+                                          />
+                                        )}
+
+                                      {/* Confirm Completion buttons */}
+                                      {currentUserId &&
+                                        transaction.status !== "completed" && (
+                                          <>
+                                            {String(
+                                              transaction.provider_id,
+                                            ) === String(currentUserId) &&
+                                              !transaction.provider_confirmed && (
+                                                <Button
+                                                  size="2"
+                                                  color="green"
+                                                  onClick={() =>
+                                                    setConfirmModalTransaction(
+                                                      transaction,
+                                                    )
+                                                  }
+                                                >
+                                                  <CheckCircledIcon className="w-4 h-4 mr-2" />
+                                                  Confirm Completion
+                                                </Button>
+                                              )}
+                                            {String(
+                                              transaction.requester_id,
+                                            ) === String(currentUserId) &&
+                                              !transaction.requester_confirmed && (
+                                                <Button
+                                                  size="2"
+                                                  color="green"
+                                                  onClick={() =>
+                                                    setConfirmModalTransaction(
+                                                      transaction,
+                                                    )
+                                                  }
+                                                >
+                                                  <CheckCircledIcon className="w-4 h-4 mr-2" />
+                                                  Confirm Completion
+                                                </Button>
+                                              )}
+                                          </>
                                         )}
                                       {transaction.status === "pending" && (
                                         <Flex gap="2">
@@ -573,6 +645,18 @@ export function MyServicesTab({
           </div>
         );
       })}
+
+      {confirmModalTransaction && currentUserId && (
+        <ConfirmCompletionModal
+          open={!!confirmModalTransaction}
+          onOpenChange={(open) => {
+            if (!open) setConfirmModalTransaction(null);
+          }}
+          transaction={confirmModalTransaction}
+          currentUserId={currentUserId}
+          onSubmit={handleConfirmWithRating}
+        />
+      )}
     </div>
   );
 }

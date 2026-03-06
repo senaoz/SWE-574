@@ -7,6 +7,7 @@ import {
   transactionsApi,
   chatApi,
   usersApi,
+  ratingsApi,
 } from "@/services/api";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "@/contexts/UserContext";
@@ -412,16 +413,40 @@ export function MyServices({
     });
   };
 
-  const handleConfirmTransactionCompletion = async (transactionId: string) => {
+  const handleConfirmTransactionCompletion = async (
+    transactionId: string,
+    ratingData?: {
+      ratedUserId: string;
+      score: number;
+      comment?: string;
+      tags: string[];
+    },
+  ) => {
     try {
       await transactionsApi.confirmTransactionCompletion(transactionId);
-      await fetchData();
     } catch (error: any) {
       console.error("Error confirming transaction:", error);
       alert(
         error.response?.data?.detail || "Failed to confirm. Please try again.",
       );
+      return;
     }
+
+    if (ratingData) {
+      try {
+        await ratingsApi.createRating({
+          transaction_id: transactionId,
+          rated_user_id: ratingData.ratedUserId,
+          score: ratingData.score,
+          comment: ratingData.comment,
+          tags: ratingData.tags,
+        });
+      } catch (ratingError: any) {
+        console.error("Rating submission failed:", ratingError);
+      }
+    }
+
+    await fetchData();
   };
 
   if (isLoading) {
