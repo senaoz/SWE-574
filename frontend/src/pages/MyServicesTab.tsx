@@ -403,8 +403,8 @@ export function MyServicesTab({
                                 </Text>
                                 <Text size="2" color="gray" className="mt-1">
                                   As the service owner, you can mark the service
-                                  as completed. TimeBank will be updated and
-                                  related exchanges marked completed.
+                                  as completed. TimeBank will be updated after
+                                  both parties confirm the completion.
                                 </Text>
                               </div>
 
@@ -552,9 +552,8 @@ export function MyServicesTab({
                                       {currentUserId &&
                                         transaction.status !== "completed" && (
                                           <>
-                                            {String(
-                                              transaction.provider_id,
-                                            ) === String(currentUserId) &&
+                                            {String(transaction.provider_id) ===
+                                              String(currentUserId) &&
                                               !transaction.provider_confirmed && (
                                                 <Button
                                                   size="2"

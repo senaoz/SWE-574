@@ -349,7 +349,7 @@ export function MyServices({
       open: true,
       title: "Mark service as completed?",
       description:
-        "TimeBank will be updated and related exchanges will be marked completed.",
+        "TimeBank will be updated after both parties confirm the completion.",
       variant: "default",
       onConfirm: async () => {
         try {

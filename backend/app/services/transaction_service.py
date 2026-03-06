@@ -429,13 +429,10 @@ class TransactionService:
                 }
             )
             
-            # If the parent service is already completed, TimeBank was already
-            # handled by _finalize_service_completion — skip balance updates.
+            # TimeBank is updated only when both parties confirm (this method).
+            # Service completion no longer updates TimeBank.
             svc_oid = ObjectId(str(transaction["service_id"]))
             service = await self.services_collection.find_one({"_id": svc_oid})
-            if service and service.get("status") == ServiceStatus.COMPLETED:
-                return True
-            
             service_title = service.get("title", "Service") if service else "Service"
             
             from .user_service import UserService
