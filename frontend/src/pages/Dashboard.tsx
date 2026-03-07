@@ -347,7 +347,7 @@ function CreateServiceDialog({
       >
         <div className="pb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
           {errorMessage && (
-            <Text size="2" color="red" className="mb-4">
+            <Text size="2" color="red" className="mb-4 col-span-2">
               {errorMessage}
             </Text>
           )}
