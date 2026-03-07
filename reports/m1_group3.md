@@ -14,6 +14,25 @@
 
 ---
 
+
+### Live Deployment
+
+| Resource | URL |
+|----------|-----|
+| Live Application | https://swe.gnahh5.easypanel.host/ |
+| Backend API Docs | https://backend-swe.gnahh5.easypanel.host/docs |
+| GitHub Actions | https://github.com/senaoz/SWE-574/actions |
+
+### Test Accounts
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | tazeyta@gmail.com | Password123 |
+| User | mehmet.demir@example.com | Password123 |
+
+
+-----
+
 ## SRS
 
 The purpose of this Software Requirements Specification (SRS) document is to define in detail the functional and non-functional requirements of **The Hive** platform. The Hive is a community-oriented, open-source web application designed to enable the mutual exchange of services based on time rather than money.
