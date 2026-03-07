@@ -1,19 +1,29 @@
-import { useQuery } from "@tanstack/react-query";
-import { Button, Box, Dialog, IconButton, Flex } from "@radix-ui/themes";
-import { usersApi } from "@/services/api";
+import {
+  Button,
+  Box,
+  Dialog,
+  IconButton,
+  Flex,
+  Avatar,
+  Tooltip,
+} from "@radix-ui/themes";
 import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { CityFilter } from "@/components/ui/CityFilter";
 import { useTheme } from "@/App";
 import { useFilters } from "@/contexts/FilterContext";
+import { useUser } from "@/contexts/UserContext";
 import { LoginForm } from "../auth/LoginForm";
+import { RegisterForm } from "../auth/RegisterForm";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getImageUrl } from "@/services/api";
 import {
   ChatBubbleIcon,
   GearIcon,
   HomeIcon,
   AvatarIcon,
+  GlobeIcon,
 } from "@radix-ui/react-icons";
 
 export const useScroll = (threshold: number) => {
@@ -31,20 +41,7 @@ export function Header() {
   const { appearance, toggleAppearance } = useTheme();
   const { selectedCity, setSelectedCity, setSearchQuery } = useFilters();
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
-
-  const { data: timebankData } = useQuery({
-    queryKey: ["timebank"],
-    queryFn: () => usersApi.getTimeBank().then((res) => res.data),
-    enabled: !!localStorage.getItem("access_token"),
-    retry: false,
-  });
-
-  const { data: currentUser } = useQuery({
-    queryKey: ["currentUser"],
-    queryFn: () => usersApi.getProfile().then((res) => res.data),
-    enabled: !!localStorage.getItem("access_token"),
-    retry: false,
-  });
+  const { user } = useUser();
 
   const scrolled = useScroll(25);
 
@@ -58,7 +55,7 @@ export function Header() {
       window.history.replaceState(
         {},
         "",
-        window.location.pathname + searchParams.toString()
+        window.location.pathname + searchParams.toString(),
       );
     }
   }, [window.location.search]);
@@ -79,7 +76,7 @@ export function Header() {
           </h1>
 
           {/* Search and Filter - Only show for logged in users */}
-          {localStorage.getItem("access_token") ? (
+          {user ? (
             <Flex gap="2" className="w-full max-w-xl mx-auto">
               <SearchBar onSearchChange={setSearchQuery} />
               <CityFilter
@@ -97,12 +94,7 @@ export function Header() {
               appearance={appearance}
               onToggle={toggleAppearance}
             />
-            {localStorage.getItem("access_token") && timebankData ? (
-              <Button variant="outline">
-                {`${Math.round(timebankData.balance)} Hours Left`}
-              </Button>
-            ) : null}
-            {!localStorage.getItem("access_token") ? (
+            {!user ? (
               <LoginDialog
                 open={loginDialogOpen}
                 onOpenChange={setLoginDialogOpen}
@@ -110,22 +102,61 @@ export function Header() {
               />
             ) : (
               <div className="flex items-center space-x-2 ml-2">
-                <IconButton onClick={() => navigate("/profile")}>
-                  <AvatarIcon className="w-4 h-4" />
-                </IconButton>
-                <IconButton onClick={() => navigate("/dashboard")}>
-                  <HomeIcon className="w-4 h-4" />
-                </IconButton>
-                <IconButton onClick={() => navigate("/chat")}>
-                  <ChatBubbleIcon className="w-4 h-4" />
-                </IconButton>
-                {currentUser?.role === "admin" && (
+                {user.timebank_balance !== undefined && (
+                  <Tooltip content="Timebank">
+                    <IconButton
+                      variant="outline"
+                      className="text-sm font-bold"
+                      onClick={() => navigate("/profile?tab=timebank")}
+                    >
+                      {user.timebank_balance}
+                    </IconButton>
+                  </Tooltip>
+                )}
+                <Tooltip content="Profile">
                   <IconButton
-                    onClick={() => navigate("/admin")}
-                    variant="outline"
+                    onClick={() => navigate("/profile")}
+                    style={{ borderRadius: "var(--radius-full)" }}
                   >
-                    <GearIcon className="w-4 h-4" />
+                    {user.profile_picture ? (
+                      <Avatar
+                        src={getImageUrl(user.profile_picture)}
+                        fallback={
+                          user.full_name?.[0] || user.username[0]
+                        }
+                        size="1"
+                        radius="full"
+                      />
+                    ) : (
+                      <AvatarIcon className="w-4 h-4" />
+                    )}
                   </IconButton>
+                </Tooltip>
+                <Tooltip content="Dashboard">
+                  <IconButton onClick={() => navigate("/dashboard")}>
+                    <HomeIcon className="w-4 h-4" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip content="Forum">
+                  <IconButton onClick={() => navigate("/forum")}>
+                    <GlobeIcon className="w-4 h-4" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip content="Chat">
+                  <IconButton onClick={() => navigate("/profile?tab=chat")}>
+                    <ChatBubbleIcon className="w-4 h-4" />
+                  </IconButton>
+                </Tooltip>
+                {(user.role === "admin" ||
+                  user.role === "moderator") && (
+                  <Tooltip content="Admin Panel">
+                    <IconButton
+                      onClick={() => navigate("/admin")}
+                      variant="outline"
+                    >
+                      <GearIcon className="w-4 h-4" />
+                    </IconButton>
+                  </Tooltip>
                 )}
               </div>
             )}
@@ -145,20 +176,48 @@ function LoginDialog({
   onOpenChange: (open: boolean) => void;
   setLoginDialogOpen: (open: boolean) => void;
 }) {
+  const [mode, setMode] = useState<"login" | "register">("login");
+
+  const handleOpenChange = (next: boolean) => {
+    if (!next) setMode("login");
+    onOpenChange(next);
+  };
+
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Trigger>
         <Button>Login</Button>
       </Dialog.Trigger>
 
-      <Dialog.Content>
-        <Dialog.Title className="text-2xl font-bold">Welcome Back</Dialog.Title>
-        <Dialog.Description className="mb-4">
-          Log in to your account to continue
-        </Dialog.Description>
-        <LoginForm setLoginDialogOpen={setLoginDialogOpen} />
+      <Dialog.Content className="max-h-[90vh] overflow-y-auto">
+        {mode === "login" ? (
+          <>
+            <Dialog.Title className="text-2xl font-bold">
+              Welcome Back
+            </Dialog.Title>
+            <Dialog.Description className="mb-4">
+              Log in to your account to continue
+            </Dialog.Description>
+            <LoginForm setLoginDialogOpen={setLoginDialogOpen} />
+            <p className="mt-6 text-center text-sm ">
+              Don&apos;t have an account?{" "}
+              <button
+                type="button"
+                className="text-lime-600 hover:underline font-medium"
+                onClick={() => setMode("register")}
+              >
+                Register
+              </button>
+            </p>
+          </>
+        ) : (
+          <RegisterForm
+            setLoginDialogOpen={setLoginDialogOpen}
+            onSwitchToLogin={() => setMode("login")}
+            embedded
+          />
+        )}
       </Dialog.Content>
     </Dialog.Root>
   );
 }
-

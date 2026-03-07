@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, Text } from "@radix-ui/themes";
 import { ChatRoom } from "@/types";
 import { ChatRoomsList } from "@/components/ui/ChatRoomsList";
@@ -8,16 +9,18 @@ import { chatApi } from "@/services/api";
 import { useUser } from "@/App";
 
 export function Chat() {
+  const [searchParams] = useSearchParams();
   const [roomId, setRoomId] = useState<string | null>(null);
   const [selectedRoom, setSelectedRoom] = useState<ChatRoom | null>(null);
   const { currentUserId } = useUser();
 
+  const roomIdFromUrl = searchParams.get("room_id");
+
   useEffect(() => {
-    const roomId = new URLSearchParams(window.location.search).get("room_id");
-    if (roomId) {
-      setRoomId(roomId);
+    if (roomIdFromUrl) {
+      setRoomId(roomIdFromUrl);
     }
-  }, []);
+  }, [roomIdFromUrl]);
 
   useEffect(() => {
     if (roomId !== selectedRoom?._id && roomId) {
@@ -42,15 +45,6 @@ export function Chat() {
 
   return (
     <>
-      <div className="mb-6">
-        <Text size="6" weight="bold" className="block mb-2">
-          Chat
-        </Text>
-        <Text color="gray">
-          Communicate with other users about your service exchanges
-        </Text>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 h-[75vh]">
         {/* Chat Rooms List */}
         <ChatRoomsList

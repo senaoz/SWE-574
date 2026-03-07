@@ -1,5 +1,66 @@
 export type UserRole = 'user' | 'moderator' | 'admin';
 
+export interface SocialLinks {
+  linkedin?: string;
+  github?: string;
+  twitter?: string;
+  instagram?: string;
+  website?: string;
+  portfolio?: string;
+}
+
+export interface BadgeProgress {
+  current: number;
+  target: number;
+}
+
+export interface Badge {
+  key: string;
+  name: string;
+  description: string;
+  icon: string;
+  earned: boolean;
+  progress?: BadgeProgress;
+}
+
+export interface BadgeSummary {
+  badges: Badge[];
+  earned_count: number;
+  total_count: number;
+  earned_badges?: Badge[] | null;
+  last_earned_badge?: Badge | null;
+}
+
+export interface Rating {
+  _id: string;
+  transaction_id: string;
+  rater_id: string;
+  rated_user_id: string;
+  score: number;
+  comment?: string;
+  tags?: string[];
+  created_at: string;
+  rater?: {
+    id: string;
+    username: string;
+    full_name?: string;
+  };
+}
+
+export interface RatingListResponse {
+  ratings: Rating[];
+  total: number;
+  average_score?: number;
+}
+
+export interface RatingForm {
+  transaction_id: string;
+  rated_user_id: string;
+  score: number;
+  comment?: string;
+  tags?: string[];
+}
+
 export interface User {
   _id: string;
   username: string;
@@ -7,6 +68,9 @@ export interface User {
   full_name?: string;
   bio?: string;
   location?: string;
+  profile_picture?: string;
+  social_links?: SocialLinks;
+  interests?: string[];
   is_active: boolean;
   is_verified: boolean;
   role: UserRole;
@@ -72,7 +136,6 @@ export interface Service {
   completed_at?: string;
   matched_user_ids?: string[];
   max_participants: number;
-  provider_confirmed?: boolean;
   receiver_confirmed_ids?: string[];
   // Scheduling fields
   scheduling_type?: 'specific' | 'recurring' | 'open';
@@ -84,6 +147,7 @@ export interface Service {
   };
   open_availability?: string;
   is_remote?: boolean;
+  image_urls?: string[];
 }
 
 export interface TimeBankTransaction {
@@ -105,6 +169,7 @@ export interface TimeBankResponse {
   transactions: TimeBankTransaction[];
   max_balance: number;
   can_earn: boolean;
+  requires_need_creation?: boolean;
 }
 
 export interface ServiceFilters {
@@ -117,6 +182,7 @@ export interface ServiceFilters {
   location?: Location;
   radius?: number;
   user_id?: string;
+  is_remote?: boolean;
 }
 
 export interface ServiceListResponse {
@@ -150,7 +216,7 @@ export interface RegisterForm {
 export interface ServiceForm {
   title: string;
   description: string;
-  category: string;
+  category?: string;
   tags: TagEntity[]; 
   estimated_duration: number;
   location: Location;
@@ -170,6 +236,8 @@ export interface ServiceForm {
   max_participants: number;
   attachment?: File;
   attachment_url?: string;
+  image_urls?: string[];
+  is_remote?: boolean;
 }
 
 export interface ServiceFormErrors {
@@ -194,12 +262,7 @@ export interface Comment {
   content: string;
   created_at: string;
   updated_at: string;
-  user?: {
-    id: string;
-    username: string;
-    full_name?: string;
-    bio?: string;
-  };
+  user?: User;
 }
 
 export interface CommentListResponse {
@@ -228,6 +291,7 @@ export interface JoinRequest {
     username: string;
     full_name?: string;
     bio?: string;
+    profile_picture?: string;
   };
   service?: {
     id: string;
@@ -409,6 +473,102 @@ export interface FailedTransaction {
 
 export interface FailedTransactionListResponse {
   failed_transactions: FailedTransaction[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+// ===================== Forum =====================
+
+export interface ForumAuthor {
+  id: string;
+  username: string;
+  full_name?: string;
+  profile_picture?: string;
+}
+
+export interface ForumDiscussion {
+  _id: string;
+  user_id: string;
+  title: string;
+  body: string;
+  tags: TagEntity[];
+  created_at: string;
+  updated_at: string;
+  user?: ForumAuthor;
+  comment_count: number;
+}
+
+export interface ForumDiscussionListResponse {
+  discussions: ForumDiscussion[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface ForumDiscussionForm {
+  title: string;
+  body: string;
+  tags: TagEntity[];
+}
+
+export interface ForumEvent {
+  _id: string;
+  user_id: string;
+  title: string;
+  description: string;
+  event_at: string;
+  location?: string;
+  latitude?: number;
+  longitude?: number;
+  is_remote: boolean;
+  tags: TagEntity[];
+  service_id?: string;
+  created_at: string;
+  updated_at: string;
+  user?: ForumAuthor;
+  service?: {
+    id: string;
+    title: string;
+    service_type: string;
+  };
+  comment_count: number;
+  attendee_ids: string[];
+  attendee_count: number;
+}
+
+export interface ForumEventListResponse {
+  events: ForumEvent[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface ForumEventForm {
+  title: string;
+  description: string;
+  event_at: string;
+  location?: string;
+  latitude?: number;
+  longitude?: number;
+  is_remote: boolean;
+  tags: TagEntity[];
+  service_id?: string;
+}
+
+export interface ForumComment {
+  _id: string;
+  user_id: string;
+  target_type: 'discussion' | 'event';
+  target_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  user?: ForumAuthor;
+}
+
+export interface ForumCommentListResponse {
+  comments: ForumComment[];
   total: number;
   page: number;
   limit: number;

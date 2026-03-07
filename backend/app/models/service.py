@@ -99,10 +99,11 @@ class RecurringPattern(BaseModel):
 class ServiceBase(BaseModel):
     title: str = Field(..., min_length=5, max_length=100)
     description: str = Field(..., min_length=10, max_length=5000)
-    category: str = Field(..., min_length=2, max_length=50)
+    category: Optional[str] = Field(None, min_length=2, max_length=50)
     tags: List[dict] = Field(default_factory=list, max_items=10)  # List of TagEntity dicts
     estimated_duration: float = Field(..., gt=0, le=24)  # Hours
     location: Location
+    is_remote: Optional[bool] = Field(default=False)  # Service can be done remotely
     deadline: Optional[datetime] = None
     service_type: ServiceType
     max_participants: Optional[int] = Field(default=1)
@@ -112,7 +113,7 @@ class ServiceBase(BaseModel):
     specific_time: Optional[str] = None  # Time string in HH:MM format
     recurring_pattern: Optional[dict] = None  # RecurringPattern dict: {"days": [...], "time": "HH:MM"}
     open_availability: Optional[str] = None  # Free-form text description
-    is_remote: Optional[bool] = False  # If True, service is remote (no physical location)
+    image_urls: Optional[List[str]] = Field(default_factory=list, max_items=3)  # Up to 3 uploaded service images
 
     @model_validator(mode='before')
     @classmethod
@@ -164,6 +165,7 @@ class ServiceUpdate(BaseModel):
     tags: Optional[List[dict]] = Field(None, max_items=10)  # List of TagEntity dicts
     estimated_duration: Optional[float] = Field(None, gt=0, le=24)
     location: Optional[Location] = None
+    is_remote: Optional[bool] = None
     deadline: Optional[datetime] = None
     status: Optional[ServiceStatus] = None
     # Scheduling fields
@@ -172,7 +174,7 @@ class ServiceUpdate(BaseModel):
     specific_time: Optional[str] = None  # Time string in HH:MM format
     recurring_pattern: Optional[dict] = None  # RecurringPattern dict: {"days": [...], "time": "HH:MM"}
     open_availability: Optional[str] = None  # Free-form text description
-    is_remote: Optional[bool] = None  # If True, service is remote (no physical location)
+    image_urls: Optional[List[str]] = Field(None, max_items=3)
 
     class Config:
         json_encoders = {ObjectId: str}
@@ -186,7 +188,6 @@ class ServiceResponse(ServiceBase):
     updated_at: datetime
     completed_at: Optional[datetime] = None
     matched_user_ids: List[PyObjectId] = Field(default_factory=list)
-    provider_confirmed: Optional[bool] = False
     receiver_confirmed_ids: Optional[List[PyObjectId]] = Field(default_factory=list)
 
     class Config:
@@ -215,6 +216,7 @@ class ServiceFilters(BaseModel):
     location: Optional[Location] = None
     radius: Optional[float] = None  # Kilometers
     user_id: Optional[PyObjectId] = None
+    is_remote: Optional[bool] = None  # Filter by remote-only services
 
     class Config:
         json_encoders = {ObjectId: str}

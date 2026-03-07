@@ -1,7 +1,6 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { usersApi } from "@/services/api";
+import { useUser } from "@/contexts/UserContext";
 import { UserRole } from "@/types";
 
 interface ProtectedRouteProps {
@@ -10,17 +9,12 @@ interface ProtectedRouteProps {
   fallbackPath?: string;
 }
 
-export function ProtectedRoute({ 
-  children, 
-  requiredRole, 
-  fallbackPath = "/" 
+export function ProtectedRoute({
+  children,
+  requiredRole,
+  fallbackPath = "/",
 }: ProtectedRouteProps) {
-  const { data: currentUser, isLoading } = useQuery({
-    queryKey: ["currentUser"],
-    queryFn: () => usersApi.getProfile().then((res) => res.data),
-    enabled: !!localStorage.getItem("access_token"),
-    retry: false,
-  });
+  const { user, isLoading } = useUser();
 
   if (isLoading) {
     return (
@@ -30,7 +24,7 @@ export function ProtectedRoute({
     );
   }
 
-  if (!currentUser) {
+  if (!user) {
     return <Navigate to={fallbackPath} replace />;
   }
 
@@ -42,7 +36,7 @@ export function ProtectedRoute({
   // Role hierarchy: admin > moderator > user
   const roleHierarchy = { admin: 3, moderator: 2, user: 1 };
   const userLevel =
-    roleHierarchy[currentUser.role as keyof typeof roleHierarchy] || 0;
+    roleHierarchy[user.role as keyof typeof roleHierarchy] || 0;
   const requiredLevel = roleHierarchy[requiredRole];
 
   // User can access if their role level is >= required level

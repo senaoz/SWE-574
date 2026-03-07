@@ -8,12 +8,13 @@ import {
   Button,
   Heading,
   Separator,
-  Grid,
   Box,
   TextField,
   TextArea,
   Switch,
   Dialog,
+  Grid,
+  Tabs,
 } from "@radix-ui/themes";
 import {
   CheckCircledIcon,
@@ -26,28 +27,67 @@ import {
   ExclamationTriangleIcon,
 } from "@radix-ui/react-icons";
 import {
-  User,
   UserSettings,
   PasswordChangeForm,
   AccountDeletionForm,
   JoinRequest,
+  SocialLinks,
 } from "@/types";
-import { usersApi, joinRequestsApi } from "@/services/api";
+import {
+  usersApi,
+  joinRequestsApi,
+  ratingsApi,
+  uploadApi,
+  getImageUrl,
+} from "@/services/api";
+import { useUser } from "@/contexts/UserContext";
 import { MyServices } from "./MyServices";
-import { useNavigate } from "react-router-dom";
+import { BadgeDisplay } from "@/components/ui/BadgeDisplay";
+import { RatingStars } from "@/components/ui/RatingStars";
+import { InterestSelector } from "@/components/ui/InterestSelector";
+import { InterestChip } from "@/components/ui/InterestChip";
+import { MapLocationPicker } from "@/components/ui/MapLocationPicker";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { PROFILE_PICTURE_PRESETS } from "@/constants/profilePicturePresets";
+import {
+  Linkedin,
+  Github,
+  Twitter,
+  Instagram,
+  Globe,
+  Briefcase,
+  BookmarkIcon,
+  ClockIcon,
+  LucideList,
+  UserIcon,
+  LucideBriefcase,
+  LucideMessageCircle,
+} from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { Chat } from "./Chat";
 
 export function Profile() {
   const navigate = useNavigate();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, isLoading, refetchUser } = useUser();
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     full_name: "",
     bio: "",
-    location: "",
+    location: { latitude: 0, longitude: 0, address: "" },
     email: "",
+    profile_picture: "",
+    social_links: {
+      linkedin: "",
+      github: "",
+      twitter: "",
+      instagram: "",
+      website: "",
+      portfolio: "",
+    } as SocialLinks,
+    interests: [] as string[],
   });
+  const [showInterestSelector, setShowInterestSelector] = useState(false);
   const [settings, setSettings] = useState<UserSettings>({
     profile_visible: true,
     show_email: false,
@@ -58,6 +98,10 @@ export function Profile() {
   });
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [profilePictureUploading, setProfilePictureUploading] = useState(false);
+  const [profilePictureError, setProfilePictureError] = useState<string | null>(
+    null,
+  );
   const [passwordForm, setPasswordForm] = useState<PasswordChangeForm>({
     current_password: "",
     new_password: "",
@@ -71,6 +115,82 @@ export function Profile() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showRejectedRequestsDialog, setShowRejectedRequestsDialog] =
     useState(false);
+  const [myservicesCounts, setMyservicesCounts] = useState({
+    services: 0,
+    applications: 0,
+    timebank: 0,
+    requests: 0,
+    transactions: 0,
+    saved: 0,
+  });
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const profileTabFromUrl = searchParams.get("tab") || "profile";
+  const profileStatusFromUrl = searchParams.get("status") || undefined;
+  const selectInterests = searchParams.get("interests") || undefined;
+
+  const allowedTabs = [
+    "profile",
+    "services",
+    "applications",
+    "timebank",
+    "saved",
+    "chat",
+  ] as const;
+  const profileTab = allowedTabs.includes(profileTabFromUrl as any)
+    ? profileTabFromUrl
+    : "profile";
+
+  const setProfileTab = (tab: string) => {
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      p.set("tab", tab);
+      if (tab !== "services") p.delete("status");
+      return p;
+    });
+  };
+
+  useEffect(() => {
+    if (selectInterests) {
+      setShowInterestSelector(true);
+    }
+  }, [selectInterests]);
+
+  // Sync edit form and settings when context user loads or updates
+  useEffect(() => {
+    if (!user) return;
+    setEditForm({
+      full_name: user.full_name || "",
+      bio: user.bio || "",
+      location: {
+        latitude: (user.location as any)?.latitude || 0,
+        longitude: (user.location as any)?.longitude || 0,
+        address:
+          typeof user.location === "string"
+            ? user.location
+            : (user.location as any)?.address || "",
+      },
+      email: user.email || "",
+      profile_picture: user.profile_picture || "",
+      social_links: {
+        linkedin: user.social_links?.linkedin || "",
+        github: user.social_links?.github || "",
+        twitter: user.social_links?.twitter || "",
+        instagram: user.social_links?.instagram || "",
+        website: user.social_links?.website || "",
+        portfolio: user.social_links?.portfolio || "",
+      },
+      interests: user.interests || [],
+    });
+    setSettings({
+      profile_visible: user.profile_visible ?? true,
+      show_email: user.show_email ?? false,
+      show_location: user.show_location ?? true,
+      email_notifications: user.email_notifications ?? true,
+      service_matches_notifications: user.service_matches_notifications ?? true,
+      messages_notifications: user.messages_notifications ?? true,
+    });
+  }, [user]);
 
   // Fetch rejected requests
   const { data: rejectedRequestsData } = useQuery({
@@ -78,6 +198,14 @@ export function Profile() {
     queryFn: () => joinRequestsApi.getMyRequests(1, 50, "rejected"),
     enabled: true,
   });
+
+  const { data: ratingsData } = useQuery({
+    queryKey: ["user-ratings", user?._id],
+    queryFn: () => ratingsApi.getUserRatings(user!._id, 1, 1),
+    enabled: !!user?._id,
+  });
+  const averageRating = ratingsData?.data?.average_score ?? null;
+  const ratingCount = ratingsData?.data?.total ?? 0;
 
   const rejectedRequests = rejectedRequestsData?.data.requests || [];
   const recentRejectedCount = rejectedRequests.filter((req: JoinRequest) => {
@@ -87,51 +215,35 @@ export function Profile() {
     return daysSinceRejected <= 7; // Show notification for requests rejected in last 7 days
   }).length;
 
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        const response = await usersApi.getProfile();
-        const userData = response.data;
-        setUser(userData);
-        setEditForm({
-          full_name: userData.full_name || "",
-          bio: userData.bio || "",
-          location: userData.location || "",
-          email: userData.email || "",
-        });
-        // Load settings from user data
-        setSettings({
-          profile_visible: userData.profile_visible ?? true,
-          show_email: userData.show_email ?? false,
-          show_location: userData.show_location ?? true,
-          email_notifications: userData.email_notifications ?? true,
-          service_matches_notifications:
-            userData.service_matches_notifications ?? true,
-          messages_notifications: userData.messages_notifications ?? true,
-        });
-      } catch (error) {
-        console.error("Error fetching user profile:", error);
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUserProfile();
-  }, []);
-
   const handleEdit = () => {
     setIsEditing(true);
   };
 
   const handleSave = async () => {
     try {
-      const response = await usersApi.updateProfile(editForm);
-      setUser(response.data);
+      const socialLinks: SocialLinks = {};
+      for (const [key, val] of Object.entries(editForm.social_links)) {
+        if (val && val.trim()) {
+          (socialLinks as any)[key] = val.trim();
+        }
+      }
+
+      const payload: any = {
+        full_name: editForm.full_name,
+        bio: editForm.bio,
+        location: editForm.location.address || undefined,
+        profile_picture: editForm.profile_picture || undefined,
+        social_links:
+          Object.keys(socialLinks).length > 0 ? socialLinks : undefined,
+        interests:
+          editForm.interests.length > 0 ? editForm.interests : undefined,
+      };
+
+      await usersApi.updateProfile(payload);
+      refetchUser();
       setIsEditing(false);
     } catch (error) {
       console.error("Error updating user profile:", error);
-      // Keep editing mode open on error
     }
   };
 
@@ -140,8 +252,25 @@ export function Profile() {
       setEditForm({
         full_name: user.full_name || "",
         bio: user.bio || "",
-        location: user.location || "",
+        location: {
+          latitude: (user.location as any)?.latitude || 0,
+          longitude: (user.location as any)?.longitude || 0,
+          address:
+            typeof user.location === "string"
+              ? user.location
+              : (user.location as any)?.address || "",
+        },
         email: user.email || "",
+        profile_picture: user.profile_picture || "",
+        social_links: {
+          linkedin: user.social_links?.linkedin || "",
+          github: user.social_links?.github || "",
+          twitter: user.social_links?.twitter || "",
+          instagram: user.social_links?.instagram || "",
+          website: user.social_links?.website || "",
+          portfolio: user.social_links?.portfolio || "",
+        },
+        interests: user.interests || [],
       });
     }
     setIsEditing(false);
@@ -154,9 +283,34 @@ export function Profile() {
     }));
   };
 
+  const handleSocialLinkChange = (field: keyof SocialLinks, value: string) => {
+    setEditForm((prev) => ({
+      ...prev,
+      social_links: { ...prev.social_links, [field]: value },
+    }));
+  };
+
+  const handleInterestsSave = async (selected: string[]) => {
+    setEditForm((prev) => ({ ...prev, interests: selected }));
+    try {
+      await usersApi.updateProfile({
+        interests: selected,
+      } as any);
+      refetchUser();
+    } catch (error) {
+      console.error("Error saving interests:", error);
+    }
+    setShowInterestSelector(false);
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      p.delete("interests");
+      return p;
+    });
+  };
+
   const handleSettingsChange = async (
     field: keyof UserSettings,
-    value: boolean
+    value: boolean,
   ) => {
     const oldSettings = { ...settings };
     const newSettings = { ...settings, [field]: value };
@@ -165,7 +319,7 @@ export function Profile() {
 
     try {
       const response = await usersApi.updateSettings({ [field]: value });
-      setUser(response.data);
+      refetchUser();
       // Update settings from response
       setSettings({
         profile_visible: response.data.profile_visible ?? true,
@@ -200,7 +354,7 @@ export function Profile() {
     setPasswordLoading(true);
     try {
       await usersApi.changePassword(passwordForm);
-      alert("Password changed successfully");
+      // alert("Password changed successfully");
       setShowPasswordDialog(false);
       setPasswordForm({
         current_password: "",
@@ -211,36 +365,36 @@ export function Profile() {
       console.error("Error changing password:", error);
       alert(
         error.response?.data?.detail ||
-          "Failed to change password. Please check your current password."
+          "Failed to change password. Please check your current password.",
       );
     } finally {
       setPasswordLoading(false);
     }
   };
 
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+
   const handleDeleteAccount = async () => {
     if (!deleteForm.password) {
       alert("Please enter your password to confirm account deletion");
       return;
     }
+    setDeleteConfirmOpen(true);
+  };
 
-    const confirmed = window.confirm(
-      "Are you sure you want to delete your account? This action cannot be undone."
-    );
-    if (!confirmed) return;
-
+  const handleConfirmDeleteAccount = async () => {
     setDeleteLoading(true);
     try {
       await usersApi.deleteAccount(deleteForm);
-      alert("Account deleted successfully");
-      // Redirect to home page and clear auth
+      // alert("Account deleted successfully");
       localStorage.removeItem("access_token");
       window.location.href = "/";
     } catch (error: any) {
       console.error("Error deleting account:", error);
       alert(
         error.response?.data?.detail ||
-          "Failed to delete account. Please check your password."
+          "Failed to delete account. Please check your password.",
       );
     } finally {
       setDeleteLoading(false);
@@ -248,18 +402,16 @@ export function Profile() {
   };
 
   const handleLogout = () => {
-    const confirmed = window.confirm("Are you sure you want to logout?");
-    if (!confirmed) return;
+    setLogoutConfirmOpen(true);
+  };
 
-    // Clear auth token
+  const handleConfirmLogout = () => {
     localStorage.removeItem("access_token");
-    // Redirect to home page
     navigate("/");
-    // Force page reload to clear any cached user data
     window.location.reload();
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Text>Loading...</Text>
@@ -304,182 +456,609 @@ export function Profile() {
         </Card>
       )}
 
-      <Grid columns={{ initial: "1", md: "2" }} gap="6">
-        <Flex align="center" justify="between" className="col-span-2">
-          <Heading size="6">My Profile</Heading>
-          {!isEditing ? (
-            <Button onClick={handleEdit} size="2">
-              <Pencil1Icon className="w-4 h-4 mr-2" />
-              Edit Profile
-            </Button>
-          ) : (
-            <Flex gap="2">
-              <Button onClick={handleCancel} variant="soft" size="2">
-                <Cross2Icon className="w-4 h-4 mr-2" />
-                Cancel
-              </Button>
-              <Button onClick={handleSave} size="2">
-                <CheckIcon className="w-4 h-4 mr-2" />
-                Save Changes
-              </Button>
-            </Flex>
-          )}
-        </Flex>
+      <Tabs.Root value={profileTab} onValueChange={(v) => setProfileTab(v)}>
+        <Tabs.List size="2">
+          <Tabs.Trigger value="profile">
+            <UserIcon className="w-4 h-4 mr-2" />
+            Profile
+          </Tabs.Trigger>
+          <Tabs.Trigger value="services">
+            <LucideBriefcase className="w-4 h-4 mr-2" />
+            My Services
+            {myservicesCounts.services ? ` (${myservicesCounts.services})` : ""}
+          </Tabs.Trigger>
+          <Tabs.Trigger value="applications">
+            <LucideList className="w-4 h-4 mr-2" />
+            My Applications
+            {myservicesCounts.requests ? ` (${myservicesCounts.requests})` : ""}
+          </Tabs.Trigger>
+          <Tabs.Trigger value="timebank">
+            <ClockIcon className="w-4 h-4 mr-2" />
+            Timebank Logs
+            {myservicesCounts.timebank ? ` (${myservicesCounts.timebank})` : ""}
+          </Tabs.Trigger>
+          <Tabs.Trigger value="saved">
+            <BookmarkIcon className="w-4 h-4 mr-2" />
+            Saved Items
+            {myservicesCounts.saved ? ` (${myservicesCounts.saved})` : ""}
+          </Tabs.Trigger>
+          <Tabs.Trigger value="chat">
+            <LucideMessageCircle className="w-4 h-4 mr-2" />
+            Chat
+          </Tabs.Trigger>
+        </Tabs.List>
 
-        {/* Profile Information */}
-        <Box>
-          <Card size="4" className="p-6">
-            <Heading size="5" mb="4">
-              Profile Information
-            </Heading>
-
-            <div className="space-y-4">
-              {/* Avatar and Basic Info */}
-              <Flex align="center" gap="4">
-                <Avatar
-                  fallback={user.full_name?.[0] || user.username[0]}
-                  size="6"
-                />
-                <div className="flex-1">
-                  <Flex align="center" gap="2" mb="1">
-                    <Heading size="4">
-                      {isEditing ? (
-                        <TextField.Root
-                          value={editForm.full_name}
-                          onChange={(e) =>
-                            handleInputChange("full_name", e.target.value)
-                          }
-                          placeholder="Full Name"
-                          size="2"
-                        />
-                      ) : (
-                        user.full_name || user.username
-                      )}
-                    </Heading>
-                    {user.is_verified && (
-                      <CheckCircledIcon className="w-4 h-4 text-green-600" />
-                    )}
-                  </Flex>
-                  <Text size="3" color="gray">
-                    @{user.username}
-                  </Text>
-                  {user.is_verified && (
-                    <Badge
-                      color="green"
-                      variant="soft"
-                      size="1"
-                      className="ml-2"
+        <Box pt="5">
+          {/* ── Profile Tab ── */}
+          <Tabs.Content value="profile">
+            <div className="grid gap-6">
+              <Grid columns={{ initial: "1", md: "2" }} gap="6">
+                {/* Profile Information */}
+                <Box>
+                  <Card size="4" className="p-6">
+                    <Flex
+                      align="center"
+                      justify="between"
+                      className="col-span-2 mb-4"
                     >
-                      Verified User
-                    </Badge>
-                  )}
-                </div>
-              </Flex>
+                      <Heading size="5">Profile Information</Heading>
+                      {!isEditing ? (
+                        <Button onClick={handleEdit} size="2">
+                          <Pencil1Icon className="w-4 h-4 mr-2" />
+                          Edit Profile
+                        </Button>
+                      ) : (
+                        <Flex gap="2">
+                          <Button
+                            onClick={handleCancel}
+                            variant="soft"
+                            size="2"
+                          >
+                            <Cross2Icon className="w-4 h-4 mr-2" />
+                            Cancel
+                          </Button>
+                          <Button onClick={handleSave} size="2">
+                            <CheckIcon className="w-4 h-4 mr-2" />
+                            Save Changes
+                          </Button>
+                        </Flex>
+                      )}
+                    </Flex>
 
-              {/* Email */}
-              <div>
-                <Text size="2" weight="bold" mr="2">
-                  Email
-                </Text>
-                {isEditing ? (
-                  <TextField.Root
-                    value={editForm.email}
-                    onChange={(e) => handleInputChange("email", e.target.value)}
-                    placeholder="Email"
-                    size="2"
-                  />
-                ) : (
-                  <Text size="2">{user.email}</Text>
-                )}
-              </div>
+                    <div className="space-y-4">
+                      {/* Avatar and Basic Info */}
+                      <Flex align="center" gap="4">
+                        <Avatar
+                          src={
+                            isEditing
+                              ? getImageUrl(editForm.profile_picture) ||
+                                undefined
+                              : getImageUrl(user.profile_picture) || undefined
+                          }
+                          fallback={user.full_name?.[0] || user.username[0]}
+                          size="6"
+                        />
+                        <div className="flex-1">
+                          <Flex align="center" gap="2" mb="1">
+                            <Heading size="4">
+                              {isEditing ? (
+                                <TextField.Root
+                                  value={editForm.full_name}
+                                  onChange={(e) =>
+                                    handleInputChange(
+                                      "full_name",
+                                      e.target.value,
+                                    )
+                                  }
+                                  placeholder="Full Name"
+                                  size="2"
+                                />
+                              ) : (
+                                user.full_name || user.username
+                              )}
+                            </Heading>
+                            {user.is_verified && (
+                              <CheckCircledIcon className="w-4 h-4 text-green-600" />
+                            )}
+                          </Flex>
+                          <Text size="3" color="gray">
+                            @{user.username}
+                          </Text>
+                          {user.is_verified && (
+                            <Badge
+                              color="green"
+                              variant="soft"
+                              size="1"
+                              className="ml-2"
+                            >
+                              Verified User
+                            </Badge>
+                          )}
+                        </div>
+                      </Flex>
 
-              {/* Bio */}
-              <div>
-                <Text size="2" weight="bold" mr="2">
-                  Bio
-                </Text>
-                {isEditing ? (
-                  <TextArea
-                    value={editForm.bio}
-                    onChange={(e) => handleInputChange("bio", e.target.value)}
-                    placeholder="Tell us about yourself..."
-                    size="2"
-                    rows={3}
-                  />
-                ) : (
-                  <Text size="2">{user.bio || "No bio provided"}</Text>
-                )}
-              </div>
+                      {/* Profile Picture: presets, upload, or URL */}
+                      {isEditing && (
+                        <div className="space-y-2">
+                          <Text size="2" weight="bold" className="block">
+                            Profile Picture
+                          </Text>
 
-              {/* Location */}
-              <div>
-                <Text size="2" weight="bold" mr="2">
-                  Location
-                </Text>
-                {isEditing ? (
-                  <TextField.Root
-                    value={editForm.location}
-                    onChange={(e) =>
-                      handleInputChange("location", e.target.value)
-                    }
-                    placeholder="Location"
-                    size="2"
-                  />
-                ) : (
-                  <Flex align="center" gap="2">
-                    <Crosshair1Icon className="w-4 h-4" />
-                    <Text size="2">
-                      {user.location || "No location provided"}
-                    </Text>
-                  </Flex>
-                )}
-              </div>
+                          {/* Preset avatars */}
+                          <div>
+                            <Text size="1" color="gray" className="block mb-2">
+                              Choose a preset avatar
+                            </Text>
+                            <Grid columns="6" gap="2" className="max-w-md">
+                              {PROFILE_PICTURE_PRESETS.map((preset) => {
+                                const isSelected =
+                                  editForm.profile_picture === preset.url;
+                                return (
+                                  <button
+                                    key={preset.id}
+                                    type="button"
+                                    onClick={() => {
+                                      handleInputChange(
+                                        "profile_picture",
+                                        preset.url,
+                                      );
+                                      setProfilePictureError(null);
+                                    }}
+                                    className={`rounded-full p-0.5 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-9 ${
+                                      isSelected
+                                        ? "ring-2 ring-cyan-9 ring-offset-2 ring-offset-gray-1 dark:ring-offset-gray-2"
+                                        : "hover:opacity-90"
+                                    }`}
+                                    title={preset.name}
+                                  >
+                                    <Avatar
+                                      src={preset.url}
+                                      fallback={preset.name[0]}
+                                      size="3"
+                                      radius="full"
+                                      className="w-full aspect-square"
+                                    />
+                                  </button>
+                                );
+                              })}
+                            </Grid>
+                          </div>
 
-              <Separator />
+                          <Text size="1" color="gray" className="block mt-6">
+                            Or upload your own:
+                          </Text>
+                          <Flex gap="2" align="center" wrap="wrap">
+                            <label className="cursor-pointer">
+                              <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                className="sr-only"
+                                disabled={profilePictureUploading}
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  const maxMb = 5;
+                                  if (file.size > maxMb * 1024 * 1024) {
+                                    setProfilePictureError(
+                                      `File must be under ${maxMb} MB`,
+                                    );
+                                    return;
+                                  }
+                                  setProfilePictureError(null);
+                                  setProfilePictureUploading(true);
+                                  try {
+                                    const res =
+                                      await uploadApi.uploadProfilePicture(
+                                        file,
+                                      );
+                                    handleInputChange(
+                                      "profile_picture",
+                                      res.data.url,
+                                    );
+                                  } catch (err: any) {
+                                    setProfilePictureError(
+                                      err.response?.data?.detail ||
+                                        "Upload failed",
+                                    );
+                                  } finally {
+                                    setProfilePictureUploading(false);
+                                    e.target.value = "";
+                                  }
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                size="2"
+                                variant="soft"
+                                asChild
+                              >
+                                <span>
+                                  {profilePictureUploading
+                                    ? "Uploading..."
+                                    : "Upload photo"}
+                                </span>
+                              </Button>
+                            </label>
+                            <Text size="2" color="gray">
+                              or paste URL:
+                            </Text>
+                          </Flex>
+                          <TextField.Root
+                            value={editForm.profile_picture}
+                            onChange={(e) => {
+                              handleInputChange(
+                                "profile_picture",
+                                e.target.value,
+                              );
+                              setProfilePictureError(null);
+                            }}
+                            placeholder="https://example.com/photo.jpg or /uploads/..."
+                            size="2"
+                          />
+                          {profilePictureError && (
+                            <Text size="2" color="red">
+                              {profilePictureError}
+                            </Text>
+                          )}
+                        </div>
+                      )}
 
-              {/* Stats */}
-              <div className="space-y-2">
-                <Flex justify="between" align="center">
-                  <Text size="2">TimeBank Balance</Text>
-                  <Text size="2" weight="bold">
-                    {user.timebank_balance} hours
-                  </Text>
-                </Flex>
-                <Flex justify="between" align="center">
-                  <Text size="2">Member Since</Text>
-                  <Text size="2">
-                    {new Date(user.created_at).toLocaleDateString()}
-                  </Text>
-                </Flex>
-                <Flex justify="between" align="center">
-                  <Text size="2">Status</Text>
-                  <Badge
-                    color={user.is_active ? "green" : "red"}
-                    variant="soft"
-                  >
-                    {user.is_active ? "Active" : "Inactive"}
-                  </Badge>
-                </Flex>
-              </div>
-            </div>
-          </Card>
-        </Box>
+                      {/* Email */}
+                      <div>
+                        <Text size="2" weight="bold" mr="2">
+                          Email
+                        </Text>
+                        {isEditing ? (
+                          <TextField.Root
+                            value={editForm.email}
+                            onChange={(e) =>
+                              handleInputChange("email", e.target.value)
+                            }
+                            placeholder="Email"
+                            size="2"
+                          />
+                        ) : (
+                          <Text size="2">{user.email}</Text>
+                        )}
+                      </div>
 
-        {/* Settings */}
-        <Box>
-          <Card size="4" className="p-6">
-            <Heading size="5" mb="4">
-              Settings & Preferences
-            </Heading>
+                      {/* Bio */}
+                      <div>
+                        <Text size="2" weight="bold" mr="2">
+                          Bio
+                        </Text>
+                        {isEditing ? (
+                          <TextArea
+                            value={editForm.bio}
+                            onChange={(e) =>
+                              handleInputChange("bio", e.target.value)
+                            }
+                            placeholder="Tell us about yourself..."
+                            size="2"
+                            rows={3}
+                          />
+                        ) : (
+                          <Text size="2">{user.bio || "No bio provided"}</Text>
+                        )}
+                      </div>
 
-            <div className="space-y-6">
-              {/* Privacy Settings */}
-              <div>
-                <Heading size="4" mb="3">
-                  Privacy
-                </Heading>
-                <div className="space-y-3">
-                  {/*
+                      {/* Location */}
+                      <div>
+                        <Text size="2" weight="bold" mr="2">
+                          Location
+                        </Text>
+                        {isEditing ? (
+                          <MapLocationPicker
+                            value={editForm.location}
+                            onChange={(loc) =>
+                              setEditForm((prev) => ({
+                                ...prev,
+                                location: {
+                                  latitude: loc.latitude,
+                                  longitude: loc.longitude,
+                                  address: loc.address || "",
+                                },
+                              }))
+                            }
+                            height={180}
+                            markerColor="#2563eb"
+                          />
+                        ) : (
+                          <Flex align="center" gap="2">
+                            <Crosshair1Icon className="w-4 h-4" />
+                            <Text size="2">
+                              {typeof user.location === "string"
+                                ? user.location || "No location provided"
+                                : (user.location as any)?.address ||
+                                  "No location provided"}
+                            </Text>
+                          </Flex>
+                        )}
+                      </div>
+
+                      {/* Average Rating */}
+                      <div>
+                        <Text size="2" weight="bold" className="block mb-1">
+                          Average Rating
+                        </Text>
+                        {ratingCount > 0 && averageRating != null ? (
+                          <Flex align="center" gap="2">
+                            <RatingStars
+                              value={Math.round(averageRating * 10) / 10}
+                              readonly
+                              size={18}
+                            />
+                            <Text size="2" color="gray">
+                              {averageRating.toFixed(1)} ({ratingCount} rating
+                              {ratingCount !== 1 ? "s" : ""})
+                            </Text>
+                          </Flex>
+                        ) : (
+                          <Text size="2" color="gray">
+                            No ratings yet
+                          </Text>
+                        )}
+                      </div>
+
+                      <Separator />
+
+                      {/* Social Links */}
+                      <div>
+                        <Text size="2" weight="bold" className="block mb-2">
+                          Social Links
+                        </Text>
+                        {isEditing ? (
+                          <div className="space-y-2">
+                            {(
+                              [
+                                [
+                                  "linkedin",
+                                  "LinkedIn",
+                                  "https://linkedin.com/in/...",
+                                ],
+                                ["github", "GitHub", "https://github.com/..."],
+                                [
+                                  "twitter",
+                                  "Twitter / X",
+                                  "https://twitter.com/...",
+                                ],
+                                [
+                                  "instagram",
+                                  "Instagram",
+                                  "https://instagram.com/...",
+                                ],
+                                ["website", "Website", "https://yoursite.com"],
+                                [
+                                  "portfolio",
+                                  "Portfolio",
+                                  "https://portfolio.com",
+                                ],
+                              ] as const
+                            ).map(([key, label, placeholder]) => (
+                              <div key={key}>
+                                <Text
+                                  size="1"
+                                  color="gray"
+                                  className="block mb-0.5"
+                                >
+                                  {label}
+                                </Text>
+                                <TextField.Root
+                                  value={
+                                    (editForm.social_links as any)[key] || ""
+                                  }
+                                  onChange={(e) =>
+                                    handleSocialLinkChange(
+                                      key as keyof SocialLinks,
+                                      e.target.value,
+                                    )
+                                  }
+                                  placeholder={placeholder}
+                                  size="1"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <Flex gap="3" wrap="wrap">
+                            {user.social_links?.linkedin && (
+                              <a
+                                href={user.social_links.linkedin}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="LinkedIn"
+                              >
+                                <Linkedin
+                                  size={20}
+                                  className="text-gray-600 hover:text-blue-600 transition-colors"
+                                />
+                              </a>
+                            )}
+                            {user.social_links?.github && (
+                              <a
+                                href={user.social_links.github}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="GitHub"
+                              >
+                                <Github
+                                  size={20}
+                                  className="text-gray-600 hover:text-gray-900 transition-colors"
+                                />
+                              </a>
+                            )}
+                            {user.social_links?.twitter && (
+                              <a
+                                href={user.social_links.twitter}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Twitter / X"
+                              >
+                                <Twitter
+                                  size={20}
+                                  className="text-gray-600 hover:text-sky-500 transition-colors"
+                                />
+                              </a>
+                            )}
+                            {user.social_links?.instagram && (
+                              <a
+                                href={user.social_links.instagram}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Instagram"
+                              >
+                                <Instagram
+                                  size={20}
+                                  className="text-gray-600 hover:text-pink-500 transition-colors"
+                                />
+                              </a>
+                            )}
+                            {user.social_links?.website && (
+                              <a
+                                href={user.social_links.website}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Website"
+                              >
+                                <Globe
+                                  size={20}
+                                  className="text-gray-600 hover:text-green-600 transition-colors"
+                                />
+                              </a>
+                            )}
+                            {user.social_links?.portfolio && (
+                              <a
+                                href={user.social_links.portfolio}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Portfolio"
+                              >
+                                <Briefcase
+                                  size={20}
+                                  className="text-gray-600 hover:text-amber-600 transition-colors"
+                                />
+                              </a>
+                            )}
+                            {!user.social_links?.linkedin &&
+                              !user.social_links?.github &&
+                              !user.social_links?.twitter &&
+                              !user.social_links?.instagram &&
+                              !user.social_links?.website &&
+                              !user.social_links?.portfolio && (
+                                <Text size="2" color="gray">
+                                  No social links added
+                                </Text>
+                              )}
+                          </Flex>
+                        )}
+                      </div>
+
+                      <Separator />
+
+                      {/* Interests */}
+                      <div>
+                        <Flex justify="between" align="center" mb="3">
+                          <Text size="2" weight="bold">
+                            Interests
+                          </Text>
+                          <Button
+                            size="1"
+                            variant="soft"
+                            color="lime"
+                            className="rounded-full"
+                            onClick={() => setShowInterestSelector(true)}
+                          >
+                            {(user.interests?.length || 0) > 0
+                              ? "Update Interests"
+                              : "Add Interests"}
+                          </Button>
+                        </Flex>
+                        {(user.interests?.length || 0) > 0 ? (
+                          <Flex gap="2" wrap="wrap">
+                            {user.interests!.map((interest) => (
+                              <InterestChip
+                                key={interest}
+                                name={interest}
+                                size="sm"
+                                showIcon
+                              />
+                            ))}
+                          </Flex>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setShowInterestSelector(true)}
+                            className="rounded-xl border-2 border-dashed px-4 py-3 text-left text-sm transition-colors"
+                            style={{
+                              borderColor: "var(--gray-6)",
+                              backgroundColor: "var(--gray-1)",
+                              color: "var(--gray-10)",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.borderColor =
+                                "var(--lime-6)";
+                              e.currentTarget.style.backgroundColor =
+                                "var(--lime-2)";
+                              e.currentTarget.style.color = "var(--lime-11)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.borderColor =
+                                "var(--gray-6)";
+                              e.currentTarget.style.backgroundColor =
+                                "var(--gray-1)";
+                              e.currentTarget.style.color = "var(--gray-10)";
+                            }}
+                          >
+                            Add interests to help others discover you
+                          </button>
+                        )}
+                      </div>
+
+                      <Separator />
+
+                      {/* Stats */}
+                      <div className="space-y-2">
+                        <Flex justify="between" align="center">
+                          <Text size="2">TimeBank Balance</Text>
+                          <Text size="2" weight="bold">
+                            {user.timebank_balance} hours
+                          </Text>
+                        </Flex>
+                        <Flex justify="between" align="center">
+                          <Text size="2">Member Since</Text>
+                          <Text size="2">
+                            {new Date(user.created_at).toLocaleDateString()}
+                          </Text>
+                        </Flex>
+                        <Flex justify="between" align="center">
+                          <Text size="2">Status</Text>
+                          <Badge
+                            color={user.is_active ? "green" : "red"}
+                            variant="soft"
+                          >
+                            {user.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                        </Flex>
+                      </div>
+                    </div>
+                  </Card>
+                </Box>
+
+                {/* Settings */}
+                <Box>
+                  <Card size="4" className="p-6">
+                    <Heading size="5" mb="4">
+                      Settings & Preferences
+                    </Heading>
+
+                    <div className="space-y-6">
+                      {/* Privacy Settings */}
+                      <div>
+                        <Heading size="4" mb="3">
+                          Privacy
+                        </Heading>
+                        <div className="space-y-3">
+                          {/*
                     <Flex justify="between" align="center">
                     <div className="grid gap-1">
                       <Text size="2" weight="bold">
@@ -496,151 +1075,199 @@ export function Profile() {
                       }
                       disabled={settingsLoading}
                     />
-                  </Flex> 
+                  </Flex>
                     */}
-                  <Flex justify="between" align="center">
-                    <div className="grid gap-1">
-                      <Text size="2" weight="bold">
-                        Show Email
-                      </Text>
-                      <Text size="1" color="gray">
-                        Display your email on your profile
-                      </Text>
-                    </div>
-                    <Switch
-                      checked={settings.show_email}
-                      onCheckedChange={(checked) =>
-                        handleSettingsChange("show_email", checked)
-                      }
-                      disabled={settingsLoading}
-                    />
-                  </Flex>
-                  <Flex justify="between" align="center">
-                    <div className="grid gap-1">
-                      <Text size="2" weight="bold">
-                        Show Location
-                      </Text>
-                      <Text size="1" color="gray">
-                        Display your location on your profile
-                      </Text>
-                    </div>
-                    <Switch
-                      checked={settings.show_location}
-                      onCheckedChange={(checked) =>
-                        handleSettingsChange("show_location", checked)
-                      }
-                      disabled={settingsLoading}
-                    />
-                  </Flex>
-                </div>
-              </div>
+                          <Flex justify="between" align="center">
+                            <div className="grid gap-1">
+                              <Text size="2" weight="bold">
+                                Show Email
+                              </Text>
+                              <Text size="1" color="gray">
+                                Display your email on your profile
+                              </Text>
+                            </div>
+                            <Switch
+                              checked={settings.show_email}
+                              onCheckedChange={(checked) =>
+                                handleSettingsChange("show_email", checked)
+                              }
+                              disabled={settingsLoading}
+                            />
+                          </Flex>
+                          <Flex justify="between" align="center">
+                            <div className="grid gap-1">
+                              <Text size="2" weight="bold">
+                                Show Location
+                              </Text>
+                              <Text size="1" color="gray">
+                                Display your location on your profile
+                              </Text>
+                            </div>
+                            <Switch
+                              checked={settings.show_location}
+                              onCheckedChange={(checked) =>
+                                handleSettingsChange("show_location", checked)
+                              }
+                              disabled={settingsLoading}
+                            />
+                          </Flex>
+                        </div>
+                      </div>
 
-              <Separator />
+                      <Separator />
 
-              {/* Notification Settings */}
-              <div>
-                <Heading size="4" mb="3">
-                  Notifications
-                </Heading>
-                <div className="space-y-3">
-                  <Flex justify="between" align="center">
-                    <div className="grid gap-1">
-                      <Text size="2" weight="bold">
-                        Email Notifications
-                      </Text>
-                      <Text size="1" color="gray">
-                        Receive notifications via email
-                      </Text>
-                    </div>
-                    <Switch
-                      checked={settings.email_notifications}
-                      onCheckedChange={(checked) =>
-                        handleSettingsChange("email_notifications", checked)
-                      }
-                      disabled={settingsLoading}
-                    />
-                  </Flex>
-                  <Flex justify="between" align="center">
-                    <div className="grid gap-1">
-                      <Text size="2" weight="bold">
-                        Service Matches
-                      </Text>
-                      <Text size="1" color="gray">
-                        Get notified when services match your needs
-                      </Text>
-                    </div>
-                    <Switch
-                      checked={settings.service_matches_notifications}
-                      onCheckedChange={(checked) =>
-                        handleSettingsChange(
-                          "service_matches_notifications",
-                          checked
-                        )
-                      }
-                      disabled={settingsLoading}
-                    />
-                  </Flex>
-                  <Flex justify="between" align="center">
-                    <div className="grid gap-1">
-                      <Text size="2" weight="bold">
-                        Messages
-                      </Text>
-                      <Text size="1" color="gray">
-                        Get notified about new messages
-                      </Text>
-                    </div>
-                    <Switch
-                      checked={settings.messages_notifications}
-                      onCheckedChange={(checked) =>
-                        handleSettingsChange("messages_notifications", checked)
-                      }
-                      disabled={settingsLoading}
-                    />
-                  </Flex>
-                </div>
-              </div>
+                      {/* Notification Settings */}
+                      <div>
+                        <Heading size="4" mb="3">
+                          Notifications
+                        </Heading>
+                        <div className="space-y-3">
+                          <Flex justify="between" align="center">
+                            <div className="grid gap-1">
+                              <Text size="2" weight="bold">
+                                Email Notifications
+                              </Text>
+                              <Text size="1" color="gray">
+                                Receive notifications via email
+                              </Text>
+                            </div>
+                            <Switch
+                              checked={settings.email_notifications}
+                              onCheckedChange={(checked) =>
+                                handleSettingsChange(
+                                  "email_notifications",
+                                  checked,
+                                )
+                              }
+                              disabled={settingsLoading}
+                            />
+                          </Flex>
+                          <Flex justify="between" align="center">
+                            <div className="grid gap-1">
+                              <Text size="2" weight="bold">
+                                Service Matches
+                              </Text>
+                              <Text size="1" color="gray">
+                                Get notified when services match your needs
+                              </Text>
+                            </div>
+                            <Switch
+                              checked={settings.service_matches_notifications}
+                              onCheckedChange={(checked) =>
+                                handleSettingsChange(
+                                  "service_matches_notifications",
+                                  checked,
+                                )
+                              }
+                              disabled={settingsLoading}
+                            />
+                          </Flex>
+                          <Flex justify="between" align="center">
+                            <div className="grid gap-1">
+                              <Text size="2" weight="bold">
+                                Messages
+                              </Text>
+                              <Text size="1" color="gray">
+                                Get notified about new messages
+                              </Text>
+                            </div>
+                            <Switch
+                              checked={settings.messages_notifications}
+                              onCheckedChange={(checked) =>
+                                handleSettingsChange(
+                                  "messages_notifications",
+                                  checked,
+                                )
+                              }
+                              disabled={settingsLoading}
+                            />
+                          </Flex>
+                        </div>
+                      </div>
 
-              <Separator />
+                      <Separator />
 
-              {/* Account Settings */}
-              <div>
-                <Heading size="4" mb="3">
-                  Account
-                </Heading>
-                <div className="space-y-3">
-                  <Button
-                    variant="soft"
-                    size="2"
-                    className="w-full justify-start"
-                    onClick={() => setShowPasswordDialog(true)}
-                  >
-                    <LockClosedIcon className="w-4 h-4 mr-2" />
-                    Change Password
-                  </Button>
-                  <Button
-                    variant="soft"
-                    size="2"
-                    className="w-full justify-start"
-                    onClick={handleLogout}
-                  >
-                    <ExitIcon className="w-4 h-4 mr-2" />
-                    Logout
-                  </Button>
-                  <Button
-                    variant="soft"
-                    color="red"
-                    size="2"
-                    className="w-full justify-start"
-                    onClick={() => setShowDeleteDialog(true)}
-                  >
-                    Delete Account
-                  </Button>
-                </div>
-              </div>
+                      {/* Account Settings */}
+                      <div>
+                        <Heading size="4" mb="3">
+                          Account
+                        </Heading>
+                        <div className="space-y-3">
+                          <Button
+                            variant="soft"
+                            size="2"
+                            className="w-full justify-start"
+                            onClick={() => setShowPasswordDialog(true)}
+                          >
+                            <LockClosedIcon className="w-4 h-4 mr-2" />
+                            Change Password
+                          </Button>
+                          <Button
+                            variant="soft"
+                            size="2"
+                            className="w-full justify-start"
+                            onClick={handleLogout}
+                          >
+                            <ExitIcon className="w-4 h-4 mr-2" />
+                            Logout
+                          </Button>
+                          <Button
+                            variant="soft"
+                            color="red"
+                            size="2"
+                            className="w-full justify-start"
+                            onClick={() => setShowDeleteDialog(true)}
+                          >
+                            Delete Account
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                </Box>
+              </Grid>
+              <BadgeDisplay />
             </div>
-          </Card>
+          </Tabs.Content>
+
+          {/* ── My Services Tab ── */}
+          <Tabs.Content value="services">
+            <MyServices
+              activeTab="services"
+              onDataLoad={setMyservicesCounts}
+              statusFilter={
+                profileTab === "services" ? profileStatusFromUrl : undefined
+              }
+            />
+          </Tabs.Content>
+
+          <Tabs.Content value="applications">
+            <MyServices
+              activeTab="applications"
+              onDataLoad={setMyservicesCounts}
+            />
+          </Tabs.Content>
+
+          <Tabs.Content value="timebank">
+            <MyServices activeTab="timebank" onDataLoad={setMyservicesCounts} />
+          </Tabs.Content>
+
+          <Tabs.Content value="saved">
+            <MyServices activeTab="saved" onDataLoad={setMyservicesCounts} />
+          </Tabs.Content>
+
+          <Tabs.Content value="chat">
+            <Chat />
+          </Tabs.Content>
         </Box>
-      </Grid>
+      </Tabs.Root>
+
+      <InterestSelector
+        open={showInterestSelector}
+        onOpenChange={setShowInterestSelector}
+        initialSelected={user.interests || []}
+        onSave={handleInterestsSave}
+      />
 
       {/* Change Password Dialog */}
       <Dialog.Root
@@ -777,6 +1404,23 @@ export function Profile() {
         </Dialog.Content>
       </Dialog.Root>
 
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Delete your account?"
+        description="Are you sure you want to delete your account? This action cannot be undone."
+        confirmLabel="Delete account"
+        variant="danger"
+        onConfirm={handleConfirmDeleteAccount}
+      />
+      <ConfirmDialog
+        open={logoutConfirmOpen}
+        onOpenChange={setLogoutConfirmOpen}
+        title="Log out?"
+        description="Are you sure you want to logout?"
+        confirmLabel="Log out"
+        onConfirm={handleConfirmLogout}
+      />
       {/* Rejected Requests Dialog */}
       <Dialog.Root
         open={showRejectedRequestsDialog}
@@ -844,8 +1488,6 @@ export function Profile() {
           </Flex>
         </Dialog.Content>
       </Dialog.Root>
-
-      <MyServices />
     </div>
   );
 }

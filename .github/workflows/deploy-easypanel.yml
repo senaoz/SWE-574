@@ -1,0 +1,29 @@
+name: Deploy to Easypanel
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Trigger Easypanel deployment
+        env:
+          DEPLOY_URL: ${{ secrets.EASYPANEL_DEPLOY_URL || 'http://82.25.97.112:3000/api/compose/deploy/76e77b79c86de85ddde70ec4b3ac93fcccc71fdb303a261e' }}
+        run: |
+          response=$(curl -s -w "\n%{http_code}" "$DEPLOY_URL")
+          echo "Deploy URL: $DEPLOY_URL"
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          echo "HTTP Status: $http_code"
+          echo "Response: $body"
+          if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
+            echo "Deployment triggered successfully."
+          else
+            echo "Deployment request failed with status $http_code"
+            exit 1
+          fi

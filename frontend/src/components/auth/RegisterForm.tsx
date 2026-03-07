@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { authApi } from "@/services/api";
+import { authApi, usersApi } from "@/services/api";
+import { useUser } from "@/contexts/UserContext";
 import { Button, Card, TextField } from "@radix-ui/themes";
 import { Form } from "radix-ui";
 import { validateEmail, validatePassword } from "@/utils/utils";
+import { InterestSelector } from "@/components/ui/InterestSelector";
 
 interface RegisterFormData {
   username: string;
@@ -16,9 +18,18 @@ interface RegisterFormData {
   location?: string;
 }
 
-export function RegisterForm() {
+export function RegisterForm({
+  setLoginDialogOpen,
+  onSwitchToLogin,
+  embedded,
+}: {
+  setLoginDialogOpen?: (open: boolean) => void;
+  onSwitchToLogin?: () => void;
+  embedded?: boolean;
+} = {}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { setAuthToken } = useUser();
   const [formData, setFormData] = useState<RegisterFormData>({
     username: "",
     email: "",
@@ -29,9 +40,11 @@ export function RegisterForm() {
     location: "",
   });
   const [errors, setErrors] = useState<Partial<RegisterFormData>>({});
+  const [showInterestOnboarding, setShowInterestOnboarding] = useState(false);
 
-  if (localStorage.getItem("access_token")) {
-    navigate("/dashboard");
+  if (localStorage.getItem("access_token") && !showInterestOnboarding) {
+    setLoginDialogOpen?.(false);
+    navigate("/profile?interests=true");
     return null;
   }
 
@@ -45,10 +58,12 @@ export function RegisterForm() {
         if (user) {
           queryClient.setQueryData(["currentUser"], user);
         }
-        navigate("/dashboard");
+        setAuthToken(true);
+        setShowInterestOnboarding(true);
+        setLoginDialogOpen?.(false);
+        navigate("/profile?interests=true");
         return;
       }
-      // Fallback: backend returned old shape (user at top level, no token). Log in with same credentials.
       const legacyUser = response.data as { email?: string; username?: string };
       if (legacyUser?.email && formData.password) {
         try {
@@ -63,7 +78,10 @@ export function RegisterForm() {
             if (loginUser) {
               queryClient.setQueryData(["currentUser"], loginUser);
             }
-            navigate("/dashboard");
+            setAuthToken(true);
+            setShowInterestOnboarding(true);
+            setLoginDialogOpen?.(false);
+            navigate("/profile?interests=true");
             return;
           }
         } catch (e) {
@@ -129,7 +147,7 @@ export function RegisterForm() {
   };
 
   return (
-    <Card size="4" className="w-full max-w-xl mx-auto justify-between">
+    <div>
       <div className="mb-4">
         <div className="text-2xl font-bold mb-2">Create Account</div>
         <div className="">
@@ -283,7 +301,11 @@ export function RegisterForm() {
         </Form.Field>
 
         <Form.Submit asChild>
-          <Button type="submit" disabled={registerMutation.isPending}>
+          <Button
+            type="submit"
+            disabled={registerMutation.isPending}
+            className="w-full"
+          >
             {registerMutation.isPending
               ? "Creating account..."
               : "Create Account"}
@@ -292,10 +314,23 @@ export function RegisterForm() {
       </Form.Root>
       <p className="mt-6 text-center text-sm ">
         Already have an account?{" "}
-        <a href="/?login=true" className="text-blue-600 hover:underline">
-          Sign in
-        </a>
+        {onSwitchToLogin ? (
+          <button
+            type="button"
+            onClick={onSwitchToLogin}
+            className="text-lime-600 hover:underline font-medium"
+          >
+            Sign in
+          </button>
+        ) : (
+          <a
+            href="/?login=true"
+            className="text-lime-600 hover:underline font-medium"
+          >
+            Sign in
+          </a>
+        )}
       </p>
-    </Card>
+    </div>
   );
 }

@@ -6,7 +6,11 @@ from bson import ObjectId
 from ..models.service import ServiceCreate, ServiceUpdate, ServiceResponse, ServiceFilters, ServiceStatus
 from ..models.user import UserResponse
 from ..core.database import get_database
+from .content_moderation_service import is_offensive
 
+def _ensure_non_offensive(value: Optional[str], field_name: str) -> None:
+    if isinstance(value, str) and value.strip() and is_offensive(value):
+        raise ValueError(f"{field_name} contains offensive language")
 
 class ServiceService:
     def __init__(self, db):
@@ -47,9 +51,7 @@ class ServiceService:
     def _normalize_service_doc(self, service_doc: dict) -> dict:
         """Normalize service document for response (handles backward compatibility)"""
         # Ensure optional confirmation fields are set
-        if "provider_confirmed" not in service_doc:
-            service_doc["provider_confirmed"] = False
-        if "receiver_confirmed_ids" not in service_doc:
+        if "receiver_confirmed_ids" not in service_doc or service_doc["receiver_confirmed_ids"] is None or not isinstance(service_doc["receiver_confirmed_ids"], list):
             service_doc["receiver_confirmed_ids"] = []
         
         # Normalize max_participants - ensure it's always a valid integer >= 1
@@ -58,10 +60,16 @@ class ServiceService:
         elif not isinstance(service_doc["max_participants"], int) or service_doc["max_participants"] < 1:
             service_doc["max_participants"] = 1
 
-        # Backward compatibility: default is_remote to False if missing
+        # Default is_remote for documents created before the field existed
         if "is_remote" not in service_doc:
             service_doc["is_remote"] = False
 
+        # Normalize image_url (legacy) -> image_urls for backward compatibility
+        if "image_urls" not in service_doc or service_doc["image_urls"] is None:
+            service_doc["image_urls"] = []
+        if not service_doc["image_urls"] and service_doc.get("image_url"):
+            service_doc["image_urls"] = [service_doc["image_url"]]
+        
         # Normalize tags for backward compatibility
         if "tags" in service_doc:
             service_doc["tags"] = self._normalize_tags(service_doc["tags"])
@@ -74,6 +82,19 @@ class ServiceService:
             # Use dict(exclude_none=False, exclude_unset=False) to include all fields
             # This ensures scheduling fields are saved to the database
             service_dict = service_data.dict(exclude_none=False, exclude_unset=False)
+
+            _ensure_non_offensive(service_dict.get("title"), "Title")
+            _ensure_non_offensive(service_dict.get("description"), "Description")
+            _ensure_non_offensive(service_dict.get("open_availability"), "Open availability")
+            # User cannot create offers (give help) when they must create a Need first
+            if service_dict.get("service_type") == "offer":
+                from .user_service import UserService
+                user_service = UserService(self.db)
+                if await user_service.requires_need_creation(user_id):
+                    raise ValueError(
+                        "You must create a Need before you can give help. "
+                        "You've reached the 10-hour surplus limit."
+                    )
             # Normalize tags to entity format
             if "tags" in service_dict:
                 service_dict["tags"] = self._normalize_tags(service_dict["tags"])
@@ -134,6 +155,8 @@ class ServiceService:
                 # Convert string user_id to ObjectId for database query
                 user_id_obj = ObjectId(filters.user_id) if isinstance(filters.user_id, str) else filters.user_id
                 query["user_id"] = user_id_obj
+            if filters.is_remote is not None:
+                query["is_remote"] = filters.is_remote
             
             # Handle location-based filtering
             if filters.location and filters.radius:
@@ -171,6 +194,8 @@ class ServiceService:
                     # Convert string user_id to ObjectId for database query
                     user_id_obj = ObjectId(filters.user_id) if isinstance(filters.user_id, str) else filters.user_id
                     match_stage["user_id"] = user_id_obj
+                if filters.is_remote is not None:
+                    match_stage["is_remote"] = filters.is_remote
                 
                 if match_stage:
                     pipeline.append({"$match": match_stage})
@@ -262,7 +287,11 @@ class ServiceService:
             update_data = {k: v for k, v in service_update.dict().items() if v is not None}
             if not update_data:
                 return await self.get_service_by_id(service_id)
-            
+
+            _ensure_non_offensive(update_data.get("title"), "Title")
+            _ensure_non_offensive(update_data.get("description"), "Description")
+            _ensure_non_offensive(update_data.get("open_availability"), "Open availability")
+
             # Normalize tags if they're being updated
             if "tags" in update_data:
                 update_data["tags"] = self._normalize_tags(update_data["tags"])
@@ -333,117 +362,25 @@ class ServiceService:
         except Exception as e:
             raise ValueError(f"Error matching service: {str(e)}")
 
-    async def confirm_service_completion(self, service_id: str, user_id: str) -> ServiceResponse:
-        """Confirm service completion by provider or receiver"""
-        try:
-            service = await self.get_service_by_id(service_id)
-            if not service:
-                raise ValueError("Service not found")
-            
-            if service.status != ServiceStatus.IN_PROGRESS:
-                raise ValueError("Service is not in progress")
-            
-            if not service.matched_user_ids or len(service.matched_user_ids) == 0:
-                raise ValueError("Service has no matched users")
-            
-            # Determine which confirmation to update
-            # Convert user_id to ObjectId for comparison
-            user_id_obj = ObjectId(user_id) if ObjectId.is_valid(user_id) else None
-            if not user_id_obj:
-                raise ValueError("Invalid user ID")
-            
-            is_provider = str(service.user_id) == user_id
-            is_receiver = any(
-                str(matched_id) == user_id or (isinstance(matched_id, ObjectId) and str(matched_id) == user_id)
-                for matched_id in service.matched_user_ids
+    async def complete_service(self, service_id: str, user_id: str) -> bool:
+        """Mark service as completed (provider only). Updates status, TimeBank, and linked transactions."""
+        service = await self.get_service_by_id(service_id)
+        if not service:
+            raise ValueError("Service not found")
+        if str(service.user_id) != user_id:
+            raise ValueError("Only the service owner (provider) can mark the service as completed")
+        if service.status not in (ServiceStatus.ACTIVE, ServiceStatus.IN_PROGRESS):
+            raise ValueError("Service is not in a state that can be completed")
+        # Optional: provider must create a Need first when giving help
+        from .user_service import UserService
+        user_service = UserService(self.db)
+        if await user_service.requires_need_creation(user_id):
+            raise ValueError(
+                "You must create a Need before you can give help. "
+                "You've reached the 10-hour surplus limit."
             )
-            
-            if not is_provider and not is_receiver:
-                raise ValueError("Not authorized to confirm this service")
-            
-            # Update the appropriate confirmation
-            if is_provider:
-                # Set provider_confirmed
-                result = await self.services_collection.update_one(
-                    {"_id": ObjectId(service_id)},
-                    {
-                        "$set": {
-                            "provider_confirmed": True,
-                            "updated_at": datetime.utcnow()
-                        }
-                    }
-                )
-            
-            if is_receiver:
-                # Add user to receiver_confirmed_ids list
-                result = await self.services_collection.update_one(
-                    {"_id": ObjectId(service_id)},
-                    {
-                        "$addToSet": {"receiver_confirmed_ids": user_id_obj},
-                        "$set": {"updated_at": datetime.utcnow()}
-                    }
-                )
-            
-            # Fetch the latest service document from database to check completion status
-            # We need fresh data after the update
-            service_doc = await self.services_collection.find_one({"_id": ObjectId(service_id)})
-            if not service_doc:
-                raise ValueError("Service not found after update")
-            
-            provider_confirmed = service_doc.get("provider_confirmed", False)
-            receiver_confirmed_ids = service_doc.get("receiver_confirmed_ids", [])
-            matched_user_ids = service_doc.get("matched_user_ids", [])
-            
-            # Convert all IDs to strings for comparison
-            matched_user_ids_str = [str(mid) for mid in matched_user_ids]
-            receiver_confirmed_ids_str = [str(rid) for rid in receiver_confirmed_ids]
-            
-            # Check if all receivers have confirmed
-            all_receivers_confirmed = (
-                len(matched_user_ids) > 0 and
-                len(receiver_confirmed_ids_str) == len(matched_user_ids_str) and
-                all(rid_str in matched_user_ids_str for rid_str in receiver_confirmed_ids_str)
-            )
-            
-            # Debug logging (can be removed in production)
-            print(f"Service {service_id} completion check:")
-            print(f"  provider_confirmed: {provider_confirmed}")
-            print(f"  matched_user_ids: {matched_user_ids_str}")
-            print(f"  receiver_confirmed_ids: {receiver_confirmed_ids_str}")
-            print(f"  all_receivers_confirmed: {all_receivers_confirmed}")
-            
-            if provider_confirmed and all_receivers_confirmed:
-                # Provider and all receivers confirmed - complete the service and update TimeBank
-                print(f"Both parties confirmed for service {service_id}, finalizing completion...")
-                # Get the service response object for finalization
-                updated_service = await self.get_service_by_id(service_id)
-                try:
-                    finalize_result = await self._finalize_service_completion(service_id, updated_service)
-                    # Verify the status was updated
-                    final_service_doc = await self.services_collection.find_one({"_id": ObjectId(service_id)})
-                    if final_service_doc and final_service_doc.get("status") == ServiceStatus.COMPLETED:
-                        if finalize_result:
-                            print(f"Service {service_id} successfully finalized: status=COMPLETED, TimeBank updated")
-                        else:
-                            print(f"WARNING: Service {service_id} marked as COMPLETED but TimeBank transactions failed (check logs above for details)")
-                    else:
-                        print(f"ERROR: Service {service_id} finalization completed but status is {final_service_doc.get('status') if final_service_doc else 'unknown'}")
-                except Exception as finalize_error:
-                    print(f"Error finalizing service completion: {str(finalize_error)}")
-                    import traceback
-                    print(traceback.format_exc())
-                    # Don't fail the confirmation, but log the error
-                    raise ValueError(f"Service confirmed but failed to finalize: {str(finalize_error)}")
-            
-            # Return updated service with confirmation fields
-            final_service = await self.get_service_by_id(service_id)
-            # Log the final status for debugging
-            if final_service:
-                print(f"Returning service {service_id} with status: {final_service.status}")
-            return final_service
-        except Exception as e:
-            raise ValueError(f"Error confirming service completion: {str(e)}")
-    
+        return await self._finalize_service_completion(service_id, service)
+
     async def _finalize_service_completion(self, service_id: str, service: ServiceResponse) -> bool:
         """Finalize service completion and update TimeBank (called when both parties confirm)"""
         try:
@@ -471,61 +408,22 @@ class ServiceService:
                 # Log error but don't fail the completion
                 print(f"Warning: Failed to reject pending requests: {str(e)}")
             
-            # Update TimeBank balances
-            from .user_service import UserService
-            user_service = UserService(self.db)
-            
-            # Provider earns hours for each participant
-            provider_hours = service.estimated_duration * len(service.matched_user_ids)
-            provider_success = await user_service.add_timebank_transaction(
-                str(service.user_id),
-                provider_hours,
-                f"Provided service: {service.title} (to {len(service.matched_user_ids)} participant(s))",
-                service_id
+            # TimeBank is updated only when BOTH provider and requester confirm each
+            # transaction (via confirm_transaction_completion -> _finalize_transaction).
+            # Do NOT update TimeBank here — the transaction path is the single source of truth.
+            from ..models.transaction import TransactionStatus
+            transactions_collection = self.db.transactions
+
+            # Record provider's confirmation on all linked transactions
+            await transactions_collection.update_many(
+                {"service_id": ObjectId(service_id), "status": {"$ne": TransactionStatus.COMPLETED}},
+                {
+                    "$set": {
+                        "provider_confirmed": True,
+                        "updated_at": datetime.utcnow(),
+                    }
+                }
             )
-            
-            if not provider_success:
-                # Check why provider transaction failed
-                provider_user = await user_service.get_user_by_id(str(service.user_id))
-                if provider_user:
-                    if provider_hours > 0 and provider_user.timebank_balance >= 10.0:
-                        print(f"WARNING: Provider {service.user_id} cannot earn more hours (balance: {provider_user.timebank_balance}, limit: 10.0)")
-                    else:
-                        print(f"WARNING: Provider TimeBank transaction failed for unknown reason (balance: {provider_user.timebank_balance if provider_user else 'N/A'})")
-                else:
-                    print(f"WARNING: Provider user not found: {service.user_id}")
-            
-            # Each receiver spends hours
-            receiver_success = True
-            receiver_failures = []
-            for matched_user_id in service.matched_user_ids:
-                success = await user_service.add_timebank_transaction(
-                    str(matched_user_id),
-                    -service.estimated_duration,
-                    f"Received service: {service.title}",
-                    service_id
-                )
-                if not success:
-                    receiver_success = False
-                    # Check why receiver transaction failed
-                    receiver_user = await user_service.get_user_by_id(str(matched_user_id))
-                    if receiver_user:
-                        new_balance = receiver_user.timebank_balance - service.estimated_duration
-                        if new_balance < 0:
-                            receiver_failures.append(f"User {matched_user_id} has insufficient balance ({receiver_user.timebank_balance} < {service.estimated_duration})")
-                        else:
-                            receiver_failures.append(f"User {matched_user_id} transaction failed for unknown reason")
-                    else:
-                        receiver_failures.append(f"User {matched_user_id} not found")
-            
-            if receiver_failures:
-                print(f"WARNING: Receiver TimeBank transaction failures: {', '.join(receiver_failures)}")
-            
-            # Service is already marked as COMPLETED, so we return True even if TimeBank updates failed
-            # The TimeBank failures are logged but don't prevent service completion
-            if not provider_success or not receiver_success:
-                print(f"WARNING: Service {service_id} marked as COMPLETED but some TimeBank transactions failed")
-                return False  # Return False to indicate TimeBank issues, but service is still completed
             
             return True
         except Exception as e:

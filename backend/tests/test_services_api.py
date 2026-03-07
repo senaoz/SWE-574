@@ -199,3 +199,40 @@ class TestServicesAPI:
         assert "participants" in data
         assert len(data["participants"]) >= 1
 
+    @pytest.mark.asyncio
+    async def test_complete_service_endpoint(self, test_client, mock_db, sample_service, second_user, auth_headers):
+        """Test provider can complete service via API (POST /services/{id}/complete)"""
+        from app.services.service_service import ServiceService
+        
+        service_service = ServiceService(mock_db)
+        await service_service.match_service(str(sample_service.id), str(second_user.id))
+        
+        response = test_client.post(
+            f"/services/{sample_service.id}/complete",
+            headers=auth_headers,
+        )
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert "message" in data
+        completed = await service_service.get_service_by_id(str(sample_service.id))
+        assert completed.status.value == "completed"
+
+    @pytest.mark.asyncio
+    async def test_complete_service_endpoint_unauthorized(self, test_client, mock_db, sample_service, second_user):
+        """Test non-owner cannot complete service via API"""
+        from app.core.security import create_access_token
+        from app.services.service_service import ServiceService
+        
+        service_service = ServiceService(mock_db)
+        await service_service.match_service(str(sample_service.id), str(second_user.id))
+        token = create_access_token(data={"sub": str(second_user.id)})
+        headers = {"Authorization": f"Bearer {token}"}
+        
+        response = test_client.post(
+            f"/services/{sample_service.id}/complete",
+            headers=headers,
+        )
+        
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+

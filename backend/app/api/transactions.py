@@ -6,7 +6,7 @@ from ..models.user import UserResponse
 from ..services.transaction_service import TransactionService
 from ..api.auth import get_current_user
 from ..core.database import get_database
-from ..core.permissions import require_admin
+from ..core.permissions import require_admin, require_moderator_or_admin
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -114,29 +114,6 @@ async def confirm_transaction_completion(
             detail=str(e)
         )
 
-@router.post("/{transaction_id}/complete", response_model=TransactionResponse)
-async def complete_transaction(
-    transaction_id: str,
-    completion_notes: str = None,
-    current_user: UserResponse = Depends(get_current_user),
-    db=Depends(get_database)
-):
-    """Mark a transaction as completed (deprecated - use confirm-completion instead)"""
-    transaction_service = TransactionService(db)
-    try:
-        completed_transaction = await transaction_service.complete_transaction(transaction_id, str(current_user.id), completion_notes)
-        if not completed_transaction:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to complete transaction"
-            )
-        return completed_transaction
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-
 @router.get("/{transaction_id}", response_model=TransactionResponse)
 async def get_transaction(
     transaction_id: str,
@@ -163,10 +140,10 @@ async def get_transaction(
 async def get_all_transactions_admin(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    current_user: UserResponse = Depends(require_admin()),
+    current_user: UserResponse = Depends(require_moderator_or_admin()),
     db=Depends(get_database)
 ):
-    """Get all transactions (admin only)"""
+    """Get all transactions (admin or moderator only)"""
     transaction_service = TransactionService(db)
     try:
         transactions, total = await transaction_service.get_all_transactions(page, limit)

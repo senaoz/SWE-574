@@ -11,13 +11,20 @@ import { Home } from "@/pages/Home";
 import { ServiceDetail } from "@/pages/ServiceDetail";
 import { UserDetail } from "@/pages/UserDetail";
 import { Profile } from "@/pages/Profile";
-import { MyServices } from "@/pages/MyServices";
-import { Chat } from "@/pages/Chat";
 import { AdminPanel } from "@/pages/AdminPanel";
+import { Forum } from "@/pages/Forum";
+import { ForumDiscussionDetail } from "@/pages/ForumDiscussionDetail";
+import { ForumEventDetail } from "@/pages/ForumEventDetail";
 import { Layout } from "@/components/layout/Layout";
+import { ScrollToTop } from "@/components/ScrollToTop";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { GuestOnlyRoute } from "@/components/auth/GuestOnlyRoute";
 import { FilterProvider } from "@/contexts/FilterContext";
+import { UserProvider, useUser } from "@/contexts/UserContext";
 import { useState, createContext, useContext, useEffect } from "react";
+
+// Re-export useUser for backward compatibility (components may import from App)
+export { useUser };
 
 // Create theme context
 interface ThemeContextType {
@@ -35,25 +42,9 @@ export const useTheme = () => {
   return context;
 };
 
-// Create user context
-interface UserContextType {
-  getCurrentUserId: () => string | null;
-  currentUserId: string | null;
-}
-
-const UserContext = createContext<UserContextType | undefined>(undefined);
-
-export const useUser = () => {
-  const context = useContext(UserContext);
-  if (context === undefined) {
-    throw new Error("useUser must be used within a UserProvider");
-  }
-  return context;
-};
-
 function App() {
   const [appearance, setAppearance] = useState<"dark" | "light" | "inherit">(
-    "light"
+    "light",
   );
 
   useEffect(() => {
@@ -71,113 +62,117 @@ function App() {
     localStorage.setItem("theme", newTheme);
   };
 
-  const getCurrentUserId = () => {
-    const token = localStorage.getItem("access_token");
-    if (!token) return null;
-
-    try {
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      return payload.sub;
-    } catch (error) {
-      console.error("Error decoding token:", error);
-      return null;
-    }
-  };
-
-  const currentUserId = getCurrentUserId();
-
   return (
-    <UserContext.Provider value={{ getCurrentUserId, currentUserId }}>
+    <UserProvider>
       <ThemeContext.Provider value={{ appearance, toggleAppearance }}>
         <FilterProvider>
           <Theme accentColor="lime" radius="full" appearance={appearance}>
             <Router>
-                <Layout>
-                  <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/register" element={<RegisterForm />} />
-                    <Route
-                      path="/dashboard"
-                      element={
-                        <ProtectedRoute
-                          requiredRole="user"
-                          fallbackPath="/?login=true"
-                        >
-                          <Dashboard />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/service/:id"
-                      element={
-                        <ProtectedRoute
-                          requiredRole="user"
-                          fallbackPath="/?login=true"
-                        >
-                          <ServiceDetail />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/user/:userId"
-                      element={
-                        <ProtectedRoute
-                          requiredRole="user"
-                          fallbackPath="/?login=true"
-                        >
-                          <UserDetail />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/profile"
-                      element={
-                        <ProtectedRoute
-                          requiredRole="user"
-                          fallbackPath="/?login=true"
-                        >
-                          <Profile />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/my-services"
-                      element={
-                        <ProtectedRoute
-                          requiredRole="user"
-                          fallbackPath="/?login=true"
-                        >
-                          <MyServices />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/chat"
-                      element={
-                        <ProtectedRoute
-                          requiredRole="user"
-                          fallbackPath="/?login=true"
-                        >
-                          <Chat />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/admin"
-                      element={
-                        <ProtectedRoute requiredRole="admin">
-                          <AdminPanel />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route path="*" element={<Navigate to="/" replace />} />
-                  </Routes>
-                </Layout>
-              </Router>
-            </Theme>
+              <ScrollToTop />
+              <Layout>
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route
+                    path="/register"
+                    element={
+                      <GuestOnlyRoute>
+                        <RegisterForm />
+                      </GuestOnlyRoute>
+                    }
+                  />
+                  <Route
+                    path="/dashboard"
+                    element={
+                      <ProtectedRoute
+                        requiredRole="user"
+                        fallbackPath="/?login=true"
+                      >
+                        <Dashboard />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/service/:id"
+                    element={
+                      <ProtectedRoute
+                        requiredRole="user"
+                        fallbackPath="/?login=true"
+                      >
+                        <ServiceDetail />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/user/:userId"
+                    element={
+                      <ProtectedRoute
+                        requiredRole="user"
+                        fallbackPath="/?login=true"
+                      >
+                        <UserDetail />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/profile"
+                    element={
+                      <ProtectedRoute
+                        requiredRole="user"
+                        fallbackPath="/?login=true"
+                      >
+                        <Profile />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/forum"
+                    element={
+                      <ProtectedRoute
+                        requiredRole="user"
+                        fallbackPath="/?login=true"
+                      >
+                        <Forum />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/forum/discussions/:id"
+                    element={
+                      <ProtectedRoute
+                        requiredRole="user"
+                        fallbackPath="/?login=true"
+                      >
+                        <ForumDiscussionDetail />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/forum/events/:id"
+                    element={
+                      <ProtectedRoute
+                        requiredRole="user"
+                        fallbackPath="/?login=true"
+                      >
+                        <ForumEventDetail />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin"
+                    element={
+                      <ProtectedRoute requiredRole="moderator">
+                        <AdminPanel />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </Layout>
+            </Router>
+          </Theme>
         </FilterProvider>
       </ThemeContext.Provider>
-    </UserContext.Provider>
+    </UserProvider>
   );
 }
 

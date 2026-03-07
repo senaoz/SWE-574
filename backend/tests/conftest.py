@@ -51,7 +51,14 @@ class AsyncMockCollection:
             'modified_count': result.modified_count,
             'matched_count': result.matched_count
         })()
-    
+
+    async def update_many(self, filter, update, *args, **kwargs):
+        result = self._sync_collection.update_many(filter, update, *args, **kwargs)
+        return type('Result', (), {
+            'modified_count': result.modified_count,
+            'matched_count': result.matched_count
+        })()
+
     async def delete_one(self, filter, *args, **kwargs):
         result = self._sync_collection.delete_one(filter, *args, **kwargs)
         return type('Result', (), {'deleted_count': result.deleted_count})()
@@ -59,7 +66,7 @@ class AsyncMockCollection:
     async def count_documents(self, filter, *args, **kwargs):
         return self._sync_collection.count_documents(filter, *args, **kwargs)
     
-    async def aggregate(self, pipeline, *args, **kwargs):
+    def aggregate(self, pipeline, *args, **kwargs):
         cursor = self._sync_collection.aggregate(pipeline, *args, **kwargs)
         data = list(cursor)
         return AsyncMockCursor(data)
@@ -156,6 +163,13 @@ class AsyncMockCursor:
         self._index = 0
         self._operations_applied = True
     
+    async def to_list(self, length=None):
+        """Convert cursor to list (Motor-compatible)"""
+        self._apply_operations()
+        if length is not None:
+            return [convert_objectid_to_str(item) for item in self._data[:length]]
+        return [convert_objectid_to_str(item) for item in self._data]
+
     def __aiter__(self):
         self._apply_operations()
         self._index = 0
