@@ -4,6 +4,14 @@ import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
 @JsonClass(generateAdapter = true)
+data class RatingCreate(
+    @Json(name = "transaction_id") val transactionId: String,
+    @Json(name = "rated_user_id") val ratedUserId: String,
+    val score: Int,
+    val comment: String? = null
+)
+
+@JsonClass(generateAdapter = true)
 data class RatingListResponse(
     val ratings: List<RatingResponse>? = null,
     val total: Int = 0,

@@ -18,6 +18,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -148,6 +151,54 @@ fun ChatRoomScreen(
             return@Column
         }
 
+        val canConfirm = viewModel.canConfirmCompletion()
+        val exchangeCompleted = viewModel.isExchangeCompleted(room)
+        val showRate = exchangeCompleted && !state.alreadyRatedTransaction && viewModel.otherUserIdForRating() != null
+
+        if (canConfirm || showRate) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    if (canConfirm) {
+                        Text(
+                            text = "Confirm that this exchange is complete. Both you and the other party need to confirm.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Button(
+                            onClick = {
+                                viewModel.confirmCompletion(room) { ok, msg ->
+                                    if (!ok) { /* TODO: show snackbar */ }
+                                }
+                            },
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) {
+                            Text("Confirm completion")
+                        }
+                    }
+                    if (showRate && !canConfirm) {
+                        Text(
+                            text = "You can rate $otherName once both you and the other party have confirmed this exchange.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        RateSection(
+                            onSubmit = { score, comment ->
+                                viewModel.submitRating(room, score, comment) { ok, _ ->
+                                    if (!ok) { /* TODO: show snackbar */ }
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
         val listState = rememberLazyListState()
         LaunchedEffect(state.messages.size) {
             if (state.messages.isNotEmpty()) {
@@ -267,6 +318,41 @@ private fun MessageInput(onSend: (String) -> Unit) {
             )
         }
     }
+}
+
+@Composable
+private fun RateSection(onSubmit: (score: Int, comment: String?) -> Unit) {
+    var score by remember { mutableStateOf(0) }
+    var comment by remember { mutableStateOf("") }
+    Row(
+        modifier = Modifier.padding(top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        (1..5).forEach { s ->
+            IconButton(onClick = { score = s }) {
+                Icon(
+                    imageVector = if (s <= score) Icons.Filled.Star else Icons.Outlined.Star,
+                    contentDescription = "$s star(s)",
+                    tint = if (s <= score) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                )
+            }
+        }
+        Button(
+            onClick = { if (score in 1..5) onSubmit(score, comment.takeIf { it.isNotBlank() }) },
+            modifier = Modifier.padding(start = 8.dp)
+        ) {
+            Text("Submit rating")
+        }
+    }
+    OutlinedTextField(
+        value = comment,
+        onValueChange = { comment = it },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        placeholder = { Text("Optional comment") },
+        maxLines = 2
+    )
 }
 
 private fun formatMessageTime(isoDate: String?): String {

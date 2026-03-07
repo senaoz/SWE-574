@@ -104,4 +104,9 @@ object NetworkModule {
     @Singleton
     fun provideCommentsApi(retrofit: Retrofit): com.hive.hive_app.data.api.CommentsApi =
         retrofit.create(com.hive.hive_app.data.api.CommentsApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideTransactionsApi(retrofit: Retrofit): com.hive.hive_app.data.api.TransactionsApi =
+        retrofit.create(com.hive.hive_app.data.api.TransactionsApi::class.java)
 }

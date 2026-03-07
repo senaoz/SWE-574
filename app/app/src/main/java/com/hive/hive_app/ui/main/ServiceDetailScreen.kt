@@ -168,7 +168,8 @@ fun ServiceDetailScreen(
                                 onValueChange = { message = it },
                                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                                 placeholder = { Text("Message (optional)") },
-                                minLines = 2
+                                minLines = 2,
+                                shape = RoundedCornerShape(12.dp)
                             )
                         }
                     },
