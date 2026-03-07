@@ -38,6 +38,7 @@ export interface Rating {
   rated_user_id: string;
   score: number;
   comment?: string;
+  tags?: string[];
   created_at: string;
   rater?: {
     id: string;
@@ -57,6 +58,7 @@ export interface RatingForm {
   rated_user_id: string;
   score: number;
   comment?: string;
+  tags?: string[];
 }
 
 export interface User {
