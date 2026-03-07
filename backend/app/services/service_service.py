@@ -408,73 +408,13 @@ class ServiceService:
                 # Log error but don't fail the completion
                 print(f"Warning: Failed to reject pending requests: {str(e)}")
             
-            # Check whether TimeBank was already handled via the transaction path.
-            # If every linked transaction is already completed, balances were
-            # already updated there — skip to avoid double-crediting.
+            # TimeBank is updated only when BOTH provider and requester confirm each
+            # transaction (via confirm_transaction_completion -> _finalize_transaction).
+            # Do NOT update TimeBank here — the transaction path is the single source of truth.
             from ..models.transaction import TransactionStatus
             transactions_collection = self.db.transactions
-            linked_total = await transactions_collection.count_documents(
-                {"service_id": ObjectId(service_id)}
-            )
-            linked_completed = await transactions_collection.count_documents(
-                {"service_id": ObjectId(service_id), "status": "completed"}
-            )
-            if linked_total > 0 and linked_total == linked_completed:
-                print(f"Service {service_id}: all {linked_total} linked transactions already completed — skipping TimeBank updates")
-                return True
-            
-            # Update TimeBank balances
-            from .user_service import UserService
-            user_service = UserService(self.db)
-            
-            # Provider earns hours (once per service, not per participant)
-            provider_hours = service.estimated_duration
-            provider_success = await user_service.add_timebank_transaction(
-                str(service.user_id),
-                provider_hours,
-                f"Provided service: {service.title} (to {len(service.matched_user_ids)} participant(s))",
-                service_id
-            )
-            
-            if not provider_success:
-                provider_user = await user_service.get_user_by_id(str(service.user_id))
-                if provider_user:
-                    if provider_hours > 0 and provider_user.timebank_balance >= 10.0:
-                        print(f"WARNING: Provider {service.user_id} cannot earn more hours (balance: {provider_user.timebank_balance}, limit: 10.0)")
-                    else:
-                        print(f"WARNING: Provider TimeBank transaction failed for unknown reason (balance: {provider_user.timebank_balance if provider_user else 'N/A'})")
-                else:
-                    print(f"WARNING: Provider user not found: {service.user_id}")
-            
-            # Each receiver spends hours
-            receiver_success = True
-            receiver_failures = []
-            for matched_user_id in service.matched_user_ids:
-                success = await user_service.add_timebank_transaction(
-                    str(matched_user_id),
-                    -service.estimated_duration,
-                    f"Received service: {service.title}",
-                    service_id
-                )
-                if not success:
-                    receiver_success = False
-                    receiver_user = await user_service.get_user_by_id(str(matched_user_id))
-                    if receiver_user:
-                        new_balance = receiver_user.timebank_balance - service.estimated_duration
-                        if new_balance < 0:
-                            receiver_failures.append(f"User {matched_user_id} has insufficient balance ({receiver_user.timebank_balance} < {service.estimated_duration})")
-                        else:
-                            receiver_failures.append(f"User {matched_user_id} transaction failed for unknown reason")
-                    else:
-                        receiver_failures.append(f"User {matched_user_id} not found")
-            
-            if receiver_failures:
-                print(f"WARNING: Receiver TimeBank transaction failures: {', '.join(receiver_failures)}")
-            
-            if not provider_success or not receiver_success:
-                print(f"WARNING: Service {service_id} marked as COMPLETED but some TimeBank transactions failed")
-                return False
-            
+
+            # Record provider's confirmation on all linked transactions
             await transactions_collection.update_many(
                 {"service_id": ObjectId(service_id), "status": {"$ne": TransactionStatus.COMPLETED}},
                 {

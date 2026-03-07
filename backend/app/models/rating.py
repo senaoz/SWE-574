@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
 
@@ -11,6 +11,7 @@ class RatingCreate(BaseModel):
     rated_user_id: str
     score: int = Field(..., ge=1, le=5)
     comment: Optional[str] = None
+    tags: Optional[List[str]] = None
 
     class Config:
         json_encoders = {ObjectId: str}
@@ -23,6 +24,7 @@ class RatingResponse(BaseModel):
     rated_user_id: PyObjectId
     score: int
     comment: Optional[str] = None
+    tags: Optional[List[str]] = None
     created_at: datetime
     rater: Optional[dict] = None
     rated_user: Optional[dict] = None

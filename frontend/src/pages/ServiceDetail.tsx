@@ -401,7 +401,7 @@ export function ServiceDetail() {
         open={completeConfirmOpen}
         onOpenChange={setCompleteConfirmOpen}
         title="Mark service as completed?"
-        description="TimeBank will be updated and related exchanges will be marked completed."
+        description="TimeBank will be updated after both parties confirm the completion."
         confirmLabel="Mark complete"
         onConfirm={handleConfirmMarkComplete}
       />

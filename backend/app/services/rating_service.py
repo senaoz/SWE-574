@@ -14,11 +14,10 @@ class RatingService:
 
     async def create_rating(self, rater_id: str, rating_data: RatingCreate) -> RatingResponse:
         """
-        Create a rating for a transaction. Allowed only when BOTH provider and
-        requester have confirmed (provider_confirmed and requester_confirmed).
+        Create a rating for a transaction. Allowed when the rater has confirmed
+        their side of the transaction, or when both parties have confirmed.
         We do NOT require transaction.status == "completed" — confirmations are
-        the single source of truth. Frontend should fetch ratings for any
-        transaction where both parties confirmed, not only status=="completed".
+        the single source of truth.
         """
         transaction = await self.transactions_collection.find_one(
             {"_id": ObjectId(rating_data.transaction_id)}
@@ -26,11 +25,23 @@ class RatingService:
         if not transaction:
             raise ValueError("Transaction not found")
 
-        if transaction.get("requester_confirmed") != True or transaction.get("provider_confirmed") != True:
-           raise ValueError("Can only rate transactions that have been confirmed by both parties")
-
         provider_id = str(transaction["provider_id"])
         requester_id = str(transaction["requester_id"])
+
+        is_requester = rater_id == requester_id
+        is_provider = rater_id == provider_id
+
+        requester_confirmed = transaction.get("requester_confirmed") == True
+        provider_confirmed = transaction.get("provider_confirmed") == True
+
+        can_rate = (
+            (requester_confirmed and provider_confirmed)
+            or (is_requester and requester_confirmed)
+            or (is_provider and provider_confirmed)
+        )
+
+        if not can_rate:
+            raise ValueError("You can only rate after confirming the transaction")
 
         if rater_id not in (provider_id, requester_id):
             raise ValueError("You are not a participant of this transaction")
@@ -54,6 +65,7 @@ class RatingService:
             "rated_user_id": ObjectId(rating_data.rated_user_id),
             "score": rating_data.score,
             "comment": rating_data.comment,
+            "tags": rating_data.tags or [],
             "created_at": datetime.utcnow(),
         }
 
