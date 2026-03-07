@@ -1,13 +1,23 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
-import { Card, Badge, Text, Flex, Button, Tooltip } from "@radix-ui/themes";
-import { Service, User, JoinRequest } from "@/types";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import {
+  Card,
+  Badge,
+  Text,
+  Flex,
+  Button,
+  Tooltip,
+  DropdownMenu,
+} from "@radix-ui/themes";
+import { Service, User, JoinRequest, ForumEvent } from "@/types";
 import {
   chatApi,
   servicesApi,
   usersApi,
   joinRequestsApi,
+  forumApi,
+  getImageUrl,
 } from "@/services/api";
 import { useUser } from "@/App";
 import {
@@ -16,6 +26,7 @@ import {
   CheckCircledIcon,
   ChatBubbleIcon,
   HeartIcon,
+  HeartFilledIcon,
   Share1Icon,
   ArrowLeftIcon,
   Crosshair1Icon,
@@ -24,6 +35,7 @@ import {
 import { ProviderProfileSummary } from "@/components/ui/ProviderProfileSummary";
 import { ServiceMap } from "@/components/map/ServiceMap";
 import { HandShakeModal } from "@/components/ui/HandShakeModal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CommentSection } from "@/components/ui/CommentSection";
 import { ParticipantAvatars } from "@/components/ui/ParticipantAvatars";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -44,7 +56,54 @@ export function ServiceDetail() {
     null,
   );
   const [isCancellingRequest, setIsCancellingRequest] = useState(false);
-  const { currentUserId } = useUser();
+  const [linkedEvents, setLinkedEvents] = useState<ForumEvent[]>([]);
+  const [copied, setCopied] = useState(false);
+  const [completeConfirmOpen, setCompleteConfirmOpen] = useState(false);
+  const { currentUserId, refetchUser } = useUser();
+  const queryClient = useQueryClient();
+
+  const { data: savedIdsData } = useQuery({
+    queryKey: ["saved-service-ids"],
+    queryFn: () => servicesApi.getSavedServiceIds().then((res) => res.data),
+    enabled: !!currentUserId,
+    retry: false,
+  });
+
+  const isSaved = id
+    ? (savedIdsData?.service_ids?.includes(id) ?? false)
+    : false;
+
+  const saveMutation = useMutation({
+    mutationFn: (serviceId: string) => servicesApi.saveService(serviceId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["saved-service-ids"] });
+      queryClient.invalidateQueries({ queryKey: ["saved-services"] });
+    },
+  });
+
+  const unsaveMutation = useMutation({
+    mutationFn: (serviceId: string) => servicesApi.unsaveService(serviceId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["saved-service-ids"] });
+      queryClient.invalidateQueries({ queryKey: ["saved-services"] });
+    },
+  });
+
+  const handleToggleSave = () => {
+    if (!id || !currentUserId) return;
+    if (isSaved) {
+      unsaveMutation.mutate(id);
+    } else {
+      saveMutation.mutate(id);
+    }
+  };
+
+  const { data: timebankData } = useQuery({
+    queryKey: ["timebank"],
+    queryFn: () => usersApi.getTimeBank().then((res) => res.data),
+    enabled: !!currentUserId,
+    retry: false,
+  });
 
   useEffect(() => {
     const fetchServiceDetails = async () => {
@@ -151,6 +210,14 @@ export function ServiceDetail() {
 
     fetchServiceDetails();
   }, [id, currentUserId]);
+
+  useEffect(() => {
+    if (!id) return;
+    forumApi
+      .getLinkedEvents(id)
+      .then((r) => setLinkedEvents(r.data.events || []))
+      .catch(() => setLinkedEvents([]));
+  }, [id]);
 
   if (loading) {
     return (
@@ -264,34 +331,24 @@ export function ServiceDetail() {
     }
   };
 
-  const handleConfirmServiceCompletion = async () => {
+  const handleMarkServiceComplete = async () => {
     if (!service || !id) return;
+    setCompleteConfirmOpen(true);
+  };
 
-    const confirmed = window.confirm(
-      "Confirm that you have received this service? The service will be marked as completed once both parties confirm.",
-    );
-    if (!confirmed) return;
-
+  const handleConfirmMarkComplete = async () => {
+    if (!id) return;
     try {
-      const response = await servicesApi.confirmServiceCompletion(id);
-      const updatedService = response.data;
-      setService(updatedService);
-
-      // Check if service was completed (both parties confirmed)
-      if (updatedService.status === "completed") {
-        alert(
-          "Service completed! Both parties confirmed. TimeBank transaction logs have been created.",
-        );
-      } else {
-        alert(
-          "Your confirmation has been recorded. Waiting for provider confirmation.",
-        );
-      }
+      await servicesApi.completeService(id);
+      refetchUser();
+      // alert("Service marked as completed.");
+      const res = await servicesApi.getService(id);
+      setService(res.data);
     } catch (error: any) {
-      console.error("Error confirming service completion:", error);
+      console.error("Error completing service:", error);
       alert(
         error.response?.data?.detail ||
-          "Failed to confirm service completion. Please try again.",
+          "Failed to mark service as completed. Please try again.",
       );
     }
   };
@@ -310,12 +367,44 @@ export function ServiceDetail() {
     }
   };
 
-  const handleShare = () => {
-    navigator.clipboard.writeText(window.location.href);
+  const shareUrl = window.location.href;
+  const shareTitle = `${service?.service_type === "offer" ? "Offer" : "Need"}: ${service?.title}`;
+  const shareText = `Check out this service on our community: "${service?.title}"`;
+
+  const handleCopyLink = async () => {
+    await navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: shareUrl,
+        });
+      } catch {
+        // user cancelled or share failed — ignore
+      }
+    }
+  };
+
+  const openShareWindow = (url: string) => {
+    window.open(url, "_blank", "noopener,noreferrer,width=600,height=400");
   };
 
   return (
     <>
+      <ConfirmDialog
+        open={completeConfirmOpen}
+        onOpenChange={setCompleteConfirmOpen}
+        title="Mark service as completed?"
+        description="TimeBank will be updated and related exchanges will be marked completed."
+        confirmLabel="Mark complete"
+        onConfirm={handleConfirmMarkComplete}
+      />
       {/* Back button */}
       <Button variant="ghost" onClick={() => navigate(-1)} className="mb-6">
         <ArrowLeftIcon className="w-4 h-4 mr-2" />
@@ -326,7 +415,7 @@ export function ServiceDetail() {
         {/* Main content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Header */}
-          <Card className="p-6">
+          <Card className="p-6 overflow-hidden">
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
@@ -345,9 +434,6 @@ export function ServiceDetail() {
                       REMOTE
                     </Badge>
                   )}
-                  <Badge color="yellow" variant="soft" size="2">
-                    {service.category}
-                  </Badge>
                   <Text size="2" color="gray">
                     Posted {formatDate(service.created_at)}
                   </Text>
@@ -355,6 +441,39 @@ export function ServiceDetail() {
                 <h1 className="text-3xl font-bold">{service.title}</h1>
               </div>
             </div>
+
+            {/* Images */}
+            {service.image_urls?.length ? (
+              <div className="w-full mb-6 overflow-hidden rounded-lg">
+                {service.image_urls.length === 1 ? (
+                  <img
+                    src={
+                      getImageUrl(service.image_urls[0]) ??
+                      service.image_urls[0]
+                    }
+                    alt=""
+                    className="w-full max-h-60 object-cover"
+                  />
+                ) : (
+                  <div
+                    className={`grid gap-1 w-full ${
+                      service.image_urls.length === 2
+                        ? "grid-cols-2"
+                        : "grid-cols-3"
+                    }`}
+                  >
+                    {service.image_urls.map((url, i) => (
+                      <img
+                        key={i}
+                        src={getImageUrl(url) ?? url}
+                        alt=""
+                        className="w-full max-h-60 object-cover"
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : null}
 
             {/* Details */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
@@ -376,7 +495,7 @@ export function ServiceDetail() {
                 <Text size="3">{service.max_participants ?? "No limit"}</Text>
               </Flex>
 
-              <Flex align="center" gap="2">
+              <Flex align="center" gap="2" className="col-span-2">
                 <Crosshair1Icon className="w-5 h-5" color="gray" />
                 <Text size="3" weight="medium">
                   Location:
@@ -401,21 +520,21 @@ export function ServiceDetail() {
 
             {/* Scheduling Information */}
             {formatSchedulingInfo() && (
-              <Card className="mb-2">
-                <Flex align="start" gap="2">
-                  <CalendarIcon className="w-5 h-5 mt-0.5" color="purple" />
-                  <div className="flex-1 flex flex-col">
-                    <Text size="2" weight="bold" color="gray">
-                      {formatSchedulingInfo()?.type}
-                    </Text>
-                    <Text size="3">{formatSchedulingInfo()?.value}</Text>
-                  </div>
-                </Flex>
+              <Card className="my-4 grid gap-2">
+                <div className="flex flex-row gap-1 items-center text-purple-500">
+                  <CalendarIcon className="w-5 h-5" />
+                  <Text size="2" weight="medium">
+                    {formatSchedulingInfo()?.type}
+                  </Text>
+                </div>
+                <Text size="2" className="opacity-80">
+                  {formatSchedulingInfo()?.value}
+                </Text>
               </Card>
             )}
 
             {/* Description */}
-            <div className="mb-6 prose prose-sm max-w-none">
+            <div className="mb-6 prose prose-sm max-w-none space-y-2">
               <ReactMarkdown
                 components={{
                   img: ({ node, ...props }) => (
@@ -428,6 +547,15 @@ export function ServiceDetail() {
                       }}
                     />
                   ),
+                  ul: ({ node, ...props }) => (
+                    <ul className="list-disc list-inside" {...props} />
+                  ),
+                  ol: ({ node, ...props }) => (
+                    <ol className="list-decimal list-inside" {...props} />
+                  ),
+                  li: ({ node, ...props }) => (
+                    <li className="list-item" {...props} />
+                  ),
                   a: ({ node, ...props }) => (
                     <a
                       {...props}
@@ -437,7 +565,7 @@ export function ServiceDetail() {
                     />
                   ),
                   p: ({ node, ...props }) => (
-                    <div className="leading-relaxed mb-2">
+                    <div className="leading-relaxed">
                       <Text size="3">{props.children}</Text>
                     </div>
                   ),
@@ -453,7 +581,11 @@ export function ServiceDetail() {
                 <Flex wrap="wrap" gap="2">
                   {service.tags.map((tag, index) => (
                     <ClickableTag
-                      key={typeof tag === "string" ? tag : tag.entityId || tag.label + index}
+                      key={
+                        typeof tag === "string"
+                          ? tag
+                          : tag.entityId || tag.label + index
+                      }
                       tag={tag}
                       size="2"
                       variant="soft"
@@ -462,6 +594,14 @@ export function ServiceDetail() {
                 </Flex>
               </div>
             )}
+
+            {service.service_type === "need" &&
+              timebankData?.requires_need_creation && (
+                <div className="mb-4 bg-red-500 p-2 text-white text-sm rounded-lg">
+                  You need to create a Need before you can give help.
+                </div>
+              )}
+
             {/* Action buttons */}
             <div className="flex flex-wrap gap-3">
               {!isParticipating && !isServingUser ? (
@@ -469,7 +609,7 @@ export function ServiceDetail() {
                 pendingRequest ? (
                   <>
                     <Button color="green" size="3" disabled>
-                      <ClockIcon className="w-4 h-4 mr-2" />
+                      <ClockIcon className="w-4 h-4" />
                       Request Pending
                     </Button>
                     <Button
@@ -492,6 +632,13 @@ export function ServiceDetail() {
                 ) : (
                   <HandShakeModal
                     service={service}
+                    requiresNeedCreation={
+                      timebankData?.requires_need_creation ?? false
+                    }
+                    disabled={
+                      !!service.max_participants &&
+                      service.max_participants <= participants.length
+                    }
                     onJoin={() => {
                       // Refresh pending request after joining
                       if (id && currentUserId) {
@@ -509,6 +656,7 @@ export function ServiceDetail() {
                           });
                       }
                     }}
+                    isOwner={service.user_id === currentUserId ?? false}
                   />
                 )
               ) : isServingUser ? (
@@ -525,32 +673,105 @@ export function ServiceDetail() {
                   size="3"
                   disabled={service.status !== "active"}
                 >
-                  <CheckCircledIcon className="w-4 h-4 mr-2" />
+                  <CheckCircledIcon className="w-4 h-4" />
                   You're joining
                 </Button>
               )}
 
               <StartChatButton
+                disabled={service.status !== "active" || isServingUser}
                 otherUserIds={[service.user_id]}
                 service_id={service._id}
                 transaction_id={undefined}
               />
 
               <Button
-                variant="soft"
+                variant={isSaved ? "solid" : "soft"}
+                color={isSaved ? "red" : undefined}
                 size="3"
-                disabled={service.status !== "active"}
+                onClick={handleToggleSave}
+                disabled={
+                  !currentUserId ||
+                  saveMutation.isPending ||
+                  unsaveMutation.isPending
+                }
               >
-                <HeartIcon className="w-4 h-4 mr-2" />
-                Save
+                {isSaved ? (
+                  <HeartFilledIcon className="w-4 h-4" />
+                ) : (
+                  <HeartIcon className="w-4 h-4" />
+                )}
+                {isSaved ? "Saved" : "Save"}
               </Button>
 
-              <Tooltip content="Click to copy the link to the service">
-                <Button variant="soft" size="3" onClick={handleShare}>
-                  <Share1Icon className="w-4 h-4 mr-2" />
-                  Share
-                </Button>
-              </Tooltip>
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger>
+                  <Button variant="soft" size="3">
+                    <Share1Icon className="w-4 h-4" />
+                    Share
+                  </Button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content>
+                  <DropdownMenu.Item onClick={handleCopyLink}>
+                    {copied ? "Copied!" : "Copy link"}
+                  </DropdownMenu.Item>
+                  {typeof navigator.share === "function" && (
+                    <>
+                      <DropdownMenu.Separator />
+                      <DropdownMenu.Item onClick={handleNativeShare}>
+                        Share via device…
+                      </DropdownMenu.Item>
+                    </>
+                  )}
+                  <DropdownMenu.Separator />
+                  <DropdownMenu.Item
+                    onClick={() =>
+                      openShareWindow(
+                        `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`,
+                      )
+                    }
+                  >
+                    Share on X (Twitter)
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    onClick={() =>
+                      openShareWindow(
+                        `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
+                      )
+                    }
+                  >
+                    Share on Facebook
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    onClick={() =>
+                      openShareWindow(
+                        `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`,
+                      )
+                    }
+                  >
+                    Share on LinkedIn
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    onClick={() =>
+                      openShareWindow(
+                        `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText + " " + shareUrl)}`,
+                      )
+                    }
+                  >
+                    Share on WhatsApp
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Separator />
+                  <DropdownMenu.Item
+                    onClick={() =>
+                      window.open(
+                        `mailto:?subject=${encodeURIComponent(shareTitle)}&body=${encodeURIComponent(shareText + "\n\n" + shareUrl)}`,
+                      )
+                    }
+                  >
+                    Share via Email
+                  </DropdownMenu.Item>
+                </DropdownMenu.Content>
+              </DropdownMenu.Root>
               {/* Cancel participation button */}
               {isParticipating && !isServingUser && (
                 <Tooltip content="Cannot cancel within 24 hours of service">
@@ -566,74 +787,21 @@ export function ServiceDetail() {
                 </Tooltip>
               )}
 
-              {/* Receiver confirmation button for in_progress services */}
-              {service.status === "in_progress" &&
-                isParticipating &&
-                !isServingUser &&
-                currentUserId &&
-                service.matched_user_ids?.includes(currentUserId) &&
-                (!service.receiver_confirmed_ids ||
-                  !service.receiver_confirmed_ids.includes(currentUserId)) && (
+              {/* Provider: Mark service as completed */}
+              {isServingUser &&
+                service.status === "in_progress" &&
+                currentUserId && (
                   <Button
                     color="green"
                     size="3"
-                    onClick={handleConfirmServiceCompletion}
+                    onClick={handleMarkServiceComplete}
                   >
                     <CheckCircledIcon className="w-4 h-4 mr-2" />
-                    Confirm I Received This Service
+                    Mark as completed
                   </Button>
                 )}
             </div>
           </Card>
-
-          {/* Service Completion Status for in_progress services */}
-          {service.status === "in_progress" &&
-            service.matched_user_ids &&
-            service.matched_user_ids.length > 0 && (
-              <Card
-                className="p-4"
-                style={{ backgroundColor: "var(--blue-2)" }}
-              >
-                <Flex direction="column" gap="3">
-                  <Text size="3" weight="bold">
-                    Service Completion Status
-                  </Text>
-                  <Flex gap="4" wrap="wrap">
-                    <Flex direction="column" gap="1">
-                      <Text size="2" weight="medium">
-                        Provider:
-                      </Text>
-                      <Badge
-                        color={service.provider_confirmed ? "green" : "gray"}
-                        size="2"
-                      >
-                        {service.provider_confirmed ? "Confirmed" : "Pending"}
-                      </Badge>
-                    </Flex>
-                    <Flex direction="column" gap="1">
-                      <Text size="2" weight="medium">
-                        Receivers:
-                      </Text>
-                      <Badge
-                        color={
-                          service.receiver_confirmed_ids &&
-                          service.matched_user_ids &&
-                          service.receiver_confirmed_ids.length ===
-                            service.matched_user_ids.length
-                            ? "green"
-                            : "gray"
-                        }
-                        size="2"
-                      >
-                        {service.receiver_confirmed_ids
-                          ? `${service.receiver_confirmed_ids.length}/${service.matched_user_ids.length} Confirmed`
-                          : `0/${service.matched_user_ids.length} Confirmed`}
-                      </Badge>
-                    </Flex>
-                  </Flex>
-                </Flex>
-              </Card>
-            )}
         </div>
 
         {/* Sidebar */}
@@ -664,7 +832,49 @@ export function ServiceDetail() {
               </Flex>
             </Card>
           ) : (
-            <ServiceMap services={[service]} height="350px" />
+            <ServiceMap
+              services={[service]}
+              height="350px"
+              showFilters={false}
+              userPosition={[
+                service.location.latitude,
+                service.location.longitude,
+              ]}
+              sticky={false}
+            />
+          )}
+
+          {/* Linked forum events */}
+          {linkedEvents.length > 0 && (
+            <Card className="p-4">
+              <Text size="3" weight="bold" className="mb-3 block">
+                Forum Events ({linkedEvents.length})
+              </Text>
+              <div className="space-y-2">
+                {linkedEvents.map((ev) => (
+                  <div
+                    key={ev._id}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                    onClick={() => navigate(`/forum/events/${ev._id}`)}
+                  >
+                    <Badge size="1" color="purple" variant="soft">
+                      Event
+                    </Badge>
+                    <div className="flex-1 min-w-0">
+                      <Text size="2" weight="medium" className="line-clamp-1">
+                        {ev.title}
+                      </Text>
+                    </div>
+                    <Text size="1" color="gray">
+                      {new Date(ev.event_at).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </Text>
+                  </div>
+                ))}
+              </div>
+            </Card>
           )}
 
           {/* Comments section */}
@@ -676,10 +886,12 @@ export function ServiceDetail() {
 }
 
 export const StartChatButton = ({
+  disabled,
   otherUserIds,
   service_id = undefined,
   transaction_id = undefined,
 }: {
+  disabled: boolean;
   otherUserIds: string[];
   service_id: string | undefined;
   transaction_id: string | undefined;
@@ -703,10 +915,14 @@ export const StartChatButton = ({
           service_id: service_id,
           transaction_id: transaction_id,
         })
-        .then(() => {
-          // Invalidate chat rooms cache to refresh the list
+        .then((response) => {
           queryClient.invalidateQueries({ queryKey: ["chat-rooms"] });
-          navigate(`/chat`);
+          const roomId = response.data._id;
+          navigate(
+            roomId
+              ? `/profile?tab=chat&room_id=${roomId}`
+              : "/profile?tab=chat",
+          );
         })
         .catch((error) => {
           console.error("Error starting chat:", error);
@@ -715,9 +931,8 @@ export const StartChatButton = ({
               "Chat room already exists for these participants:",
             )
           ) {
-            // Invalidate chat rooms cache even for existing rooms
             queryClient.invalidateQueries({ queryKey: ["chat-rooms"] });
-            navigate(`/chat`);
+            navigate("/profile?tab=chat");
           }
         });
     } catch (error) {
@@ -725,8 +940,13 @@ export const StartChatButton = ({
     }
   };
   return (
-    <Button variant="soft" size="3" onClick={handleStartChat}>
-      <ChatBubbleIcon className="w-4 h-4 mr-2" />
+    <Button
+      variant="soft"
+      size="3"
+      onClick={handleStartChat}
+      disabled={disabled}
+    >
+      <ChatBubbleIcon className="w-4 h-4" />
       Start Chat
     </Button>
   );

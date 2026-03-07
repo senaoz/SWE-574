@@ -77,13 +77,13 @@ async def get_failed_transactions(
     page: int = 1,
     limit: int = 100
 ) -> Dict[str, Any]:
-    """Get failed TimeBank transactions (admin only)"""
+    """Get failed TimeBank transactions (admin or moderator only)"""
     try:
         # Check if user is admin
-        if current_user.role != "admin":
+        if current_user.role != "admin" and current_user.role != "moderator":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Admin access required"
+                detail="Admin or moderator access required"
             )
         
         failed_transactions_collection = db.failed_timebank_transactions
@@ -163,13 +163,13 @@ async def get_service_participation_analytics(
     current_user: UserResponse = Depends(get_current_user),
     db=Depends(get_database)
 ) -> Dict[str, Any]:
-    """Get service participation analytics (admin only)"""
+    """Get service participation analytics (admin or moderator only)"""
     try:
         # Check if user is admin
-        if current_user.role != "admin":
+        if current_user.role != "admin" and current_user.role != "moderator":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Admin access required"
+                detail="Admin or moderator access required"
             )
         
         services_collection = db.services

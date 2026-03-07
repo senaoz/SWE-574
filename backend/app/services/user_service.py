@@ -51,6 +51,11 @@ class UserService:
             if not update_data:
                 return await self.get_user_by_id(user_id)
             
+            if "social_links" in update_data and isinstance(update_data["social_links"], dict):
+                update_data["social_links"] = {
+                    k: v for k, v in update_data["social_links"].items()
+                }
+            
             update_data["updated_at"] = datetime.utcnow()
             
             result = await self.users_collection.update_one(
@@ -58,7 +63,7 @@ class UserService:
                 {"$set": update_data}
             )
             
-            if result.modified_count:
+            if result.modified_count or result.matched_count:
                 return await self.get_user_by_id(user_id)
             return None
         except Exception:
@@ -84,10 +89,20 @@ class UserService:
             # Check if user can earn more
             can_earn = user.timebank_balance < 10.0
             
+            # Require Need creation when user has 10-hour surplus and no needs
+            need_count = 0
+            if user.timebank_balance >= 10.0:
+                need_count = await self.db.services.count_documents({
+                    "user_id": ObjectId(user_id),
+                    "service_type": "need",
+                })
+            requires_need_creation = user.timebank_balance >= 10.0 and need_count == 0
+            
             return TimeBankResponse(
                 balance=user.timebank_balance,
                 transactions=transactions,
-                can_earn=can_earn
+                can_earn=can_earn,
+                requires_need_creation=requires_need_creation,
             )
         except Exception as e:
             raise ValueError(f"Error getting TimeBank balance: {str(e)}")
@@ -149,7 +164,7 @@ class UserService:
                     description=description,
                     reason="provider_balance_limit",
                     user_balance=user.timebank_balance,
-                    error_message=f"Provider balance ({user.timebank_balance}) exceeds earning limit (10.0)",
+                    error_message=f"Provider balance ({user.timebank_balance}) exceeds earning limit (10.0). Create a Need to help balance the community.",
                     service_id=service_id
                 )
                 return False
@@ -219,8 +234,22 @@ class UserService:
         except Exception:
             return False
 
+    async def requires_need_creation(self, user_id: str) -> bool:
+        """True when user has 10+ hour surplus and no Need services (cannot give help until they create a Need)."""
+        try:
+            user = await self.get_user_by_id(user_id)
+            if not user or user.timebank_balance < 10.0:
+                return False
+            need_count = await self.db.services.count_documents({
+                "user_id": ObjectId(user_id),
+                "service_type": "need",
+            })
+            return need_count == 0
+        except Exception:
+            return False
+
     async def get_all_timebank_transactions(self, page: int = 1, limit: int = 50) -> Tuple[List[dict], int]:
-        """Get all TimeBank transactions with user info (admin only)"""
+        """Get all TimeBank transactions with user info (admin or moderator only)"""
         try:
             skip = (page - 1) * limit
             total = await self.transactions_collection.count_documents({})
@@ -255,7 +284,7 @@ class UserService:
             raise ValueError(f"Error getting all TimeBank transactions: {str(e)}")
 
     async def update_user_role(self, user_id: str, role_update: UserRoleUpdate) -> Optional[UserResponse]:
-        """Update user role (admin only)"""
+        """Update user role (admin or moderator only)"""
         try:
             update_data = {
                 "role": role_update.role,
@@ -270,6 +299,36 @@ class UserService:
             if result.modified_count:
                 return await self.get_user_by_id(user_id)
             return None
+        except Exception:
+            return None
+
+    async def set_timebank_balance(
+        self,
+        user_id: str,
+        new_balance: float,
+        admin_user_id: str,
+        admin_username: str,
+    ) -> Optional[UserResponse]:
+        """Set a user's TimeBank balance (admin/moderator only). Logs an audit transaction."""
+        try:
+            user = await self.get_user_by_id(user_id)
+            if not user:
+                return None
+            old_balance = user.timebank_balance
+            amount = new_balance - old_balance
+            await self.users_collection.update_one(
+                {"_id": ObjectId(user_id)},
+                {"$set": {"timebank_balance": new_balance, "updated_at": datetime.utcnow()}},
+            )
+            description = f"Admin adjustment by {admin_username}: {old_balance:.1f}h → {new_balance:.1f}h"
+            await self.transactions_collection.insert_one({
+                "user_id": ObjectId(user_id),
+                "amount": amount,
+                "description": description,
+                "service_id": None,
+                "created_at": datetime.utcnow(),
+            })
+            return await self.get_user_by_id(user_id)
         except Exception:
             return None
 

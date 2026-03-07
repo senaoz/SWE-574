@@ -1,10 +1,10 @@
 import axios, { AxiosResponse } from 'axios';
-import { AuthResponse, User, Service, ServiceListResponse, TimeBankResponse, TimeBankTransaction, LoginForm, RegisterForm, ServiceForm, Comment, CommentListResponse, CommentForm, JoinRequest, JoinRequestListResponse, JoinRequestForm, Transaction, TransactionListResponse, TransactionForm, ChatRoom, ChatRoomListResponse, ChatRoomForm, Message, MessageListResponse, MessageForm, UserSettings, PasswordChangeForm, AccountDeletionForm } from '@/types';
+import { AuthResponse, User, Service, ServiceListResponse, TimeBankResponse, TimeBankTransaction, LoginForm, RegisterForm, ServiceForm, Comment, CommentListResponse, CommentForm, JoinRequest, JoinRequestListResponse, JoinRequestForm, Transaction, TransactionListResponse, TransactionForm, ChatRoom, ChatRoomListResponse, ChatRoomForm, Message, MessageListResponse, MessageForm, UserSettings, PasswordChangeForm, AccountDeletionForm, BadgeSummary, Rating, RatingListResponse, RatingForm, ForumDiscussion, ForumDiscussionListResponse, ForumDiscussionForm, ForumEvent, ForumEventListResponse, ForumEventForm, ForumComment, ForumCommentListResponse } from '@/types';
 
 // Use relative URL /api to leverage nginx proxy, or absolute URL if provided via env var
 // This ensures requests go through the same HTTPS domain as the frontend
 // Normalize the URL: remove trailing slash and enforce HTTPS for production URLs
-const getApiBaseUrl = () => {
+export const getApiBaseUrl = () => {
   const envUrl = (import.meta as any).env?.VITE_API_URL;
   if (envUrl) {
     let url = envUrl.trim();
@@ -21,6 +21,14 @@ const getApiBaseUrl = () => {
     return url;
   }
   return "/api";
+};
+
+/** Build full URL for an image path returned by the API (e.g. /uploads/profile/...) */
+export const getImageUrl = (path: string | undefined | null): string | undefined => {
+  if (!path) return undefined;
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  const base = getApiBaseUrl();
+  return base + (path.startsWith("/") ? path : "/" + path);
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -59,11 +67,36 @@ api.interceptors.response.use(
     const isAuthEndpoint = error.config?.url?.includes('/auth/');
     if (error.response?.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem('access_token');
+      window.dispatchEvent(new CustomEvent('auth-logout'));
       window.location.href = '/?login=true';
     }
     return Promise.reject(error);
   }
 );
+
+// Upload API: send FormData; omit Content-Type so browser sets multipart/form-data with boundary
+export const uploadApi = {
+  uploadProfilePicture: (file: File): Promise<AxiosResponse<{ url: string }>> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/upload/profile-picture', formData, {
+      transformRequest: [(data: unknown, headers?: Record<string, string>) => {
+        if (headers) delete headers['Content-Type'];
+        return data;
+      }],
+    });
+  },
+  uploadServiceImage: (file: File): Promise<AxiosResponse<{ url: string }>> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/upload/service-image', formData, {
+      transformRequest: [(data: unknown, headers?: Record<string, string>) => {
+        if (headers) delete headers['Content-Type'];
+        return data;
+      }],
+    });
+  },
+};
 
 // Auth API
 export const authApi = {
@@ -99,6 +132,10 @@ export const usersApi = {
   
   getUserById: (id: string): Promise<AxiosResponse<User>> =>
     api.get(`/users/${id}`),
+
+  /** Update a user's TimeBank balance (admin or moderator only). */
+  updateUserTimebank: (userId: string, data: { balance: number }): Promise<AxiosResponse<User>> =>
+    api.put(`/users/${userId}/timebank`, data),
   
   getSettings: (): Promise<AxiosResponse<User>> =>
     api.get('/users/settings'),
@@ -111,6 +148,15 @@ export const usersApi = {
   
   deleteAccount: (data: AccountDeletionForm): Promise<AxiosResponse<{ message: string }>> =>
     api.post('/users/account/delete', data),
+
+  getBadges: (): Promise<AxiosResponse<BadgeSummary>> =>
+    api.get('/users/badges'),
+
+  getUserBadges: (userId: string): Promise<AxiosResponse<BadgeSummary>> =>
+    api.get(`/users/${userId}/badges`),
+
+  getAvailableInterests: (): Promise<AxiosResponse<string[]>> =>
+    api.get('/users/available-interests'),
 };
 
 // Services API
@@ -149,9 +195,18 @@ export const servicesApi = {
   
   completeService: (id: string): Promise<AxiosResponse<{ message: string }>> =>
     api.post(`/services/${id}/complete`),
-  
-  confirmServiceCompletion: (id: string): Promise<AxiosResponse<Service>> =>
-    api.post(`/services/${id}/confirm-completion`),
+
+  saveService: (id: string): Promise<AxiosResponse<{ message: string }>> =>
+    api.post(`/services/${id}/save`),
+
+  unsaveService: (id: string): Promise<AxiosResponse<{ message: string }>> =>
+    api.delete(`/services/${id}/save`),
+
+  getSavedServices: (page?: number, limit?: number): Promise<AxiosResponse<ServiceListResponse>> =>
+    api.get('/services/saved', { params: { page, limit } }),
+
+  getSavedServiceIds: (): Promise<AxiosResponse<{ service_ids: string[] }>> =>
+    api.get('/services/saved/ids'),
 };
 
 // Comments API
@@ -212,10 +267,7 @@ export const transactionsApi = {
   
   updateTransaction: (transactionId: string, data: { status?: string; description?: string }): Promise<AxiosResponse<Transaction>> =>
     api.put(`/transactions/${transactionId}`, data),
-  
-  completeTransaction: (transactionId: string, completionNotes?: string): Promise<AxiosResponse<Transaction>> =>
-    api.post(`/transactions/${transactionId}/complete`, { completion_notes: completionNotes }),
-  
+
   confirmTransactionCompletion: (transactionId: string): Promise<AxiosResponse<Transaction>> =>
     api.post(`/transactions/${transactionId}/confirm-completion`),
   
@@ -256,6 +308,79 @@ export const chatApi = {
   
   deleteMessage: (messageId: string): Promise<AxiosResponse<{ message: string }>> =>
     api.delete(`/chat/messages/${messageId}`),
+};
+
+// Ratings API
+export const ratingsApi = {
+  createRating: (data: RatingForm): Promise<AxiosResponse<Rating>> =>
+    api.post('/ratings/', data),
+
+  getUserRatings: (userId: string, page?: number, limit?: number): Promise<AxiosResponse<RatingListResponse>> =>
+    api.get(`/ratings/user/${userId}`, { params: { page, limit } }),
+
+  getTransactionRatings: (transactionId: string): Promise<AxiosResponse<Rating[]>> =>
+    api.get(`/ratings/transaction/${transactionId}`),
+};
+
+// Forum API
+export const forumApi = {
+  // Discussions
+  getDiscussions: (params?: { page?: number; limit?: number; tag?: string; q?: string }): Promise<AxiosResponse<ForumDiscussionListResponse>> =>
+    api.get('/forum/discussions', { params }),
+
+  getDiscussion: (id: string): Promise<AxiosResponse<ForumDiscussion>> =>
+    api.get(`/forum/discussions/${id}`),
+
+  createDiscussion: (data: ForumDiscussionForm): Promise<AxiosResponse<ForumDiscussion>> =>
+    api.post('/forum/discussions', data),
+
+  updateDiscussion: (id: string, data: Partial<ForumDiscussionForm>): Promise<AxiosResponse<ForumDiscussion>> =>
+    api.put(`/forum/discussions/${id}`, data),
+
+  deleteDiscussion: (id: string): Promise<AxiosResponse<{ message: string }>> =>
+    api.delete(`/forum/discussions/${id}`),
+
+  // Events
+  getEvents: (params?: { page?: number; limit?: number; tag?: string; q?: string; has_location?: boolean }): Promise<AxiosResponse<ForumEventListResponse>> =>
+    api.get('/forum/events', { params }),
+
+  getEvent: (id: string): Promise<AxiosResponse<ForumEvent>> =>
+    api.get(`/forum/events/${id}`),
+
+  createEvent: (data: ForumEventForm): Promise<AxiosResponse<ForumEvent>> =>
+    api.post('/forum/events', data),
+
+  updateEvent: (id: string, data: Partial<ForumEventForm>): Promise<AxiosResponse<ForumEvent>> =>
+    api.put(`/forum/events/${id}`, data),
+
+  deleteEvent: (id: string): Promise<AxiosResponse<{ message: string }>> =>
+    api.delete(`/forum/events/${id}`),
+
+  getLinkedEvents: (serviceId: string): Promise<AxiosResponse<ForumEventListResponse>> =>
+    api.get(`/forum/services/${serviceId}/linked-events`),
+
+  // Attendance
+  attendEvent: (eventId: string): Promise<AxiosResponse<ForumEvent>> =>
+    api.post(`/forum/events/${eventId}/attend`),
+
+  unattendEvent: (eventId: string): Promise<AxiosResponse<ForumEvent>> =>
+    api.delete(`/forum/events/${eventId}/attend`),
+
+  getEventAttendees: (eventId: string): Promise<AxiosResponse<{ _id: string; username: string; full_name?: string; profile_picture?: string }[]>> =>
+    api.get(`/forum/events/${eventId}/attendees`),
+
+  // Comments
+  getComments: (targetType: string, targetId: string, params?: { page?: number; limit?: number }): Promise<AxiosResponse<ForumCommentListResponse>> =>
+    api.get('/forum/comments', { params: { target_type: targetType, target_id: targetId, ...params } }),
+
+  createComment: (data: { target_type: string; target_id: string; content: string }): Promise<AxiosResponse<ForumComment>> =>
+    api.post('/forum/comments', data),
+
+  updateComment: (id: string, data: { content: string }): Promise<AxiosResponse<ForumComment>> =>
+    api.put(`/forum/comments/${id}`, data),
+
+  deleteComment: (id: string): Promise<AxiosResponse<{ message: string }>> =>
+    api.delete(`/forum/comments/${id}`),
 };
 
 export default api;

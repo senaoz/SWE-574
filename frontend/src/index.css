@@ -31,17 +31,37 @@ p {
     @apply text-base;
 }
 
+.rt-BaseDialogOverlay::before {
+    backdrop-filter: blur(2px);
+}
+
+.rt-BaseDialogContent {
+    background-color: var(--color-panel-solid) !important;
+    border: 1px solid var(--gray-5) !important;
+    border-radius: 1rem !important;
+    box-shadow: var(--shadow-4) !important;
+    max-height: 85vh !important;
+    overflow-y: auto !important;
+}
+
+.rt-BaseDialogContent:focus {
+    outline: none;
+}
+
+/* Legacy Radix Primitives dialog (if used elsewhere) */
 .DialogOverlay {
-    background-color: var(--black-a9);
+    background-color: var(--gray-a9);
     position: fixed;
     inset: 0;
+    backdrop-filter: blur(2px);
     animation: overlayShow 150ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .DialogContent {
-    background-color: var(--gray-1);
-    border-radius: 6px;
-    box-shadow: var(--shadow-6);
+    background-color: var(--color-panel-solid);
+    border: 1px solid var(--gray-5);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-4);
     position: fixed;
     top: 50%;
     left: 50%;
@@ -59,14 +79,14 @@ p {
 
 .DialogTitle {
     margin: 0;
-    font-weight: 500;
-    color: var(--mauve-12);
-    font-size: 17px;
+    font-weight: 600;
+    color: var(--gray-12);
+    font-size: 1.25rem;
 }
 
 .DialogDescription {
     margin: 10px 0 20px;
-    color: var(--mauve-11);
+    color: var(--gray-11);
     font-size: 15px;
     line-height: 1.5;
 }
@@ -75,7 +95,6 @@ p {
     from {
         opacity: 0;
     }
-
     to {
         opacity: 1;
     }
@@ -86,7 +105,6 @@ p {
         opacity: 0;
         transform: translate(-50%, -48%) scale(0.96);
     }
-
     to {
         opacity: 1;
         transform: translate(-50%, -50%) scale(1);
@@ -97,6 +115,131 @@ p {
     background-color: var(--color-background) !important;
     color: var(--color-foreground) !important;
 }
+
 .bg-background {
     background-color: var(--color-background) !important;
+}
+
+.border {
+    border-color: var(--gray-5);
+}
+
+.hover-card {
+    @apply hover:shadow-md hover:cursor-pointer transition-all duration-200;
+    border-color: var(--gray-5) !important;
+}
+
+.hover-card-selected.offer {
+    @apply border-orange-500 !important;
+}
+
+.hover-card-selected.need {
+    @apply border-blue-500 !important;
+}
+
+.rounded-md {
+    border-radius: 0.5rem;
+}
+
+.rounded-lg {
+    border-radius: 0.75rem;
+}
+
+.rounded-xl {
+    border-radius: 1rem;
+}
+
+.rounded-2xl {
+    border-radius: 1.5rem;
+}
+
+.add-service-button {
+    cursor: pointer;
+    border-radius: 50%;
+    width: 7em;
+    height: 7em;
+    z-index: 1000;
+    position: fixed;
+    bottom: 2em;
+    right: 2em;
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+                box-shadow 0.25s ease;
+}
+
+.add-service-button::before {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    background: conic-gradient(
+        var(--orange-9),
+        var(--amber-9),
+        var(--lime-9),
+        var(--cyan-9),
+        var(--blue-9),
+        var(--orange-9)
+    );
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    animation: fab-ring-spin 3s linear infinite;
+}
+
+.add-service-button {
+    transform: scale(1.12) rotate(90deg);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.add-service-button::before {
+    opacity: 1;
+}
+
+.add-service-button:hover {
+    transform: scale(1.18) rotate(90deg);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+}
+
+.add-service-button:active {
+    transform: scale(0.95) rotate(90deg);
+}
+
+@keyframes fab-ring-spin {
+    to { transform: rotate(360deg); }
+}
+
+.leaflet-popup-content-wrapper {
+    background-color: var(--color-background) !important;
+    color: var(--color-foreground) !important;
+}
+
+.custom-badge-icon {
+    background-color: var(--lime-3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    clip-path: polygon(
+        25% 6%,
+        75% 6%,
+        100% 50%,
+        75% 94%,
+        25% 94%,
+        0% 50%
+    );
+    transition: all 0.2s ease-in-out;
+    
+    &:hover {
+        transform: scale(1.1);
+    }
+}
+
+.custom-badge-icon svg {
+    stroke: var(--lime-8);
+    stroke-width: 2px;
+    fill: var(--lime-3);
+}
+
+.border-none-card.rt-Card:where(.rt-variant-surface)::after {
+    box-shadow: none !important;
 }

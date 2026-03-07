@@ -247,3 +247,59 @@ class TestServiceService:
         assert "provider" in participant_roles
         assert "participant" in participant_roles
 
+    @pytest.mark.asyncio
+    async def test_complete_service(self, mock_db, sample_service, second_user):
+        """Test provider can mark service as completed"""
+        service_service = ServiceService(mock_db)
+        # Match first so service has participants and is in_progress
+        await service_service.match_service(
+            str(sample_service.id),
+            str(second_user.id)
+        )
+        # Provider (owner) completes the service
+        result = await service_service.complete_service(
+            str(sample_service.id),
+            str(sample_service.user_id),
+        )
+        assert result is True
+        completed = await service_service.get_service_by_id(str(sample_service.id))
+        assert completed.status == ServiceStatus.COMPLETED
+
+    @pytest.mark.asyncio
+    async def test_complete_service_unauthorized(self, mock_db, sample_service, second_user):
+        """Test only service owner (provider) can complete the service"""
+        service_service = ServiceService(mock_db)
+        await service_service.match_service(
+            str(sample_service.id),
+            str(second_user.id)
+        )
+        with pytest.raises(ValueError, match="Only the service owner"):
+            await service_service.complete_service(
+                str(sample_service.id),
+                str(second_user.id),
+            )
+
+    @pytest.mark.asyncio
+    async def test_complete_service_not_found(self, mock_db, test_user):
+        """Test complete_service with non-existent service raises"""
+        from bson import ObjectId
+        service_service = ServiceService(mock_db)
+        fake_id = str(ObjectId())
+        with pytest.raises(ValueError, match="Service not found"):
+            await service_service.complete_service(fake_id, str(test_user.id))
+
+    @pytest.mark.asyncio
+    async def test_complete_service_invalid_state(self, mock_db, sample_service):
+        """Test completing a cancelled service raises"""
+        service_service = ServiceService(mock_db)
+        await service_service.update_service(
+            str(sample_service.id),
+            ServiceUpdate(status=ServiceStatus.CANCELLED),
+            str(sample_service.user_id),
+        )
+        with pytest.raises(ValueError, match="not in a state that can be completed"):
+            await service_service.complete_service(
+                str(sample_service.id),
+                str(sample_service.user_id),
+            )
+

@@ -21,12 +21,33 @@ import {
 } from "@radix-ui/themes";
 import { Pencil1Icon } from "@radix-ui/react-icons";
 import api, { usersApi } from "@/services/api";
+import { TextField } from "@radix-ui/themes";
+import { useUser } from "@/contexts/UserContext";
+import { InterestChip } from "@/components/ui/InterestChip";
 
 export function AdminPanel() {
   const [activeTab, setActiveTab] = useState("users");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [roleUpdate, setRoleUpdate] = useState<UserRole>("user");
+  const [selectedUserForBalance, setSelectedUserForBalance] =
+    useState<User | null>(null);
+  const [balanceEditValue, setBalanceEditValue] = useState<string>("");
   const queryClient = useQueryClient();
+  const { user: currentUser } = useUser();
+
+  const canEditUserRole = (user: User) => {
+    if (!currentUser || !currentUser.is_active) return false;
+    if (currentUser.role === "admin") return true;
+    if (currentUser.role === "moderator" && user.role !== "admin") return true;
+    return false;
+  };
+
+  const canEditTimebank = (user: User) => {
+    if (!currentUser || !currentUser.is_active) return false;
+    if (currentUser.role === "admin") return true;
+    if (currentUser.role === "moderator" && user.role !== "admin") return true;
+    return false;
+  };
 
   // Fetch all users
   const { data: users, isLoading: usersLoading } = useQuery({
@@ -88,6 +109,31 @@ export function AdminPanel() {
     }
   };
 
+  const updateTimebankMutation = useMutation({
+    mutationFn: ({ userId, balance }: { userId: string; balance: number }) =>
+      usersApi.updateUserTimebank(userId, { balance }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      setSelectedUserForBalance(null);
+      setBalanceEditValue("");
+    },
+  });
+
+  const openBalanceEdit = (user: User) => {
+    setSelectedUserForBalance(user);
+    setBalanceEditValue(user.timebank_balance.toFixed(1));
+  };
+
+  const confirmBalanceUpdate = () => {
+    if (!selectedUserForBalance) return;
+    const value = parseFloat(balanceEditValue);
+    if (Number.isNaN(value) || value < 0) return;
+    updateTimebankMutation.mutate({
+      userId: selectedUserForBalance._id,
+      balance: value,
+    });
+  };
+
   const getRoleColor = (role: UserRole) => {
     switch (role) {
       case "admin":
@@ -125,21 +171,139 @@ export function AdminPanel() {
   ) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Text>Loading admin panel...</Text>
+        <Text>Loading...</Text>
       </div>
     );
   }
 
   return (
-    <>
-      <Card size="4" className="mb-6">
-        <Flex direction="column" gap="4">
-          <Text size="6" weight="bold">
-            Admin Panel
-          </Text>
-          <Text color="gray">Manage users and view system transactions</Text>
-        </Flex>
-      </Card>
+    <div className="flex flex-col gap-4">
+      <Text size="6" weight="bold">
+        Manage Users and Transactions
+      </Text>
+      <Text color="gray">
+        Manage users and view system transactions and TimeBank transactions
+      </Text>
+
+      {analytics ? (
+        <>
+          {/* Summary Cards */}
+          <Grid columns={{ initial: "1", md: "2", lg: "4" }} gap="4">
+            <Card className="p-4">
+              <Text size="2" color="gray" className="block mb-1">
+                Total Services
+              </Text>
+              <Text size="5" weight="bold">
+                {analytics.summary.total_services}
+              </Text>
+              {/*
+                <Flex wrap="wrap" gap="2">
+                {Object.entries(analytics.services_by_status || {}).map(
+                  ([status, count]) => (
+                    <span key={status} className="capitalize">
+                      {status.replace("_", " ")}: {count as number}
+                    </span>
+                  ),
+                )}
+              </Flex>
+               */}
+            </Card>
+            <Card className="p-4">
+              <Text size="2" color="gray" className="block mb-1">
+                Participation Rate
+              </Text>
+              <Text size="5" weight="bold" color="green">
+                {analytics.summary.participation_rate}%
+              </Text>
+            </Card>
+            <Card className="p-4">
+              <Text size="2" color="gray" className="block mb-1">
+                Avg Participants/Service
+              </Text>
+              <Text size="5" weight="bold">
+                {analytics.summary.avg_participants_per_service}
+              </Text>
+            </Card>
+            <Card className="p-4">
+              <Text size="2" color="gray" className="block mb-1">
+                Total Participants
+              </Text>
+              <Text size="5" weight="bold" color="blue">
+                {analytics.summary.total_participants}
+              </Text>
+            </Card>
+          </Grid>
+
+          {/* Max Participants Service */}
+          {analytics.max_participants_service && (
+            <Card className="p-4">
+              <Text size="4" weight="bold" className="block mb-3">
+                Most Popular Service
+              </Text>
+              <Flex direction="column" gap="2">
+                <Text size="3" weight="bold">
+                  {analytics.max_participants_service.title}
+                </Text>
+                <Flex gap="4">
+                  <Text size="2" color="gray">
+                    Participants:{" "}
+                    <Text weight="bold">
+                      {analytics.max_participants_service.participants}/
+                      {analytics.max_participants_service.max_participants}
+                    </Text>
+                  </Text>
+                  <Text size="2" color="gray">
+                    ID: {analytics.max_participants_service.id.slice(-8)}
+                  </Text>
+                </Flex>
+              </Flex>
+            </Card>
+          )}
+
+          {/* Join Request Statistics */}
+          <Card className="p-4">
+            <Text size="4" weight="bold" className="block mb-3">
+              Service Statistics
+            </Text>
+            <Grid columns={{ initial: "1", md: "2", lg: "4" }} gap="4">
+              <div>
+                <Text size="2" color="gray" className="block mb-1">
+                  Total Help Offers
+                </Text>
+                <Text size="4" weight="bold">
+                  {analytics.join_requests.total}
+                </Text>
+              </div>
+              <div>
+                <Text size="2" color="gray" className="block mb-1">
+                  Pending
+                </Text>
+                <Badge color="yellow" size="2">
+                  {analytics.join_requests.pending}
+                </Badge>
+              </div>
+              <div>
+                <Text size="2" color="gray" className="block mb-1">
+                  Approved
+                </Text>
+                <Badge color="green" size="2">
+                  {analytics.join_requests.approved}
+                </Badge>
+              </div>
+              <div>
+                <Text size="2" color="gray" className="block mb-1">
+                  Approval Rate
+                </Text>
+                <Text size="4" weight="bold" color="green">
+                  {analytics.join_requests.approval_rate}%
+                </Text>
+              </div>
+            </Grid>
+          </Card>
+        </>
+      ) : (
+        <Text>Loading analytics...</Text>
+      )}
 
       <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
         <Tabs.List>
@@ -152,7 +316,6 @@ export function AdminPanel() {
           <Tabs.Trigger value="timebank">
             TimeBank Transactions ({timebankTransactions?.total || 0})
           </Tabs.Trigger>
-          <Tabs.Trigger value="analytics">Service Analytics</Tabs.Trigger>
           <Tabs.Trigger value="failed-transactions">
             Failed Transactions ({failedTransactions?.total || 0})
           </Tabs.Trigger>
@@ -170,6 +333,7 @@ export function AdminPanel() {
                   <Table.Row>
                     <Table.ColumnHeaderCell>Username</Table.ColumnHeaderCell>
                     <Table.ColumnHeaderCell>Email</Table.ColumnHeaderCell>
+                    <Table.ColumnHeaderCell>Interests</Table.ColumnHeaderCell>
                     <Table.ColumnHeaderCell>Role</Table.ColumnHeaderCell>
                     <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
                     <Table.ColumnHeaderCell>Balance</Table.ColumnHeaderCell>
@@ -193,6 +357,24 @@ export function AdminPanel() {
                         <Text size="2">{user.email}</Text>
                       </Table.Cell>
                       <Table.Cell>
+                        {(user.interests?.length ?? 0) > 0 ? (
+                          <Flex gap="1" wrap="wrap">
+                            {user.interests!.map((interest) => (
+                              <InterestChip
+                                key={interest}
+                                name={interest}
+                                size="sm"
+                                showIcon
+                              />
+                            ))}
+                          </Flex>
+                        ) : (
+                          <Text size="2" color="gray">
+                            —
+                          </Text>
+                        )}
+                      </Table.Cell>
+                      <Table.Cell>
                         <Badge color={getRoleColor(user.role)}>
                           {user.role}
                         </Badge>
@@ -211,15 +393,34 @@ export function AdminPanel() {
                         <Text>{user.timebank_balance.toFixed(1)}h</Text>
                       </Table.Cell>
                       <Table.Cell>
-                        <Flex gap="2">
-                          <Button
-                            size="1"
-                            variant="soft"
-                            onClick={() => handleRoleUpdate(user)}
-                          >
-                            <Pencil1Icon />
-                            Edit Role
-                          </Button>
+                        <Flex gap="2" wrap="wrap">
+                          {canEditUserRole(user) && (
+                            <Button
+                              size="1"
+                              variant="soft"
+                              disabled={!user.is_active}
+                              onClick={() => handleRoleUpdate(user)}
+                            >
+                              <Pencil1Icon />
+                              Edit Role
+                            </Button>
+                          )}
+                          {canEditTimebank(user) && (
+                            <Button
+                              size="1"
+                              variant="soft"
+                              color="green"
+                              disabled={!user.is_active}
+                              onClick={() => openBalanceEdit(user)}
+                            >
+                              Edit Balance
+                            </Button>
+                          )}
+                          {!canEditUserRole(user) && !canEditTimebank(user) && (
+                            <Text size="2" color="gray">
+                              —
+                            </Text>
+                          )}
                         </Flex>
                       </Table.Cell>
                     </Table.Row>
@@ -320,12 +521,12 @@ export function AdminPanel() {
                         <Table.Cell>
                           <Text size="2">
                             {new Date(
-                              transaction.created_at
+                              transaction.created_at,
                             ).toLocaleDateString()}
                           </Text>
                         </Table.Cell>
                       </Table.Row>
-                    )
+                    ),
                   )}
                 </Table.Body>
               </Table.Root>
@@ -388,201 +589,15 @@ export function AdminPanel() {
                         <Table.Cell>
                           <Text size="2">
                             {new Date(
-                              transaction.created_at
+                              transaction.created_at,
                             ).toLocaleDateString()}
                           </Text>
                         </Table.Cell>
                       </Table.Row>
-                    )
+                    ),
                   )}
                 </Table.Body>
               </Table.Root>
-            </Flex>
-          </Card>
-        </Tabs.Content>
-
-        <Tabs.Content value="analytics" className="mt-6">
-          <Card>
-            <Flex direction="column" gap="4">
-              <Text size="5" weight="bold">
-                Service Participation Analytics
-              </Text>
-
-              {analytics ? (
-                <>
-                  {/* Summary Cards */}
-                  <Grid columns={{ initial: "1", md: "2", lg: "4" }} gap="4">
-                    <Card className="p-4">
-                      <Text size="2" color="gray" className="block mb-1">
-                        Total Services
-                      </Text>
-                      <Text size="5" weight="bold">
-                        {analytics.summary.total_services}
-                      </Text>
-                    </Card>
-                    <Card className="p-4">
-                      <Text size="2" color="gray" className="block mb-1">
-                        Participation Rate
-                      </Text>
-                      <Text size="5" weight="bold" color="green">
-                        {analytics.summary.participation_rate}%
-                      </Text>
-                    </Card>
-                    <Card className="p-4">
-                      <Text size="2" color="gray" className="block mb-1">
-                        Avg Participants/Service
-                      </Text>
-                      <Text size="5" weight="bold">
-                        {analytics.summary.avg_participants_per_service}
-                      </Text>
-                    </Card>
-                    <Card className="p-4">
-                      <Text size="2" color="gray" className="block mb-1">
-                        Total Participants
-                      </Text>
-                      <Text size="5" weight="bold" color="blue">
-                        {analytics.summary.total_participants}
-                      </Text>
-                    </Card>
-                  </Grid>
-
-                  {/* Services by Status */}
-                  <Card className="p-4">
-                    <Text size="4" weight="bold" className="block mb-3">
-                      Services by Status
-                    </Text>
-                    <Flex wrap="wrap" gap="2">
-                      {Object.entries(analytics.services_by_status || {}).map(
-                        ([status, count]) => (
-                          <Badge key={status} color="blue" size="2">
-                            {status}: {count as number}
-                          </Badge>
-                        )
-                      )}
-                    </Flex>
-                  </Card>
-
-                  {/* Participation by Category */}
-                  <Card className="p-4">
-                    <Text size="4" weight="bold" className="block mb-3">
-                      Participation by Category
-                    </Text>
-                    <Table.Root>
-                      <Table.Header>
-                        <Table.Row>
-                          <Table.ColumnHeaderCell>
-                            Category
-                          </Table.ColumnHeaderCell>
-                          <Table.ColumnHeaderCell>
-                            Total Services
-                          </Table.ColumnHeaderCell>
-                          <Table.ColumnHeaderCell>
-                            With Participants
-                          </Table.ColumnHeaderCell>
-                          <Table.ColumnHeaderCell>
-                            Total Participants
-                          </Table.ColumnHeaderCell>
-                          <Table.ColumnHeaderCell>
-                            Avg Participants
-                          </Table.ColumnHeaderCell>
-                        </Table.Row>
-                      </Table.Header>
-                      <Table.Body>
-                        {Object.entries(
-                          analytics.participation_by_category || {}
-                        ).map(([category, data]: [string, any]) => (
-                          <Table.Row key={category}>
-                            <Table.Cell>
-                              <Text weight="medium">{category}</Text>
-                            </Table.Cell>
-                            <Table.Cell>{data.total_services}</Table.Cell>
-                            <Table.Cell>
-                              {data.services_with_participants}
-                            </Table.Cell>
-                            <Table.Cell>{data.total_participants}</Table.Cell>
-                            <Table.Cell>
-                              {data.avg_participants.toFixed(2)}
-                            </Table.Cell>
-                          </Table.Row>
-                        ))}
-                      </Table.Body>
-                    </Table.Root>
-                  </Card>
-
-                  {/* Max Participants Service */}
-                  {analytics.max_participants_service && (
-                    <Card className="p-4">
-                      <Text size="4" weight="bold" className="block mb-3">
-                        Most Popular Service
-                      </Text>
-                      <Flex direction="column" gap="2">
-                        <Text size="3" weight="bold">
-                          {analytics.max_participants_service.title}
-                        </Text>
-                        <Flex gap="4">
-                          <Text size="2" color="gray">
-                            Participants:{" "}
-                            <Text weight="bold">
-                              {analytics.max_participants_service.participants}/
-                              {
-                                analytics.max_participants_service
-                                  .max_participants
-                              }
-                            </Text>
-                          </Text>
-                          <Text size="2" color="gray">
-                            ID:{" "}
-                            {analytics.max_participants_service.id.slice(-8)}
-                          </Text>
-                        </Flex>
-                      </Flex>
-                    </Card>
-                  )}
-
-                  {/* Join Request Statistics */}
-                  <Card className="p-4">
-                    <Text size="4" weight="bold" className="block mb-3">
-                      Join Request Statistics
-                    </Text>
-                    <Grid columns={{ initial: "1", md: "2", lg: "4" }} gap="4">
-                      <div>
-                        <Text size="2" color="gray" className="block mb-1">
-                          Total Requests
-                        </Text>
-                        <Text size="4" weight="bold">
-                          {analytics.join_requests.total}
-                        </Text>
-                      </div>
-                      <div>
-                        <Text size="2" color="gray" className="block mb-1">
-                          Pending
-                        </Text>
-                        <Badge color="yellow" size="2">
-                          {analytics.join_requests.pending}
-                        </Badge>
-                      </div>
-                      <div>
-                        <Text size="2" color="gray" className="block mb-1">
-                          Approved
-                        </Text>
-                        <Badge color="green" size="2">
-                          {analytics.join_requests.approved}
-                        </Badge>
-                      </div>
-                      <div>
-                        <Text size="2" color="gray" className="block mb-1">
-                          Approval Rate
-                        </Text>
-                        <Text size="4" weight="bold" color="green">
-                          {analytics.join_requests.approval_rate}%
-                        </Text>
-                      </div>
-                    </Grid>
-                  </Card>
-                </>
-              ) : (
-                <Text>Loading analytics...</Text>
-              )}
             </Flex>
           </Card>
         </Tabs.Content>
@@ -658,10 +673,10 @@ export function AdminPanel() {
                               transaction.reason === "provider_balance_limit"
                                 ? "orange"
                                 : transaction.reason === "insufficient_balance"
-                                ? "red"
-                                : transaction.reason === "user_not_found"
-                                ? "purple"
-                                : "gray"
+                                  ? "red"
+                                  : transaction.reason === "user_not_found"
+                                    ? "purple"
+                                    : "gray"
                             }
                             size="1"
                           >
@@ -674,7 +689,7 @@ export function AdminPanel() {
                           <Text size="2">
                             {transaction.user_balance_at_failure !== undefined
                               ? `${transaction.user_balance_at_failure.toFixed(
-                                  1
+                                  1,
                                 )}h`
                               : "N/A"}
                           </Text>
@@ -702,18 +717,18 @@ export function AdminPanel() {
                         <Table.Cell>
                           <Text size="2">
                             {new Date(
-                              transaction.created_at
+                              transaction.created_at,
                             ).toLocaleDateString()}
                             <br />
                             <Text size="1" color="gray">
                               {new Date(
-                                transaction.created_at
+                                transaction.created_at,
                               ).toLocaleTimeString()}
                             </Text>
                           </Text>
                         </Table.Cell>
                       </Table.Row>
-                    )
+                    ),
                   )}
                 </Table.Body>
               </Table.Root>
@@ -737,9 +752,9 @@ export function AdminPanel() {
         }}
       >
         <Dialog.Content
-            className="max-w-md w-full"
-            aria-describedby={undefined}
-          >
+          className="max-w-md w-full"
+          aria-describedby={undefined}
+        >
           <Flex direction="column" gap="4">
             <Dialog.Title>
               <Text size="4" weight="bold">
@@ -788,6 +803,84 @@ export function AdminPanel() {
           </Flex>
         </Dialog.Content>
       </Dialog.Root>
-    </>
+
+      {/* TimeBank Balance Update Dialog */}
+      <Dialog.Root
+        open={!!selectedUserForBalance}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedUserForBalance(null);
+            setBalanceEditValue("");
+          }
+        }}
+      >
+        <Dialog.Content
+          className="max-w-md w-full"
+          aria-describedby={undefined}
+        >
+          <Flex direction="column" gap="4">
+            <Dialog.Title>
+              <Text size="4" weight="bold">
+                Update TimeBank Balance
+              </Text>
+            </Dialog.Title>
+            {selectedUserForBalance && (
+              <>
+                <Text size="2">
+                  User:{" "}
+                  <Text weight="medium">{selectedUserForBalance.username}</Text>
+                  {selectedUserForBalance.full_name && (
+                    <> ({selectedUserForBalance.full_name})</>
+                  )}
+                </Text>
+                <Text size="2" color="gray">
+                  Current balance:{" "}
+                  {selectedUserForBalance.timebank_balance.toFixed(1)}h
+                </Text>
+                <Flex direction="column" gap="2">
+                  <Text size="2" weight="medium">
+                    New balance (hours):
+                  </Text>
+                  <TextField.Root
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    value={balanceEditValue}
+                    onChange={(e) => setBalanceEditValue(e.target.value)}
+                    placeholder="e.g. 5.0"
+                  />
+                </Flex>
+                <Flex gap="3" justify="end">
+                  <Dialog.Close>
+                    <Button
+                      variant="soft"
+                      onClick={() => {
+                        setSelectedUserForBalance(null);
+                        setBalanceEditValue("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </Dialog.Close>
+                  <Button
+                    color="green"
+                    onClick={confirmBalanceUpdate}
+                    disabled={
+                      updateTimebankMutation.isPending ||
+                      Number.isNaN(parseFloat(balanceEditValue)) ||
+                      parseFloat(balanceEditValue) < 0
+                    }
+                  >
+                    {updateTimebankMutation.isPending
+                      ? "Updating..."
+                      : "Update Balance"}
+                  </Button>
+                </Flex>
+              </>
+            )}
+          </Flex>
+        </Dialog.Content>
+      </Dialog.Root>
+    </div>
   );
 }

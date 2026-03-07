@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Text, Tabs } from "@radix-ui/themes";
+import { Tabs } from "@radix-ui/themes";
 import { Service, JoinRequest, Transaction, TimeBankResponse } from "@/types";
 import {
   servicesApi,
@@ -9,37 +9,94 @@ import {
   usersApi,
 } from "@/services/api";
 import { useNavigate } from "react-router-dom";
-import { useUser } from "@/App";
+import { useUser } from "@/contexts/UserContext";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MyServicesTab } from "./MyServicesTab";
 import { MyApplicationsTab } from "./MyApplicationsTab";
-import { MyTransactionsTab } from "./MyTransactionsTab";
 import { MyTimebankTab } from "./MyTimebankTab";
+import { SavedServicesTab } from "./SavedServicesTab";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { BookmarkIcon, ClockIcon, LucideList } from "lucide-react";
 
-export function MyServices() {
+export type MyServicesTabValue =
+  | "services"
+  | "applications"
+  | "transactions"
+  | "timebank"
+  | "saved";
+
+interface MyServicesProps {
+  activeTab?: MyServicesTabValue;
+  onDataLoad?: (counts: {
+    requests: number;
+    transactions: number;
+    saved: number;
+    services: number;
+    timebank: number;
+    applications: number;
+  }) => void;
+  /** When tab is "services", filter/scroll to this status (from URL ?status=). */
+  statusFilter?: string;
+}
+
+export function MyServices({
+  activeTab: activeTabProp,
+  onDataLoad,
+  statusFilter,
+}: MyServicesProps = {}) {
   const navigate = useNavigate();
-  const { currentUserId } = useUser();
+  const { currentUserId, refetchUser } = useUser();
   const [services, setServices] = useState<Service[]>([]);
   const [applicationServices, setApplicationServices] = useState<Service[]>([]); // Services for approved applications
   const [requests, setRequests] = useState<JoinRequest[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [serviceTransactions, setServiceTransactions] = useState<
     Record<string, Transaction[]>
   >({});
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("services");
+  const [activeTab, setActiveTab] =
+    useState<MyServicesTabValue>("applications");
+  const isManagedByParent = activeTabProp !== undefined;
+  const effectiveTab = isManagedByParent ? activeTabProp : activeTab;
   const [serviceTitles, setServiceTitles] = useState<Record<string, string>>(
-    {}
+    {},
   );
 
   const [timebankData, setTimebankData] = useState<TimeBankResponse | null>(
-    null
+    null,
   );
   const [timebankLoading, setTimebankLoading] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data: savedServicesData } = useQuery({
+    queryKey: ["saved-services"],
+    queryFn: () => servicesApi.getSavedServices(1, 50).then((res) => res.data),
+    enabled: !!currentUserId,
+  });
 
   useEffect(() => {
     fetchData();
     fetchTimebankData();
   }, []);
+
+  useEffect(() => {
+    if (!onDataLoad || isLoading) return;
+    onDataLoad({
+      requests: requests.length,
+      transactions: 0,
+      saved: savedServicesData?.services?.length ?? 0,
+      services: services?.length ?? 0,
+      timebank: timebankData?.transactions?.length ?? 0,
+      applications: applicationServices.length,
+    });
+  }, [
+    onDataLoad,
+    isLoading,
+    requests.length,
+    savedServicesData?.services?.length,
+    services?.length,
+    applicationServices.length,
+    timebankData?.transactions?.length,
+  ]);
 
   const fetchTimebankData = async () => {
     try {
@@ -75,19 +132,19 @@ export function MyServices() {
 
       // Fetch services for approved applications
       const approvedRequests = requestsResponse.data.requests.filter(
-        (req) => req.status === "approved"
+        (req) => req.status === "approved",
       );
       const applicationServicesList: Service[] = [];
       for (const request of approvedRequests) {
         try {
           const serviceResponse = await servicesApi.getService(
-            request.service_id
+            request.service_id,
           );
           applicationServicesList.push(serviceResponse.data);
         } catch (error) {
           console.error(
             `Error fetching service ${request.service_id} for application:`,
-            error
+            error,
           );
         }
       }
@@ -98,13 +155,13 @@ export function MyServices() {
         (request) =>
           !request.service?.title &&
           request.service_id &&
-          !serviceTitles[request.service_id]
+          !serviceTitles[request.service_id],
       );
 
       const fetchPromises = requestsNeedingTitles.map(async (request) => {
         try {
           const serviceResponse = await servicesApi.getService(
-            request.service_id
+            request.service_id,
           );
           return {
             serviceId: request.service_id,
@@ -128,14 +185,7 @@ export function MyServices() {
         setServiceTitles((prev) => ({ ...prev, ...missingTitles }));
       }
 
-      // Fetch user's transactions
-      const transactionsResponse = await transactionsApi.getMyTransactions(
-        1,
-        50
-      );
-      setTransactions(transactionsResponse.data.transactions);
-
-      // Fetch transactions for each service
+      // Fetch transactions for each service (user's own services)
       const serviceTransactionsMap: Record<string, Transaction[]> = {};
       for (const service of servicesResponse.data.services) {
         if (
@@ -150,19 +200,34 @@ export function MyServices() {
           } catch (error) {
             console.error(
               `Error fetching transactions for service ${service._id}:`,
-              error
+              error,
+            );
+            serviceTransactionsMap[service._id] = [];
+          }
+        }
+      }
+      // Fetch transactions for application services (approved applications)
+      for (const service of applicationServicesList) {
+        if (
+          (service.status === "in_progress" ||
+            service.status === "completed") &&
+          !serviceTransactionsMap[service._id]
+        ) {
+          try {
+            const serviceTransactionsResponse =
+              await transactionsApi.getServiceTransactions(service._id, 1, 50);
+            serviceTransactionsMap[service._id] =
+              serviceTransactionsResponse.data.transactions;
+          } catch (error) {
+            console.error(
+              `Error fetching transactions for application service ${service._id}:`,
+              error,
             );
             serviceTransactionsMap[service._id] = [];
           }
         }
       }
       setServiceTransactions(serviceTransactionsMap);
-
-      console.log(
-        servicesResponse.data.services,
-        requestsResponse.data.requests,
-        transactionsResponse.data.transactions
-      );
     } catch (error) {
       console.error("Error fetching data:", error);
       if (
@@ -184,40 +249,6 @@ export function MyServices() {
     });
   };
 
-  const handleConfirmTransactionCompletion = async (transactionId: string) => {
-    const confirmed = window.confirm(
-      "Confirm that this transaction is completed? TimeBank logs will be created once both parties confirm."
-    );
-    if (!confirmed) return;
-
-    try {
-      const response = await transactionsApi.confirmTransactionCompletion(
-        transactionId
-      );
-      const transaction = response.data;
-
-      if (transaction.status === "completed") {
-        alert(
-          "Transaction completed! Both parties confirmed. TimeBank transaction logs have been created."
-        );
-      } else {
-        const isProvider = transaction.provider_id === currentUserId;
-        const otherParty = isProvider ? "requester" : "provider";
-        alert(
-          `Your confirmation has been recorded. Waiting for ${otherParty} confirmation.`
-        );
-      }
-      // Refresh data
-      await fetchData();
-    } catch (error: any) {
-      console.error("Error confirming transaction completion:", error);
-      alert(
-        error.response?.data?.detail ||
-          "Failed to confirm transaction completion. Please try again."
-      );
-    }
-  };
-
   const handleCancelTransaction = async (transactionId: string) => {
     try {
       await transactionsApi.updateTransaction(transactionId, {
@@ -231,39 +262,37 @@ export function MyServices() {
   };
 
   const handleStartChat = async (transactionId: string) => {
+    const allTransactions = Object.values(serviceTransactions).flat();
+    const transaction = allTransactions.find((t) => t._id === transactionId);
     try {
-      await chatApi.createTransactionChatRoom(transactionId);
-      // Navigate to chat page
-      navigate("/chat");
+      const { data } = await chatApi.createTransactionChatRoom(transactionId);
+      const roomId = data?._id;
+      navigate(
+        roomId ? `/profile?tab=chat&room_id=${roomId}` : "/profile?tab=chat",
+      );
     } catch (error) {
       console.error("Error starting chat:", error);
-      // If transaction chat creation fails, try creating a general chat room
       try {
-        const currentUserId = localStorage.getItem("access_token")
-          ? JSON.parse(
-              atob(localStorage.getItem("access_token")!.split(".")[1])
-            ).sub
-          : null;
+        if (currentUserId && transaction) {
+          const otherUserId =
+            transaction.provider_id === currentUserId
+              ? transaction.requester_id
+              : transaction.provider_id;
 
-        if (currentUserId) {
-          // Find the other participant in the transaction
-          const transaction = transactions.find((t) => t._id === transactionId);
-          if (transaction) {
-            const otherUserId =
-              transaction.provider_id === currentUserId
-                ? transaction.requester_id
-                : transaction.provider_id;
-
-            await chatApi.createChatRoom({
-              participant_ids: [currentUserId, otherUserId],
-              transaction_id: transactionId,
-              name: `Transaction Chat - ${
-                transaction.description || "Service Exchange"
-              }`,
-              description: `Chat for transaction involving ${transaction.timebank_hours} hours`,
-            });
-            navigate("/chat");
-          }
+          const { data } = await chatApi.createChatRoom({
+            participant_ids: [currentUserId, otherUserId],
+            transaction_id: transactionId,
+            name: `Transaction Chat - ${
+              transaction.description || "Service Exchange"
+            }`,
+            description: `Chat for transaction involving ${transaction.timebank_hours} hours`,
+          });
+          const roomId = data?._id;
+          navigate(
+            roomId
+              ? `/profile?tab=chat&room_id=${roomId}`
+              : "/profile?tab=chat",
+          );
         }
       } catch (fallbackError) {
         console.error("Error creating fallback chat:", fallbackError);
@@ -275,202 +304,122 @@ export function MyServices() {
     navigate(`/service/${id}`);
   };
 
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: "default" | "danger";
+    onConfirm: () => Promise<void>;
+  }>({
+    open: false,
+    title: "",
+    description: "",
+    variant: "default",
+    onConfirm: async () => {},
+  });
+
   const handleSetServiceInProgress = async (serviceId: string) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to set this service to 'In Progress'?"
-    );
-    if (!confirmed) return;
-
-    try {
-      await servicesApi.updateService(serviceId, {
-        status: "in_progress",
-      } as any);
-      alert("Service status updated to 'In Progress'.");
-      // Refresh data
-      await fetchData();
-    } catch (error: any) {
-      console.error("Error setting service to in progress:", error);
-      alert(
-        error.response?.data?.detail ||
-          "Failed to update service status. Please try again."
-      );
-    }
-  };
-
-  const handleConfirmServiceCompletion = async (serviceId: string) => {
-    const confirmed = window.confirm(
-      "Confirm that you have received this service? The service will be marked as completed once both parties confirm."
-    );
-    if (!confirmed) return;
-
-    try {
-      const response = await servicesApi.confirmServiceCompletion(serviceId);
-      const updatedService = response.data;
-
-      // Check if service was completed (both parties confirmed)
-      if (updatedService.status === "completed") {
-        alert(
-          "Service completed! Both parties confirmed. TimeBank transaction logs have been created."
-        );
-      } else {
-        alert(
-          "Your confirmation has been recorded. Waiting for provider confirmation."
-        );
-      }
-      // Refresh data
-      await fetchData();
-    } catch (error: any) {
-      console.error("Error confirming service completion:", error);
-      alert(
-        error.response?.data?.detail ||
-          "Failed to confirm service completion. Please try again."
-      );
-    }
-  };
-
-  const handleMarkServiceAsDone = async (serviceId: string) => {
-    const service = services.find((s) => s._id === serviceId);
-    if (!service) return;
-
-    const confirmed = window.confirm(
-      "Are you sure you want to mark this service as completed?"
-    );
-    if (!confirmed) return;
-
-    try {
-      console.log(service);
-      // Check if service has matched users
-      if (service.matched_user_ids && service.matched_user_ids.length > 0) {
-        // Service has matches - need to use confirm completion
-        // First, if status is "active", update it to "in_progress"
-        if (service.status === "active") {
+    setConfirmState({
+      open: true,
+      title: "Set service to In Progress?",
+      description:
+        "Are you sure you want to set this service to 'In Progress'?",
+      variant: "default",
+      onConfirm: async () => {
+        try {
           await servicesApi.updateService(serviceId, {
             status: "in_progress",
           } as any);
-        }
-
-        // Then confirm completion (this requires in_progress status)
-        try {
-          const response = await servicesApi.confirmServiceCompletion(
-            serviceId
-          );
-          const updatedService = response.data;
-
-          // Check if service was completed (both parties confirmed)
-          if (updatedService.status === "completed") {
-            alert(
-              "Service completed! Both parties confirmed. TimeBank transaction logs have been created."
-            );
-          } else {
-            // Check confirmation status
-            const isProvider =
-              String(updatedService.user_id) === String(currentUserId);
-            const isReceiver = updatedService.matched_user_ids?.includes(
-              currentUserId || ""
-            );
-
-            if (isProvider) {
-              const allReceiversConfirmed =
-                updatedService.receiver_confirmed_ids &&
-                updatedService.matched_user_ids &&
-                updatedService.receiver_confirmed_ids.length ===
-                  updatedService.matched_user_ids.length;
-
-              if (allReceiversConfirmed) {
-                alert(
-                  "Your confirmation has been recorded. All receivers have confirmed. Service should be completed."
-                );
-              } else {
-                alert(
-                  "Your confirmation has been recorded. Waiting for receiver confirmation."
-                );
-              }
-            } else if (isReceiver) {
-              const providerConfirmed =
-                updatedService.provider_confirmed || false;
-              if (providerConfirmed) {
-                alert(
-                  "Your confirmation has been recorded. Provider has confirmed. Service should be completed."
-                );
-              } else {
-                alert(
-                  "Your confirmation has been recorded. Waiting for provider confirmation."
-                );
-              }
-            } else {
-              alert(
-                "Service completion confirmed. Waiting for other party confirmation."
-              );
-            }
-          }
+          // alert("Service status updated to 'In Progress'.");
+          await fetchData();
         } catch (error: any) {
-          // If confirm completion fails, try the deprecated complete endpoint
-          if (error.response?.status === 400) {
-            try {
-              await servicesApi.completeService(serviceId);
-              alert("Service marked as completed.");
-            } catch (completeError: any) {
-              throw error; // Throw original error
-            }
-          } else {
-            throw error;
-          }
+          console.error("Error setting service to in progress:", error);
+          alert(
+            error.response?.data?.detail ||
+              "Failed to update service status. Please try again.",
+          );
         }
-      } else {
-        // No matches - directly update status to completed
-        await servicesApi.updateService(serviceId, {
-          status: "completed",
-        } as any);
-        alert("Service marked as completed.");
-      }
+      },
+    });
+  };
 
-      // Refresh data
-      await fetchData();
-    } catch (error: any) {
-      console.error("Error marking service as done:", error);
-      alert(
-        error.response?.data?.detail ||
-          "Failed to mark service as done. Please try again."
-      );
-    }
+  const handleMarkServiceComplete = async (serviceId: string) => {
+    setConfirmState({
+      open: true,
+      title: "Mark service as completed?",
+      description:
+        "TimeBank will be updated and related exchanges will be marked completed.",
+      variant: "default",
+      onConfirm: async () => {
+        try {
+          await servicesApi.completeService(serviceId);
+          refetchUser();
+          // alert("Service marked as completed.");
+          await fetchData();
+        } catch (error: any) {
+          console.error("Error completing service:", error);
+          alert(
+            error.response?.data?.detail ||
+              "Failed to mark service as completed. Please try again.",
+          );
+        }
+      },
+    });
   };
 
   const handleDeleteService = async (serviceId: string) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this service? This action cannot be undone."
-    );
-    if (!confirmed) return;
-
-    try {
-      await servicesApi.deleteService(serviceId);
-      alert("Service deleted successfully.");
-      // Refresh data
-      await fetchData();
-    } catch (error: any) {
-      console.error("Error deleting service:", error);
-      alert(
-        error.response?.data?.detail ||
-          "Failed to delete service. Please try again."
-      );
-    }
+    setConfirmState({
+      open: true,
+      title: "Delete this service?",
+      description:
+        "Are you sure you want to delete this service? This action cannot be undone.",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await servicesApi.deleteService(serviceId);
+          // alert("Service deleted successfully.");
+          await fetchData();
+        } catch (error: any) {
+          console.error("Error deleting service:", error);
+          alert(
+            error.response?.data?.detail ||
+              "Failed to delete service. Please try again.",
+          );
+        }
+      },
+    });
   };
 
   const handleCancelService = async (serviceId: string) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to cancel this service?"
-    );
-    if (!confirmed) return;
+    setConfirmState({
+      open: true,
+      title: "Cancel this service?",
+      description: "Are you sure you want to cancel this service?",
+      variant: "default",
+      onConfirm: async () => {
+        try {
+          await servicesApi.cancelService(serviceId);
+          // alert("Service cancelled successfully.");
+          await fetchData();
+        } catch (error: any) {
+          console.error("Error cancelling service:", error);
+          alert(
+            error.response?.data?.detail ||
+              "Failed to cancel service. Please try again.",
+          );
+        }
+      },
+    });
+  };
 
+  const handleConfirmTransactionCompletion = async (transactionId: string) => {
     try {
-      await servicesApi.cancelService(serviceId);
-      alert("Service cancelled successfully.");
-      // Refresh data
+      await transactionsApi.confirmTransactionCompletion(transactionId);
       await fetchData();
     } catch (error: any) {
-      console.error("Error cancelling service:", error);
+      console.error("Error confirming transaction:", error);
       alert(
-        error.response?.data?.detail ||
-          "Failed to cancel service. Please try again."
+        error.response?.data?.detail || "Failed to confirm. Please try again.",
       );
     }
   };
@@ -481,75 +430,126 @@ export function MyServices() {
 
   return (
     <div>
-      <div className="mb-8 grid">
-        <Text size="6" weight="bold" className="mb-2">
-          My Services
-        </Text>
-        <Text size="3" color="gray">
-          Manage your offers and needs, and track applications
-        </Text>
-      </div>
-
-      <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
-        <Tabs.List>
-          <Tabs.Trigger value="services">
-            My Services ({services.length})
-          </Tabs.Trigger>
-          <Tabs.Trigger value="applications">
-            My Applications ({requests.length})
-          </Tabs.Trigger>
-          <Tabs.Trigger value="transactions">
-            Transactions ({transactions.length})
-          </Tabs.Trigger>
-          <Tabs.Trigger value="timebank">Timebank Logs</Tabs.Trigger>
-        </Tabs.List>
-
-        <Tabs.Content value="services" className="mt-6">
+      <ConfirmDialog
+        open={confirmState.open}
+        onOpenChange={(open) => setConfirmState((prev) => ({ ...prev, open }))}
+        title={confirmState.title}
+        description={confirmState.description}
+        variant={confirmState.variant}
+        onConfirm={confirmState.onConfirm}
+      />
+      {(isManagedByParent ? effectiveTab === "services" : true) && (
+        <div className="mb-8 grid">
           <MyServicesTab
             services={services}
             serviceTransactions={serviceTransactions}
             currentUserId={currentUserId}
+            requiresNeedCreation={timebankData?.requires_need_creation ?? false}
             onSetServiceInProgress={handleSetServiceInProgress}
-            onMarkServiceAsDone={handleMarkServiceAsDone}
-            onConfirmServiceCompletion={handleConfirmServiceCompletion}
-            onConfirmTransactionCompletion={handleConfirmTransactionCompletion}
+            onMarkServiceComplete={handleMarkServiceComplete}
             onDeleteService={handleDeleteService}
             onCancelService={handleCancelService}
+            onStartChat={handleStartChat}
+            onCancelTransaction={handleCancelTransaction}
+            onConfirmTransactionCompletion={handleConfirmTransactionCompletion}
             onRequestUpdate={fetchData}
             formatDate={formatDate}
+            statusFilter={statusFilter}
           />
-        </Tabs.Content>
+        </div>
+      )}
 
-        <Tabs.Content value="applications" className="mt-6">
-          <MyApplicationsTab
-            requests={requests}
-            serviceTitles={serviceTitles}
-            services={applicationServices}
-            currentUserId={currentUserId}
-            onServiceClick={handleServiceClick}
-            onConfirmServiceCompletion={handleConfirmServiceCompletion}
-            formatDate={formatDate}
-          />
-        </Tabs.Content>
+      {isManagedByParent ? (
+        <div>
+          {effectiveTab === "applications" && (
+            <MyApplicationsTab
+              requests={requests}
+              serviceTitles={serviceTitles}
+              services={applicationServices}
+              serviceTransactions={serviceTransactions}
+              currentUserId={currentUserId}
+              onServiceClick={handleServiceClick}
+              onConfirmTransactionCompletion={
+                handleConfirmTransactionCompletion
+              }
+              formatDate={formatDate}
+            />
+          )}
+          {effectiveTab === "timebank" && (
+            <MyTimebankTab
+              timebankData={timebankData}
+              timebankLoading={timebankLoading}
+            />
+          )}
+          {effectiveTab === "saved" && (
+            <SavedServicesTab
+              services={savedServicesData?.services ?? []}
+              onUnsave={async (serviceId) => {
+                await servicesApi.unsaveService(serviceId);
+                queryClient.invalidateQueries({ queryKey: ["saved-services"] });
+                queryClient.invalidateQueries({
+                  queryKey: ["saved-service-ids"],
+                });
+              }}
+            />
+          )}
+        </div>
+      ) : (
+        <Tabs.Root
+          value={effectiveTab}
+          onValueChange={(v) => setActiveTab(v as MyServicesTabValue)}
+        >
+          <Tabs.List>
+            <Tabs.Trigger value="applications">
+              <LucideList className="w-4 h-4 mr-2" />
+              My Applications ({requests.length})
+            </Tabs.Trigger>
+            <Tabs.Trigger value="timebank">
+              <ClockIcon className="w-4 h-4 mr-2" />
+              Timebank Logs
+            </Tabs.Trigger>
+            <Tabs.Trigger value="saved">
+              <BookmarkIcon className="w-4 h-4 mr-2" />
+              Saved Items ({savedServicesData?.services?.length ?? 0})
+            </Tabs.Trigger>
+          </Tabs.List>
 
-        <Tabs.Content value="transactions" className="mt-6">
-          <MyTransactionsTab
-            transactions={transactions}
-            currentUserId={currentUserId}
-            onConfirmTransactionCompletion={handleConfirmTransactionCompletion}
-            onCancelTransaction={handleCancelTransaction}
-            onStartChat={handleStartChat}
-            formatDate={formatDate}
-          />
-        </Tabs.Content>
+          <Tabs.Content value="applications" className="mt-6">
+            <MyApplicationsTab
+              requests={requests}
+              serviceTitles={serviceTitles}
+              services={applicationServices}
+              serviceTransactions={serviceTransactions}
+              currentUserId={currentUserId}
+              onServiceClick={handleServiceClick}
+              onConfirmTransactionCompletion={
+                handleConfirmTransactionCompletion
+              }
+              formatDate={formatDate}
+            />
+          </Tabs.Content>
 
-        <Tabs.Content value="timebank" className="mt-6">
-          <MyTimebankTab
-            timebankData={timebankData}
-            timebankLoading={timebankLoading}
-          />
-        </Tabs.Content>
-      </Tabs.Root>
+          <Tabs.Content value="timebank">
+            <MyTimebankTab
+              timebankData={timebankData}
+              timebankLoading={timebankLoading}
+            />
+          </Tabs.Content>
+
+          <Tabs.Content value="saved">
+            <SavedServicesTab
+              services={savedServicesData?.services ?? []}
+              onUnsave={async (serviceId) => {
+                await servicesApi.unsaveService(serviceId);
+                queryClient.invalidateQueries({ queryKey: ["saved-services"] });
+                queryClient.invalidateQueries({
+                  queryKey: ["saved-service-ids"],
+                });
+              }}
+            />
+          </Tabs.Content>
+        </Tabs.Root>
+      )}
     </div>
   );
 }
