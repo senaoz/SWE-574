@@ -57,7 +57,11 @@ class ServiceService:
             service_doc["max_participants"] = 1
         elif not isinstance(service_doc["max_participants"], int) or service_doc["max_participants"] < 1:
             service_doc["max_participants"] = 1
-        
+
+        # Backward compatibility: default is_remote to False if missing
+        if "is_remote" not in service_doc:
+            service_doc["is_remote"] = False
+
         # Normalize tags for backward compatibility
         if "tags" in service_doc:
             service_doc["tags"] = self._normalize_tags(service_doc["tags"])

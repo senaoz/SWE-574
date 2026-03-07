@@ -90,7 +90,7 @@ export function OfferListingCard({ service }: { service: Service }) {
       </Flex>
       <Flex align="center" gap="1">
         <Crosshair1Icon className="w-4 h-4" />
-        <Text size="2">{service.location.address || "Istanbul"}</Text>
+        <Text size="2">{service.is_remote ? "Remote" : (service.location?.address || "Istanbul")}</Text>
       </Flex>
       <Flex align="center" gap="1">
         <PersonIcon className="w-4 h-4" />

@@ -6,7 +6,9 @@ import com.hive.hive_app.data.api.dto.JoinRequestResponse
 import com.hive.hive_app.data.api.dto.ServiceResponse
 import com.hive.hive_app.data.api.dto.TransactionResponse
 import com.hive.hive_app.data.repository.AuthRepository
+import com.hive.hive_app.data.repository.ChatRepository
 import com.hive.hive_app.data.repository.JoinRequestsRepository
+import com.hive.hive_app.data.repository.RatingsRepository
 import com.hive.hive_app.data.repository.ServicesRepository
 import com.hive.hive_app.data.repository.TransactionsRepository
 import com.hive.hive_app.data.repository.UsersRepository
@@ -40,7 +42,9 @@ class ActiveItemsViewModel @Inject constructor(
     private val servicesRepository: ServicesRepository,
     private val joinRequestsRepository: JoinRequestsRepository,
     private val transactionsRepository: TransactionsRepository,
-    private val usersRepository: UsersRepository
+    private val usersRepository: UsersRepository,
+    private val chatRepository: ChatRepository,
+    private val ratingsRepository: RatingsRepository
 ) : ViewModel() {
 
     data class ActiveItemsState(
@@ -181,6 +185,71 @@ class ActiveItemsViewModel @Inject constructor(
                     onResult(true, null)
                 },
                 onFailure = { onResult(false, it.message) }
+            )
+        }
+    }
+
+    /** Confirm transaction completion and submit rating (score, feedback tags, optional comment). */
+    fun confirmAndRate(
+        transactionId: String,
+        ratedUserId: String,
+        score: Int,
+        feedbackTags: List<String>,
+        comment: String?,
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        viewModelScope.launch {
+            transactionsRepository.confirmCompletion(transactionId).fold(
+                onSuccess = {
+                    ratingsRepository.createRating(
+                        transactionId = transactionId,
+                        ratedUserId = ratedUserId,
+                        score = score,
+                        comment = comment.takeIf { !it.isNullOrBlank() },
+                        tags = feedbackTags.takeIf { it.isNotEmpty() }
+                    ).fold(
+                        onSuccess = {
+                            load()
+                            onResult(true, null)
+                        },
+                        onFailure = { onResult(false, it.message) }
+                    )
+                },
+                onFailure = { onResult(false, it.message) }
+            )
+        }
+    }
+
+    /** Open or create a normal chat with the owner (no transaction). Prefer existing room with same participants and no transaction_id. */
+    fun startChatForAccepted(
+        serviceId: String,
+        ownerId: String,
+        onResult: (String?) -> Unit
+    ) {
+        viewModelScope.launch {
+            val userId = _state.value.currentUserId ?: run {
+                onResult(null)
+                return@launch
+            }
+            if (userId == ownerId) {
+                onResult(null)
+                return@launch
+            }
+            val participantSet = setOf(userId, ownerId)
+            // Prefer existing normal chat (no transaction_id) with this user
+            chatRepository.getRooms(page = 1, limit = 100).getOrNull()?.rooms?.firstOrNull { room ->
+                room.participantIds.toSet() == participantSet && room.transactionId.isNullOrBlank()
+            }?.let { existing ->
+                onResult(existing._id)
+                return@launch
+            }
+            // Create new normal chat (no serviceId so backend does not link to transaction)
+            chatRepository.createRoom(
+                participantIds = listOf(userId, ownerId),
+                serviceId = null
+            ).fold(
+                onSuccess = { onResult(it._id) },
+                onFailure = { onResult(null) }
             )
         }
     }

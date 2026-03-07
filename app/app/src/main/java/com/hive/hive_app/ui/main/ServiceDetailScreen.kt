@@ -598,7 +598,24 @@ fun ServiceDetailScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                         if (!isOwner) {
                             if (myJoinRequest != null) {
-                                StatusChip(status = myJoinRequest!!.status)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    StatusChip(status = myJoinRequest!!.status)
+                                    if (creator != null && onStartChat != null) {
+                                        OutlinedButton(onClick = {
+                                            viewModel.startChat(service._id, creator._id) { result ->
+                                                result.getOrNull()?.let { roomId -> onStartChat(roomId) }
+                                            }
+                                        }) {
+                                            Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Spacer(modifier = Modifier.size(8.dp))
+                                            Text("Start Chat")
+                                        }
+                                    }
+                                }
                             } else {
                                 val buttonLabel = if (service.serviceType == "need") "Offer Help" else "Request Service"
                                 Row(
@@ -642,25 +659,33 @@ fun ServiceDetailScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    // Location at bottom with map
+                    // Location at bottom with map (or "Remote" if service is remote)
                     Spacer(modifier = Modifier.height(16.dp))
                     DetailSection(title = "Location", icon = Icons.Default.LocationOn) {
-                        val loc = service.location
-                        Text(
-                            text = loc.address?.takeIf { it.isNotBlank() }
-                                ?: "Approximate: %.4f, %.4f".format(loc.latitude, loc.longitude),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        )
-                        ServiceDetailMap(
-                            latitude = loc.latitude,
-                            longitude = loc.longitude,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(200.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                        )
+                        if (service.isRemote) {
+                            Text(
+                                text = "Remote",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        } else {
+                            val loc = service.location
+                            Text(
+                                text = loc.address?.takeIf { it.isNotBlank() }
+                                    ?: "Approximate: %.4f, %.4f".format(loc.latitude, loc.longitude),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(bottom = 12.dp)
+                            )
+                            ServiceDetailMap(
+                                latitude = loc.latitude,
+                                longitude = loc.longitude,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                            )
+                        }
                     }
                 }
             }

@@ -376,7 +376,7 @@ export function ServiceDetail() {
                 <Text size="3" weight="medium">
                   Location:
                 </Text>
-                <Text size="3">{service.location.address || "Istanbul"}</Text>
+                <Text size="3">{service.is_remote ? "Remote" : (service.location?.address || "Istanbul")}</Text>
               </Flex>
 
               {service.deadline && (
@@ -642,8 +642,10 @@ export function ServiceDetail() {
             </Card>
           )}
 
-          {/* Map */}
-          <ServiceMap services={[service]} height="350px" />
+          {/* Map (only for non-remote services) */}
+          {!service.is_remote && (
+            <ServiceMap services={[service]} height="350px" />
+          )}
 
           {/* Comments section */}
           <CommentSection serviceId={service._id} />

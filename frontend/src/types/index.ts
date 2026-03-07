@@ -83,6 +83,7 @@ export interface Service {
     time: string;
   };
   open_availability?: string;
+  is_remote?: boolean;
 }
 
 export interface TimeBankTransaction {

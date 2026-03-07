@@ -112,7 +112,8 @@ class ServiceBase(BaseModel):
     specific_time: Optional[str] = None  # Time string in HH:MM format
     recurring_pattern: Optional[dict] = None  # RecurringPattern dict: {"days": [...], "time": "HH:MM"}
     open_availability: Optional[str] = None  # Free-form text description
-    
+    is_remote: Optional[bool] = False  # If True, service is remote (no physical location)
+
     @model_validator(mode='before')
     @classmethod
     def validate_max_participants(cls, data):
@@ -171,6 +172,7 @@ class ServiceUpdate(BaseModel):
     specific_time: Optional[str] = None  # Time string in HH:MM format
     recurring_pattern: Optional[dict] = None  # RecurringPattern dict: {"days": [...], "time": "HH:MM"}
     open_availability: Optional[str] = None  # Free-form text description
+    is_remote: Optional[bool] = None  # If True, service is remote (no physical location)
 
     class Config:
         json_encoders = {ObjectId: str}

@@ -251,9 +251,11 @@ fun DiscoverScreen(
                 ) { service ->
                     val distanceKm = viewModel.distanceToService(service)
                     val creator = state.creatorInfo[service.userId]
+                    val isRemote = service.isRemote
                     DiscoverServiceCard(
                         service = service,
-                        distanceKm = distanceKm,
+                        distanceKm = if (isRemote) null else distanceKm,
+                        isRemote = isRemote,
                         creator = creator,
                         onClick = { selectedServiceId = service._id }
                     )
@@ -280,15 +282,16 @@ private fun discoverBadgeIcon(key: String?): ImageVector = when (key) {
 private fun DiscoverServiceCard(
     service: ServiceResponse,
     distanceKm: Double?,
+    isRemote: Boolean,
     creator: CreatorInfo?,
     onClick: () -> Unit
 ) {
     val accepted = service.matchedUserIds?.size ?: 0
     val max = service.maxParticipants ?: 1
     val capacityText = "$accepted/$max"
-    val locationText = service.location?.address?.takeIf { it.isNotBlank() }
+    val locationText = if (isRemote) null else (service.location?.address?.takeIf { it.isNotBlank() }
         ?: service.location?.let { "%.4f, %.4f".format(it.latitude, it.longitude) }
-        ?: "—"
+        ?: "—")
     val userName = creator?.user?.fullName?.takeIf { it.isNotBlank() }
         ?: creator?.user?.username
         ?: "User"
@@ -385,11 +388,13 @@ private fun DiscoverServiceCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Text(
-                text = locationText,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (locationText != null) {
+                Text(
+                    text = locationText,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -415,7 +420,13 @@ private fun DiscoverServiceCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                if (distanceKm != null) {
+                if (isRemote) {
+                    Text(
+                        text = "Remote",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else if (distanceKm != null) {
                     Text(
                         text = "~${"%.1f".format(distanceKm)} km",
                         style = MaterialTheme.typography.labelSmall,

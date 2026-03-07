@@ -32,9 +32,9 @@ class RatingsRepository @Inject constructor(
         }
     }
 
-    suspend fun createRating(transactionId: String, ratedUserId: String, score: Int, comment: String? = null): Result<RatingResponse> {
+    suspend fun createRating(transactionId: String, ratedUserId: String, score: Int, comment: String? = null, tags: List<String>? = null): Result<RatingResponse> {
         return try {
-            val response = api.createRating(RatingCreate(transactionId = transactionId, ratedUserId = ratedUserId, score = score, comment = comment))
+            val response = api.createRating(RatingCreate(transactionId = transactionId, ratedUserId = ratedUserId, score = score, comment = comment, tags = tags))
             if (response.isSuccessful && response.body() != null) Result.success(response.body()!!)
             else Result.failure(HttpException(response))
         } catch (e: Exception) {
