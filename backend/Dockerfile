@@ -9,9 +9,9 @@ RUN apt-get update && apt-get install -y \
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
-# Eski satır: RUN pip install --no-cache-dir -r requirements.txt
-# Yeni geçici satır (cache kırmak için):
-RUN pip install --no-cache-dir alt-profanity-check==1.8.0 && pip install --no-cache-dir -r requirements.txt
+
+RUN pip install --no-cache-dir -r requirements.txt
+
 
 # Copy application code
 COPY . .
