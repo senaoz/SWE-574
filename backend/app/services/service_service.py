@@ -6,7 +6,11 @@ from bson import ObjectId
 from ..models.service import ServiceCreate, ServiceUpdate, ServiceResponse, ServiceFilters, ServiceStatus
 from ..models.user import UserResponse
 from ..core.database import get_database
+from .content_moderation_service import is_offensive
 
+def _ensure_non_offensive(value: Optional[str], field_name: str) -> None:
+    if isinstance(value, str) and value.strip() and is_offensive(value):
+        raise ValueError(f"{field_name} contains offensive language")
 
 class ServiceService:
     def __init__(self, db):
@@ -78,6 +82,10 @@ class ServiceService:
             # Use dict(exclude_none=False, exclude_unset=False) to include all fields
             # This ensures scheduling fields are saved to the database
             service_dict = service_data.dict(exclude_none=False, exclude_unset=False)
+
+            _ensure_non_offensive(service_dict.get("title"), "Title")
+            _ensure_non_offensive(service_dict.get("description"), "Description")
+            _ensure_non_offensive(service_dict.get("open_availability"), "Open availability")
             # User cannot create offers (give help) when they must create a Need first
             if service_dict.get("service_type") == "offer":
                 from .user_service import UserService
@@ -279,7 +287,11 @@ class ServiceService:
             update_data = {k: v for k, v in service_update.dict().items() if v is not None}
             if not update_data:
                 return await self.get_service_by_id(service_id)
-            
+
+            _ensure_non_offensive(update_data.get("title"), "Title")
+            _ensure_non_offensive(update_data.get("description"), "Description")
+            _ensure_non_offensive(update_data.get("open_availability"), "Open availability")
+
             # Normalize tags if they're being updated
             if "tags" in update_data:
                 update_data["tags"] = self._normalize_tags(update_data["tags"])

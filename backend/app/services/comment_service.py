@@ -4,9 +4,8 @@ from bson import ObjectId
 
 from ..models.comment import CommentCreate, CommentUpdate, CommentResponse
 from ..core.database import get_database
+from .content_moderation_service import is_offensive
 from ..models.user import UserResponse
-
-
 class CommentService:
     def __init__(self, db):
         self.db = db
@@ -21,7 +20,10 @@ class CommentService:
             service = await self.services_collection.find_one({"_id": ObjectId(comment_data.service_id)})
             if not service:
                 raise ValueError("Service not found")
-            
+
+            if is_offensive(comment_data.content):
+                raise ValueError("Comment contains offensive language")
+
             comment_doc = {
                 **comment_data.dict(),
                 "user_id": ObjectId(user_id),
@@ -103,7 +105,10 @@ class CommentService:
             
             if str(existing_comment["user_id"]) != user_id:
                 raise ValueError("Not authorized to update this comment")
-            
+
+            if is_offensive(comment_update.content):
+                raise ValueError("Comment contains offensive language")
+
             update_data = comment_update.dict()
             update_data["updated_at"] = datetime.utcnow()
             

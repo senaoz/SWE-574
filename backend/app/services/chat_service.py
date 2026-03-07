@@ -8,7 +8,7 @@ from ..models.chat import (
     ChatRoomParticipant
 )
 from ..core.database import get_database
-
+from .content_moderation_service import is_offensive
 
 class ChatService:
     def __init__(self, db):
@@ -211,7 +211,10 @@ class ChatService:
             
             if not room:
                 raise ValueError("Chat room not found or user not authorized")
-            
+
+            if message_data.message_type == "text" and is_offensive(message_data.content):
+                raise ValueError("Message contains offensive language")
+
             # Create message document
             message_doc = {
                 **message_data.dict(),
@@ -295,7 +298,10 @@ class ChatService:
             
             if not message:
                 raise ValueError("Message not found or user not authorized")
-            
+
+            if update_data.content is not None and is_offensive(update_data.content):
+                raise ValueError("Message contains offensive language")
+
             update_doc = {k: v for k, v in update_data.dict().items() if v is not None}
             if not update_doc:
                 return await self.get_message_by_id(message_id, user_id)
