@@ -18,7 +18,6 @@ A community-oriented time-bank service exchange platform built for the **SWE 574
 
 | Role | Email | Password |
 |------|-------|----------|
-| User | elif.sahin@example.com | Password123 |
 | Admin | tazeyta@gmail.com | Password123 |
 | User | mehmet.demir@example.com | Password123 |
 
