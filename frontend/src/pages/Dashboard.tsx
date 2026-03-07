@@ -174,7 +174,7 @@ export function Dashboard() {
         <div className="pr-4 space-y-2">
           <CreateServiceDialog
             onServiceCreated={fetchServices}
-            disabled={!!timebankData?.requires_need_creation}
+            requiresNeedCreation={timebankData?.requires_need_creation}
           />
 
           {timebankData?.requires_need_creation && (
@@ -319,20 +319,21 @@ export function Dashboard() {
 
 function CreateServiceDialog({
   onServiceCreated,
-  disabled,
+  requiresNeedCreation,
 }: {
   onServiceCreated?: () => void;
-  disabled?: boolean;
+  requiresNeedCreation?: boolean;
 }) {
   const [showDialog, setShowDialog] = useState(false);
   const [selectedServiceType, setSelectedServiceType] = useState<
     "offer" | "need"
-  >("offer");
+  >("need");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   return (
     <Dialog.Root open={showDialog} onOpenChange={setShowDialog}>
-      <Dialog.Trigger disabled={disabled}>
-        <Button disabled={disabled} className="add-service-button shadow-lg">
+      <Dialog.Trigger>
+        <Button className="add-service-button shadow-lg">
           <PlusIcon className="w-10 h-10 stroke-4 stroke-black" />
         </Button>
       </Dialog.Trigger>
@@ -345,9 +346,22 @@ function CreateServiceDialog({
         maxHeight={"80vh"}
       >
         <div className="pb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {errorMessage && (
+            <Text size="2" color="red" className="mb-4">
+              {errorMessage}
+            </Text>
+          )}
           <Box
-            className={`border-2 rounded-lg hover-card text-center py-4 px-8 ${selectedServiceType === "offer" ? "hover-card-selected offer" : ""}`}
-            onClick={() => setSelectedServiceType("offer")}
+            className={`border-2 rounded-lg hover-card text-center py-4 px-8 ${selectedServiceType === "offer" ? "hover-card-selected offer" : ""} ${requiresNeedCreation ? "opacity-50 cursor-not-allowed" : ""}`}
+            onClick={() => {
+              if (requiresNeedCreation) {
+                setErrorMessage(
+                  "You need to create a need before you can offer a service to others. You reached the 10-hour surplus limit.",
+                );
+                return;
+              }
+              setSelectedServiceType("offer");
+            }}
           >
             <Heading size="5" className="flex items-center justify-center mb-1">
               <SunIcon className="w-6 h-6 text-orange-500 mr-2" />
