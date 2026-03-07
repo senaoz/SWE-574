@@ -45,5 +45,10 @@ See [`backend/README.md`](backend/README.md) for local development setup and CI/
 
 - [Repository Rules](https://github.com/senaoz/SWE-574/wiki/Repository-Rules)
 - [Elicitation Questions](https://github.com/senaoz/SWE-574/wiki/Elicitation-Questions)
-- [SRS](https://github.com/senaoz/SWE-574/wiki/SRS)
-- [Meeting Notes](https://github.com/senaoz/SWE-574/wiki/Meeting-Notes)
+- [Software Requirements Specification](https://github.com/senaoz/SWE-574/wiki/SRS)
+- [Software Design (UML Diagrams)](https://github.com/senaoz/SWE-574/wiki/UML-Diagrams)
+- [Scenarios and Mockups](https://github.com/senaoz/SWE-574/wiki/Scenarios-&-Mockups)
+- [Project Plan](https://github.com/senaoz/SWE-574/wiki)
+- [Communication Plan](https://github.com/senaoz/SWE-574/wiki/Communication-Plan)
+- [Responsibility Assignment Matrix (RACI)](https://github.com/senaoz/SWE-574/wiki/Responsibility-Assignment-Matrix-(RACI))
+- [Weekly Reports and Additional Meeting Notes](https://github.com/senaoz/SWE-574/wiki/Meeting-Notes)
