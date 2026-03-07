@@ -29,8 +29,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.hive.hive_app.data.api.dto.ChatParticipant
 import com.hive.hive_app.data.api.dto.ChatRoomResponse
 import com.hive.hive_app.util.formatApplicationDate
@@ -142,14 +144,19 @@ private fun ChatRoomListItem(
     currentUserId: String?,
     onClick: () -> Unit
 ) {
-    val otherParticipant = room.participants?.firstOrNull { it._id != currentUserId }
+    // Resolve the *other* user (not current): use participant_ids so we don't show ourselves
+    val otherId = room.participantIds.firstOrNull { it != currentUserId }
+    val otherParticipant = room.participants?.firstOrNull { it._id == otherId }
+        ?: room.participants?.firstOrNull { it._id != currentUserId }
         ?: room.participants?.firstOrNull()
     val title = room.name
         ?: otherParticipant?.fullName?.takeIf { it.isNotBlank() }
         ?: otherParticipant?.username
-        ?: room.participants?.joinToString(", ") { it.username ?: it.fullName ?: "Unknown" }
+        ?: otherId?.let { "User ${it.take(8)}…" }
         ?: "Chat ${room._id.take(8)}…"
     val subtitle = room.transactionId?.let { "Transaction" } ?: "Chat"
+    val profilePicUrl = otherParticipant?.profilePicture?.takeIf { it.isNotBlank() }
+    val context = LocalContext.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -161,18 +168,28 @@ private fun ChatRoomListItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = chatParticipantInitials(otherParticipant),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+            if (!profilePicUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = buildImageRequest(context, profilePicUrl),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
                 )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = chatParticipantInitials(otherParticipant),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(

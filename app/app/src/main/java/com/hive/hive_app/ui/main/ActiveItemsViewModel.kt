@@ -220,8 +220,9 @@ class ActiveItemsViewModel @Inject constructor(
         }
     }
 
-    /** Open or create a normal chat with the owner (no transaction). Prefer existing room with same participants and no transaction_id. */
+    /** Open or create a chat for accepted participation. Uses transaction room when transactionId is present; otherwise normal room. */
     fun startChatForAccepted(
+        transactionId: String?,
         serviceId: String,
         ownerId: String,
         onResult: (String?) -> Unit
@@ -235,15 +236,21 @@ class ActiveItemsViewModel @Inject constructor(
                 onResult(null)
                 return@launch
             }
+            // When we have a transaction, use the transaction chat room (backend can have multiple transactions per room)
+            if (transactionId != null) {
+                chatRepository.createRoomForTransaction(transactionId).fold(
+                    onSuccess = { onResult(it._id) },
+                    onFailure = { onResult(null) }
+                )
+                return@launch
+            }
             val participantSet = setOf(userId, ownerId)
-            // Prefer existing normal chat (no transaction_id) with this user
             chatRepository.getRooms(page = 1, limit = 100).getOrNull()?.rooms?.firstOrNull { room ->
                 room.participantIds.toSet() == participantSet && room.transactionId.isNullOrBlank()
             }?.let { existing ->
                 onResult(existing._id)
                 return@launch
             }
-            // Create new normal chat (no serviceId so backend does not link to transaction)
             chatRepository.createRoom(
                 participantIds = listOf(userId, ownerId),
                 serviceId = null

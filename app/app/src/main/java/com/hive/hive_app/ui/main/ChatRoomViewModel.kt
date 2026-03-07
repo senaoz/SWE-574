@@ -66,6 +66,18 @@ class ChatRoomViewModel @Inject constructor(
         return if (uid == t.providerId) t.requesterId else t.providerId
     }
 
+    /** Refresh only the message list (e.g. for polling new messages from web). */
+    fun refreshMessages(roomId: String) {
+        viewModelScope.launch {
+            chatRepository.getMessages(roomId, page = 1, limit = 100).fold(
+                onSuccess = { response ->
+                    _state.value = _state.value.copy(messages = response.messages.sortedBy { it.createdAt })
+                },
+                onFailure = { }
+            )
+        }
+    }
+
     fun loadMessages(roomId: String, room: ChatRoomResponse) {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null, otherUser = null, transaction = null, alreadyRatedTransaction = false)
@@ -88,7 +100,7 @@ class ChatRoomViewModel @Inject constructor(
                         }
                     }
                     _state.value = _state.value.copy(
-                        messages = response.messages,
+                        messages = response.messages.sortedBy { it.createdAt },
                         isLoading = false,
                         error = null,
                         currentUserId = userId,
@@ -156,7 +168,7 @@ class ChatRoomViewModel @Inject constructor(
             chatRepository.sendMessage(roomId, content.trim()).fold(
                 onSuccess = { newMessage ->
                     _state.value = _state.value.copy(
-                        messages = _state.value.messages + newMessage
+                        messages = (_state.value.messages + newMessage).sortedBy { it.createdAt }
                     )
                     onSent()
                 },

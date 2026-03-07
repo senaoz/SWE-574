@@ -260,7 +260,7 @@ fun ActiveItemsScreen(
                     timeSlotText = timeSlotText,
                     onView = { selectedServiceId = service._id },
                     onMessage = {
-                        viewModel.startChatForAccepted(service._id, service.userId) { roomId ->
+                        viewModel.startChatForAccepted(transactionId, service._id, service.userId) { roomId ->
                             roomId?.let { onStartChat?.invoke(it) }
                         }
                     },

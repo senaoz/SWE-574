@@ -42,8 +42,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.hive.hive_app.data.api.dto.ChatRoomResponse
 import com.hive.hive_app.data.api.dto.MessageResponse
+import com.hive.hive_app.ui.main.buildImageRequest
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Locale
+
+private const val CHAT_POLL_INTERVAL_MS = 3000L
 
 @Composable
 fun ChatRoomScreen(
@@ -53,11 +57,20 @@ fun ChatRoomScreen(
     viewModel: ChatRoomViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
-    val canSend = !viewModel.isExchangeCompleted(room)
+    // Allow sending in all chats (including transaction); backend enforces rules if needed
+    val canSend = true
 
     LaunchedEffect(room._id) { viewModel.loadMessages(room._id, room) }
+    LaunchedEffect(room._id) {
+        while (true) {
+            delay(CHAT_POLL_INTERVAL_MS)
+            viewModel.refreshMessages(room._id)
+        }
+    }
 
-    val otherParticipant = room.participants?.firstOrNull { it._id != state.currentUserId }
+    val otherId = room.participantIds.firstOrNull { it != state.currentUserId }
+    val otherParticipant = room.participants?.firstOrNull { it._id == otherId }
+        ?: room.participants?.firstOrNull { it._id != state.currentUserId }
         ?: room.participants?.firstOrNull()
     val otherName = state.otherUser?.fullName?.takeIf { it.isNotBlank() }
         ?: state.otherUser?.username
@@ -76,10 +89,12 @@ fun ChatRoomScreen(
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
-            if (state.otherUser?.profilePicture?.isNotBlank() == true) {
+            val profilePicUrl = state.otherUser?.profilePicture?.takeIf { it.isNotBlank() }
+                ?: otherParticipant?.profilePicture?.takeIf { it.isNotBlank() }
+            if (!profilePicUrl.isNullOrBlank()) {
                 val context = androidx.compose.ui.platform.LocalContext.current
                 coil.compose.AsyncImage(
-                    model = buildImageRequest(context, state.otherUser!!.profilePicture),
+                    model = buildImageRequest(context, profilePicUrl),
                     contentDescription = null,
                     modifier = Modifier
                         .size(40.dp)
@@ -216,7 +231,8 @@ fun ChatRoomScreen(
             items(state.messages, key = { it._id }) { msg ->
                 MessageBubble(
                     message = msg,
-                    isFromCurrentUser = msg.senderId == state.currentUserId
+                    isFromCurrentUser = msg.senderId == state.currentUserId,
+                    currentUserId = state.currentUserId
                 )
             }
         }
@@ -239,7 +255,8 @@ fun ChatRoomScreen(
 @Composable
 private fun MessageBubble(
     message: MessageResponse,
-    isFromCurrentUser: Boolean
+    isFromCurrentUser: Boolean,
+    currentUserId: String? = null
 ) {
     val backgroundColor = if (isFromCurrentUser)
         MaterialTheme.colorScheme.primaryContainer
@@ -249,11 +266,24 @@ private fun MessageBubble(
         MaterialTheme.colorScheme.onPrimaryContainer
     else
         MaterialTheme.colorScheme.onSurfaceVariant
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val senderProfilePic = message.sender?.profilePicture?.takeIf { it.isNotBlank() }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isFromCurrentUser) Arrangement.End else Arrangement.Start
+        horizontalArrangement = if (isFromCurrentUser) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.Bottom
     ) {
+        if (!isFromCurrentUser && senderProfilePic != null) {
+            coil.compose.AsyncImage(
+                model = buildImageRequest(context, senderProfilePic),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .padding(end = 6.dp)
+            )
+        }
         Card(
             modifier = Modifier.fillMaxWidth(0.85f),
             shape = RoundedCornerShape(
