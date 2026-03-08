@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary / brand (lime) -->
+    <color name="primary">#84CC16</color>
+    <color name="primary_dark">#65A30D</color>
+
+    <!-- Surfaces -->
+    <color name="background">#FAFAF9</color>
+    <color name="surface">#FFFFFFFF</color>
+    <color name="surface_variant">#F5F5F4</color>
+
+    <!-- Neutrals -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="on_surface">#1C1917</color>
+    <color name="on_surface_variant">#57534E</color>
+</resources>
