@@ -9,13 +9,20 @@ import {
   TextArea,
 } from "@radix-ui/themes";
 import { JoinRequest } from "@/types";
-import { getImageUrl, joinRequestsApi } from "@/services/api";
+import {
+  getImageUrl,
+  joinRequestsApi,
+  ratingsApi,
+  usersApi,
+} from "@/services/api";
 import {
   CheckCircledIcon,
   CrossCircledIcon,
   ClockIcon,
+  StarFilledIcon,
 } from "@radix-ui/react-icons";
 import { useNavigate } from "react-router-dom";
+import { CustomBadge } from "./BadgeDisplay";
 
 interface ApplicantsListProps {
   serviceId: string;
@@ -36,6 +43,7 @@ export function ApplicantsList({
     {},
   );
   const navigate = useNavigate();
+  const [users, setUsers] = useState<Record<string, any>>({});
   useEffect(() => {
     fetchRequests();
   }, [serviceId]);
@@ -51,6 +59,44 @@ export function ApplicantsList({
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    const applicantIds = new Set<string>();
+    requests.forEach((request) => {
+      if (request.user?.id) applicantIds.add(request.user?.id);
+    });
+    applicantIds.forEach(async (userId) => {
+      try {
+        const [userRes, badgesRes, ratingsRes] = await Promise.all([
+          usersApi.getUserById(userId),
+          usersApi.getUserBadges(userId).catch(() => ({ data: null })),
+          ratingsApi.getUserRatings(userId, 1, 1).catch(() => ({
+            data: { total: 0, average_score: null },
+          })),
+        ]);
+        let earnedBadges = badgesRes.data?.badges.filter((b) => b.earned) ?? [];
+        const u = {
+          ...userRes.data,
+          badges: {
+            earned: earnedBadges ?? [],
+            earned_count: earnedBadges.length,
+            total_count: badgesRes.data?.total_count ?? 0,
+          },
+          rating: {
+            total: ratingsRes.data?.total ?? 0,
+            average_score: ratingsRes.data?.average_score ?? 0,
+          },
+        };
+        setUsers((prev) => ({
+          ...prev,
+          [userId]: u,
+        }));
+        console.log(users);
+      } catch {
+        // keep fallback
+      }
+    });
+  }, [requests]);
 
   const handleApprove = async (requestId: string) => {
     setUpdatingRequest(requestId);
@@ -247,21 +293,35 @@ export function ApplicantsList({
                       <Text size="2" color="gray">
                         @{request.user?.username}
                       </Text>
+                      {users[request.user?.id ?? ""]?.rating?.average_score && (
+                        <Flex align="center" gap="1" className="text-sm mt-1">
+                          <StarFilledIcon className="w-4 h-4" />
+                          {users[request.user?.id ?? ""]?.rating?.average_score}
+                          /5 ({
+                            users[request.user?.id ?? ""]?.rating?.total
+                          }{" "}
+                          ratings)
+                        </Flex>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       {getStatusBadge(request.status)}
                       <Text size="1" color="gray">
                         {formatDate(request.created_at)}
                       </Text>
+                      {users[request.user?.id ?? ""]?.badges?.earned.length >
+                        0 && (
+                        <CustomBadge
+                          badge={
+                            users[request.user?.id ?? ""]?.badges?.earned[
+                              users[request.user?.id ?? ""]?.badges?.earned
+                                .length - 1
+                            ]
+                          }
+                        />
+                      )}
                     </div>
                   </Flex>
-
-                  {/* User bio */}
-                  {request.user?.bio && (
-                    <Text size="2" color="gray">
-                      {request.user.bio}
-                    </Text>
-                  )}
 
                   {/* Request message */}
                   {request.message && (
@@ -345,86 +405,94 @@ export function ApplicantsList({
           {/* Show other requests (approved/rejected) */}
           {requests
             .filter((r) => r.status !== "pending")
-            .map((request, index) => (
-              <div
-                key={request._id}
-                className="p-4 rounded-lg bg-[var(--accent-a2)] transition-colors duration-200 flex flex-col gap-3"
-              >
-                <Flex align="center" gap="3">
-                  <Avatar
-                    onClick={() => {
-                      if (request.user?.id)
-                        navigate(`/user/${request.user.id}`);
-                    }}
-                    src={
-                      getImageUrl(request.user?.profile_picture) ?? undefined
-                    }
-                    fallback={
-                      request.user?.full_name?.[0] ||
-                      request.user?.username?.[0] ||
-                      "?"
-                    }
-                    size="3"
-                    className="cursor-pointer"
-                  />
-                  <div className="flex-1 flex flex-col">
-                    <Text
-                      size="3"
-                      weight="bold"
-                      className="cursor-pointer"
+            .map((request, index) => {
+              const user = request.user?.id
+                ? users[request.user?.id]
+                : request.user;
+              return (
+                <div
+                  key={request._id}
+                  className="p-4 rounded-lg bg-[var(--accent-a2)] transition-colors duration-200 flex flex-col gap-3"
+                >
+                  <Flex align="center" gap="3">
+                    <Avatar
                       onClick={() => {
                         if (request.user?.id)
                           navigate(`/user/${request.user.id}`);
                       }}
-                    >
-                      {request.user?.full_name ||
-                        request.user?.username ||
-                        "Unknown User"}
-                    </Text>
-                    <Text size="2" color="gray">
-                      @{request.user?.username}
-                    </Text>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {getStatusBadge(request.status)}
-                    <Text size="1" color="gray">
-                      {formatDate(request.created_at)}
-                    </Text>
-                  </div>
-                </Flex>
+                      src={getImageUrl(user?.profile_picture) ?? undefined}
+                      fallback={
+                        user?.full_name?.[0] || user?.username?.[0] || "?"
+                      }
+                      size="3"
+                      className="cursor-pointer"
+                    />
+                    <div className="flex-1 flex flex-col">
+                      <Text
+                        size="3"
+                        weight="bold"
+                        className="cursor-pointer"
+                        onClick={() => {
+                          if (request.user?.id)
+                            navigate(`/user/${request.user?.id}`);
+                        }}
+                      >
+                        {user?.full_name || user?.username || "Unknown User"}
+                      </Text>
+                      <Text size="2" color="gray">
+                        @{user?.username}
+                      </Text>
+                      {user?.rating?.average_score && (
+                        <Flex align="center" gap="1" className="text-sm mt-1">
+                          <StarFilledIcon className="w-4 h-4" />
+                          {user?.rating?.average_score}/5 ({user?.rating?.total}{" "}
+                          ratings)
+                        </Flex>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {getStatusBadge(request.status)}
+                      <Text size="1" color="gray">
+                        {formatDate(request.created_at)}
+                      </Text>
+                      {user?.badges?.earned.length > 0 && (
+                        <CustomBadge
+                          badge={
+                            user?.badges?.earned[
+                              user?.badges?.earned.length - 1
+                            ]
+                          }
+                        />
+                      )}
+                    </div>
+                  </Flex>
 
-                {/* User bio */}
-                {request.user?.bio && (
-                  <Text size="2" color="gray">
-                    {request.user.bio}
-                  </Text>
-                )}
+                  {/* Request message */}
+                  {request.message && (
+                    <div>
+                      <Text size="2" weight="medium" className="block mb-1">
+                        Message:
+                      </Text>
+                      <Text size="2" className="italic">
+                        "{request.message}"
+                      </Text>
+                    </div>
+                  )}
 
-                {/* Request message */}
-                {request.message && (
-                  <div>
-                    <Text size="2" weight="medium" className="block mb-1">
-                      Message:
-                    </Text>
-                    <Text size="2" className="italic">
-                      "{request.message}"
-                    </Text>
-                  </div>
-                )}
-
-                {/* Admin message */}
-                {request.admin_message && (
-                  <div>
-                    <Text size="2" weight="medium" className="block mb-1">
-                      Your response:
-                    </Text>
-                    <Text size="2" className="italic">
-                      "{request.admin_message}"
-                    </Text>
-                  </div>
-                )}
-              </div>
-            ))}
+                  {/* Admin message */}
+                  {request.admin_message && (
+                    <div>
+                      <Text size="2" weight="medium" className="block mb-1">
+                        Your response:
+                      </Text>
+                      <Text size="2" className="italic">
+                        "{request.admin_message}"
+                      </Text>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
         </div>
       )}
     </>

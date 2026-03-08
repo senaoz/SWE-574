@@ -1,18 +1,15 @@
-import { Card, Badge, Text, Flex, Tooltip } from "@radix-ui/themes";
+import { Card, Badge, Text, Flex } from "@radix-ui/themes";
 import { Service, BadgeSummary } from "@/types";
 import { useNavigate } from "react-router-dom";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import {
   ClockIcon,
   Crosshair1Icon,
-  CalendarIcon,
-  PersonIcon,
-  StarIcon,
+  StarFilledIcon,
 } from "@radix-ui/react-icons";
 import { useEffect, useState } from "react";
-import { usersApi, ratingsApi, getImageUrl } from "@/services/api";
+import { usersApi, ratingsApi } from "@/services/api";
 import { StatusBadge } from "./StatusBadge";
-import { RatingStars } from "./RatingStars";
 import { CustomBadge } from "./BadgeDisplay";
 
 export function OfferListingCard({ service }: { service: Service }) {
@@ -126,8 +123,8 @@ export function OfferListingCard({ service }: { service: Service }) {
         <Text>{formatDuration(service.estimated_duration)}</Text>
         {averageRating && (
           <Flex align="center" gap="1">
-            <StarIcon className="w-4 h-4 ml-2" />
-            {averageRating?.toFixed(1)}
+            <StarFilledIcon className="w-4 h-4 ml-2" />
+            {averageRating}/5 ({ratingCount} ratings)
           </Flex>
         )}
       </Flex>
