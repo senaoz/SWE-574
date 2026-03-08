@@ -10,20 +10,29 @@ from ..models.user import UserResponse
 
 router = APIRouter(prefix="/upload", tags=["upload"])
 
-ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
-CONTENT_TYPE_EXT = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
-
+ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+CONTENT_TYPE_EXT = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+}
 
 def _validate_image(file: UploadFile) -> str:
     """Validate file type and size. Returns extension for the allowed type."""
     if file.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid file type. Allowed: JPEG, PNG, WebP",
+            detail="Invalid file type. Allowed: JPEG, PNG, WebP, GIF",
         )
     # Read and check size (max_upload_size_mb)
     content = file.file.read()
     file.file.seek(0)
+    if len(content) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Empty file is not allowed",
+        )
     size_mb = len(content) / (1024 * 1024)
     if size_mb > settings.max_upload_size_mb:
         raise HTTPException(
