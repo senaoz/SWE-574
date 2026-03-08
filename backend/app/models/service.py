@@ -181,6 +181,8 @@ class ServiceUpdate(BaseModel):
 
 
 class ServiceResponse(ServiceBase):
+    # Override description to allow empty (legacy/imported data); create/update still require min_length=10
+    description: str = Field(..., min_length=0, max_length=5000)
     id: PyObjectId = Field(alias="_id")
     user_id: PyObjectId
     status: ServiceStatus = ServiceStatus.ACTIVE
