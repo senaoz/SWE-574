@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
   Button,
@@ -87,6 +87,15 @@ export function OfferNeedForm({
     null,
   );
   const formTopRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setFormData((prev) =>
+      prev.service_type === serviceType
+        ? prev
+        : { ...prev, service_type: serviceType },
+    );
+  }, [serviceType]);
+
   const createServiceMutation = useMutation({
     mutationFn: servicesApi.createService,
     onSuccess: () => {
@@ -289,6 +298,7 @@ export function OfferNeedForm({
 
     const payload = {
       ...formData,
+      service_type: serviceType,
       image_urls: imageUrls.length > 0 ? imageUrls : undefined,
     };
     createServiceMutation.mutate(payload);
