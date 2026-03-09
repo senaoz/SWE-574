@@ -438,7 +438,9 @@ export function ServiceDetail() {
                     Posted {formatDate(service.created_at)}
                   </Text>
                 </div>
-                <h1 className="text-3xl font-bold">{service.title}</h1>
+                <h1 className="capitalize text-3xl font-bold">
+                  {service.title}
+                </h1>
               </div>
             </div>
 

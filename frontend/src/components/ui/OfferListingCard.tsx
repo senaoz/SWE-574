@@ -115,7 +115,9 @@ export function OfferListingCard({ service }: { service: Service }) {
           className="absolute top-2 right-2"
         />
       )}
-      <h3 className="text-xl font-bold leading-tight my-1">{service.title}</h3>
+      <h3 className="capitalize text-xl font-bold leading-tight my-1">
+        {service.title}
+      </h3>
 
       {/* Details row */}
       <Flex align="center" gap="1" className="text-sm">
