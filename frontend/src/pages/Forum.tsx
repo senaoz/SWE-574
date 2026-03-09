@@ -318,7 +318,7 @@ export function Forum() {
                           </Badge>
                         </Flex>
                       </Flex>
-                      <div className="line-clamp-2 mt-1 prose prose-sm max-w-none opacity-80">
+                      <div className="line-clamp-2 text-ellipsis overflow-hidden text-xs prose prose-sm max-w-none [&_p]:my-0 [&_p]:inline opacity-80">
                         <ReactMarkdown
                           components={{
                             a: ({ node, ...props }) => (

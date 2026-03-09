@@ -1,10 +1,10 @@
-import { servicesApi } from "@/services/api";
+import { forumApi, servicesApi } from "@/services/api";
 import { Section, Button, Card, Text, Heading, Badge } from "@radix-ui/themes";
 import { ClockIcon, ChatBubbleIcon, GlobeIcon } from "@radix-ui/react-icons";
 import { useNavigate } from "react-router-dom";
 import { ServiceMap } from "@/components/map/ServiceMap";
 import { useState, useEffect } from "react";
-import { Service } from "@/types";
+import { ForumEvent, Service } from "@/types";
 import ReactMarkdown from "react-markdown";
 
 export function Home() {
@@ -12,25 +12,30 @@ export function Home() {
   const [recentOffers, setRecentOffers] = useState<Service[]>([]);
   const [recentNeeds, setRecentNeeds] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const [recentEvents, setRecentEvents] = useState<ForumEvent[]>([]);
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const [offersResponse, needsResponse] = await Promise.all([
-          servicesApi.getServices({
-            service_type: "offer",
-            status: "active",
-            limit: 4,
-          }),
-          servicesApi.getServices({
-            service_type: "need",
-            status: "active",
-            limit: 4,
-          }),
-        ]);
+        const [offersResponse, needsResponse, eventsResponse] =
+          await Promise.all([
+            servicesApi.getServices({
+              service_type: "offer",
+              status: "active",
+              limit: 4,
+            }),
+            servicesApi.getServices({
+              service_type: "need",
+              status: "active",
+              limit: 4,
+            }),
+            forumApi.getEvents({
+              limit: 4,
+            }),
+          ]);
 
         setRecentOffers(offersResponse.data.services || []);
         setRecentNeeds(needsResponse.data.services || []);
+        setRecentEvents(eventsResponse.data.events || []);
       } catch (error) {
         console.error("Error fetching services:", error);
         setRecentOffers([]);
@@ -236,6 +241,26 @@ export function Home() {
         </div>
 
         <div className="grid md:grid-cols-2 gap-8">
+          <Card className="p- col-span-2">
+            <Heading size="4" className="mb-4">
+              New Forum Posts
+            </Heading>
+            <div className="space-y-3">
+              {loading || !recentEvents ? (
+                <Text>Loading recent events...</Text>
+              ) : (
+                recentEvents.map((event) => (
+                  <div key={event._id}>
+                    <div className="flex items-center justify-between p-3 rounded-xl hover:cursor-pointer hover:border transition-all duration-200">
+                      <div className="flex flex-col gap-2">
+                        <Text className="font-medium">{event.title}</Text>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </Card>
           <Card className="p-6">
             <Heading size="4" className="mb-4">
               Recent Offers
@@ -278,9 +303,6 @@ export function Home() {
                         </ReactMarkdown>
                       </div>
                     </div>
-                    <Badge color="green" variant="soft">
-                      Offer
-                    </Badge>
                   </div>
                 ))
               )}
@@ -329,9 +351,6 @@ export function Home() {
                         </ReactMarkdown>
                       </div>
                     </div>
-                    <Badge color="blue" variant="soft">
-                      Need
-                    </Badge>
                   </div>
                 ))
               )}
