@@ -35,7 +35,7 @@ export function Home() {
 
         setRecentOffers(offersResponse.data.services || []);
         setRecentNeeds(needsResponse.data.services || []);
-        setRecentEvents(eventsResponse.data.events || []);
+        setRecentEvents(eventsResponse.data.events.slice(0, 4) || []);
       } catch (error) {
         console.error("Error fetching services:", error);
         setRecentOffers([]);
@@ -241,26 +241,42 @@ export function Home() {
         </div>
 
         <div className="grid md:grid-cols-2 gap-8">
-          <Card className="p- col-span-2">
-            <Heading size="4" className="mb-4">
-              New Forum Posts
-            </Heading>
-            <div className="space-y-3">
-              {loading || !recentEvents ? (
-                <Text>Loading recent events...</Text>
-              ) : (
-                recentEvents.map((event) => (
-                  <div key={event._id}>
-                    <div className="flex items-center justify-between p-3 rounded-xl hover:cursor-pointer hover:border transition-all duration-200">
-                      <div className="flex flex-col gap-2">
-                        <Text className="font-medium">{event.title}</Text>
-                      </div>
-                    </div>
+          {loading || !recentEvents ? (
+            <></>
+          ) : (
+            recentEvents.map((event) => (
+              <Card key={event._id} className="p-6">
+                <div className="flex items-center justify-between p-3 rounded-xl hover:cursor-pointer hover:border transition-all duration-200">
+                  <Text className="font-medium">{event.title}</Text>
+                  <div className="line-clamp-2 text-ellipsis overflow-hidden text-xs prose prose-sm max-w-none [&_p]:my-0 [&_p]:inline">
+                    <ReactMarkdown
+                      components={{
+                        p: ({ node, ...props }) => <span {...props} />,
+                        a: ({ node, ...props }) => (
+                          <a
+                            {...props}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          />
+                        ),
+                        h1: ({ node, ...props }) => (
+                          <h1 className="text-base font-bold" {...props} />
+                        ),
+                        h2: ({ node, ...props }) => (
+                          <h2 className="text-sm font-bold" {...props} />
+                        ),
+                        h3: ({ node, ...props }) => (
+                          <h3 className="text-xs font-bold" {...props} />
+                        ),
+                      }}
+                    >
+                      {event.description}
+                    </ReactMarkdown>
                   </div>
-                ))
-              )}
-            </div>
-          </Card>
+                </div>
+              </Card>
+            ))
+          )}
           <Card className="p-6">
             <Heading size="4" className="mb-4">
               Recent Offers

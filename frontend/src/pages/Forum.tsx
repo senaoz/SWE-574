@@ -321,15 +321,23 @@ export function Forum() {
                       <div className="line-clamp-2 text-ellipsis overflow-hidden text-xs prose prose-sm max-w-none [&_p]:my-0 [&_p]:inline opacity-80">
                         <ReactMarkdown
                           components={{
+                            p: ({ node, ...props }) => <span {...props} />,
                             a: ({ node, ...props }) => (
                               <a
                                 {...props}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                style={{ color: "#7c3aed" }}
                               />
                             ),
-                            p: ({ node, ...props }) => <span {...props} />,
+                            h1: ({ node, ...props }) => (
+                              <h1 className="text-base font-bold" {...props} />
+                            ),
+                            h2: ({ node, ...props }) => (
+                              <h2 className="text-sm font-bold" {...props} />
+                            ),
+                            h3: ({ node, ...props }) => (
+                              <h3 className="text-xs font-bold" {...props} />
+                            ),
                           }}
                         >
                           {ev.description}
