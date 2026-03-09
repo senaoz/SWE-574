@@ -28,4 +28,4 @@
 | Role | Email | Password |
 |------|-------|----------|
 | Admin | tazeyta@gmail.com | Password123 |
-| User | mehmet.demir@example.com | Password123 |
+| User | elif.sahin@example.com | Password123 |

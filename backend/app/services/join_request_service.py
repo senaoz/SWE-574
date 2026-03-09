@@ -226,10 +226,20 @@ class JoinRequestService:
                 transaction_service = TransactionService(self.db)
                 
                 try:
+                    # Role mapping depends on service type:
+                    # - offer: owner is provider, applicant is requester
+                    # - need:  owner is requester, applicant is provider
+                    if service.get("service_type") == "need":
+                        provider_id = str(request_doc["user_id"])
+                        requester_id = str(service["user_id"])
+                    else:
+                        provider_id = str(service["user_id"])
+                        requester_id = str(request_doc["user_id"])
+
                     transaction_data = TransactionCreate(
                         service_id=str(request_doc["service_id"]),
-                        provider_id=str(service["user_id"]),
-                        requester_id=str(request_doc["user_id"]),
+                        provider_id=provider_id,
+                        requester_id=requester_id,
                         timebank_hours=service.get("estimated_duration", 0),
                         description=f"Service exchange: {service.get('title', 'Service')}"
                     )
