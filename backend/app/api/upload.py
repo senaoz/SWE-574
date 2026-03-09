@@ -29,10 +29,8 @@ def _validate_image(file: UploadFile) -> str:
     content = file.file.read()
     file.file.seek(0)
     if len(content) == 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Empty file is not allowed",
-        )
+        # Return empty string for empty file
+        return ""
     size_mb = len(content) / (1024 * 1024)
     if size_mb > settings.max_upload_size_mb:
         raise HTTPException(
