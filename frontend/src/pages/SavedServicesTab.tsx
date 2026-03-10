@@ -58,7 +58,7 @@ export function SavedServicesTab({
       {services.map((service) => (
         <Card
           key={service._id}
-          className="p-4 cursor-pointer hover:shadow-md transition-shadow"
+          className="hover-card"
           onClick={() => navigate(`/service/${service._id}`)}
         >
           <Flex direction="column" gap="2">
@@ -88,10 +88,9 @@ export function SavedServicesTab({
               {service.title}
             </Text>
 
-            <div className="line-clamp-2 text-ellipsis overflow-hidden text-sm opacity-80 prose prose-sm max-w-none [&_p]:my-0 [&_p]:inline">
+            <div className="prose-content card-description">
               <ReactMarkdown
                 components={{
-                  p: ({ node, ...props }) => <span {...props} />,
                   a: ({ node, ...props }) => (
                     <a {...props} target="_blank" rel="noopener noreferrer" />
                   ),

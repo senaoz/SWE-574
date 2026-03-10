@@ -131,16 +131,11 @@ export function ForumDiscussionDetail() {
                 {timeAgo(discussion.created_at)}
               </Text>
             </Flex>
-            <div className="prose prose-sm max-w-none leading-relaxed">
+            <div className="prose-content">
               <ReactMarkdown
                 components={{
                   a: ({ node, ...props }) => (
-                    <a
-                      {...props}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: "#7c3aed" }}
-                    />
+                    <a {...props} target="_blank" rel="noopener noreferrer" />
                   ),
                 }}
               >
@@ -159,81 +154,73 @@ export function ForumDiscussionDetail() {
       </Card>
 
       {/* Comments section */}
-      <Card className="p-4">
-        <Flex align="center" gap="2" className="mb-4">
-          <ChatBubbleIcon className="w-5 h-5" />
-          <Text size="4" weight="bold">
-            Comments ({comments.length})
-          </Text>
+      <Flex align="center" gap="2" className="mb-4">
+        <ChatBubbleIcon className="w-5 h-5" />
+        <Text size="4" weight="bold">
+          Comments ({comments.length})
+        </Text>
+      </Flex>
+
+      {/* New comment */}
+      <div>
+        <TextArea
+          placeholder="Write a comment..."
+          value={newComment}
+          onChange={(e) => setNewComment(e.target.value)}
+          rows={3}
+          className="mb-2"
+          variant="soft"
+        />
+        <Flex justify="end">
+          <Button
+            onClick={handlePostComment}
+            disabled={!newComment.trim() || submitting}
+            size="2"
+          >
+            <PaperPlaneIcon className="w-4 h-4 mr-1" />
+            {submitting ? "Posting..." : "Post"}
+          </Button>
         </Flex>
+      </div>
 
-        {/* New comment */}
-        <div>
-          <TextArea
-            placeholder="Write a comment..."
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            rows={3}
-            className="mb-2"
-          />
-          <Flex justify="end">
-            <Button
-              onClick={handlePostComment}
-              disabled={!newComment.trim() || submitting}
+      {/* Comment list */}
+      <div className="space-y-4">
+        {comments.map((c) => (
+          <div key={c._id} className="flex gap-3">
+            <Avatar
               size="2"
-            >
-              <PaperPlaneIcon className="w-4 h-4 mr-1" />
-              {submitting ? "Posting..." : "Post"}
-            </Button>
-          </Flex>
-        </div>
-
-        {/* Comment list */}
-        <div className="space-y-4">
-          {comments.map((c) => (
-            <div key={c._id} className="flex gap-3">
-              <Avatar
-                size="2"
-                src={getImageUrl(c.user?.profile_picture)}
-                fallback={
-                  c.user?.full_name?.[0] || c.user?.username?.[0] || "?"
-                }
-              />
-              <div className="flex-1">
-                <Flex gap="2" align="center" className="mb-1">
-                  <Text size="2" weight="bold">
-                    {c.user?.full_name || c.user?.username || "Unknown"}
-                  </Text>
-                  <Text size="1" color="gray">
-                    {timeAgo(c.created_at)}
-                  </Text>
-                </Flex>
-                <div className="prose prose-sm max-w-none leading-relaxed">
-                  <ReactMarkdown
-                    components={{
-                      a: ({ node, ...props }) => (
-                        <a
-                          {...props}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ color: "#7c3aed" }}
-                        />
-                      ),
-                    }}
-                  >
-                    {c.content}
-                  </ReactMarkdown>
-                </div>
+              src={getImageUrl(c.user?.profile_picture)}
+              fallback={c.user?.full_name?.[0] || c.user?.username?.[0] || "?"}
+            />
+            <div className="flex-1">
+              <Flex gap="2" align="center" className="mb-1">
+                <Text size="2" weight="bold">
+                  {c.user?.full_name || c.user?.username || "Unknown"}
+                </Text>
+                <Text size="1" color="gray">
+                  {timeAgo(c.created_at)}
+                </Text>
+              </Flex>
+              <div className="prose-content">
+                <ReactMarkdown
+                  components={{
+                    a: ({ node, ...props }) => (
+                      <a {...props} target="_blank" rel="noopener noreferrer" />
+                    ),
+                  }}
+                >
+                  {c.content}
+                </ReactMarkdown>
               </div>
             </div>
-          ))}
-          {comments.length === 0 && (
-            <Text size="2" color="gray" className="text-center py-4">
-              No comments yet. Be the first!
-            </Text>
-          )}
-        </div>
-      </Card>
+          </div>
+        ))}
+        {comments.length === 0 && (
+          <Text size="2" color="gray" className="text-center py-4">
+            No comments yet. Be the first!
+          </Text>
+        )}
+      </div>
     </div>
   );
 }

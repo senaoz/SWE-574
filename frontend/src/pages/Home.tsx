@@ -241,42 +241,6 @@ export function Home() {
         </div>
 
         <div className="grid md:grid-cols-2 gap-8">
-          {loading || !recentEvents ? (
-            <></>
-          ) : (
-            recentEvents.map((event) => (
-              <Card key={event._id} className="p-6">
-                <div className="flex items-center justify-between p-3 rounded-xl hover:cursor-pointer hover:border transition-all duration-200">
-                  <Text className="font-medium">{event.title}</Text>
-                  <div className="line-clamp-2 text-ellipsis overflow-hidden text-xs prose prose-sm max-w-none [&_p]:my-0 [&_p]:inline">
-                    <ReactMarkdown
-                      components={{
-                        p: ({ node, ...props }) => <span {...props} />,
-                        a: ({ node, ...props }) => (
-                          <a
-                            {...props}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          />
-                        ),
-                        h1: ({ node, ...props }) => (
-                          <h1 className="text-base font-bold" {...props} />
-                        ),
-                        h2: ({ node, ...props }) => (
-                          <h2 className="text-sm font-bold" {...props} />
-                        ),
-                        h3: ({ node, ...props }) => (
-                          <h3 className="text-xs font-bold" {...props} />
-                        ),
-                      }}
-                    >
-                      {event.description}
-                    </ReactMarkdown>
-                  </div>
-                </div>
-              </Card>
-            ))
-          )}
           <Card className="p-6">
             <Heading size="4" className="mb-4">
               Recent Offers
@@ -293,10 +257,9 @@ export function Home() {
                   >
                     <div className="flex flex-col gap-2">
                       <Text className="font-medium">{service.title}</Text>
-                      <div className="line-clamp-2 text-ellipsis overflow-hidden text-xs prose prose-sm max-w-none [&_p]:my-0 [&_p]:inline">
+                      <div className="prose-content card-description">
                         <ReactMarkdown
                           components={{
-                            p: ({ node, ...props }) => <span {...props} />,
                             a: ({ node, ...props }) => (
                               <a
                                 {...props}
@@ -341,25 +304,15 @@ export function Home() {
                   >
                     <div className="flex flex-col gap-2">
                       <Text className="font-medium ">{service.title}</Text>
-                      <div className="line-clamp-2 text-ellipsis overflow-hidden text-sm prose prose-sm max-w-none [&_p]:my-0 [&_p]:inline">
+                      <div className="prose-content card-description">
                         <ReactMarkdown
                           components={{
-                            p: ({ node, ...props }) => <span {...props} />,
                             a: ({ node, ...props }) => (
                               <a
                                 {...props}
                                 target="_blank"
                                 rel="noopener noreferrer"
                               />
-                            ),
-                            h1: ({ node, ...props }) => (
-                              <h1 className="text-base font-bold" {...props} />
-                            ),
-                            h2: ({ node, ...props }) => (
-                              <h2 className="text-sm font-bold" {...props} />
-                            ),
-                            h3: ({ node, ...props }) => (
-                              <h3 className="text-xs font-bold" {...props} />
                             ),
                           }}
                         >

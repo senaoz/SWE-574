@@ -198,7 +198,7 @@ export function Forum() {
               {discussions.map((d) => (
                 <Card
                   key={d._id}
-                  className="p-4 cursor-pointer hover:shadow-md transition-shadow"
+                  className="hover-card"
                   onClick={() => navigate(`/forum/discussions/${d._id}`)}
                 >
                   <Flex gap="3" align="start">
@@ -222,7 +222,7 @@ export function Forum() {
                           {timeAgo(d.created_at)}
                         </Text>
                       </Flex>
-                      <div className="line-clamp-2 mt-1 prose prose-sm max-w-none opacity-80">
+                      <div className="mt-1 prose-content card-description">
                         <ReactMarkdown
                           components={{
                             a: ({ node, ...props }) => (
@@ -230,10 +230,8 @@ export function Forum() {
                                 {...props}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                style={{ color: "#7c3aed" }}
                               />
                             ),
-                            p: ({ node, ...props }) => <span {...props} />,
                           }}
                         >
                           {d.body}
@@ -286,102 +284,77 @@ export function Forum() {
               {events.map((ev) => (
                 <Card
                   key={ev._id}
-                  className="p-4 cursor-pointer hover:shadow-md transition-shadow"
+                  className="hover-card"
                   onClick={() => navigate(`/forum/events/${ev._id}`)}
                 >
-                  <Flex gap="3" align="start">
-                    <Avatar
-                      size="3"
-                      src={getImageUrl(ev.user?.profile_picture)}
-                      fallback={
-                        ev.user?.full_name?.[0] || ev.user?.username?.[0] || "?"
-                      }
-                    />
-                    <div className="flex-1 min-w-0">
-                      <Flex justify="between" align="start" wrap="wrap">
-                        <Text size="3" weight="bold" className="line-clamp-1">
-                          {ev.title}
-                        </Text>
-                        <Flex gap="2" align="center">
-                          <Badge size="1" variant="soft" color="purple">
-                            <CalendarIcon className="w-3 h-3 mr-1" />
-                            {new Date(ev.event_at).toLocaleDateString(
-                              undefined,
-                              {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              },
-                            )}
-                          </Badge>
-                        </Flex>
-                      </Flex>
-                      <div className="line-clamp-2 text-ellipsis overflow-hidden text-xs prose prose-sm max-w-none [&_p]:my-0 [&_p]:inline opacity-80">
-                        <ReactMarkdown
-                          components={{
-                            p: ({ node, ...props }) => <span {...props} />,
-                            a: ({ node, ...props }) => (
-                              <a
-                                {...props}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              />
-                            ),
-                            h1: ({ node, ...props }) => (
-                              <h1 className="text-base font-bold" {...props} />
-                            ),
-                            h2: ({ node, ...props }) => (
-                              <h2 className="text-sm font-bold" {...props} />
-                            ),
-                            h3: ({ node, ...props }) => (
-                              <h3 className="text-xs font-bold" {...props} />
-                            ),
-                          }}
-                        >
-                          {ev.description}
-                        </ReactMarkdown>
-                      </div>
-                      <Flex gap="2" align="center" className="mt-2" wrap="wrap">
-                        <Text size="1" color="gray">
-                          by{" "}
-                          {ev.user?.full_name || ev.user?.username || "Unknown"}
-                        </Text>
-                        {ev.is_remote ? (
-                          <Badge size="1" variant="soft" color="blue">
-                            <GlobeIcon className="w-3 h-3 mr-1" /> Remote
-                          </Badge>
-                        ) : ev.location ? (
-                          <Badge size="1" variant="soft" color="gray">
-                            {ev.location}
-                          </Badge>
-                        ) : null}
-                        {ev.service && (
-                          <Badge size="1" variant="soft" color="green">
-                            Linked: {ev.service.title}
-                          </Badge>
-                        )}
-                        {ev.attendee_count > 0 && (
-                          <Badge size="1" variant="soft" color="purple">
-                            <PersonIcon className="w-3 h-3 mr-1" />
-                            {ev.attendee_count} attending
-                          </Badge>
-                        )}
-                        <Badge size="1" variant="soft" color="gray">
-                          <ChatBubbleIcon className="w-3 h-3 mr-1" />
-                          {ev.comment_count}
-                        </Badge>
-                        {(ev.tags || []).slice(0, 3).map((tag, i) => (
-                          <ClickableTag
-                            key={i}
-                            tag={tag}
-                            size="1"
-                            stopPropagation
+                  <Flex justify="between" align="start" wrap="wrap">
+                    <Text size="3" weight="bold" className="line-clamp-1">
+                      {ev.title}
+                    </Text>
+                    <Flex gap="2" align="center">
+                      <Badge size="1" variant="soft" color="purple">
+                        <CalendarIcon className="w-3 h-3 mr-1" />
+                        {new Date(ev.event_at).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </Badge>
+                    </Flex>
+                  </Flex>
+                  <div className="prose-content card-description">
+                    <ReactMarkdown
+                      components={{
+                        a: ({ node, ...props }) => (
+                          <a
+                            {...props}
+                            target="_blank"
+                            rel="noopener noreferrer"
                           />
-                        ))}
-                      </Flex>
-                    </div>
+                        ),
+                      }}
+                    >
+                      {ev.description}
+                    </ReactMarkdown>
+                  </div>
+                  <Flex gap="2" align="center" className="mt-2" wrap="wrap">
+                    <Text size="1" color="gray">
+                      by {ev.user?.full_name || ev.user?.username || "Unknown"}
+                    </Text>
+                    {ev.is_remote ? (
+                      <Badge size="1" variant="soft" color="blue">
+                        <GlobeIcon className="w-3 h-3 mr-1" /> Remote
+                      </Badge>
+                    ) : ev.location ? (
+                      <Badge size="1" variant="soft" color="gray">
+                        {ev.location}
+                      </Badge>
+                    ) : null}
+                    {ev.service && (
+                      <Badge size="1" variant="soft" color="green">
+                        Linked: {ev.service.title}
+                      </Badge>
+                    )}
+                    {ev.attendee_count > 0 && (
+                      <Badge size="1" variant="soft" color="purple">
+                        <PersonIcon className="w-3 h-3 mr-1" />
+                        {ev.attendee_count} attending
+                      </Badge>
+                    )}
+                    <Badge size="1" variant="soft" color="gray">
+                      <ChatBubbleIcon className="w-3 h-3 mr-1" />
+                      {ev.comment_count}
+                    </Badge>
+                    {(ev.tags || []).slice(0, 3).map((tag, i) => (
+                      <ClickableTag
+                        key={i}
+                        tag={tag}
+                        size="1"
+                        stopPropagation
+                      />
+                    ))}
                   </Flex>
                 </Card>
               ))}

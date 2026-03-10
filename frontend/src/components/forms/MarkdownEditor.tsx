@@ -47,7 +47,7 @@ export function MarkdownEditor({
         </Tabs.Content>
         <Tabs.Content value="preview">
           <Box
-            className="p-2 min-h-[120px] prose prose-sm max-w-none"
+            className="p-2 min-h-[120px] prose-content"
             style={{ minHeight: `${rows * 24 + 32}px` }}
           >
             {value ? (
@@ -62,7 +62,7 @@ export function MarkdownEditor({
                         target.style.display = "none";
                         target.insertAdjacentHTML(
                           "afterend",
-                          '<span style="color: #ef4444; font-size: 12px;">⚠ Image failed to load</span>'
+                          '<span style="color: #ef4444; font-size: 12px;">⚠ Image failed to load</span>',
                         );
                       }}
                     />
