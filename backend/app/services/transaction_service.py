@@ -322,6 +322,16 @@ class TransactionService:
                         "You must create a Need before you can give help. "
                         "You've reached the 10-hour surplus limit."
                     )
+            # Requester cannot confirm completion if they cannot spend required hours
+            if is_requester:
+                from .user_service import UserService
+                user_service = UserService(self.db)
+                requester_user = await user_service.get_user_by_id(current_user_id)
+                required_hours = float(transaction.get("timebank_hours", transaction.get("hours", 0)))
+                if not requester_user:
+                    raise ValueError("Requester not found")
+                if requester_user.timebank_balance < required_hours:
+                    raise ValueError("Insufficient TimeBank balance to confirm completion")
             
             # Update the appropriate confirmation
             update_fields = {"updated_at": datetime.utcnow()}
@@ -410,23 +420,12 @@ class TransactionService:
     async def _finalize_transaction(self, transaction_id: str, transaction) -> bool:
         """Finalize transaction and create TimeBank transaction logs (called when both parties confirm)"""
         try:
-            # Update transaction status
-            await self.transactions_collection.update_one(
-                {"_id": ObjectId(transaction_id)},
-                {
-                    "$set": {
-                        "status": TransactionStatus.COMPLETED,
-                        "completed_at": datetime.utcnow(),
-                        "updated_at": datetime.utcnow()
-                    }
-                }
-            )
-            
             # TimeBank is updated only when both parties confirm (this method).
             # Service completion no longer updates TimeBank.
             svc_oid = ObjectId(str(transaction["service_id"]))
             service = await self.services_collection.find_one({"_id": svc_oid})
             service_title = service.get("title", "Service") if service else "Service"
+            hours = float(transaction.get("timebank_hours", transaction.get("hours", 0)))
             
             from .user_service import UserService
             user_service = UserService(self.db)
@@ -439,21 +438,44 @@ class TransactionService:
                 "_id": {"$ne": ObjectId(transaction_id)}
             })
             
+            # Requester spends hours (always — each receiver pays independently)
+            requester_success = await user_service.add_timebank_transaction(
+                str(transaction["requester_id"]),
+                -hours,
+                f"Received service: {service_title}",
+                str(transaction["service_id"])
+            )
+            if not requester_success:
+                raise ValueError("Requester has insufficient TimeBank balance")
+
             provider_success = True
             if already_completed == 0:
                 provider_success = await user_service.add_timebank_transaction(
                     str(transaction["provider_id"]),
-                    float(transaction["timebank_hours"]),
+                    hours,
                     f"Provided service: {service_title}",
                     str(transaction["service_id"])
                 )
-            
-            # Requester spends hours (always — each receiver pays independently)
-            requester_success = await user_service.add_timebank_transaction(
-                str(transaction["requester_id"]),
-                -float(transaction["timebank_hours"]),
-                f"Received service: {service_title}",
-                str(transaction["service_id"])
+                # Roll back requester debit if provider credit unexpectedly fails
+                if not provider_success:
+                    await user_service.add_timebank_transaction(
+                        str(transaction["requester_id"]),
+                        hours,
+                        f"Reversal: {service_title}",
+                        str(transaction["service_id"])
+                    )
+                    raise ValueError("Provider TimeBank credit failed")
+
+            # Mark completed only after successful balance updates
+            await self.transactions_collection.update_one(
+                {"_id": ObjectId(transaction_id)},
+                {
+                    "$set": {
+                        "status": TransactionStatus.COMPLETED,
+                        "completed_at": datetime.utcnow(),
+                        "updated_at": datetime.utcnow()
+                    }
+                }
             )
             
             return provider_success and requester_success

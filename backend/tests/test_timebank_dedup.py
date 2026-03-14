@@ -150,8 +150,8 @@ class TestTimeBankDedup:
 
     @pytest.mark.asyncio
     async def test_service_completed_then_transaction_skips_timebank(self, mock_db):
-        """When service is completed first, _finalize_transaction must skip
-        TimeBank updates to avoid double-crediting."""
+        """When service is completed first, balances should remain unchanged
+        until transaction confirmations finalize TimeBank updates."""
         provider = await _create_user(mock_db, "prov_b", balance=3.0)
         receiver = await _create_user(mock_db, "recv_b", balance=5.0)
         service = await _create_service(mock_db, str(provider.id))
@@ -164,17 +164,18 @@ class TestTimeBankDedup:
         bal_provider_after_svc = await _get_balance(mock_db, str(provider.id))
         bal_receiver_after_svc = await _get_balance(mock_db, str(receiver.id))
 
-        assert bal_provider_after_svc == 5.0  # 3 + 2
-        assert bal_receiver_after_svc == 3.0  # 5 - 2
+        # Service completion path no longer updates TimeBank
+        assert bal_provider_after_svc == 3.0
+        assert bal_receiver_after_svc == 5.0
 
         # Now complete the transaction (both confirm)
         tx_svc = TransactionService(mock_db)
         await tx_svc.confirm_transaction_completion(str(tx.id), str(provider.id))
         await tx_svc.confirm_transaction_completion(str(tx.id), str(receiver.id))
 
-        # Balances must NOT change again
-        assert await _get_balance(mock_db, str(provider.id)) == bal_provider_after_svc
-        assert await _get_balance(mock_db, str(receiver.id)) == bal_receiver_after_svc
+        # Balances change exactly once via transaction finalization
+        assert await _get_balance(mock_db, str(provider.id)) == 5.0  # 3 + 2
+        assert await _get_balance(mock_db, str(receiver.id)) == 3.0  # 5 - 2
 
     # -- multi-receiver: provider credited once via transaction path ----------
 
@@ -211,7 +212,7 @@ class TestTimeBankDedup:
 
     @pytest.mark.asyncio
     async def test_single_receiver_service_completion_credits_correctly(self, mock_db):
-        """Basic happy-path: one provider, one receiver, service-path only."""
+        """Service completion alone should not change TimeBank balances."""
         provider = await _create_user(mock_db, "prov_d", balance=3.0)
         receiver = await _create_user(mock_db, "recv_d", balance=5.0)
         service = await _create_service(mock_db, str(provider.id))
@@ -220,5 +221,5 @@ class TestTimeBankDedup:
         svc_svc = ServiceService(mock_db)
         await svc_svc.complete_service(str(service.id), str(provider.id))
 
-        assert await _get_balance(mock_db, str(provider.id)) == 5.0  # 3 + 2
-        assert await _get_balance(mock_db, str(receiver.id)) == 3.0  # 5 - 2
+        assert await _get_balance(mock_db, str(provider.id)) == 3.0
+        assert await _get_balance(mock_db, str(receiver.id)) == 5.0
