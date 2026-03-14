@@ -73,10 +73,10 @@ For **Milestone 2**, we also plan to introduce a lightweight QA checklist for ea
 
 - Responsibilities: Integration testing, feature review, and quality checks.  
 - Main contributions: Test and validated major feature PRs for mobile app template, transaction rating flow, UI improvements, and image upload; implemented profanity checks.  
-- Code-related significant issues: Added profanity checks to services (commit [896ee46](https://github.com/senaoz/SWE-574/commit/896ee46)) and merged PRs [#95](https://github.com/senaoz/SWE-574/pull/95) and [#128](https://github.com/senaoz/SWE-574/pull/128).
+- Code-related significant issues: Added profanity checks to services (commit [896ee46](https://github.com/senaoz/SWE-574/commit/896ee46)), ensures correct participant assignment in transactions(commit [6b65543](https://github.com/senaoz/SWE-574/commit/fadc61f4b1497bfd68c32e0d19aeac0b25f97c06)) and merged PRs [#95](https://github.com/senaoz/SWE-574/pull/95) and [#128](https://github.com/senaoz/SWE-574/pull/128).
 - Pull requests: **Reviewed** PRs [#135](https://github.com/senaoz/SWE-574/pull/135), [#128](https://github.com/senaoz/SWE-574/pull/128), [#107](https://github.com/senaoz/SWE-574/pull/107), [#95](https://github.com/senaoz/SWE-574/pull/95).  
 - Additional information: Commit [896ee46](https://github.com/senaoz/SWE-574/commit/896ee46) (profanity checks).  
-- Non-code-related significant issues: Tested the platform with different user scenarios and prepared service interaction flows for the demo to ensure that core features (services, transactions, events, forum, messaging, and admin functionality) are stable and demonstrable.
+- Non-code-related significant issues: Tested the platform with different user scenarios and prepared service interaction flows for the demo to ensure that core features (services, transactions, events, forum, messaging, and admin functionality) are stable and demonstrable. Mobile app mockups designed in Figma and documented on the repository Wiki.
 
 ---
 
