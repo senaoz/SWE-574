@@ -13,7 +13,7 @@ BADGE_DEFINITIONS = [
     },
     {
         "key": "profile_complete",
-        "name": "Profile Complete",
+        "name": "Polished Wings",
         "description": "Set a profile picture",
         "icon": "image",
         "metric": "has_profile_picture",
@@ -21,7 +21,7 @@ BADGE_DEFINITIONS = [
     },
     {
         "key": "tagged",
-        "name": "Tagged",
+        "name": "Pollen Collector",
         "description": "Add at least one interest tag",
         "icon": "tag",
         "metric": "profile_tags_count",
@@ -29,7 +29,7 @@ BADGE_DEFINITIONS = [
     },
     {
         "key": "well_tagged",
-        "name": "Well Tagged",
+        "name": "Nectar Expert",
         "description": "Add 5 or more interest tags",
         "icon": "tags",
         "metric": "profile_tags_count",
@@ -37,7 +37,7 @@ BADGE_DEFINITIONS = [
     },
     {
         "key": "rated",
-        "name": "Rated",
+        "name": "Sweet Taste",
         "description": "Receive your first rating",
         "icon": "star",
         "metric": "rating_count",
@@ -45,7 +45,7 @@ BADGE_DEFINITIONS = [
     },
     {
         "key": "popular",
-        "name": "Popular",
+        "name": "Honeycomb Star",
         "description": "Receive 5 ratings",
         "icon": "trending-up",
         "metric": "rating_count",
@@ -53,7 +53,7 @@ BADGE_DEFINITIONS = [
     },
     {
         "key": "community_favorite",
-        "name": "Community Favorite",
+        "name": "Queen's Choice",
         "description": "Receive 10 or more ratings",
         "icon": "heart",
         "metric": "rating_count",
@@ -61,7 +61,7 @@ BADGE_DEFINITIONS = [
     },
     {
         "key": "first_exchange",
-        "name": "First Exchange",
+        "name": "Honey Maker",
         "description": "Complete your first exchange",
         "icon": "check-circle",
         "metric": "exchange_count",
@@ -69,7 +69,7 @@ BADGE_DEFINITIONS = [
     },
     {
         "key": "helper",
-        "name": "Helper",
+        "name": "Worker Bee",
         "description": "Complete 5 exchanges",
         "icon": "handshake",
         "metric": "exchange_count",
@@ -77,7 +77,7 @@ BADGE_DEFINITIONS = [
     },
     {
         "key": "helper_hero",
-        "name": "Helper Hero",
+        "name": "Pollinator Bee",
         "description": "Complete 10 exchanges",
         "icon": "shield",
         "metric": "exchange_count",
@@ -85,7 +85,7 @@ BADGE_DEFINITIONS = [
     },
     {
         "key": "master_helper",
-        "name": "Master Helper",
+        "name": "Elite Forager",
         "description": "Complete 25 exchanges",
         "icon": "award",
         "metric": "exchange_count",
@@ -93,7 +93,7 @@ BADGE_DEFINITIONS = [
     },
     {
         "key": "generous_giver",
-        "name": "Generous Giver",
+        "name": "Queen Bee",
         "description": "Contribute 50 or more hours",
         "icon": "clock",
         "metric": "contributed_hours",
