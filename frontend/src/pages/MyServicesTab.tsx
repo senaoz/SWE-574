@@ -414,7 +414,16 @@ export function MyServicesTab({
                                   <Button
                                     size="2"
                                     color="green"
-                                    disabled={requiresNeedCreation}
+                                    disabled={
+                                      requiresNeedCreation ||
+                                      serviceTransactions[service._id].every(
+                                        (transaction) =>
+                                          !(
+                                            transaction.provider_confirmed &&
+                                            transaction.requester_confirmed
+                                          ),
+                                      )
+                                    }
                                     title={
                                       requiresNeedCreation
                                         ? "Create a Need before you can give help"
@@ -449,6 +458,36 @@ export function MyServicesTab({
                                       ? transaction.requester_id
                                       : transaction.provider_id;
 
+                                  const transactionStatus =
+                                    transaction.provider_confirmed &&
+                                    transaction.requester_confirmed
+                                      ? "completed"
+                                      : transaction.provider_confirmed
+                                        ? "provider_confirmed"
+                                        : transaction.requester_confirmed
+                                          ? "requester_confirmed"
+                                          : "pending";
+                                  const transactionStatusColor =
+                                    transactionStatus === "completed"
+                                      ? "green"
+                                      : transactionStatus ===
+                                          "provider_confirmed"
+                                        ? "yellow"
+                                        : transactionStatus ===
+                                            "requester_confirmed"
+                                          ? "yellow"
+                                          : "red";
+                                  const transactionStatusText =
+                                    transactionStatus === "completed"
+                                      ? "✓ Exchange completed"
+                                      : transactionStatus ===
+                                          "provider_confirmed"
+                                        ? "✓ You confirmed but requester not confirmed - Exchange not completed"
+                                        : transactionStatus ===
+                                            "requester_confirmed"
+                                          ? "✓ Requester confirmed but you not confirmed - Exchange not completed"
+                                          : "✗ Both you and requester not confirmed - Exchange not completed";
+
                                   return (
                                     <Flex
                                       direction="column"
@@ -469,27 +508,10 @@ export function MyServicesTab({
                                         </Text>
                                         <Text
                                           size="1"
-                                          color={
-                                            transaction.provider_confirmed &&
-                                            transaction.requester_confirmed
-                                              ? "green"
-                                              : transaction.provider_confirmed
-                                                ? "yellow"
-                                                : transaction.requester_confirmed
-                                                  ? "yellow"
-                                                  : "red"
-                                          }
+                                          color={transactionStatusColor}
                                         >
-                                          {transaction.provider_confirmed &&
-                                          transaction.requester_confirmed
-                                            ? "✓ Exchange completed"
-                                            : transaction.provider_confirmed
-                                              ? "✓ You confirmed but requester not confirmed - Exchange not completed"
-                                              : transaction.requester_confirmed
-                                                ? "✓ Requester confirmed but you not confirmed - Exchange not completed"
-                                                : "✗ Both you and requester not confirmed - Exchange not completed"}{" "}
-                                          for {transaction.timebank_hours}{" "}
-                                          hour(s)
+                                          {transactionStatusText} for{" "}
+                                          {transaction.timebank_hours} hour(s)
                                         </Text>
                                       </Flex>
 

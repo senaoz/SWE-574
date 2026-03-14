@@ -119,6 +119,7 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
           onChange={(e) => setNewComment(e.target.value)}
           className="mb-3"
           rows={3}
+          variant="soft"
         />
         <Flex justify="end">
           <Button

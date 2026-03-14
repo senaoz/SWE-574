@@ -28,7 +28,15 @@ h3 {
 }
 
 p {
-    @apply text-base;
+    @apply text-base inline;
+}
+
+.prose-content {
+    @apply prose prose-sm max-w-none leading-relaxed;
+}
+
+.prose-content.card-description {
+    @apply line-clamp-2 text-ellipsis overflow-hidden opacity-80 [&_p]:my-0 [&_p]:text-sm [&_p]:mb-2 [&_h1]:m-0 [&_h1]:text-base [&_h2]:my-1 [&_h2]:text-sm [&_h3]:m-0 [&_h3]:text-sm [&_ul]:m-0;
 }
 
 .rt-BaseDialogOverlay::before {
@@ -125,7 +133,7 @@ p {
 }
 
 .hover-card {
-    @apply hover:shadow-md hover:cursor-pointer transition-all duration-200;
+    @apply cursor-pointer hover:shadow-md transition-all duration-200;
     border-color: var(--gray-5) !important;
 }
 

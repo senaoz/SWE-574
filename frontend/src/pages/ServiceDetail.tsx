@@ -536,7 +536,7 @@ export function ServiceDetail() {
             )}
 
             {/* Description */}
-            <div className="mb-6 prose prose-sm max-w-none space-y-2">
+            <div className="mb-6 prose-content space-y-2">
               <ReactMarkdown
                 components={{
                   img: ({ node, ...props }) => (
@@ -549,27 +549,8 @@ export function ServiceDetail() {
                       }}
                     />
                   ),
-                  ul: ({ node, ...props }) => (
-                    <ul className="list-disc list-inside" {...props} />
-                  ),
-                  ol: ({ node, ...props }) => (
-                    <ol className="list-decimal list-inside" {...props} />
-                  ),
-                  li: ({ node, ...props }) => (
-                    <li className="list-item" {...props} />
-                  ),
                   a: ({ node, ...props }) => (
-                    <a
-                      {...props}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: "#7c3aed" }}
-                    />
-                  ),
-                  p: ({ node, ...props }) => (
-                    <div className="leading-relaxed">
-                      <Text size="3">{props.children}</Text>
-                    </div>
+                    <a {...props} target="_blank" rel="noopener noreferrer" />
                   ),
                 }}
               >
