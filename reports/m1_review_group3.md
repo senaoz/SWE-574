@@ -38,6 +38,8 @@ All deliverables planned for **Milestone 1** have been completed. A small number
 
 Currently, several issues—both bug fixes and feature implementations—have already been assigned to **Milestone 2**. A more detailed development plan will be prepared for Milestone 2 based on the current backlog and the feedback received during the milestone review.
 
+In addition, until Milestone 1, we followed a more separated distribution of responsibilities in order to make integration easier during the early development phase. Based on the feedback we received, we plan to involve every team member more actively in both implementation and code review, especially for the new features that will be added in the upcoming milestones. We have already started assigning issues accordingly to support this approach.
+
 ---
 
 ## Tools and Processes Evaluation
