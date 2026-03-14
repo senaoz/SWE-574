@@ -69,21 +69,24 @@ For **Milestone 2**, we also plan to introduce a lightweight QA checklist for ea
 
 **Member: Ayşenur Ünal**  
 
-- Responsibilities: Integration support, feature review, and quality checks.  
-- Main contributions: Merged and validated major feature PRs for mobile app template, transaction rating flow, UI improvements, and image upload; implemented profanity checks.  
+- Responsibilities: Integration testing, feature review, and quality checks.  
+- Main contributions: Test and validated major feature PRs for mobile app template, transaction rating flow, UI improvements, and image upload; implemented profanity checks.  
 - Code-related significant issues: Added profanity checks to services (commit [896ee46](https://github.com/senaoz/SWE-574/commit/896ee46)) and merged PRs [#95](https://github.com/senaoz/SWE-574/pull/95) and [#128](https://github.com/senaoz/SWE-574/pull/128).
 - Pull requests: **Reviewed** PRs [#135](https://github.com/senaoz/SWE-574/pull/135), [#128](https://github.com/senaoz/SWE-574/pull/128), [#107](https://github.com/senaoz/SWE-574/pull/107), [#95](https://github.com/senaoz/SWE-574/pull/95).  
 - Additional information: Commit [896ee46](https://github.com/senaoz/SWE-574/commit/896ee46) (profanity checks).  
-- Non-code-related significant issues:
+- Non-code-related significant issues: Tested the platform with different user scenarios and prepared service interaction flows for the demo to ensure that core features (services, transactions, events, forum, messaging, and admin functionality) are stable and demonstrable.
+
+---
 
 **Member: Sena Öz**
 
-- Responsibilities: Product direction, full-stack implementation, release coordination, documentation updates.  
-- Main contributions: Core web features (services, transactions, events, forum), admin adjustments, and release readiness; assembled Milestone 1 release artifacts.  
-- Code-related significant issues: Fixed transaction role mapping and offer post creation issues, and improved admin timebank balance handling and transaction flow (PRs [#146](https://github.com/senaoz/SWE-574/pull/146), [#145](https://github.com/senaoz/SWE-574/pull/145), [#100](https://github.com/senaoz/SWE-574/pull/100)).
-- Pull requests: **Created** PRs such as [#146](https://github.com/senaoz/SWE-574/pull/146), [#145](https://github.com/senaoz/SWE-574/pull/145), [#100](https://github.com/senaoz/SWE-574/pull/100), [#61](https://github.com/senaoz/SWE-574/pull/61), [#49](https://github.com/senaoz/SWE-574/pull/49).  
-- Additional information: Release tag and APK packaging commit [c297c45](https://github.com/senaoz/SWE-574/commit/c297c45).
-- Non-code-related significant issues: Release packaging for customer milestone.  
+- Responsibilities: Implementation of backend endpoints, frontend development for the web interface, and coordination of the release process.
+- Main contributions: Implemented core web platform features including services, transactions, events, and forum modules. Performed administrative adjustments and ensured overall release readiness. Assembled and prepared the Milestone 1 release artifacts.
+- Code-related significant issues: Resolved issues related to transaction role mapping and offer post creation that affected the correct creation and display of service offers in the platform. Improved the admin timebank balance management and transaction processing flow to ensure consistent balance updates and correct role handling during transactions. Relevant PRs and commits: [#146](https://github.com/senaoz/SWE-574/pull/146), [#145](https://github.com/senaoz/SWE-574/pull/145), [#100](https://github.com/senaoz/SWE-574/pull/100), release commit [c297c45](https://github.com/senaoz/SWE-574/commit/c297c45).
+- Pull requests: Created and contributed multiple pull requests including [#146](https://github.com/senaoz/SWE-574/pull/146), [#145](https://github.com/senaoz/SWE-574/pull/145), [#100](https://github.com/senaoz/SWE-574/pull/100), [#61](https://github.com/senaoz/SWE-574/pull/61), [#49](https://github.com/senaoz/SWE-574/pull/49), and [#107](https://github.com/senaoz/SWE-574/pull/107). These PRs covered backend endpoint implementations, frontend feature development, and improvements to transaction and admin-related flows. Minor merge conflicts occurred during integration with ongoing feature branches and were resolved by synchronizing with the main branch and adjusting endpoint and UI integrations where necessary.
+- Non-code-related significant issues: Release packaging for customer milestone.
+
+---
 
 **Member: Kenan Onur Altunbaş**  
 
@@ -93,6 +96,8 @@ For **Milestone 2**, we also plan to introduce a lightweight QA checklist for ea
 - Pull requests: **Reviewed** PRs [#127](https://github.com/senaoz/SWE-574/pull/127), [#98](https://github.com/senaoz/SWE-574/pull/98), [#91](https://github.com/senaoz/SWE-574/pull/91).  
 - Additional information: PR [#98](https://github.com/senaoz/SWE-574/pull/98) included merge conflicts in `frontend/src/components/layout/Header.tsx` and `frontend/src/pages/Dashboard.tsx`, resolved by keeping both feature additions.  
 - Non-code-related significant issues: Documentation and milestone report updates
+
+---
 
 **Member: Yusuf Savaş**  
 
