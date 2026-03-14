@@ -92,12 +92,16 @@ For **Milestone 2**, we also plan to introduce a lightweight QA checklist for ea
 
 **Member: Kenan Onur Altunbaş**  
 
-- Responsibilities: Code review, integration, and testing improvements.  
-- Main contributions: Merged and validated PRs covering unit tests, comment filters, and transaction fixes.  
-- Code-related significant issues: Integrated missing unit tests and transaction fixes; resolved conflicts in comment filter work (PRs [#127](https://github.com/senaoz/SWE-574/pull/127), [#91](https://github.com/senaoz/SWE-574/pull/91), [#98](https://github.com/senaoz/SWE-574/pull/98)).  
-- Pull requests: **Reviewed** PRs [#127](https://github.com/senaoz/SWE-574/pull/127), [#98](https://github.com/senaoz/SWE-574/pull/98), [#91](https://github.com/senaoz/SWE-574/pull/91).  
-- Additional information: PR [#98](https://github.com/senaoz/SWE-574/pull/98) included merge conflicts in `frontend/src/components/layout/Header.tsx` and `frontend/src/pages/Dashboard.tsx`, resolved by keeping both feature additions.  
-- Non-code-related significant issues: Documentation and milestone report updates
+- **Responsibilities:** Communicator, testing, documentation, code review
+- **Main contributions:** 
+  - **Testing:** Tested both web and Android versions and raised several issues on GitHub.
+  - **Communicator:** Acted as the communicator with the lecturer when needed; supported organization and facilitation of team meetings to coordinate discussions and follow-up actions.
+  - **Documentation:** Performed crosschecks (with other team members’ last-term SRS and the existing project) for our SRS; updated many SRS documents after team alignments; documented meeting minutes and created the presentation scenario.
+  - **Code review:** Performed a few code reviews.
+- **Code-related significant issues:** Integrated missing unit tests and transaction fixes; resolved conflicts in comment filter work (PRs [#127](https://github.com/senaoz/SWE-574/pull/127), [#91](https://github.com/senaoz/SWE-574/pull/91), [#98](https://github.com/senaoz/SWE-574/pull/98)).
+- **Pull requests:** Reviewed PRs [#127](https://github.com/senaoz/SWE-574/pull/127), [#98](https://github.com/senaoz/SWE-574/pull/98), [#91](https://github.com/senaoz/SWE-574/pull/91).
+- **Additional information:** PR [#98](https://github.com/senaoz/SWE-574/pull/98) included merge conflicts in `frontend/src/components/layout/Header.tsx` and `frontend/src/pages/Dashboard.tsx`, resolved by keeping both feature additions.
+- **Non-code-related significant issues:** Documentation and testing.
 
 ---
 
