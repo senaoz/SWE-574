@@ -110,6 +110,6 @@ For **Milestone 2**, we also plan to introduce a lightweight QA checklist for ea
 - Responsibilities: Mobile application development and feature delivery.  
 - Main contributions: Built the Android app foundation and implemented service lifecycle, chat, ratings, map, and profile features.  
 - Code-related significant issues: Delivered chat transaction support (commit [c366ec7](https://github.com/senaoz/SWE-574/commit/c366ec7)), ratings in chat/service details (commit [988d06d](https://github.com/senaoz/SWE-574/commit/988d06d)), and service lifecycle enhancements (commit [f594303](https://github.com/senaoz/SWE-574/commit/f594303)).  
-- Pull requests: **Reviewed** PR [#53](https://github.com/senaoz/SWE-574/pull/53).  
+- Pull requests: **Created** PR [#135](https://github.com/senaoz/SWE-574/pull/135) **Reviewed** PR [#53](https://github.com/senaoz/SWE-574/pull/53).  
 - Additional information: Key commits include [2668a73](https://github.com/senaoz/SWE-574/commit/2668a73), [3c4e92c](https://github.com/senaoz/SWE-574/commit/3c4e92c), [df9c570](https://github.com/senaoz/SWE-574/commit/df9c570), [c366ec7](https://github.com/senaoz/SWE-574/commit/c366ec7), [988d06d](https://github.com/senaoz/SWE-574/commit/988d06d), [f594303](https://github.com/senaoz/SWE-574/commit/f594303).
-- Non-code-related significant issues:
+- Non-code-related significant issues: Testing and scenario preparing.
