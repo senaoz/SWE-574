@@ -53,28 +53,25 @@ export function Chat() {
         />
 
         {/* Chat Room */}
-        <div className="lg:col-span-2">
-          <Card className="h-full">
-            {selectedRoom ? (
-              <ChatRoomComponent
-                room={selectedRoom}
-                currentUserId={currentUserId}
-              />
-            ) : (
-              <div className="h-full flex items-center justify-center">
-                <div className="text-center">
-                  <ChatBubbleIcon className="w-16 h-16 mx-auto mb-4" />
-                  <Text size="4" weight="bold" className="block mb-2">
-                    Select a Chat Room
-                  </Text>
-                  <Text color="gray">
-                    Choose a chat room from the list to start messaging
-                  </Text>
-                </div>
+        <Card className="h-full lg:col-span-2">
+          {selectedRoom ? (
+            <ChatRoomComponent
+              room={selectedRoom}
+              currentUserId={currentUserId}
+            />
+          ) : (
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center">
+                <Text size="4" weight="bold" className="block mb-2">
+                  Select a Chat Room
+                </Text>
+                <Text color="gray">
+                  Choose a chat room from the list to start messaging
+                </Text>
               </div>
-            )}
-          </Card>
-        </div>
+            </div>
+          )}
+        </Card>
       </div>
     </>
   );

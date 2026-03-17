@@ -168,8 +168,9 @@ export function ForumDiscussionDetail() {
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
           rows={3}
-          className="mb-2"
+          className="mb-2 p-3 rounded-lg"
           variant="soft"
+          size="2"
         />
         <Flex justify="end">
           <Button

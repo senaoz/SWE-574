@@ -19,12 +19,11 @@ import { Form } from "radix-ui";
 import {
   MagnifyingGlassIcon,
   PlusIcon,
-  ChatBubbleIcon,
-  CalendarIcon,
   GlobeIcon,
   Cross2Icon,
   PersonIcon,
 } from "@radix-ui/react-icons";
+import { MessageCircleIcon, CalendarClockIcon } from "lucide-react";
 import { forumApi, servicesApi, getImageUrl } from "@/services/api";
 import { ForumDiscussion, ForumEvent, TagEntity, Service } from "@/types";
 import { TagAutocomplete } from "@/components/forms/TagAutocomplete";
@@ -173,7 +172,8 @@ export function Forum() {
             <ChatBubbleIcon className="mr-1" /> Discussions ({discussionsTotal})
           </Tabs.Trigger>
           <Tabs.Trigger value="events">
-            <CalendarIcon className="mr-1" /> Events ({eventsTotal})
+            <CalendarClockIcon className="mr-1 w-4 h-4" /> Events ({eventsTotal}
+            )
           </Tabs.Trigger>
         </Tabs.List>
 
@@ -199,6 +199,7 @@ export function Forum() {
                 <Card
                   key={d._id}
                   className="hover-card"
+                  size="3"
                   onClick={() => navigate(`/forum/discussions/${d._id}`)}
                 >
                   <Flex gap="3" align="start">
@@ -243,7 +244,7 @@ export function Forum() {
                           {d.user?.full_name || d.user?.username || "Unknown"}
                         </Text>
                         <Badge size="1" variant="soft" color="gray">
-                          <ChatBubbleIcon className="w-3 h-3 mr-1" />
+                          <MessageCircleIcon className="w-3 h-3" />
                           {d.comment_count}
                         </Badge>
                         {(d.tags || []).slice(0, 3).map((tag, i) => (
@@ -285,6 +286,7 @@ export function Forum() {
                 <Card
                   key={ev._id}
                   className="hover-card"
+                  size="3"
                   onClick={() => navigate(`/forum/events/${ev._id}`)}
                 >
                   <Flex justify="between" align="start" wrap="wrap">
@@ -293,7 +295,7 @@ export function Forum() {
                     </Text>
                     <Flex gap="2" align="center">
                       <Badge size="1" variant="soft" color="purple">
-                        <CalendarIcon className="w-3 h-3 mr-1" />
+                        <CalendarClockIcon className="w-3 h-3" />
                         {new Date(ev.event_at).toLocaleDateString(undefined, {
                           month: "short",
                           day: "numeric",
@@ -325,7 +327,7 @@ export function Forum() {
                     </Text>
                     {ev.is_remote ? (
                       <Badge size="1" variant="soft" color="blue">
-                        <GlobeIcon className="w-3 h-3 mr-1" /> Remote
+                        <GlobeIcon className="w-3 h-3" /> Remote
                       </Badge>
                     ) : ev.location ? (
                       <Badge size="1" variant="soft" color="gray">

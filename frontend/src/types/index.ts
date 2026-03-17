@@ -573,3 +573,37 @@ export interface ForumCommentListResponse {
   page: number;
   limit: number;
 }
+
+export type ReportType = 'user' | 'service';
+export type ReportReason = 'inappropriate' | 'abusive' | 'harassment' | 'spam' | 'other';
+export type ReportStatus = 'pending' | 'under_review' | 'resolved' | 'dismissed';
+
+export interface Report {
+  _id: string;
+  report_type: ReportType;
+  reported_id: string;
+  reported_by: string;
+  reason: ReportReason;
+  description?: string;
+  status: ReportStatus;
+  resolved_by?: string;
+  resolution_notes?: string;
+  created_at: string;
+  updated_at: string;
+  reported_details?: { _id: string; username?: string; email?: string; title?: string };
+  reporter_details?: { _id: string; username?: string; email?: string };
+}
+
+export interface ReportForm {
+  report_type: ReportType;
+  reported_id: string;
+  reason: ReportReason;
+  description?: string;
+}
+
+export interface ReportListResponse {
+  reports: Report[];
+  total: number;
+  page: number;
+  limit: number;
+}

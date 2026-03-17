@@ -58,7 +58,7 @@ export function ProviderProfileSummary({ user }: ProviderProfileSummaryProps) {
                 size="1"
                 className="mt-1 w-fit"
               >
-                <CheckIcon className="w-3 h-3 mr-1" />
+                <CheckIcon className="w-3 h-3" />
                 Verified
               </Badge>
             )}

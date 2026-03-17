@@ -116,6 +116,12 @@ async def create_indexes():
         await db.database.forum_comments.create_index("user_id")
         await db.database.forum_comments.create_index("created_at")
 
+        # Reports indexes
+        await db.database.reports.create_index([("reported_by", 1), ("created_at", -1)])
+        await db.database.reports.create_index([("report_type", 1), ("status", 1)])
+        await db.database.reports.create_index("reported_id")
+        await db.database.reports.create_index("status")
+
         logger.info("Database indexes created successfully")
     except Exception as e:
         logger.error(f"Error creating indexes: {e}")
