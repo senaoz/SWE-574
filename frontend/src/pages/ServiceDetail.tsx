@@ -24,14 +24,15 @@ import {
   ClockIcon,
   CalendarIcon,
   CheckCircledIcon,
-  ChatBubbleIcon,
   HeartIcon,
   HeartFilledIcon,
   Share1Icon,
   ArrowLeftIcon,
   Crosshair1Icon,
   PersonIcon,
+  Pencil1Icon,
 } from "@radix-ui/react-icons";
+import { MessageCircleIcon } from "lucide-react";
 import { ProviderProfileSummary } from "@/components/ui/ProviderProfileSummary";
 import { ServiceMap } from "@/components/map/ServiceMap";
 import { HandShakeModal } from "@/components/ui/HandShakeModal";
@@ -40,6 +41,7 @@ import { CommentSection } from "@/components/ui/CommentSection";
 import { ParticipantAvatars } from "@/components/ui/ParticipantAvatars";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ClickableTag } from "@/components/ui/ClickableTag";
+import { EditServiceDialog } from "@/components/forms/EditServiceDialog";
 import ReactMarkdown from "react-markdown";
 
 export function ServiceDetail() {
@@ -59,7 +61,8 @@ export function ServiceDetail() {
   const [linkedEvents, setLinkedEvents] = useState<ForumEvent[]>([]);
   const [copied, setCopied] = useState(false);
   const [completeConfirmOpen, setCompleteConfirmOpen] = useState(false);
-  const { currentUserId, refetchUser } = useUser();
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const { currentUserId, refetchUser, user: currentUser } = useUser();
   const queryClient = useQueryClient();
 
   const { data: savedIdsData } = useQuery({
@@ -405,6 +408,22 @@ export function ServiceDetail() {
         confirmLabel="Mark complete"
         onConfirm={handleConfirmMarkComplete}
       />
+
+      {service && (
+        <EditServiceDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          service={service}
+          onSuccess={async () => {
+            // Refresh service data after edit
+            queryClient.invalidateQueries({ queryKey: ["service", id] });
+            if (id) {
+              const res = await servicesApi.getService(id);
+              setService(res.data);
+            }
+          }}
+        />
+      )}
       {/* Back button */}
       <Button variant="ghost" onClick={() => navigate(-1)} className="mb-6">
         <ArrowLeftIcon className="w-4 h-4 mr-2" />
@@ -564,11 +583,7 @@ export function ServiceDetail() {
                 <Flex wrap="wrap" gap="2">
                   {service.tags.map((tag, index) => (
                     <ClickableTag
-                      key={
-                        typeof tag === "string"
-                          ? tag
-                          : tag.entityId || tag.label + index
-                      }
+                      key={tag.entityId || tag.label + index}
                       tag={tag}
                       size="2"
                       variant="soft"
@@ -587,6 +602,20 @@ export function ServiceDetail() {
 
             {/* Action buttons */}
             <div className="flex flex-wrap gap-3">
+              {/* Edit button for owner or admin */}
+              {service.status === "active" &&
+                (service.user_id === currentUserId ||
+                  currentUser?.role === "admin") && (
+                  <Button
+                    variant="soft"
+                    size="3"
+                    onClick={() => setEditDialogOpen(true)}
+                  >
+                    <Pencil1Icon className="w-4 h-4" />
+                    Edit
+                  </Button>
+                )}
+
               {!isParticipating && !isServingUser ? (
                 // Check if user has a pending request
                 pendingRequest ? (
@@ -639,7 +668,7 @@ export function ServiceDetail() {
                           });
                       }
                     }}
-                    isOwner={service.user_id === currentUserId ?? false}
+                    isOwner={service.user_id === currentUserId || false}
                   />
                 )
               ) : isServingUser ? (
@@ -929,7 +958,7 @@ export const StartChatButton = ({
       onClick={handleStartChat}
       disabled={disabled}
     >
-      <ChatBubbleIcon className="w-4 h-4" />
+      <MessageCircleIcon className="w-4 h-4" />
       Start Chat
     </Button>
   );

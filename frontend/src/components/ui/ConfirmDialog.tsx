@@ -2,7 +2,6 @@ import {
   Dialog,
   Button,
   Flex,
-  Text,
 } from "@radix-ui/themes";
 import { useState } from "react";
 

@@ -5,16 +5,12 @@ import {
   Text,
   Flex,
   Avatar,
-  Badge,
   Button,
   TextArea,
   Heading,
 } from "@radix-ui/themes";
-import {
-  ArrowLeftIcon,
-  ChatBubbleIcon,
-  PaperPlaneIcon,
-} from "@radix-ui/react-icons";
+import { ArrowLeftIcon, PaperPlaneIcon } from "@radix-ui/react-icons";
+import { MessageCircleIcon } from "lucide-react";
 import { forumApi, getImageUrl } from "@/services/api";
 import { ForumDiscussion, ForumComment } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
@@ -155,7 +151,7 @@ export function ForumDiscussionDetail() {
 
       {/* Comments section */}
       <Flex align="center" gap="2" className="mb-4">
-        <ChatBubbleIcon className="w-5 h-5" />
+        <MessageCircleIcon className="w-5 h-5" />
         <Text size="4" weight="bold">
           Comments ({comments.length})
         </Text>
