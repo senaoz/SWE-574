@@ -32,7 +32,8 @@ p {
 }
 
 .prose-content {
-    @apply prose prose-sm max-w-none leading-relaxed;
+    @apply prose prose-sm max-w-none leading-relaxed prose-strong:text-foreground prose-em:text-foreground prose-a:text-foreground;
+    color: var(--color-foreground) !important;
 }
 
 .prose-content.card-description {

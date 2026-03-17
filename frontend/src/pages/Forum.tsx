@@ -19,12 +19,12 @@ import { Form } from "radix-ui";
 import {
   MagnifyingGlassIcon,
   PlusIcon,
-  ChatBubbleIcon,
   CalendarIcon,
   GlobeIcon,
   Cross2Icon,
   PersonIcon,
 } from "@radix-ui/react-icons";
+import { MessageCircleIcon } from "lucide-react";
 import { forumApi, servicesApi, getImageUrl } from "@/services/api";
 import { ForumDiscussion, ForumEvent, TagEntity, Service } from "@/types";
 import { TagAutocomplete } from "@/components/forms/TagAutocomplete";
@@ -170,7 +170,8 @@ export function Forum() {
       <Tabs.Root value={tab} onValueChange={setTab}>
         <Tabs.List>
           <Tabs.Trigger value="discussions">
-            <ChatBubbleIcon className="mr-1" /> Discussions ({discussionsTotal})
+            <MessageCircleIcon className="mr-1 w-4 h-4" /> Discussions (
+            {discussionsTotal})
           </Tabs.Trigger>
           <Tabs.Trigger value="events">
             <CalendarIcon className="mr-1" /> Events ({eventsTotal})
@@ -243,7 +244,7 @@ export function Forum() {
                           {d.user?.full_name || d.user?.username || "Unknown"}
                         </Text>
                         <Badge size="1" variant="soft" color="gray">
-                          <ChatBubbleIcon className="w-3 h-3 mr-1" />
+                          <MessageCircleIcon className="w-3 h-3 mr-1" />
                           {d.comment_count}
                         </Badge>
                         {(d.tags || []).slice(0, 3).map((tag, i) => (
@@ -344,7 +345,7 @@ export function Forum() {
                       </Badge>
                     )}
                     <Badge size="1" variant="soft" color="gray">
-                      <ChatBubbleIcon className="w-3 h-3 mr-1" />
+                      <MessageCircleIcon className="w-3 h-3 mr-1" />
                       {ev.comment_count}
                     </Badge>
                     {(ev.tags || []).slice(0, 3).map((tag, i) => (

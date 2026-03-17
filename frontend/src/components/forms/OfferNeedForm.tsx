@@ -13,8 +13,8 @@ import {
   Dialog,
 } from "@radix-ui/themes";
 import { Form } from "radix-ui";
-import { servicesApi, uploadApi } from "@/services/api";
-import { ServiceForm, ServiceFormErrors, TagEntity } from "@/types";
+import { servicesApi, uploadApi, getImageUrl } from "@/services/api";
+import { Service, ServiceForm, ServiceFormErrors, TagEntity } from "@/types";
 import { TagAutocomplete } from "./TagAutocomplete";
 import { MarkdownEditor } from "./MarkdownEditor";
 import { MapLocationPicker } from "@/components/ui/MapLocationPicker";
@@ -25,6 +25,7 @@ interface OfferNeedFormProps {
   serviceType: "offer" | "need";
   onSuccess?: () => void;
   onClose?: () => void;
+  initialService?: Service;
 }
 
 const placeholderTexts: Record<
@@ -62,20 +63,46 @@ export function OfferNeedForm({
   serviceType,
   onSuccess,
   onClose,
+  initialService,
 }: OfferNeedFormProps) {
+  const isEditMode = !!initialService;
   const [showConfirmation, setShowConfirmation] = useState(false);
-  const [formData, setFormData] = useState<ServiceForm>({
-    title: "",
-    description: "",
-    tags: [],
-    estimated_duration: 1,
-    location: { latitude: 0, longitude: 0, address: "" },
-    city: "",
-    service_type: serviceType,
-    scheduling_type: "specific",
-    max_participants: 1,
-    is_remote: false,
+  const [formData, setFormData] = useState<ServiceForm>(() => {
+    if (initialService) {
+      return {
+        title: initialService.title,
+        description: initialService.description,
+        tags: initialService.tags || [],
+        estimated_duration: initialService.estimated_duration,
+        location: initialService.location || { latitude: 0, longitude: 0, address: "" },
+        city: "",
+        service_type: initialService.service_type as "offer" | "need",
+        scheduling_type: initialService.scheduling_type || "specific",
+        max_participants: initialService.max_participants || 1,
+        is_remote: initialService.is_remote || false,
+        specific_date: initialService.specific_date,
+        specific_time: initialService.specific_time,
+        recurring_pattern: initialService.recurring_pattern,
+        open_availability: initialService.open_availability,
+        deadline: initialService.deadline,
+      };
+    }
+    return {
+      title: "",
+      description: "",
+      tags: [],
+      estimated_duration: 1,
+      location: { latitude: 0, longitude: 0, address: "" },
+      city: "",
+      service_type: serviceType,
+      scheduling_type: "specific",
+      max_participants: 1,
+      is_remote: false,
+    };
   });
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>(
+    () => (initialService?.image_urls || []).map((url) => getImageUrl(url) ?? url),
+  );
   const [errors, setErrors] = useState<ServiceFormErrors>({});
   const MAX_SERVICE_IMAGES = 3;
   const [serviceImageFiles, setServiceImageFiles] = useState<File[]>([]);
@@ -95,6 +122,23 @@ export function OfferNeedForm({
         : { ...prev, service_type: serviceType },
     );
   }, [serviceType]);
+
+  const updateServiceMutation = useMutation({
+    mutationFn: (data: Partial<ServiceForm>) =>
+      servicesApi.updateService(initialService!._id, data),
+    onSuccess: () => {
+      if (onSuccess) onSuccess();
+    },
+    onError: (error: any) => {
+      console.error("Error updating service:", error);
+      const errorDetail = error.response?.data?.detail;
+      if (typeof errorDetail === "string") {
+        setErrors({ title: errorDetail });
+      } else {
+        setErrors({ title: "Failed to update service" });
+      }
+    },
+  });
 
   const createServiceMutation = useMutation({
     mutationFn: servicesApi.createService,
@@ -296,12 +340,18 @@ export function OfferNeedForm({
       setServiceImageUploading(false);
     }
 
+    const allImageUrls = [...existingImageUrls, ...imageUrls];
     const payload = {
       ...formData,
       service_type: serviceType,
-      image_urls: imageUrls.length > 0 ? imageUrls : undefined,
+      image_urls: allImageUrls.length > 0 ? allImageUrls : undefined,
     };
-    createServiceMutation.mutate(payload);
+
+    if (isEditMode) {
+      updateServiceMutation.mutate(payload);
+    } else {
+      createServiceMutation.mutate(payload);
+    }
   };
 
   const handleConfirmationClose = () => {
@@ -423,7 +473,8 @@ export function OfferNeedForm({
                 name="service_images"
                 className="space-y-1 col-span-2"
               >
-                {serviceImageFiles.length < MAX_SERVICE_IMAGES && (
+                {serviceImageFiles.length + existingImageUrls.length <
+                  MAX_SERVICE_IMAGES && (
                   <label className="cursor-pointer">
                     <input
                       type="file"
@@ -433,7 +484,10 @@ export function OfferNeedForm({
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
-                        if (serviceImageFiles.length >= MAX_SERVICE_IMAGES)
+                        if (
+                          serviceImageFiles.length + existingImageUrls.length >=
+                          MAX_SERVICE_IMAGES
+                        )
                           return;
                         const maxMb = 5;
                         if (file.size > maxMb * 1024 * 1024) {
@@ -457,37 +511,81 @@ export function OfferNeedForm({
                     </span>
                   </label>
                 )}
+
+                {/* Display existing images in edit mode */}
+                {existingImageUrls.length > 0 && (
+                  <div>
+                    <Text size="1" color="gray" className="mb-2 block">
+                      Existing images
+                    </Text>
+                    <Flex gap="2" wrap="wrap" className="border rounded-lg p-2">
+                      {existingImageUrls.map((url, index) => (
+                        <Box key={`existing-${index}`} className="relative">
+                          <img
+                            src={url}
+                            alt={`Existing ${index + 1}`}
+                            className="rounded-lg object-cover h-24 w-24"
+                          />
+                          <Button
+                            type="button"
+                            size="1"
+                            variant="solid"
+                            color="red"
+                            className="!absolute top-1 right-1 !p-1 w-5 h-5 cursor-pointer"
+                            onClick={() => {
+                              setExistingImageUrls((prev) =>
+                                prev.filter((_, i) => i !== index),
+                              );
+                              setServiceImageError(null);
+                            }}
+                          >
+                            ×
+                          </Button>
+                        </Box>
+                      ))}
+                    </Flex>
+                  </div>
+                )}
+
+                {/* Display newly added images */}
                 {serviceImagePreviewUrls.length > 0 && (
-                  <Flex gap="2" wrap="wrap" className="border rounded-lg p-2">
-                    {serviceImagePreviewUrls.map((url, index) => (
-                      <Box key={index} className="relative">
-                        <img
-                          src={url}
-                          alt={`Preview ${index + 1}`}
-                          className="rounded-lg object-cover h-24 w-24"
-                        />
-                        <Button
-                          type="button"
-                          size="1"
-                          variant="solid"
-                          color="red"
-                          className="!absolute top-1 right-1 !p-1 w-5 h-5 cursor-pointer"
-                          onClick={() => {
-                            URL.revokeObjectURL(serviceImagePreviewUrls[index]);
-                            setServiceImageFiles((prev) =>
-                              prev.filter((_, i) => i !== index),
-                            );
-                            setServiceImagePreviewUrls((prev) =>
-                              prev.filter((_, i) => i !== index),
-                            );
-                            setServiceImageError(null);
-                          }}
-                        >
-                          ×
-                        </Button>
-                      </Box>
-                    ))}
-                  </Flex>
+                  <div>
+                    <Text size="1" color="gray" className="mb-2 block">
+                      New images
+                    </Text>
+                    <Flex gap="2" wrap="wrap" className="border rounded-lg p-2">
+                      {serviceImagePreviewUrls.map((url, index) => (
+                        <Box key={index} className="relative">
+                          <img
+                            src={url}
+                            alt={`Preview ${index + 1}`}
+                            className="rounded-lg object-cover h-24 w-24"
+                          />
+                          <Button
+                            type="button"
+                            size="1"
+                            variant="solid"
+                            color="red"
+                            className="!absolute top-1 right-1 !p-1 w-5 h-5 cursor-pointer"
+                            onClick={() => {
+                              URL.revokeObjectURL(
+                                serviceImagePreviewUrls[index],
+                              );
+                              setServiceImageFiles((prev) =>
+                                prev.filter((_, i) => i !== index),
+                              );
+                              setServiceImagePreviewUrls((prev) =>
+                                prev.filter((_, i) => i !== index),
+                              );
+                              setServiceImageError(null);
+                            }}
+                          >
+                            ×
+                          </Button>
+                        </Box>
+                      ))}
+                    </Flex>
+                  </div>
                 )}
                 {serviceImageError && (
                   <Text color="red" size="1">
@@ -770,14 +868,18 @@ export function OfferNeedForm({
               <Button
                 type="submit"
                 disabled={
-                  createServiceMutation.isPending || serviceImageUploading
+                  createServiceMutation.isPending || updateServiceMutation.isPending || serviceImageUploading
                 }
               >
                 {serviceImageUploading
                   ? "Uploading image..."
-                  : createServiceMutation.isPending
-                    ? "Creating..."
-                    : "Create"}
+                  : isEditMode
+                    ? updateServiceMutation.isPending
+                      ? "Saving..."
+                      : "Save Changes"
+                    : createServiceMutation.isPending
+                      ? "Creating..."
+                      : "Create"}
               </Button>
             </Form.Submit>
           </Flex>

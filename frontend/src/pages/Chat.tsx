@@ -4,9 +4,10 @@ import { Card, Text } from "@radix-ui/themes";
 import { ChatRoom } from "@/types";
 import { ChatRoomsList } from "@/components/ui/ChatRoomsList";
 import { ChatRoomComponent } from "@/components/ui/ChatRoom";
-import { ChatBubbleIcon } from "@radix-ui/react-icons";
 import { chatApi } from "@/services/api";
 import { useUser } from "@/App";
+// @ts-ignore
+import messageIcon from "../assets/message.webp";
 
 export function Chat() {
   const [searchParams] = useSearchParams();
@@ -63,7 +64,7 @@ export function Chat() {
             ) : (
               <div className="h-full flex items-center justify-center">
                 <div className="text-center">
-                  <ChatBubbleIcon className="w-16 h-16 mx-auto mb-4" />
+                  <img src={messageIcon} className={"w-32 mx-auto mb-4"} />
                   <Text size="4" weight="bold" className="block mb-2">
                     Select a Chat Room
                   </Text>
