@@ -31,7 +31,6 @@ import { ClickableTag } from "@/components/ui/ClickableTag";
 import { MarkdownEditor } from "@/components/forms/MarkdownEditor";
 import { MapLocationPicker } from "@/components/ui/MapLocationPicker";
 import ReactMarkdown from "react-markdown";
-
 function timeAgo(dateStr: string) {
   const now = Date.now();
   const d = new Date(dateStr).getTime();
@@ -45,7 +44,6 @@ function timeAgo(dateStr: string) {
   if (days < 30) return `${days}d ago`;
   return new Date(dateStr).toLocaleDateString();
 }
-
 export function Forum() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -53,29 +51,20 @@ export function Forum() {
   const [tab, setTab] = useState(initialTab);
   const [searchQ, setSearchQ] = useState("");
   const [tagFilter, setTagFilter] = useState("");
-
-  // discussions
   const [discussions, setDiscussions] = useState<ForumDiscussion[]>([]);
   const [discussionsTotal, setDiscussionsTotal] = useState(0);
   const [discussionsLoading, setDiscussionsLoading] = useState(true);
-
-  // events
   const [events, setEvents] = useState<ForumEvent[]>([]);
   const [eventsTotal, setEventsTotal] = useState(0);
   const [eventsLoading, setEventsLoading] = useState(true);
-
-  // create dialogs
   const [showNewDiscussion, setShowNewDiscussion] = useState(false);
   const [showNewEvent, setShowNewEvent] = useState(false);
-
   useEffect(() => {
     setSearchParams((p) => {
       p.set("tab", tab);
       return p;
     });
   }, [tab]);
-
-  // fetch discussions
   useEffect(() => {
     (async () => {
       setDiscussionsLoading(true);
@@ -93,8 +82,6 @@ export function Forum() {
       }
     })();
   }, [searchQ, tagFilter]);
-
-  // fetch events
   useEffect(() => {
     (async () => {
       setEventsLoading(true);
@@ -112,11 +99,9 @@ export function Forum() {
       }
     })();
   }, [searchQ, tagFilter]);
-
   const refresh = () => {
-    setSearchQ((q) => q); // trigger re-fetch via effect deps isn't great; use a counter
+    setSearchQ((q) => q);
     setTagFilter((t) => t);
-    // reload both
     forumApi
       .getDiscussions({ q: searchQ || undefined, tag: tagFilter || undefined })
       .then((r) => {
@@ -130,7 +115,6 @@ export function Forum() {
         setEventsTotal(r.data.total);
       });
   };
-
   return (
     <div>
       <Flex justify="between" align="center" className="mb-6">
@@ -141,8 +125,6 @@ export function Forum() {
           </Text>
         </div>
       </Flex>
-
-      {/* Search + tag filter */}
       <Flex gap="3" className="mb-6" wrap="wrap">
         <TextField.Root
           placeholder="Search discussions & events..."
@@ -165,26 +147,22 @@ export function Forum() {
           </Badge>
         )}
       </Flex>
-
       <Tabs.Root value={tab} onValueChange={setTab}>
         <Tabs.List>
           <Tabs.Trigger value="discussions">
-            <ChatBubbleIcon className="mr-1" /> Discussions ({discussionsTotal})
+            <MessageCircleIcon className="mr-1 w-4 h-4" /> Discussions (
+            {discussionsTotal})
           </Tabs.Trigger>
           <Tabs.Trigger value="events">
-            <CalendarClockIcon className="mr-1 w-4 h-4" /> Events ({eventsTotal}
-            )
+            <CalendarClockIcon className="mr-1 w-4 h-4" /> Events ({eventsTotal})
           </Tabs.Trigger>
         </Tabs.List>
-
-        {/* ======== Discussions Tab ======== */}
         <Tabs.Content value="discussions" className="pt-4">
           <Flex justify="end" className="mb-4">
             <Button onClick={() => setShowNewDiscussion(true)}>
               <PlusIcon /> New Discussion
             </Button>
           </Flex>
-
           {discussionsLoading ? (
             <Card className="p-8 text-center">
               <Text color="gray">Loading...</Text>
@@ -227,7 +205,7 @@ export function Forum() {
                         <ReactMarkdown
                           components={{
                             a: ({ node, ...props }) => (
-                              <a
+                              
                                 {...props}
                                 target="_blank"
                                 rel="noopener noreferrer"
@@ -244,7 +222,7 @@ export function Forum() {
                           {d.user?.full_name || d.user?.username || "Unknown"}
                         </Text>
                         <Badge size="1" variant="soft" color="gray">
-                          <MessageCircleIcon className="w-3 h-3" />
+                          <MessageCircleIcon className="w-3 h-3 mr-1" />
                           {d.comment_count}
                         </Badge>
                         {(d.tags || []).slice(0, 3).map((tag, i) => (
@@ -263,15 +241,12 @@ export function Forum() {
             </div>
           )}
         </Tabs.Content>
-
-        {/* ======== Events Tab ======== */}
         <Tabs.Content value="events" className="pt-4">
           <Flex justify="end" className="mb-4">
             <Button onClick={() => setShowNewEvent(true)}>
               <PlusIcon /> New Event
             </Button>
           </Flex>
-
           {eventsLoading ? (
             <Card className="p-8 text-center">
               <Text color="gray">Loading...</Text>
@@ -310,7 +285,7 @@ export function Forum() {
                     <ReactMarkdown
                       components={{
                         a: ({ node, ...props }) => (
-                          <a
+                          
                             {...props}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -346,7 +321,7 @@ export function Forum() {
                       </Badge>
                     )}
                     <Badge size="1" variant="soft" color="gray">
-                      <ChatBubbleIcon className="w-3 h-3 mr-1" />
+                      <MessageCircleIcon className="w-3 h-3 mr-1" />
                       {ev.comment_count}
                     </Badge>
                     {(ev.tags || []).slice(0, 3).map((tag, i) => (
@@ -364,15 +339,11 @@ export function Forum() {
           )}
         </Tabs.Content>
       </Tabs.Root>
-
-      {/* ======== New Discussion Dialog ======== */}
       <NewDiscussionDialog
         open={showNewDiscussion}
         onOpenChange={setShowNewDiscussion}
         onCreated={refresh}
       />
-
-      {/* ======== New Event Dialog ======== */}
       <NewEventDialog
         open={showNewEvent}
         onOpenChange={setShowNewEvent}
@@ -381,9 +352,6 @@ export function Forum() {
     </div>
   );
 }
-
-// ===================== New Discussion Dialog =====================
-
 function NewDiscussionDialog({
   open,
   onOpenChange,
@@ -398,14 +366,12 @@ function NewDiscussionDialog({
   const [tags, setTags] = useState<TagEntity[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-
   const reset = () => {
     setTitle("");
     setBody("");
     setTags([]);
     setError("");
   };
-
   const handleSubmit = async () => {
     if (!title.trim() || !body.trim()) {
       setError("Title and body are required");
@@ -423,7 +389,6 @@ function NewDiscussionDialog({
       setSubmitting(false);
     }
   };
-
   return (
     <Dialog.Root
       open={open}
@@ -497,9 +462,6 @@ function NewDiscussionDialog({
     </Dialog.Root>
   );
 }
-
-// ===================== New Event Dialog =====================
-
 function NewEventDialog({
   open,
   onOpenChange,
@@ -528,7 +490,6 @@ function NewEventDialog({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [myServices, setMyServices] = useState<Service[]>([]);
-
   useEffect(() => {
     if (open) {
       servicesApi
@@ -539,7 +500,6 @@ function NewEventDialog({
         .catch(() => {});
     }
   }, [open]);
-
   const reset = () => {
     setTitle("");
     setDescription("");
@@ -551,7 +511,6 @@ function NewEventDialog({
     setServiceId("__none__");
     setError("");
   };
-
   const handleSubmit = async () => {
     if (!title.trim() || !description.trim() || !eventDate || !eventTime) {
       setError("Title, description, date, and time are required");
@@ -587,7 +546,6 @@ function NewEventDialog({
       setSubmitting(false);
     }
   };
-
   return (
     <Dialog.Root
       open={open}
@@ -688,25 +646,6 @@ function NewEventDialog({
               }
             />
           </Form.Field>
-          {/*
-
-          <Form.Field name="service_id" className="space-y-2">
-            <Form.Label className="text-sm font-medium">
-              Link to Offer / Need (optional)
-            </Form.Label>
-            <Select.Root value={serviceId} onValueChange={setServiceId}>
-              <Select.Trigger placeholder="None" className="w-full" />
-              <Select.Content>
-                <Select.Item value="__none__">None</Select.Item>
-                {myServices.map((s) => (
-                  <Select.Item key={s._id} value={s._id}>
-                    [{s.service_type}] {s.title}
-                  </Select.Item>
-                ))}
-              </Select.Content>
-            </Select.Root>
-          </Form.Field>
-            */}
           {error && (
             <Text size="2" color="red">
               {error}

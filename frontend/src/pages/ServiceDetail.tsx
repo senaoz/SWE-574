@@ -23,15 +23,15 @@ import { useUser } from "@/App";
 import {
   ClockIcon,
   CheckCircledIcon,
-  ChatBubbleIcon,
   HeartIcon,
   HeartFilledIcon,
   Share1Icon,
   ArrowLeftIcon,
   Crosshair1Icon,
   PersonIcon,
+  Pencil1Icon,
 } from "@radix-ui/react-icons";
-import { AlertOctagonIcon, CalendarRangeIcon } from "lucide-react";
+import { AlertOctagonIcon, CalendarRangeIcon, MessageCircleIcon } from "lucide-react";
 import { ProviderProfileSummary } from "@/components/ui/ProviderProfileSummary";
 import { ServiceMap } from "@/components/map/ServiceMap";
 import { HandShakeModal } from "@/components/ui/HandShakeModal";
@@ -41,8 +41,8 @@ import { ParticipantAvatars } from "@/components/ui/ParticipantAvatars";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import { ReportDialog } from "@/components/ui/ReportDialog";
+import { EditServiceDialog } from "@/components/forms/EditServiceDialog";
 import ReactMarkdown from "react-markdown";
-
 export function ServiceDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -64,18 +64,15 @@ export function ServiceDetail() {
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const { currentUserId, refetchUser, user: currentUser } = useUser();
   const queryClient = useQueryClient();
-
   const { data: savedIdsData } = useQuery({
     queryKey: ["saved-service-ids"],
     queryFn: () => servicesApi.getSavedServiceIds().then((res) => res.data),
     enabled: !!currentUserId,
     retry: false,
   });
-
   const isSaved = id
     ? (savedIdsData?.service_ids?.includes(id) ?? false)
     : false;
-
   const saveMutation = useMutation({
     mutationFn: (serviceId: string) => servicesApi.saveService(serviceId),
     onSuccess: () => {
@@ -83,7 +80,6 @@ export function ServiceDetail() {
       queryClient.invalidateQueries({ queryKey: ["saved-services"] });
     },
   });
-
   const unsaveMutation = useMutation({
     mutationFn: (serviceId: string) => servicesApi.unsaveService(serviceId),
     onSuccess: () => {
@@ -91,7 +87,6 @@ export function ServiceDetail() {
       queryClient.invalidateQueries({ queryKey: ["saved-services"] });
     },
   });
-
   const handleToggleSave = () => {
     if (!id || !currentUserId) return;
     if (isSaved) {
@@ -100,25 +95,20 @@ export function ServiceDetail() {
       saveMutation.mutate(id);
     }
   };
-
   const { data: timebankData } = useQuery({
     queryKey: ["timebank"],
     queryFn: () => usersApi.getTimeBank().then((res) => res.data),
     enabled: !!currentUserId,
     retry: false,
   });
-
   useEffect(() => {
     const fetchServiceDetails = async () => {
       if (!id) return;
-
       try {
         setLoading(true);
-        // Fetch service details
         const serviceResponse = await servicesApi.getService(id);
         const foundService = serviceResponse.data;
         setService(foundService);
-        // Fetch provider details (service owner)
         try {
           const providerResponse = await usersApi.getUserById(
             foundService.user_id,
@@ -126,7 +116,6 @@ export function ServiceDetail() {
           setProvider(providerResponse.data);
         } catch (error) {
           console.error("Error fetching provider:", error);
-          // Set a default provider if fetching fails
           setProvider({
             _id: foundService.user_id,
             username: "Unknown User",
@@ -142,8 +131,6 @@ export function ServiceDetail() {
             role: "user",
           });
         }
-
-        // Set participants (matched users)
         const participants: User[] = [];
         if (
           foundService.matched_user_ids &&
@@ -156,7 +143,6 @@ export function ServiceDetail() {
               participants.push(matchedUserResponse.data);
             } catch (error) {
               console.error("Error fetching matched user:", error);
-              // Add placeholder if fetching fails
               participants.push({
                 _id: matchedUserId,
                 username: "Matched User",
@@ -181,21 +167,17 @@ export function ServiceDetail() {
             foundService.user_id === currentUserId);
         setIsParticipating(isUserParticipating as boolean);
         setIsServingUser(foundService.user_id === currentUserId);
-        // Check if cancellation is allowed (not in last 24 hours)
         const now = new Date();
         const serviceDate = new Date(foundService.created_at);
         const hoursDiff =
           (now.getTime() - serviceDate.getTime()) / (1000 * 60 * 60);
         setCanCancel(hoursDiff < 24);
-
-        // Check if user has a pending request for this service
         if (currentUserId && foundService.user_id !== currentUserId) {
           try {
             const pendingRequestResponse =
               await joinRequestsApi.getPendingRequestForService(id);
             setPendingRequest(pendingRequestResponse.data);
           } catch (error: any) {
-            // 404 means no pending request, which is fine
             if (error.response?.status !== 404) {
               console.error("Error fetching pending request:", error);
             }
@@ -210,10 +192,8 @@ export function ServiceDetail() {
         setLoading(false);
       }
     };
-
     fetchServiceDetails();
   }, [id, currentUserId]);
-
   useEffect(() => {
     if (!id) return;
     forumApi
@@ -221,7 +201,6 @@ export function ServiceDetail() {
       .then((r) => setLinkedEvents(r.data.events || []))
       .catch(() => setLinkedEvents([]));
   }, [id]);
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -229,7 +208,6 @@ export function ServiceDetail() {
       </div>
     );
   }
-
   if (!service) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen text-center">
@@ -245,7 +223,6 @@ export function ServiceDetail() {
       </div>
     );
   }
-
   if (!provider) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -260,11 +237,9 @@ export function ServiceDetail() {
       </div>
     );
   }
-
   const formatDuration = (hours: number) => {
     return `${hours}h`;
   };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
@@ -274,19 +249,15 @@ export function ServiceDetail() {
       minute: "2-digit",
     });
   };
-
   const formatTime = (timeString: string) => {
-    // Convert HH:MM to readable format (e.g., "14:30" -> "2:30 PM")
     const [hours, minutes] = timeString.split(":");
     const hour = parseInt(hours, 10);
     const ampm = hour >= 12 ? "PM" : "AM";
     const displayHour = hour % 12 || 12;
     return `${displayHour}:${minutes} ${ampm}`;
   };
-
   const formatSchedulingInfo = () => {
     if (!service.scheduling_type) return null;
-
     switch (service.scheduling_type) {
       case "specific":
         if (service.specific_date && service.specific_time) {
@@ -326,25 +297,20 @@ export function ServiceDetail() {
         return null;
     }
   };
-
   const handleCancelParticipation = () => {
     if (canCancel) {
       setIsParticipating(false);
-      // In real app, this would make an API call
     }
   };
-
   const handleMarkServiceComplete = async () => {
     if (!service || !id) return;
     setCompleteConfirmOpen(true);
   };
-
   const handleConfirmMarkComplete = async () => {
     if (!id) return;
     try {
       await servicesApi.completeService(id);
       refetchUser();
-      // alert("Service marked as completed.");
       const res = await servicesApi.getService(id);
       setService(res.data);
     } catch (error: any) {
@@ -355,10 +321,8 @@ export function ServiceDetail() {
       );
     }
   };
-
   const handleCancelRequest = async () => {
     if (!pendingRequest) return;
-
     try {
       setIsCancellingRequest(true);
       await joinRequestsApi.cancelRequest(pendingRequest._id);
@@ -369,17 +333,14 @@ export function ServiceDetail() {
       setIsCancellingRequest(false);
     }
   };
-
   const shareUrl = window.location.href;
   const shareTitle = `${service?.service_type === "offer" ? "Offer" : "Need"}: ${service?.title}`;
   const shareText = `Check out this service on our community: "${service?.title}"`;
-
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
-
   const handleNativeShare = async () => {
     if (navigator.share) {
       try {
@@ -393,11 +354,9 @@ export function ServiceDetail() {
       }
     }
   };
-
   const openShareWindow = (url: string) => {
     window.open(url, "_blank", "noopener,noreferrer,width=600,height=400");
   };
-
   return (
     <>
       <ConfirmDialog
@@ -408,7 +367,6 @@ export function ServiceDetail() {
         confirmLabel="Mark complete"
         onConfirm={handleConfirmMarkComplete}
       />
-
       {service && id && (
         <ReportDialog
           open={reportDialogOpen}
@@ -418,12 +376,25 @@ export function ServiceDetail() {
           reportedName={service.title}
         />
       )}
+      {service && (
+        <EditServiceDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          service={service}
+          onSuccess={async () => {
+            queryClient.invalidateQueries({ queryKey: ["service", id] });
+            if (id) {
+              const res = await servicesApi.getService(id);
+              setService(res.data);
+            }
+          }}
+        />
+      )}
       {/* Back button */}
       <Button variant="ghost" onClick={() => navigate(-1)} className="mb-6">
         <ArrowLeftIcon className="w-4 h-4 mr-2" />
         Back
       </Button>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 mb-10">
         {/* Main content */}
         <div className="lg:col-span-2 space-y-4">
@@ -450,7 +421,6 @@ export function ServiceDetail() {
               <h1 className="capitalize text-3xl font-bold">{service.title}</h1>
             </div>
           </div>
-
           {/* Images */}
           {service.image_urls?.length ? (
             <div className="w-full mb-6 overflow-hidden rounded-lg">
@@ -482,48 +452,35 @@ export function ServiceDetail() {
               )}
             </div>
           ) : null}
-
           {/* Details */}
           <div className="grid grid-cols-1 gap-2 mb-2">
             <Flex align="center" gap="2">
               <ClockIcon className="w-5 h-5" color="gray" />
-              <Text size="3" weight="medium">
-                Duration:
-              </Text>
+              <Text size="3" weight="medium">Duration:</Text>
               <Text size="3">{formatDuration(service.estimated_duration)}</Text>
             </Flex>
-
             <Flex align="center" gap="2">
               <PersonIcon className="w-5 h-5" color="gray" />
-              <Text size="3" weight="medium">
-                Max participants:
-              </Text>
+              <Text size="3" weight="medium">Max participants:</Text>
               <Text size="3">{service.max_participants ?? "No limit"}</Text>
             </Flex>
-
             <Flex align="center" gap="2">
               <Crosshair1Icon className="w-5 h-5" color="gray" />
-              <Text size="3" weight="medium">
-                Location:
-              </Text>
+              <Text size="3" weight="medium">Location:</Text>
               <Text size="3">
                 {service.is_remote
                   ? "Remote (online)"
                   : service.location?.address || "Istanbul"}
               </Text>
             </Flex>
-
             {service.deadline && (
               <Flex align="center" gap="2">
                 <CalendarRangeIcon className="w-5 h-5" color="gray" />
-                <Text size="3" weight="medium">
-                  Deadline:
-                </Text>
+                <Text size="3" weight="medium">Deadline:</Text>
                 <Text size="3">{formatDate(service.deadline)}</Text>
               </Flex>
             )}
           </div>
-
           {/* Scheduling Information */}
           {formatSchedulingInfo() && (
             <div className="my-4 flex items-center gap-2 p-4 rounded-lg bg-[var(--accent-a2)] transition-colors duration-200">
@@ -538,7 +495,6 @@ export function ServiceDetail() {
               </Flex>
             </div>
           )}
-
           {/* Description */}
           <div className="mb-6 prose-content space-y-2">
             <ReactMarkdown
@@ -561,7 +517,6 @@ export function ServiceDetail() {
               {service.description}
             </ReactMarkdown>
           </div>
-
           {/* Tags */}
           {service.tags.length > 0 && (
             <div className="my-3">
@@ -577,18 +532,28 @@ export function ServiceDetail() {
               </Flex>
             </div>
           )}
-
           {service.service_type === "need" &&
             timebankData?.requires_need_creation && (
               <div className="mb-4 bg-red-500 p-2 text-white text-sm rounded-lg">
                 You need to create a Need before you can give help.
               </div>
             )}
-
           {/* Action buttons */}
           <div className="flex flex-wrap gap-3">
+            {/* Edit button for owner or admin */}
+            {service.status === "active" &&
+              (service.user_id === currentUserId ||
+                currentUser?.role === "admin") && (
+                <Button
+                  variant="soft"
+                  size="3"
+                  onClick={() => setEditDialogOpen(true)}
+                >
+                  <Pencil1Icon className="w-4 h-4" />
+                  Edit
+                </Button>
+              )}
             {!isParticipating && !isServingUser ? (
-              // Check if user has a pending request
               pendingRequest ? (
                 <>
                   <Button color="green" size="3" disabled>
@@ -607,8 +572,7 @@ export function ServiceDetail() {
                     {isCancellingRequest ? "Cancelling..." : "Cancel Request"}
                   </Button>
                 </>
-              ) : // Disable handshake if post is not active
-              service.status !== "active" ? (
+              ) : service.status !== "active" ? (
                 <Button color="green" size="3" disabled>
                   Post is not active
                 </Button>
@@ -623,7 +587,6 @@ export function ServiceDetail() {
                     service.max_participants <= participants.length
                   }
                   onJoin={() => {
-                    // Refresh pending request after joining
                     if (id && currentUserId) {
                       joinRequestsApi
                         .getPendingRequestForService(id)
@@ -660,14 +623,12 @@ export function ServiceDetail() {
                 You're joining
               </Button>
             )}
-
             <StartChatButton
               disabled={service.status !== "active" || isServingUser}
               otherUserIds={[service.user_id]}
               service_id={service._id}
               transaction_id={undefined}
             />
-
             <Button
               variant={isSaved ? "solid" : "soft"}
               color={isSaved ? "red" : undefined}
@@ -686,7 +647,6 @@ export function ServiceDetail() {
               )}
               {isSaved ? "Saved" : "Save"}
             </Button>
-
             <DropdownMenu.Root>
               <DropdownMenu.Trigger>
                 <Button variant="soft" size="3">
@@ -755,7 +715,6 @@ export function ServiceDetail() {
                 </DropdownMenu.Item>
               </DropdownMenu.Content>
             </DropdownMenu.Root>
-
             {/* Report button — only for non-owners */}
             {currentUserId && service.user_id !== currentUserId && (
               <Button
@@ -768,7 +727,6 @@ export function ServiceDetail() {
                 Report
               </Button>
             )}
-
             {/* Cancel participation button */}
             {isParticipating && !isServingUser && (
               <Tooltip content="Cannot cancel within 24 hours of service">
@@ -783,7 +741,6 @@ export function ServiceDetail() {
                 </Button>
               </Tooltip>
             )}
-
             {/* Provider: Mark service as completed */}
             {isServingUser &&
               service.status === "in_progress" &&
@@ -797,29 +754,11 @@ export function ServiceDetail() {
                   Mark as completed
                 </Button>
               )}
-
-            {/* Edit button for owner or admin */}
-            {service.status === "active" &&
-              (service.user_id === currentUserId ||
-                currentUser?.role === "admin") && (
-                <Button
-                  variant="soft"
-                  size="3"
-                  onClick={() => setEditDialogOpen(true)}
-                >
-                  <Pencil1Icon className="w-4 h-4" />
-                  Edit
-                </Button>
-              )}
           </div>
         </div>
-
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Provider profile */}
           <ProviderProfileSummary user={provider} />
-
-          {/* Participants */}
           {participants.length > 0 && (
             <Card className="p-4">
               <Text size="3" weight="bold" className="mb-4 block">
@@ -828,8 +767,6 @@ export function ServiceDetail() {
               <ParticipantAvatars participants={participants} />
             </Card>
           )}
-
-          {/* Map (only for non-remote services) */}
           {service.is_remote ? (
             <Card className="p-4">
               <Flex direction="column" gap="2" align="center">
@@ -853,8 +790,6 @@ export function ServiceDetail() {
               sticky={false}
             />
           )}
-
-          {/* Linked forum events */}
           {linkedEvents.length > 0 && (
             <Card className="p-4">
               <Text size="3" weight="bold" className="mb-3 block">
@@ -886,15 +821,12 @@ export function ServiceDetail() {
               </div>
             </Card>
           )}
-
-          {/* Comments section */}
           <CommentSection serviceId={service._id} />
         </div>
       </div>
     </>
   );
 }
-
 export const StartChatButton = ({
   disabled,
   otherUserIds,
@@ -909,16 +841,13 @@ export const StartChatButton = ({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { currentUserId } = useUser();
-
   const handleStartChat = async () => {
     try {
       if (!currentUserId) {
         console.error("No current user ID found");
         return;
       }
-
       const allParticipants = [currentUserId, ...otherUserIds];
-
       await chatApi
         .createChatRoom({
           participant_ids: allParticipants,
@@ -956,7 +885,7 @@ export const StartChatButton = ({
       onClick={handleStartChat}
       disabled={disabled}
     >
-      <ChatBubbleIcon className="w-4 h-4" />
+      <MessageCircleIcon className="w-4 h-4" />
       Start Chat
     </Button>
   );

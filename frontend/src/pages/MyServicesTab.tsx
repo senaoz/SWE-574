@@ -10,6 +10,7 @@ import {
   type ConfirmCompletionRatingData,
 } from "@/components/ui/ConfirmCompletionModal";
 import { InterestChip } from "@/components/ui/InterestChip";
+import { EditServiceDialog } from "@/components/forms/EditServiceDialog";
 import { ratingsApi } from "@/services/api";
 import {
   ClockIcon,
@@ -17,6 +18,7 @@ import {
   ArrowRightIcon,
   TrashIcon,
   CrossCircledIcon,
+  Pencil1Icon,
 } from "@radix-ui/react-icons";
 import { useNavigate } from "react-router-dom";
 
@@ -69,6 +71,7 @@ export function MyServicesTab({
   const [ratingLoading, setRatingLoading] = useState<string | null>(null);
   const [confirmModalTransaction, setConfirmModalTransaction] =
     useState<Transaction | null>(null);
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
 
   // Fetch ratings for transactions where the current user has confirmed or both confirmed.
   useEffect(() => {
@@ -166,10 +169,6 @@ export function MyServicesTab({
 
   const getServiceTypeLabel = (type: string) => {
     return type === "offer" ? "Offer" : "Need";
-  };
-
-  const getServiceTypeColor = (type: string) => {
-    return type === "offer" ? "blue" : "green";
   };
 
   if (services.length === 0) {
@@ -351,6 +350,14 @@ export function MyServicesTab({
                                 onClick={() => onDeleteService(service._id)}
                               >
                                 <TrashIcon className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                disabled={service.status !== "active"}
+                                size="2"
+                                variant="soft"
+                                onClick={() => setEditingServiceId(service._id)}
+                              >
+                                <Pencil1Icon className="w-4 h-4" />
                               </Button>
                             </>
                           )}
@@ -676,6 +683,20 @@ export function MyServicesTab({
           transaction={confirmModalTransaction}
           currentUserId={currentUserId}
           onSubmit={handleConfirmWithRating}
+        />
+      )}
+
+      {editingServiceId && (
+        <EditServiceDialog
+          open={!!editingServiceId}
+          onOpenChange={(open) => {
+            if (!open) setEditingServiceId(null);
+          }}
+          service={services.find((s) => s._id === editingServiceId)!}
+          onSuccess={() => {
+            setEditingServiceId(null);
+            onRequestUpdate();
+          }}
         />
       )}
     </div>

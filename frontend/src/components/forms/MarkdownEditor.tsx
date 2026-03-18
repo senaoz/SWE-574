@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { TextArea, Text, Flex, Box, Card, Tabs } from "@radix-ui/themes";
+import { TextArea, Text, Box, Card, Tabs } from "@radix-ui/themes";
 
 interface MarkdownEditorProps {
   value: string;

@@ -11,12 +11,8 @@ import {
   Grid,
   Container,
 } from "@radix-ui/themes";
-import {
-  ClockIcon,
-  ChatBubbleIcon,
-  GlobeIcon,
-  CheckIcon,
-} from "@radix-ui/react-icons";
+import { ClockIcon, GlobeIcon, CheckIcon } from "@radix-ui/react-icons";
+import { MessageCircleIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ServiceMap } from "@/components/map/ServiceMap";
 import { useState, useEffect } from "react";
@@ -217,7 +213,7 @@ export function Home() {
         <div className="grid md:grid-cols-3 gap-8">
           <Card className="p-6 text-center">
             <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-              <ChatBubbleIcon className="w-8 h-8" />
+              <MessageCircleIcon className="w-8 h-8" />
             </div>
             <Heading size="4" className="mb-3 ">
               Offer & Request
@@ -358,7 +354,7 @@ export function Home() {
       {/* Community Forums Spotlight */}
       <Section className="mb-16">
         <div className="flex items-center mb-8">
-          <ChatBubbleIcon className="w-6 h-6 mr-3" />
+          <MessageCircleIcon className="w-6 h-6 mr-3" />
           <Heading size="6" className="">
             Conversations & Connections
           </Heading>

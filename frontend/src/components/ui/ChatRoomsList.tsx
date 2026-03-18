@@ -3,8 +3,9 @@ import { Card, Text, Flex, Badge, IconButton } from "@radix-ui/themes";
 import { ChatRoom } from "@/types";
 import { useQuery } from "@tanstack/react-query";
 import { chatApi } from "@/services/api";
-import { ClockIcon, ChatBubbleIcon, ReloadIcon } from "@radix-ui/react-icons";
+import { ClockIcon, ReloadIcon } from "@radix-ui/react-icons";
 import { useUser } from "@/App";
+import { MessageCircleIcon } from "lucide-react";
 
 interface ChatRoomsListProps {
   onSelectRoom: (room: ChatRoom) => void;
@@ -70,15 +71,14 @@ export function ChatRoomsList({
 
   if (rooms.length === 0) {
     return (
-      <Card className="p-4 mr-4">
-        <div className="text-center py-8">
-          <ChatBubbleIcon className="w-12 h-12 mx-auto mb-4" />
+      <Card className="p-4 mr-4 flex flex-col items-center justify-center">
+        <div className="text-center">
+          <MessageCircleIcon className="w-12 h-12 mx-auto mb-4" />
           <Text size="3" weight="bold" className="block mb-2">
-            No Chat Rooms
+            This space is feeling a little... empty
           </Text>
           <Text color="gray">
-            You don't have any active chat rooms yet. Start a transaction to
-            begin chatting!
+            Why not be the first to say hi? Hit that pen icon and slide into a new convo.
           </Text>
         </div>
       </Card>

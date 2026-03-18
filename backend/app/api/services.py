@@ -10,6 +10,7 @@ from ..models.service import (
 )
 from ..models.user import UserResponse
 from ..services.service_service import ServiceService
+from ..services.user_service import UserService
 from ..api.auth import get_current_user
 from ..core.database import get_database
 
@@ -177,11 +178,12 @@ async def update_service(
     current_user: UserResponse = Depends(get_current_user),
     db=Depends(get_database)
 ):
-    """Update service (only by owner)"""
+    """Update service (by owner or admin)"""
     service_service = ServiceService(db)
-    
+    user_service = UserService(db)
+
     try:
-        # Check if service exists and user owns it
+        # Check if service exists
         existing_service = await service_service.get_service_by_id(service_id)
         if not existing_service:
             raise HTTPException(
@@ -189,7 +191,11 @@ async def update_service(
                 detail="Service not found"
             )
         
-        if str(existing_service.user_id) != str(current_user.id):
+        # Check authorization: owner or admin
+        is_owner = str(existing_service.user_id) == str(current_user.id)
+        is_admin = await user_service.is_admin(str(current_user.id))
+
+        if not (is_owner or is_admin):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to update this service"

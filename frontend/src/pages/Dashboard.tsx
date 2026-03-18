@@ -43,8 +43,6 @@ export function Dashboard() {
   const [userPosition, setUserPosition] = useState<[number, number] | null>(
     null,
   );
-  const [needDialogOpen, setNeedDialogOpen] = useState(false);
-
   const { data: timebankData } = useQuery({
     queryKey: ["timebank"],
     queryFn: () => usersApi.getTimeBank().then((res) => res.data),
