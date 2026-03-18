@@ -383,4 +383,15 @@ export const forumApi = {
     api.delete(`/forum/comments/${id}`),
 };
 
+export const reportsApi = {
+  createReport: (data: import('../types').ReportForm) =>
+    api.post('/reports/', data),
+
+  getReports: (params?: { page?: number; limit?: number; status?: string; report_type?: string }) =>
+    api.get('/reports/admin', { params }),
+
+  updateReport: (id: string, data: { status: string; resolution_notes?: string }) =>
+    api.put(`/reports/admin/${id}`, data),
+};
+
 export default api;

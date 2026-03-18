@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 
 from .core.config import settings
 from .core.database import connect_to_mongo, close_mongo_connection
-from .api import auth, users, services, admin, comments, join_requests, transactions, chat, wikidata, ratings, forum, upload
+from .api import auth, users, services, admin, comments, join_requests, transactions, chat, wikidata, ratings, forum, upload, reports
 
 logging.basicConfig(
     level=logging.INFO,
@@ -60,6 +60,7 @@ app.include_router(wikidata.router)
 app.include_router(ratings.router)
 app.include_router(forum.router)
 app.include_router(upload.router)
+app.include_router(reports.router)
 
 # Ensure upload directory exists before mounting (StaticFiles requires it at init)
 upload_dir = settings.upload_dir

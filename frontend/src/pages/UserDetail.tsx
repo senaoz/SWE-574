@@ -20,6 +20,8 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { User, Service } from "@/types";
 import { servicesApi, usersApi, ratingsApi, getImageUrl } from "@/services/api";
+import { useUser } from "@/App";
+import { ReportDialog } from "@/components/ui/ReportDialog";
 import { OfferListingCard } from "@/components/ui/OfferListingCard";
 import { BadgeDisplay } from "@/components/ui/BadgeDisplay";
 import { InterestChip } from "@/components/ui/InterestChip";
@@ -31,14 +33,17 @@ import {
   Instagram,
   Globe,
   Briefcase,
+  AlertOctagonIcon,
 } from "lucide-react";
 
 export function UserDetail() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
+  const { currentUserId } = useUser();
   const [user, setUser] = useState<User | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -95,11 +100,34 @@ export function UserDetail() {
 
   return (
     <div className="space-y-6">
+      {user && userId && currentUserId && currentUserId !== userId && (
+        <ReportDialog
+          open={reportDialogOpen}
+          onOpenChange={setReportDialogOpen}
+          reportType="user"
+          reportedId={userId}
+          reportedName={user.full_name || user.username}
+        />
+      )}
+
       {/* Header */}
-      <Button variant="ghost" size="2" onClick={() => navigate(-1)}>
-        <ArrowLeftIcon className="w-4 h-4" />
-        Back
-      </Button>
+      <Flex justify="between" align="center">
+        <Button variant="ghost" size="2" onClick={() => navigate(-1)}>
+          <ArrowLeftIcon className="w-4 h-4" />
+          Back
+        </Button>
+        {currentUserId && userId && currentUserId !== userId && (
+          <Button
+            variant="soft"
+            color="red"
+            size="2"
+            onClick={() => setReportDialogOpen(true)}
+          >
+            <AlertOctagonIcon className="w-4 h-4" />
+            <Text size="2">Report User</Text>
+          </Button>
+        )}
+      </Flex>
 
       <Heading size="8">User Profile</Heading>
 

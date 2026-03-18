@@ -59,6 +59,7 @@ export function SavedServicesTab({
         <Card
           key={service._id}
           className="hover-card"
+          size="3"
           onClick={() => navigate(`/service/${service._id}`)}
         >
           <Flex direction="column" gap="2">

@@ -32,7 +32,7 @@ p {
 }
 
 .prose-content {
-    @apply prose prose-sm max-w-none leading-relaxed prose-strong:text-foreground prose-em:text-foreground prose-a:text-foreground;
+    @apply prose prose-sm max-w-none leading-relaxed prose-strong:text-foreground prose-em:text-foreground prose-a:text-foreground prose-headings:text-foreground;
     color: var(--color-foreground) !important;
 }
 
@@ -251,4 +251,8 @@ p {
 
 .border-none-card.rt-Card:where(.rt-variant-surface)::after {
     box-shadow: none !important;
+}
+
+.rt-TextAreaRoot:where(.rt-variant-soft) {
+    background-color: var(--accent-a2) !important;
 }

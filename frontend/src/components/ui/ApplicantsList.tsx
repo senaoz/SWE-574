@@ -170,21 +170,21 @@ export function ApplicantsList({
       case "pending":
         return (
           <Badge color="yellow">
-            <ClockIcon className="w-3 h-3 mr-1" />
+            <ClockIcon className="w-3 h-3" />
             Pending
           </Badge>
         );
       case "approved":
         return (
           <Badge color="green">
-            <CheckCircledIcon className="w-3 h-3 mr-1" />
+            <CheckCircledIcon className="w-3 h-3" />
             Approved
           </Badge>
         );
       case "rejected":
         return (
           <Badge color="red">
-            <CrossCircledIcon className="w-3 h-3 mr-1" />
+            <CrossCircledIcon className="w-3 h-3" />
             Rejected
           </Badge>
         );
@@ -224,7 +224,7 @@ export function ApplicantsList({
           </Text>
           {pendingCount > 0 && (
             <Badge color="yellow" size="2">
-              <ClockIcon className="w-3 h-3 mr-1" />
+              <ClockIcon className="w-3 h-3" />
               {pendingCount} Pending
             </Badge>
           )}
