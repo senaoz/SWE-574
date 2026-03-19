@@ -202,19 +202,21 @@ export function Forum() {
                         </Text>
                       </Flex>
                       <div className="mt-1 prose-content card-description">
-                        <ReactMarkdown
-                          components={{
-                            a: ({ node, ...props }) => (
-                              
-                                {...props}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              />
-                            ),
-                          }}
-                        >
-                          {d.body}
-                        </ReactMarkdown>
+	                        <ReactMarkdown
+	                          components={{
+	                            a: ({ node, ...props }) => (
+	                              <a
+	                                {...props}
+	                                target="_blank"
+	                                rel="noopener noreferrer"
+	                              >
+	                                {props.children}
+	                              </a>
+	                            ),
+	                          }}
+	                        >
+	                          {d.body}
+	                        </ReactMarkdown>
                       </div>
                       <Flex gap="2" align="center" className="mt-2" wrap="wrap">
                         <Text size="1" color="gray">
@@ -282,18 +284,20 @@ export function Forum() {
                     </Flex>
                   </Flex>
                   <div className="prose-content card-description">
-                    <ReactMarkdown
-                      components={{
-                        a: ({ node, ...props }) => (
-                          
-                            {...props}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          />
-                        ),
-                      }}
-                    >
-                      {ev.description}
+	                    <ReactMarkdown
+	                      components={{
+	                        a: ({ node, ...props }) => (
+	                          <a
+	                            {...props}
+	                            target="_blank"
+	                            rel="noopener noreferrer"
+	                          >
+	                            {props.children}
+	                          </a>
+	                        ),
+	                      }}
+	                    >
+	                      {ev.description}
                     </ReactMarkdown>
                   </div>
                   <Flex gap="2" align="center" className="mt-2" wrap="wrap">
