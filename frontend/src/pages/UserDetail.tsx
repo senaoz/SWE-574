@@ -375,23 +375,35 @@ export function UserDetail() {
               <Text color="gray">Loading reviews...</Text>
             </Card>
           ) : detailedRatings.length > 0 ? (
-            <div className="space-y-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {detailedRatings.map((rating) => {
                 const raterLabel = rating.rater
                   ? rating.rater.full_name || `@${rating.rater.username}`
                   : "Anonymous";
-                const serviceTitle = rating.service?.title || "Service";
+                const serviceTitle = rating.service?.title || null;
                 const serviceId = rating.service?.id;
-                const dateLabel = new Date(rating.created_at).toLocaleDateString(
-                  "en-US",
-                  { year: "numeric", month: "short", day: "numeric" },
-                );
+                const dateLabel = new Date(
+                  rating.created_at,
+                ).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                });
                 const hours = rating.transaction?.timebank_hours;
+
+                if (!serviceTitle) {
+                  return null;
+                }
 
                 return (
                   <Card key={rating._id} className="p-4">
-                    <Flex direction="column" gap="2">
-                      <Flex justify="between" align="center" gap="3" wrap="wrap">
+                    <Flex direction="column" gap="3">
+                      <Flex
+                        justify="between"
+                        align="center"
+                        gap="3"
+                        wrap="wrap"
+                      >
                         <Flex align="center" gap="2">
                           <RatingStars
                             value={rating.score}
@@ -408,19 +420,19 @@ export function UserDetail() {
                       </Flex>
 
                       <Flex gap="2" align="center" wrap="wrap">
-                        <Text size="2" weight="bold">
-                          Service:
-                        </Text>
                         {serviceId ? (
                           <Button
+                            className="font-bold"
                             variant="ghost"
-                            size="1"
+                            size="2"
                             onClick={() => navigate(`/service/${serviceId}`)}
                           >
                             {serviceTitle}
                           </Button>
                         ) : (
-                          <Text size="2">{serviceTitle}</Text>
+                          <Text size="3" className="font-bold">
+                            {serviceTitle}
+                          </Text>
                         )}
                         {typeof hours === "number" && (
                           <Badge color="gray" variant="soft" size="1">
