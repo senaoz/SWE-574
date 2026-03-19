@@ -75,3 +75,9 @@ class ReportListResponse(BaseModel):
     total: int
     page: int
     limit: int
+
+
+class ReportPendingResponse(BaseModel):
+    pending: bool
+    report_id: Optional[str] = None
+    created_at: Optional[datetime] = None

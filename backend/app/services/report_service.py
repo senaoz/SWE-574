@@ -1,8 +1,13 @@
 from typing import List, Optional, Tuple
 from datetime import datetime
 from bson import ObjectId
+from pymongo.errors import DuplicateKeyError
 
 from ..models.report import ReportCreate, ReportStatusUpdate, ReportResponse, ReportType
+
+
+class PendingReportExistsError(ValueError):
+    pass
 
 
 class ReportService:
@@ -13,12 +18,29 @@ class ReportService:
         self.services_collection = db.services
 
     async def create_report(self, data: ReportCreate, reporter_id: str) -> ReportResponse:
-        """Create a new report. Prevents self-reporting."""
+        """Create a new report. Prevents self-reporting and duplicate pending reports."""
         if data.report_type == ReportType.USER and data.reported_id == reporter_id:
             raise ValueError("You cannot report yourself")
 
+        report_type_value = data.report_type.value
+        existing = await self.collection.find_one(
+            {
+                "reported_by": reporter_id,
+                "report_type": report_type_value,
+                "reported_id": data.reported_id,
+                "status": "pending",
+            }
+        )
+        if existing:
+            raise PendingReportExistsError(
+                "You already have a pending report for this target. Please wait until it is reviewed."
+            )
+
+        payload = data.dict()
+        payload["report_type"] = report_type_value
+        payload["reason"] = data.reason.value
         report_doc = {
-            **data.dict(),
+            **payload,
             "reported_by": reporter_id,
             "status": "pending",
             "resolved_by": None,
@@ -27,9 +49,32 @@ class ReportService:
             "updated_at": datetime.utcnow(),
         }
 
-        result = await self.collection.insert_one(report_doc)
+        try:
+            result = await self.collection.insert_one(report_doc)
+        except DuplicateKeyError:
+            raise PendingReportExistsError(
+                "You already have a pending report for this target. Please wait until it is reviewed."
+            )
         report_doc["_id"] = result.inserted_id
         return await self._populate(report_doc)
+
+    async def get_pending_report(
+        self, reporter_id: str, report_type: ReportType, reported_id: str
+    ) -> Optional[dict]:
+        doc = await self.collection.find_one(
+            {
+                "reported_by": reporter_id,
+                "report_type": report_type.value,
+                "reported_id": reported_id,
+                "status": "pending",
+            }
+        )
+        if not doc:
+            return None
+        return {
+            "report_id": str(doc.get("_id")),
+            "created_at": doc.get("created_at"),
+        }
 
     async def get_reports(
         self,

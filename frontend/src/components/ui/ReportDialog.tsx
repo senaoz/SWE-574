@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Dialog, Button, Flex, Select, TextArea, Text } from "@radix-ui/themes";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { reportsApi } from "@/services/api";
-import type { ReportType, ReportReason } from "@/types";
+import type { ReportType, ReportReason, ReportPendingResponse } from "@/types";
+import axios from "axios";
 
 interface ReportDialogProps {
   open: boolean;
@@ -39,6 +40,16 @@ export function ReportDialog({
     },
   });
 
+  const pendingQuery = useQuery({
+    queryKey: ["report-pending", reportType, reportedId],
+    queryFn: async () => {
+      const res = await reportsApi.getPendingReport({ report_type: reportType, reported_id: reportedId });
+      return res.data as ReportPendingResponse;
+    },
+    enabled: open && !submitted,
+    retry: false,
+  });
+
   const handleClose = (val: boolean) => {
     if (!val) {
       setSubmitted(false);
@@ -48,6 +59,13 @@ export function ReportDialog({
     }
     onOpenChange(val);
   };
+
+  const errorMessage =
+    mutation.isError && mutation.error
+      ? axios.isAxiosError(mutation.error)
+        ? (mutation.error.response?.data as any)?.detail || mutation.error.message
+        : (mutation.error as Error)?.message
+      : null;
 
   return (
     <Dialog.Root open={open} onOpenChange={handleClose}>
@@ -59,6 +77,22 @@ export function ReportDialog({
         {submitted ? (
           <Flex direction="column" gap="4">
             <Text>Your report has been submitted. Our moderators will review it shortly.</Text>
+            <Flex justify="end">
+              <Button onClick={() => handleClose(false)}>Close</Button>
+            </Flex>
+          </Flex>
+        ) : pendingQuery.isLoading ? (
+          <Flex direction="column" gap="4">
+            <Text>Checking existing reports...</Text>
+            <Flex justify="end">
+              <Button onClick={() => handleClose(false)}>Close</Button>
+            </Flex>
+          </Flex>
+        ) : pendingQuery.data?.pending ? (
+          <Flex direction="column" gap="4">
+            <Text>
+              You already have a pending report for <strong>{reportedName}</strong>. You can submit another report after this one is reviewed.
+            </Text>
             <Flex justify="end">
               <Button onClick={() => handleClose(false)}>Close</Button>
             </Flex>
@@ -94,7 +128,7 @@ export function ReportDialog({
 
             {mutation.isError && (
               <Text color="red" size="2">
-                {(mutation.error as Error)?.message || "Failed to submit report."}
+                {errorMessage || "Failed to submit report."}
               </Text>
             )}
 

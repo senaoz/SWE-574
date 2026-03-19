@@ -25,12 +25,16 @@ import type { Report, ReportStatus } from "@/types";
 import { TextField } from "@radix-ui/themes";
 import { useUser } from "@/contexts/UserContext";
 import { InterestChip } from "@/components/ui/InterestChip";
+import { useNavigate } from "react-router-dom";
 
 export function AdminPanel() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("users");
-  const [reportStatusFilter, setReportStatusFilter] = useState<string>("pending");
+  const [reportStatusFilter, setReportStatusFilter] =
+    useState<string>("pending");
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
-  const [reportResolutionStatus, setReportResolutionStatus] = useState<ReportStatus>("resolved");
+  const [reportResolutionStatus, setReportResolutionStatus] =
+    useState<ReportStatus>("resolved");
   const [reportResolutionNotes, setReportResolutionNotes] = useState("");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [roleUpdate, setRoleUpdate] = useState<UserRole>("user");
@@ -93,8 +97,15 @@ export function AdminPanel() {
   });
 
   const updateReportMutation = useMutation({
-    mutationFn: ({ id, status, resolution_notes }: { id: string; status: string; resolution_notes?: string }) =>
-      reportsApi.updateReport(id, { status, resolution_notes }),
+    mutationFn: ({
+      id,
+      status,
+      resolution_notes,
+    }: {
+      id: string;
+      status: string;
+      resolution_notes?: string;
+    }) => reportsApi.updateReport(id, { status, resolution_notes }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "reports"] });
       setSelectedReport(null);
@@ -169,6 +180,8 @@ export function AdminPanel() {
         return "blue";
       case "user":
         return "green";
+      case "banned":
+        return "gray";
       default:
         return "gray";
     }
@@ -775,8 +788,13 @@ export function AdminPanel() {
         <Tabs.Content value="reports" className="mt-6">
           <Card className="p-4">
             <Flex justify="between" align="center" mb="4">
-              <Text size="4" weight="bold">Reports</Text>
-              <Select.Root value={reportStatusFilter} onValueChange={setReportStatusFilter}>
+              <Text size="4" weight="bold">
+                Reports
+              </Text>
+              <Select.Root
+                value={reportStatusFilter}
+                onValueChange={setReportStatusFilter}
+              >
                 <Select.Trigger placeholder="Filter by status" />
                 <Select.Content>
                   <Select.Item value="all">All</Select.Item>
@@ -808,25 +826,68 @@ export function AdminPanel() {
                   {reportsData.reports.map((report: Report) => (
                     <Table.Row key={report._id}>
                       <Table.Cell>
-                        <Badge color={report.report_type === "user" ? "blue" : "purple"} variant="soft">
+                        <Badge
+                          color={
+                            report.report_type === "user" ? "blue" : "purple"
+                          }
+                          variant="soft"
+                        >
                           {report.report_type}
                         </Badge>
                       </Table.Cell>
                       <Table.Cell>
-                        {report.reported_details?.username || report.reported_details?.title || report.reported_id.slice(-6)}
+                        <div
+                          className="cursor-pointer hover:underline"
+                          onClick={() => {
+                            if (report.report_type === "user") {
+                              navigate(`/user/${report.reported_id}`);
+                            } else {
+                              navigate(`/service/${report.reported_id}`);
+                            }
+                          }}
+                        >
+                          {report.reported_details?.username ||
+                            report.reported_details?.title ||
+                            report.reported_id.slice(-6)}
+                        </div>
                       </Table.Cell>
                       <Table.Cell>
-                        {report.reporter_details?.username || report.reported_by.slice(-6)}
+                        {report.reporter_details?.username ||
+                          report.reported_by.slice(-6)}
                       </Table.Cell>
-                      <Table.Cell>{report.reason}</Table.Cell>
+                      <Table.Cell className="whitespace-nowrap capitalize">
+                        {report.reason
+                          .replace(/_/g, " ")
+                          .replace(/\b\w/g, (l) => l.toUpperCase())}
+                      </Table.Cell>
                       <Table.Cell>
-                        <Badge color={report.status === "pending" ? "orange" : report.status === "resolved" ? "green" : "gray"} variant="soft">
+                        <Badge
+                          color={
+                            report.status === "pending"
+                              ? "orange"
+                              : report.status === "resolved"
+                                ? "green"
+                                : "gray"
+                          }
+                          variant="soft"
+                          className="capitalize"
+                        >
                           {report.status}
                         </Badge>
                       </Table.Cell>
-                      <Table.Cell>{new Date(report.created_at).toLocaleDateString()}</Table.Cell>
                       <Table.Cell>
-                        <Button size="1" variant="soft" onClick={() => { setSelectedReport(report); setReportResolutionStatus("resolved"); setReportResolutionNotes(""); }}>
+                        {new Date(report.created_at).toLocaleDateString()}
+                      </Table.Cell>
+                      <Table.Cell>
+                        <Button
+                          size="1"
+                          variant="soft"
+                          onClick={() => {
+                            setSelectedReport(report);
+                            setReportResolutionStatus("resolved");
+                            setReportResolutionNotes("");
+                          }}
+                        >
                           Review
                         </Button>
                       </Table.Cell>
@@ -840,19 +901,37 @@ export function AdminPanel() {
       </Tabs.Root>
 
       {/* Report Review Dialog */}
-      <Dialog.Root open={!!selectedReport} onOpenChange={(open) => { if (!open) setSelectedReport(null); }}>
+      <Dialog.Root
+        open={!!selectedReport}
+        onOpenChange={(open) => {
+          if (!open) setSelectedReport(null);
+        }}
+      >
         <Dialog.Content className="max-w-md" aria-describedby={undefined}>
           <Dialog.Title>Review Report</Dialog.Title>
           {selectedReport && (
             <Flex direction="column" gap="3">
-              <Text size="2"><strong>Type:</strong> {selectedReport.report_type}</Text>
-              <Text size="2"><strong>Reason:</strong> {selectedReport.reason}</Text>
+              <Text size="2">
+                <strong>Type:</strong> {selectedReport.report_type}
+              </Text>
+              <Text size="2">
+                <strong>Reason:</strong> {selectedReport.reason}
+              </Text>
               {selectedReport.description && (
-                <Text size="2"><strong>Details:</strong> {selectedReport.description}</Text>
+                <Text size="2">
+                  <strong>Details:</strong> {selectedReport.description}
+                </Text>
               )}
               <Flex direction="column" gap="1">
-                <Text size="2" weight="medium">Update Status</Text>
-                <Select.Root value={reportResolutionStatus} onValueChange={(v) => setReportResolutionStatus(v as ReportStatus)}>
+                <Text size="2" weight="medium">
+                  Update Status
+                </Text>
+                <Select.Root
+                  value={reportResolutionStatus}
+                  onValueChange={(v) =>
+                    setReportResolutionStatus(v as ReportStatus)
+                  }
+                >
                   <Select.Trigger />
                   <Select.Content>
                     <Select.Item value="under_review">Under Review</Select.Item>
@@ -862,7 +941,9 @@ export function AdminPanel() {
                 </Select.Root>
               </Flex>
               <Flex direction="column" gap="1">
-                <Text size="2" weight="medium">Resolution Notes (optional)</Text>
+                <Text size="2" weight="medium">
+                  Resolution Notes (optional)
+                </Text>
                 <TextField.Root
                   value={reportResolutionNotes}
                   onChange={(e) => setReportResolutionNotes(e.target.value)}
@@ -870,9 +951,21 @@ export function AdminPanel() {
                 />
               </Flex>
               <Flex gap="3" justify="end">
-                <Button variant="soft" color="gray" onClick={() => setSelectedReport(null)}>Cancel</Button>
                 <Button
-                  onClick={() => updateReportMutation.mutate({ id: selectedReport._id, status: reportResolutionStatus, resolution_notes: reportResolutionNotes || undefined })}
+                  variant="soft"
+                  color="gray"
+                  onClick={() => setSelectedReport(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() =>
+                    updateReportMutation.mutate({
+                      id: selectedReport._id,
+                      status: reportResolutionStatus,
+                      resolution_notes: reportResolutionNotes || undefined,
+                    })
+                  }
                   disabled={updateReportMutation.isPending}
                 >
                   {updateReportMutation.isPending ? "Saving..." : "Save"}
@@ -916,6 +1009,7 @@ export function AdminPanel() {
                       <Select.Item value="user">User</Select.Item>
                       <Select.Item value="moderator">Moderator</Select.Item>
                       <Select.Item value="admin">Admin</Select.Item>
+                      <Select.Item value="banned">Banned</Select.Item>
                     </Select.Content>
                   </Select.Root>
                 </Flex>

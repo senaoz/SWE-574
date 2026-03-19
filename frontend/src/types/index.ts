@@ -1,4 +1,4 @@
-export type UserRole = 'user' | 'moderator' | 'admin';
+export type UserRole = 'user' | 'moderator' | 'admin' | 'banned';
 
 export interface SocialLinks {
   linkedin?: string;
@@ -606,4 +606,10 @@ export interface ReportListResponse {
   total: number;
   page: number;
   limit: number;
+}
+
+export interface ReportPendingResponse {
+  pending: boolean;
+  report_id?: string;
+  created_at?: string;
 }

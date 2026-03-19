@@ -121,6 +121,13 @@ async def create_indexes():
         await db.database.reports.create_index([("report_type", 1), ("status", 1)])
         await db.database.reports.create_index("reported_id")
         await db.database.reports.create_index("status")
+        # Only one pending report per (reporter, type, target)
+        await db.database.reports.create_index(
+            [("reported_by", 1), ("report_type", 1), ("reported_id", 1)],
+            unique=True,
+            partialFilterExpression={"status": "pending"},
+            name="uniq_pending_report_per_target",
+        )
 
         logger.info("Database indexes created successfully")
     except Exception as e:
