@@ -7,6 +7,10 @@ from ..core.security import get_password_hash, verify_password
 from ..core.database import get_database
 
 
+class LoginNotAllowedError(Exception):
+    """Raised when user credentials are valid but login is not allowed (e.g., banned)."""
+
+
 class AuthService:
     def __init__(self, db):
         self.db = db
@@ -66,7 +70,8 @@ class AuthService:
                 "interests": [],
                 "is_active": True,
                 "is_verified": False,
-                "role": user_data.role,
+                # Always start new accounts as regular users; roles are managed by moderators/admins.
+                "role": UserRole.USER,
                 "timebank_balance": 3.0,
                 # Privacy settings
                 "profile_visible": user_data.profile_visible,
@@ -104,11 +109,20 @@ class AuthService:
             # Verify password
             if not verify_password(password, user_doc.get("password_hash", "")):
                 return None
+
+            # Block login for banned/inactive accounts
+            role = user_doc.get("role")
+            if role == UserRole.BANNED or role == UserRole.BANNED.value:
+                raise LoginNotAllowedError("Your account has been banned.")
+            if user_doc.get("is_active") is False:
+                raise LoginNotAllowedError("Your account is inactive.")
             
             # Remove password hash from response
             del user_doc["password_hash"]
             
             return UserResponse(**user_doc)
+        except LoginNotAllowedError:
+            raise
         except Exception:
             return None
 
@@ -118,6 +132,10 @@ class AuthService:
             # Check if user exists with this email
             existing_user = await self.get_user_by_email(email)
             if existing_user:
+                if existing_user.role == UserRole.BANNED:
+                    raise LoginNotAllowedError("Your account has been banned.")
+                if existing_user.is_active is False:
+                    raise LoginNotAllowedError("Your account is inactive.")
                 return existing_user
             
             # Check if username is taken
@@ -158,5 +176,7 @@ class AuthService:
             user_doc["_id"] = result.inserted_id
             
             return UserResponse(**user_doc)
+        except LoginNotAllowedError:
+            raise
         except Exception as e:
             raise ValueError(f"Error creating OAuth user: {str(e)}")

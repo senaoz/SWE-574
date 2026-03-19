@@ -22,6 +22,7 @@ class UserRole(str, Enum):
     USER = "user"
     MODERATOR = "moderator"
     ADMIN = "admin"
+    BANNED = "banned"
 
 
 URL_REGEX = re.compile(
