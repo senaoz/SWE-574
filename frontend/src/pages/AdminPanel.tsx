@@ -84,7 +84,12 @@ export function AdminPanel() {
   const { data: reportsData, isLoading: reportsLoading } = useQuery({
     queryKey: ["admin", "reports", reportStatusFilter],
     queryFn: () =>
-      reportsApi.getReports({ status: reportStatusFilter || undefined, limit: 100 }).then((res) => res.data),
+      reportsApi
+        .getReports({
+          status: reportStatusFilter === "all" ? undefined : reportStatusFilter,
+          limit: 100,
+        })
+        .then((res) => res.data),
   });
 
   const updateReportMutation = useMutation({
@@ -774,7 +779,7 @@ export function AdminPanel() {
               <Select.Root value={reportStatusFilter} onValueChange={setReportStatusFilter}>
                 <Select.Trigger placeholder="Filter by status" />
                 <Select.Content>
-                  <Select.Item value="">All</Select.Item>
+                  <Select.Item value="all">All</Select.Item>
                   <Select.Item value="pending">Pending</Select.Item>
                   <Select.Item value="under_review">Under Review</Select.Item>
                   <Select.Item value="resolved">Resolved</Select.Item>
