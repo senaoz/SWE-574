@@ -607,3 +607,9 @@ export interface ReportListResponse {
   page: number;
   limit: number;
 }
+
+export interface ReportPendingResponse {
+  pending: boolean;
+  report_id?: string;
+  created_at?: string;
+}

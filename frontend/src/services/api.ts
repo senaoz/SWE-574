@@ -387,6 +387,9 @@ export const reportsApi = {
   createReport: (data: import('../types').ReportForm) =>
     api.post('/reports/', data),
 
+  getPendingReport: (params: { report_type: import('../types').ReportType; reported_id: string }) =>
+    api.get('/reports/pending', { params }),
+
   getReports: (params?: { page?: number; limit?: number; status?: string; report_type?: string }) =>
     api.get('/reports/admin', { params }),
 
