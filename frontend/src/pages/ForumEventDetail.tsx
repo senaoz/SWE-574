@@ -265,6 +265,7 @@ export function ForumEventDetail() {
                     src={getImageUrl(a.profile_picture)}
                     size="3"
                     className="cursor-pointer hover:ring-2 hover:ring-purple-500 transition-all"
+                    onClick={() => navigate(`/user/${a._id}`)}
                   />
                 </Tooltip>
               ))}
