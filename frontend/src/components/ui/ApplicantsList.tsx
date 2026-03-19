@@ -1,5 +1,12 @@
 import { useState, useEffect } from "react";
-import { Text, Flex, Avatar, Button, Badge, TextArea } from "@radix-ui/themes";
+import {
+  Text,
+  Flex,
+  Avatar,
+  Button,
+  Badge,
+  TextArea,
+} from "@radix-ui/themes";
 import { JoinRequest } from "@/types";
 import {
   getImageUrl,
