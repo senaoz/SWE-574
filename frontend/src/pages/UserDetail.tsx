@@ -18,7 +18,7 @@ import {
   ArrowLeftIcon,
 } from "@radix-ui/react-icons";
 import { useQuery } from "@tanstack/react-query";
-import { User, Service } from "@/types";
+import { User, Service, RatingDetailed } from "@/types";
 import { servicesApi, usersApi, ratingsApi, getImageUrl } from "@/services/api";
 import { useUser } from "@/App";
 import { ReportDialog } from "@/components/ui/ReportDialog";
@@ -26,6 +26,7 @@ import { OfferListingCard } from "@/components/ui/OfferListingCard";
 import { BadgeDisplay } from "@/components/ui/BadgeDisplay";
 import { InterestChip } from "@/components/ui/InterestChip";
 import { RatingStars } from "@/components/ui/RatingStars";
+import { tagToLabel } from "@/components/ui/ConfirmCompletionModal";
 import {
   Linkedin,
   Github,
@@ -77,6 +78,15 @@ export function UserDetail() {
   });
   const averageRating = ratingsData?.data?.average_score ?? null;
   const ratingCount = ratingsData?.data?.total ?? 0;
+
+  const { data: detailedRatingsData, isLoading: detailedRatingsLoading } =
+    useQuery({
+      queryKey: ["user-ratings-detailed", userId],
+      queryFn: () => ratingsApi.getUserRatingsDetailed(userId!, 1, 10),
+      enabled: !!userId,
+    });
+  const detailedRatings: RatingDetailed[] =
+    detailedRatingsData?.data?.ratings ?? [];
 
   if (loading) {
     return (
@@ -356,6 +366,99 @@ export function UserDetail() {
         </Box>
 
         {userId && <BadgeDisplay userId={userId} />}
+
+        {/* Reviews Section */}
+        <div className="space-y-4">
+          <Heading size="5">Recent Reviews</Heading>
+          {detailedRatingsLoading ? (
+            <Card className="p-6 text-center">
+              <Text color="gray">Loading reviews...</Text>
+            </Card>
+          ) : detailedRatings.length > 0 ? (
+            <div className="space-y-3">
+              {detailedRatings.map((rating) => {
+                const raterLabel = rating.rater
+                  ? rating.rater.full_name || `@${rating.rater.username}`
+                  : "Anonymous";
+                const serviceTitle = rating.service?.title || "Service";
+                const serviceId = rating.service?.id;
+                const dateLabel = new Date(rating.created_at).toLocaleDateString(
+                  "en-US",
+                  { year: "numeric", month: "short", day: "numeric" },
+                );
+                const hours = rating.transaction?.timebank_hours;
+
+                return (
+                  <Card key={rating._id} className="p-4">
+                    <Flex direction="column" gap="2">
+                      <Flex justify="between" align="center" gap="3" wrap="wrap">
+                        <Flex align="center" gap="2">
+                          <RatingStars
+                            value={rating.score}
+                            readonly
+                            size={16}
+                          />
+                          <Text size="1" color="gray">
+                            {dateLabel}
+                          </Text>
+                        </Flex>
+                        <Text size="1" color="gray">
+                          from {raterLabel}
+                        </Text>
+                      </Flex>
+
+                      <Flex gap="2" align="center" wrap="wrap">
+                        <Text size="2" weight="bold">
+                          Service:
+                        </Text>
+                        {serviceId ? (
+                          <Button
+                            variant="ghost"
+                            size="1"
+                            onClick={() => navigate(`/service/${serviceId}`)}
+                          >
+                            {serviceTitle}
+                          </Button>
+                        ) : (
+                          <Text size="2">{serviceTitle}</Text>
+                        )}
+                        {typeof hours === "number" && (
+                          <Badge color="gray" variant="soft" size="1">
+                            {hours} hour(s)
+                          </Badge>
+                        )}
+                      </Flex>
+
+                      {rating.tags && rating.tags.length > 0 && (
+                        <Flex wrap="wrap" gap="1">
+                          {rating.tags.map((tag) => (
+                            <InterestChip
+                              key={tag}
+                              name={tagToLabel(tag)}
+                              selected
+                              size="sm"
+                              showIcon={false}
+                            />
+                          ))}
+                        </Flex>
+                      )}
+
+                      {rating.comment && (
+                        <Text size="2" color="gray">
+                          "{rating.comment}"
+                        </Text>
+                      )}
+                    </Flex>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <Card className="p-6 text-center">
+              <Text color="gray">No reviews yet</Text>
+            </Card>
+          )}
+        </div>
 
         {/* Services Section */}
         <div className="space-y-6">

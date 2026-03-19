@@ -2,7 +2,11 @@ from typing import List, Optional, Tuple
 from datetime import datetime
 from bson import ObjectId
 
-from ..models.rating import RatingCreate, RatingResponse
+from ..models.rating import (
+    RatingCreate,
+    RatingResponse,
+    RatingDetailedResponse,
+)
 
 
 class RatingService:
@@ -10,6 +14,7 @@ class RatingService:
         self.db = db
         self.ratings_collection = db.ratings
         self.transactions_collection = db.transactions
+        self.services_collection = db.services
         self.users_collection = db.users
 
     async def create_rating(self, rater_id: str, rating_data: RatingCreate) -> RatingResponse:
@@ -90,6 +95,63 @@ class RatingService:
                     "full_name": rater.get("full_name"),
                 }
             ratings.append(RatingResponse(**doc))
+
+        avg = await self.get_average_rating(user_id)
+        return ratings, total, avg
+
+    async def get_detailed_ratings_for_user(
+        self, user_id: str, page: int = 1, limit: int = 20
+    ) -> Tuple[List[RatingDetailedResponse], int, Optional[float]]:
+        query = {"rated_user_id": ObjectId(user_id)}
+        total = await self.ratings_collection.count_documents(query)
+
+        skip = (page - 1) * limit
+        cursor = (
+            self.ratings_collection.find(query)
+            .sort("created_at", -1)
+            .skip(skip)
+            .limit(limit)
+        )
+
+        ratings: List[RatingDetailedResponse] = []
+        async for doc in cursor:
+            rater = await self.users_collection.find_one({"_id": doc["rater_id"]})
+            if rater:
+                doc["rater"] = {
+                    "id": str(rater["_id"]),
+                    "username": rater.get("username"),
+                    "full_name": rater.get("full_name"),
+                }
+
+            transaction = await self.transactions_collection.find_one(
+                {"_id": doc["transaction_id"]}
+            )
+            if transaction:
+                doc["transaction"] = {
+                    "id": str(transaction["_id"]),
+                    "timebank_hours": float(
+                        transaction.get(
+                            "timebank_hours",
+                            transaction.get("hours", 0),
+                        )
+                    ),
+                    "completed_at": transaction.get("completed_at"),
+                    "created_at": transaction.get("created_at"),
+                }
+
+                service_id = transaction.get("service_id")
+                if service_id is not None:
+                    service = await self.services_collection.find_one({"_id": service_id})
+                    if service:
+                        doc["service"] = {
+                            "id": str(service["_id"]),
+                            "title": service.get("title", "Service"),
+                            "description": service.get("description"),
+                            "service_type": service.get("service_type"),
+                            "status": service.get("status"),
+                        }
+
+            ratings.append(RatingDetailedResponse(**doc))
 
         avg = await self.get_average_rating(user_id)
         return ratings, total, avg

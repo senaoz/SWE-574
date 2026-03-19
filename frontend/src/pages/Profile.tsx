@@ -32,6 +32,7 @@ import {
   AccountDeletionForm,
   JoinRequest,
   SocialLinks,
+  RatingDetailed,
 } from "@/types";
 import {
   usersApi,
@@ -46,6 +47,7 @@ import { BadgeDisplay } from "@/components/ui/BadgeDisplay";
 import { RatingStars } from "@/components/ui/RatingStars";
 import { InterestSelector } from "@/components/ui/InterestSelector";
 import { InterestChip } from "@/components/ui/InterestChip";
+import { tagToLabel } from "@/components/ui/ConfirmCompletionModal";
 import { MapLocationPicker } from "@/components/ui/MapLocationPicker";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { PROFILE_PICTURE_PRESETS } from "@/constants/profilePicturePresets";
@@ -206,6 +208,15 @@ export function Profile() {
   });
   const averageRating = ratingsData?.data?.average_score ?? null;
   const ratingCount = ratingsData?.data?.total ?? 0;
+
+  const { data: detailedRatingsData, isLoading: detailedRatingsLoading } =
+    useQuery({
+      queryKey: ["user-ratings-detailed", user?._id],
+      queryFn: () => ratingsApi.getUserRatingsDetailed(user!._id, 1, 10),
+      enabled: !!user?._id,
+    });
+  const detailedRatings: RatingDetailed[] =
+    detailedRatingsData?.data?.ratings ?? [];
 
   let rejectedRequests = rejectedRequestsData?.data.requests || [];
   const recentRejectedCount = rejectedRequests.filter((req: JoinRequest) => {
@@ -796,6 +807,107 @@ export function Profile() {
                         ) : (
                           <Text size="2" color="gray">
                             No ratings yet
+                          </Text>
+                        )}
+                      </div>
+
+                      {/* Recent Reviews */}
+                      <div>
+                        <Text size="2" weight="bold" className="block mb-2">
+                          Recent Reviews
+                        </Text>
+                        {detailedRatingsLoading ? (
+                          <Text size="2" color="gray">
+                            Loading reviews...
+                          </Text>
+                        ) : detailedRatings.length > 0 ? (
+                          <div className="space-y-3">
+                            {detailedRatings.map((rating) => {
+                              const raterLabel = rating.rater
+                                ? rating.rater.full_name ||
+                                  `@${rating.rater.username}`
+                                : "Anonymous";
+                              const serviceTitle =
+                                rating.service?.title || "Service";
+                              const serviceId = rating.service?.id;
+                              const dateLabel = new Date(
+                                rating.created_at,
+                              ).toLocaleDateString("en-US", {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              });
+
+                              return (
+                                <Card key={rating._id} className="p-4">
+                                  <Flex direction="column" gap="2">
+                                    <Flex
+                                      justify="between"
+                                      align="center"
+                                      gap="3"
+                                      wrap="wrap"
+                                    >
+                                      <Flex align="center" gap="2">
+                                        <RatingStars
+                                          value={rating.score}
+                                          readonly
+                                          size={16}
+                                        />
+                                        <Text size="1" color="gray">
+                                          {dateLabel}
+                                        </Text>
+                                      </Flex>
+                                      <Text size="1" color="gray">
+                                        from {raterLabel}
+                                      </Text>
+                                    </Flex>
+
+                                    <Flex gap="2" align="center" wrap="wrap">
+                                      <Text size="2" weight="bold">
+                                        Service:
+                                      </Text>
+                                      {serviceId ? (
+                                        <Button
+                                          variant="ghost"
+                                          size="1"
+                                          onClick={() =>
+                                            navigate(`/service/${serviceId}`)
+                                          }
+                                        >
+                                          {serviceTitle}
+                                        </Button>
+                                      ) : (
+                                        <Text size="2">{serviceTitle}</Text>
+                                      )}
+                                    </Flex>
+
+                                    {rating.tags && rating.tags.length > 0 && (
+                                      <Flex wrap="wrap" gap="1">
+                                        {rating.tags.map((tag) => (
+                                          <InterestChip
+                                            key={tag}
+                                            name={tagToLabel(tag)}
+                                            selected
+                                            size="sm"
+                                            showIcon={false}
+                                          />
+                                        ))}
+                                      </Flex>
+                                    )}
+
+                                    {rating.comment && (
+                                      <Text size="2" color="gray">
+                                        "{rating.comment}"
+                                      </Text>
+                                    )}
+                                  </Flex>
+                                </Card>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <Text size="2" color="gray">
+                            No reviews yet
                           </Text>
                         )}
                       </div>

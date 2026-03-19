@@ -1,6 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from ..models.rating import RatingCreate, RatingResponse, RatingListResponse
+from ..models.rating import (
+    RatingCreate,
+    RatingResponse,
+    RatingListResponse,
+    RatingDetailedListResponse,
+)
 from ..models.user import UserResponse
 from ..services.rating_service import RatingService
 from ..api.auth import get_current_user
@@ -34,6 +39,24 @@ async def get_user_ratings(
     try:
         ratings, total, avg = await rating_service.get_ratings_for_user(user_id, page, limit)
         return RatingListResponse(ratings=ratings, total=total, average_score=avg)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.get("/user/{user_id}/detailed", response_model=RatingDetailedListResponse)
+async def get_user_ratings_detailed(
+    user_id: str,
+    page: int = 1,
+    limit: int = 20,
+    db=Depends(get_database),
+):
+    """Get ratings received by a user, including related transaction and service info."""
+    rating_service = RatingService(db)
+    try:
+        ratings, total, avg = await rating_service.get_detailed_ratings_for_user(
+            user_id, page, limit
+        )
+        return RatingDetailedListResponse(ratings=ratings, total=total, average_score=avg)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 

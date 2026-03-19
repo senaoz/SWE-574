@@ -1,5 +1,5 @@
 import axios, { AxiosResponse } from 'axios';
-import { AuthResponse, User, Service, ServiceListResponse, TimeBankResponse, TimeBankTransaction, LoginForm, RegisterForm, ServiceForm, Comment, CommentListResponse, CommentForm, JoinRequest, JoinRequestListResponse, JoinRequestForm, Transaction, TransactionListResponse, TransactionForm, ChatRoom, ChatRoomListResponse, ChatRoomForm, Message, MessageListResponse, MessageForm, UserSettings, PasswordChangeForm, AccountDeletionForm, BadgeSummary, Rating, RatingListResponse, RatingForm, ForumDiscussion, ForumDiscussionListResponse, ForumDiscussionForm, ForumEvent, ForumEventListResponse, ForumEventForm, ForumComment, ForumCommentListResponse } from '@/types';
+import { AuthResponse, User, Service, ServiceListResponse, TimeBankResponse, TimeBankTransaction, LoginForm, RegisterForm, ServiceForm, Comment, CommentListResponse, CommentForm, JoinRequest, JoinRequestListResponse, JoinRequestForm, Transaction, TransactionListResponse, TransactionForm, ChatRoom, ChatRoomListResponse, ChatRoomForm, Message, MessageListResponse, MessageForm, UserSettings, PasswordChangeForm, AccountDeletionForm, BadgeSummary, Rating, RatingListResponse, RatingDetailedListResponse, RatingForm, ForumDiscussion, ForumDiscussionListResponse, ForumDiscussionForm, ForumEvent, ForumEventListResponse, ForumEventForm, ForumComment, ForumCommentListResponse } from '@/types';
 
 // Use relative URL /api to leverage nginx proxy, or absolute URL if provided via env var
 // This ensures requests go through the same HTTPS domain as the frontend
@@ -317,6 +317,9 @@ export const ratingsApi = {
 
   getUserRatings: (userId: string, page?: number, limit?: number): Promise<AxiosResponse<RatingListResponse>> =>
     api.get(`/ratings/user/${userId}`, { params: { page, limit } }),
+
+  getUserRatingsDetailed: (userId: string, page?: number, limit?: number): Promise<AxiosResponse<RatingDetailedListResponse>> =>
+    api.get(`/ratings/user/${userId}/detailed`, { params: { page, limit } }),
 
   getTransactionRatings: (transactionId: string): Promise<AxiosResponse<Rating[]>> =>
     api.get(`/ratings/transaction/${transactionId}`),

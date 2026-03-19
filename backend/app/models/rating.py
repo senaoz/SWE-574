@@ -39,3 +39,29 @@ class RatingListResponse(BaseModel):
     ratings: list[RatingResponse]
     total: int
     average_score: Optional[float] = None
+
+
+class RatingDetailedResponse(BaseModel):
+    id: PyObjectId = Field(alias="_id")
+    transaction_id: PyObjectId
+    rater_id: PyObjectId
+    rated_user_id: PyObjectId
+    score: int
+    comment: Optional[str] = None
+    tags: Optional[List[str]] = None
+    created_at: datetime
+    rater: Optional[dict] = None
+    rated_user: Optional[dict] = None
+    transaction: Optional[dict] = None
+    service: Optional[dict] = None
+
+    class Config:
+        populate_by_name = True
+        arbitrary_types_allowed = True
+        json_encoders = {ObjectId: str}
+
+
+class RatingDetailedListResponse(BaseModel):
+    ratings: list[RatingDetailedResponse]
+    total: int
+    average_score: Optional[float] = None

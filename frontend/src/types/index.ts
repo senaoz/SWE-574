@@ -53,6 +53,41 @@ export interface RatingListResponse {
   average_score?: number;
 }
 
+export interface RatingDetailed {
+  _id: string;
+  transaction_id: string;
+  rater_id: string;
+  rated_user_id: string;
+  score: number;
+  comment?: string;
+  tags?: string[];
+  created_at: string;
+  rater?: {
+    id: string;
+    username: string;
+    full_name?: string;
+  };
+  transaction?: {
+    id: string;
+    timebank_hours: number;
+    completed_at?: string;
+    created_at?: string;
+  };
+  service?: {
+    id: string;
+    title: string;
+    description?: string;
+    service_type?: string;
+    status?: string;
+  };
+}
+
+export interface RatingDetailedListResponse {
+  ratings: RatingDetailed[];
+  total: number;
+  average_score?: number;
+}
+
 export interface RatingForm {
   transaction_id: string;
   rated_user_id: string;
