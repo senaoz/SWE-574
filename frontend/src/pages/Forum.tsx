@@ -223,21 +223,19 @@ export function Forum() {
                           {timeAgo(d.created_at)}
                         </Text>
                       </Flex>
-                      <div className="mt-1 prose-content card-description">
-                        <ReactMarkdown
-                          components={{
-                            a: ({ node, ...props }) => (
-                              <a
-                                {...props}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              />
-                            ),
-                          }}
-                        >
-                          {d.body}
-                        </ReactMarkdown>
-                      </div>
+	                      <div className="mt-1 prose-content card-description">
+	                        <ReactMarkdown
+	                          components={{
+	                            a: ({ children, ...props }) => (
+	                              <a {...props} target="_blank" rel="noopener noreferrer">
+	                                {children}
+	                              </a>
+	                            ),
+	                          }}
+	                        >
+	                          {d.body}
+	                        </ReactMarkdown>
+	                      </div>
                       <Flex gap="2" align="center" className="mt-2" wrap="wrap">
                         <Text size="1" color="gray">
                           by{" "}
@@ -306,21 +304,19 @@ export function Forum() {
                       </Badge>
                     </Flex>
                   </Flex>
-                  <div className="prose-content card-description">
-                    <ReactMarkdown
-                      components={{
-                        a: ({ node, ...props }) => (
-                          <a
-                            {...props}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          />
-                        ),
-                      }}
-                    >
-                      {ev.description}
-                    </ReactMarkdown>
-                  </div>
+	                  <div className="prose-content card-description">
+	                    <ReactMarkdown
+	                      components={{
+	                        a: ({ children, ...props }) => (
+	                          <a {...props} target="_blank" rel="noopener noreferrer">
+	                            {children}
+	                          </a>
+	                        ),
+	                      }}
+	                    >
+	                      {ev.description}
+	                    </ReactMarkdown>
+	                  </div>
                   <Flex gap="2" align="center" className="mt-2" wrap="wrap">
                     <Text size="1" color="gray">
                       by {ev.user?.full_name || ev.user?.username || "Unknown"}
