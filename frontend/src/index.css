@@ -256,3 +256,7 @@ p {
 .rt-TextAreaRoot:where(.rt-variant-soft) {
     background-color: var(--accent-a2) !important;
 }
+
+button {
+    cursor: pointer !important;
+}
