@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
 
 @HiltViewModel
@@ -37,6 +38,12 @@ class ProfileViewModel @Inject constructor(
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+
+    private val _uploadedProfilePictureUrl = MutableStateFlow<String?>(null)
+    val uploadedProfilePictureUrl: StateFlow<String?> = _uploadedProfilePictureUrl.asStateFlow()
+
+    private val _isUploadingProfilePicture = MutableStateFlow(false)
+    val isUploadingProfilePicture: StateFlow<Boolean> = _isUploadingProfilePicture.asStateFlow()
 
     fun load() {
         viewModelScope.launch {
@@ -97,4 +104,20 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun clearError() { _error.value = null }
+
+    fun uploadProfilePicture(file: File, mimeType: String) {
+        viewModelScope.launch {
+            _isUploadingProfilePicture.value = true
+            _uploadedProfilePictureUrl.value = null
+            _error.value = null
+            usersRepository.uploadProfilePicture(file, mimeType)
+                .onSuccess { _uploadedProfilePictureUrl.value = it }
+                .onFailure { _error.value = it.message }
+            _isUploadingProfilePicture.value = false
+        }
+    }
+
+    fun clearUploadedProfilePictureUrl() {
+        _uploadedProfilePictureUrl.value = null
+    }
 }

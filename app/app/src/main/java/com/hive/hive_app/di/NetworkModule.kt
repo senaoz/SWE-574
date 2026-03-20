@@ -109,4 +109,9 @@ object NetworkModule {
     @Singleton
     fun provideTransactionsApi(retrofit: Retrofit): com.hive.hive_app.data.api.TransactionsApi =
         retrofit.create(com.hive.hive_app.data.api.TransactionsApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideUploadApi(retrofit: Retrofit): com.hive.hive_app.data.api.UploadApi =
+        retrofit.create(com.hive.hive_app.data.api.UploadApi::class.java)
 }

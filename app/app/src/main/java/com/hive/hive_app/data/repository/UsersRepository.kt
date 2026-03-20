@@ -1,7 +1,12 @@
 package com.hive.hive_app.data.repository
 
+import com.hive.hive_app.data.api.UploadApi
 import com.hive.hive_app.data.api.UsersApi
 import com.hive.hive_app.data.api.dto.BadgesResponse
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import java.io.File
 import com.hive.hive_app.data.api.dto.PasswordChange
 import com.hive.hive_app.data.api.dto.TimeBankResponse
 import com.hive.hive_app.data.api.dto.UserResponse
@@ -12,8 +17,16 @@ import javax.inject.Singleton
 
 @Singleton
 class UsersRepository @Inject constructor(
-    private val api: UsersApi
+    private val api: UsersApi,
+    private val uploadApi: UploadApi
 ) {
+    suspend fun uploadProfilePicture(file: File, mimeType: String): Result<String> = runCatching {
+        val mediaType = mimeType.toMediaTypeOrNull() ?: "image/jpeg".toMediaTypeOrNull()!!
+        val requestFile = file.asRequestBody(mediaType)
+        val body = MultipartBody.Part.createFormData("file", file.name, requestFile)
+        val r = uploadApi.uploadProfilePicture(body)
+        if (r.isSuccessful && r.body() != null) r.body()!!.url else throw retrofit2.HttpException(r)
+    }
     suspend fun getProfile(): Result<UserResponse> = runCatching {
         val r = api.getProfile()
         if (r.isSuccessful && r.body() != null) r.body()!! else throw retrofit2.HttpException(r)

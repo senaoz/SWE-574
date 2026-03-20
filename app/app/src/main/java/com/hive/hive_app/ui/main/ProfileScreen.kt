@@ -2,6 +2,8 @@ package com.hive.hive_app.ui.main
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -86,6 +88,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import java.io.File
 import coil.compose.AsyncImage
 import com.hive.hive_app.data.api.dto.BadgesResponse
 import com.hive.hive_app.data.api.dto.SocialLinks
@@ -119,7 +122,11 @@ fun ProfileScreen(
         EditProfileDialog(
             profile = profile!!,
             availableInterests = availableInterests,
-            onDismiss = { showEditProfile = false },
+            viewModel = viewModel,
+            onDismiss = {
+                viewModel.clearUploadedProfilePictureUrl()
+                showEditProfile = false
+            },
             onSave = { update ->
                 viewModel.updateProfile(update)
                 showEditProfile = false
@@ -917,11 +924,14 @@ private fun SettingsClickableCard(user: UserResponse, onClick: () -> Unit) {
 private fun EditProfileDialog(
     profile: UserResponse,
     availableInterests: List<String>,
+    viewModel: ProfileViewModel,
     onDismiss: () -> Unit,
     onSave: (com.hive.hive_app.data.api.dto.UserUpdate) -> Unit
 ) {
+    val context = LocalContext.current
     var username by remember(profile) { mutableStateOf(profile.username) }
     var fullName by remember(profile) { mutableStateOf(profile.fullName ?: "") }
+    var profilePicture by remember(profile) { mutableStateOf(profile.profilePicture ?: "") }
     var bio by remember(profile) { mutableStateOf(profile.bio ?: "") }
     var location by remember(profile) { mutableStateOf(profile.location ?: "") }
     var showLocationPicker by remember { mutableStateOf(false) }
@@ -930,6 +940,32 @@ private fun EditProfileDialog(
     var github by remember(profile) { mutableStateOf(profile.socialLinks?.github ?: "") }
     var twitter by remember(profile) { mutableStateOf(profile.socialLinks?.twitter ?: "") }
     var website by remember(profile) { mutableStateOf(profile.socialLinks?.website ?: "") }
+    val uploadedUrl by viewModel.uploadedProfilePictureUrl.collectAsState()
+    val isUploading by viewModel.isUploadingProfilePicture.collectAsState()
+    LaunchedEffect(uploadedUrl) {
+        uploadedUrl?.let { url ->
+            profilePicture = url
+            viewModel.clearUploadedProfilePictureUrl()
+        }
+    }
+    val pickImageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri ?: return@rememberLauncherForActivityResult
+        val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
+        if (mimeType !in listOf("image/jpeg", "image/png", "image/webp")) return@rememberLauncherForActivityResult
+        val ext = when (mimeType) {
+            "image/png" -> ".png"
+            "image/webp" -> ".webp"
+            else -> ".jpg"
+        }
+        val file = File.createTempFile("profile", ext, context.cacheDir).apply {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                outputStream().use { output -> input.copyTo(output) }
+            }
+        }
+        viewModel.uploadProfilePicture(file, mimeType)
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit profile") },
@@ -938,6 +974,57 @@ private fun EditProfileDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.verticalScroll(rememberScrollState())
             ) {
+                // Profile photo
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    if (profilePicture.isNotBlank()) {
+                        AsyncImage(
+                            model = buildImageRequest(context, profilePicture),
+                            contentDescription = "Profile photo",
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                        )
+                    } else {
+                        val initials = (fullName.ifBlank { username })
+                            .trim().split(" ").filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.linearGradient(
+                                        listOf(
+                                            MaterialTheme.colorScheme.primary,
+                                            MaterialTheme.colorScheme.secondary
+                                        )
+                                    )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = initials,
+                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                    }
+                    Column {
+                        OutlinedButton(
+                            onClick = { pickImageLauncher.launch("image/*") },
+                            enabled = !isUploading
+                        ) {
+                            if (isUploading) {
+                                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.width(8.dp))
+                            }
+                            Text(if (isUploading) "Uploading…" else "Upload photo")
+                        }
+                    }
+                }
                 OutlinedTextField(value = username, onValueChange = { username = it }, label = { Text("Username") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = fullName, onValueChange = { fullName = it }, label = { Text("Full name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = bio, onValueChange = { bio = it }, label = { Text("Bio") }, minLines = 2, modifier = Modifier.fillMaxWidth())
@@ -1011,6 +1098,7 @@ private fun EditProfileDialog(
                         fullName = fullName.takeIf { it.isNotBlank() },
                         bio = bio.takeIf { it.isNotBlank() },
                         location = location.takeIf { it.isNotBlank() },
+                        profilePicture = profilePicture.takeIf { it.isNotBlank() },
                         interests = selectedInterests.toList().takeIf { it.isNotEmpty() },
                         socialLinks = SocialLinks(
                             linkedin = linkedin.takeIf { it.isNotBlank() },
