@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.hive.hive_app.data.api.dto.LocationDto
 import com.hive.hive_app.data.api.dto.RecurringPatternDto
 import com.hive.hive_app.data.api.dto.ServiceResponse
+import com.hive.hive_app.data.api.dto.ServiceUpdate
 import com.hive.hive_app.data.api.dto.TagDto
 import com.hive.hive_app.data.repository.ServicesRepository
 import com.hive.hive_app.data.repository.UploadsRepository
@@ -158,6 +159,89 @@ class CreateServiceViewModel @Inject constructor(
                     val msg = it.message ?: "Failed to create service"
                     _error.value = msg
                     onResult(false, null, msg)
+                }
+            )
+        }
+    }
+
+    suspend fun fetchServiceForEdit(serviceId: String): ServiceResponse? =
+        servicesRepository.getService(serviceId).getOrNull()
+
+    fun updateService(
+        serviceId: String,
+        existingImageUrls: List<String>,
+        title: String,
+        description: String,
+        category: String?,
+        tags: List<TagDto>,
+        estimatedDuration: Double,
+        location: LocationDto,
+        deadline: String?,
+        isRemote: Boolean,
+        imageUris: List<Uri>,
+        schedulingType: String,
+        specificDate: String?,
+        specificTime: String?,
+        recurringPattern: RecurringPatternDto?,
+        openAvailability: String?,
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+
+            val newUploads: List<String> = if (imageUris.isEmpty()) {
+                emptyList()
+            } else {
+                coroutineScope {
+                    val deferred = imageUris.map { uri ->
+                        async { uploadsRepository.uploadServiceImage(appContext, uri) }
+                    }
+                    val results = deferred.map { it.await() }
+                    val failures = results.filter { it.isFailure }
+                    if (failures.isNotEmpty()) {
+                        val msg = failures.firstOrNull()?.exceptionOrNull()?.message ?: "Failed to upload images"
+                        _isLoading.value = false
+                        _error.value = msg
+                        onResult(false, msg)
+                        return@coroutineScope emptyList()
+                    }
+                    results.mapNotNull { it.getOrNull() }
+                }
+            }
+
+            if (_error.value != null) return@launch
+
+            val combinedImages = existingImageUrls + newUploads
+
+            servicesRepository.updateService(
+                serviceId,
+                ServiceUpdate(
+                    title = title,
+                    description = description,
+                    category = category,
+                    tags = tags,
+                    estimatedDuration = estimatedDuration,
+                    location = location,
+                    deadline = deadline,
+                    schedulingType = schedulingType,
+                    specificDate = specificDate,
+                    specificTime = specificTime,
+                    recurringPattern = recurringPattern,
+                    openAvailability = openAvailability,
+                    imageUrls = combinedImages.takeIf { it.isNotEmpty() },
+                    isRemote = isRemote
+                )
+            ).fold(
+                onSuccess = {
+                    _isLoading.value = false
+                    onResult(true, null)
+                },
+                onFailure = {
+                    _isLoading.value = false
+                    val msg = it.message ?: "Failed to update service"
+                    _error.value = msg
+                    onResult(false, msg)
                 }
             )
         }

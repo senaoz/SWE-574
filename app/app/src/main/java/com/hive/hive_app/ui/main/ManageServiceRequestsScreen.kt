@@ -7,18 +7,30 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -43,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -54,7 +67,14 @@ import java.util.Locale
 private fun canStartService(service: com.hive.hive_app.data.api.dto.ServiceResponse?): Boolean =
     service?.status?.lowercase() == "active"
 
-private val ManageServiceGreen = Color(0xFF388E3C)
+private fun canDeleteCancelEdit(service: com.hive.hive_app.data.api.dto.ServiceResponse?): Boolean {
+    val s = service?.status?.lowercase() ?: return false
+    return s == "active" || s == "in_progress"
+}
+
+/** Same lime accent as rating / completion flow (CompleteServiceRatingScreen). */
+private val ManageServiceLime = Color(0xFFC6E600)
+private val OnManageServiceLime = Color(0xFF2D3A00)
 
 private fun canConfirmCompletion(
     service: com.hive.hive_app.data.api.dto.ServiceResponse?,
@@ -70,6 +90,106 @@ private fun canConfirmCompletion(
     }
 }
 
+/** Current user already confirmed; waiting for the other party (see transaction flags in OpenAPI). */
+private fun waitingForOtherToConfirm(
+    service: com.hive.hive_app.data.api.dto.ServiceResponse?,
+    txn: com.hive.hive_app.data.api.dto.TransactionResponse?,
+    userId: String?
+): Boolean {
+    if (service == null || txn == null || userId == null) return false
+    if (service.status?.lowercase() != "in_progress") return false
+    val iConfirmed = when (userId) {
+        txn.requesterId -> txn.requesterConfirmed == true
+        txn.providerId -> txn.providerConfirmed == true
+        else -> return false
+    }
+    if (!iConfirmed) return false
+    val otherConfirmed = when (userId) {
+        txn.requesterId -> txn.providerConfirmed == true
+        txn.providerId -> txn.requesterConfirmed == true
+        else -> false
+    }
+    return !otherConfirmed
+}
+
+/** Same mapping as [ServiceDetailScreen] creator badges. */
+private val ReceiverConfirmedOverlay = Color(0xFF43A047).copy(alpha = 0.38f)
+
+@Composable
+private fun ReceiversAvatarRow(
+    avatars: List<ReceiverAvatarUi>,
+    onOpenUserProfile: ((String) -> Unit)?
+) {
+    val context = LocalContext.current
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .padding(top = 8.dp)
+    ) {
+        items(avatars, key = { it.userId }) { item ->
+            val clickable = if (onOpenUserProfile != null) {
+                Modifier.clickable { onOpenUserProfile(item.userId) }
+            } else {
+                Modifier
+            }
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surface)
+                    .then(clickable)
+            ) {
+                val img = buildImageRequest(context, item.profilePictureUrl)
+                if (img != null) {
+                    AsyncImage(
+                        model = img,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.Person,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(8.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (item.confirmed) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(ReceiverConfirmedOverlay)
+                    )
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Confirmed",
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(22.dp),
+                        tint = Color.White
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun serviceRequestBadgeIcon(key: String?): ImageVector = when (key) {
+    "newcomer" -> Icons.Default.Person
+    "profile_complete" -> Icons.Default.Person
+    "tagged", "well_tagged" -> Icons.Default.Label
+    "rated" -> Icons.Default.Star
+    "popular" -> Icons.Default.TrendingUp
+    "community_favorite" -> Icons.Default.Favorite
+    "helper", "helper_hero", "master_helper" -> Icons.Default.School
+    "generous_giver" -> Icons.Default.Schedule
+    else -> Icons.Default.Star
+}
+
 @Composable
 fun ManageServiceScreen(
     serviceId: String,
@@ -78,10 +198,55 @@ fun ManageServiceScreen(
     onStartChat: ((String) -> Unit)? = null,
     /** When set, opens full-screen rating after "Confirm completion" (e.g. from Active tab). */
     onNavigateToCompleteRating: ((CompleteServiceRatingArgs) -> Unit)? = null,
+    /** Owner: open edit flow for this service (passes service id). */
+    onEditService: ((String) -> Unit)? = null,
     viewModel: ManageServiceRequestsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
     var showStartServiceConfirm by remember { mutableStateOf(false) }
+    var showDeleteServiceDialog by remember { mutableStateOf(false) }
+    var showCancelServiceDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteServiceDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteServiceDialog = false },
+            title = { Text("Delete service") },
+            text = { Text("This cannot be undone. Delete this service permanently?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteServiceDialog = false
+                        viewModel.deleteService(serviceId) { ok, _ ->
+                            if (ok) onBack()
+                        }
+                    }
+                ) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteServiceDialog = false }) { Text("Back") }
+            }
+        )
+    }
+    if (showCancelServiceDialog) {
+        AlertDialog(
+            onDismissRequest = { showCancelServiceDialog = false },
+            title = { Text("Cancel service") },
+            text = { Text("Mark this service as cancelled? Participants will see it as cancelled.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showCancelServiceDialog = false
+                        viewModel.cancelService(serviceId) { ok, _ ->
+                            if (ok) onBack()
+                        }
+                    }
+                ) { Text("Cancel service") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCancelServiceDialog = false }) { Text("Back") }
+            }
+        )
+    }
 
     if (showStartServiceConfirm) {
         AlertDialog(
@@ -289,35 +454,143 @@ fun ManageServiceScreen(
                                         Text("Start service")
                                     }
                                 }
-                                if (onNavigateToCompleteRating != null &&
-                                    canConfirmCompletion(state.service, state.transaction, state.currentUserId)
-                                ) {
-                                    val svc = state.service!!
-                                    val txn = state.transaction!!
-                                    val uid = state.currentUserId!!
-                                    val ratedUserId =
-                                        if (uid == txn.providerId) txn.requesterId else txn.providerId
-                                    Button(
-                                        onClick = {
-                                            onNavigateToCompleteRating(
-                                                CompleteServiceRatingArgs(
-                                                    transactionId = txn.id,
-                                                    serviceTitle = svc.title,
-                                                    otherName = state.completionOtherUserName ?: "Participant",
-                                                    creditsHours = txn.timebankHours,
-                                                    ratedUserId = ratedUserId
-                                                )
-                                            )
-                                        },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(top = if (canStartService(state.service)) 8.dp else 0.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = ManageServiceGreen,
-                                            contentColor = Color.White
-                                        )
+                                if (canDeleteCancelEdit(state.service)) {
+                                    if (canStartService(state.service)) {
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                    }
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text("Confirm completion & rate")
+                                        OutlinedButton(
+                                            onClick = { showDeleteServiceDialog = true },
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Delete,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Delete", maxLines = 1, style = MaterialTheme.typography.labelLarge)
+                                        }
+                                        OutlinedButton(
+                                            onClick = { showCancelServiceDialog = true },
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Cancel,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Cancel", maxLines = 1, style = MaterialTheme.typography.labelLarge)
+                                        }
+                                        OutlinedButton(
+                                            onClick = { onEditService?.invoke(serviceId) },
+                                            enabled = onEditService != null,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Edit,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Edit", maxLines = 1, style = MaterialTheme.typography.labelLarge)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (state.service?.status?.lowercase() == "in_progress") {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    val svc = state.service!!
+                                    val matched = svc.matchedUserIds.orEmpty()
+                                    val confirmedCount = svc.receiverConfirmedIds.orEmpty().size
+                                    val totalReceivers =
+                                        if (matched.isNotEmpty()) matched.size else (svc.maxParticipants ?: 1)
+                                    Text(
+                                        text = "Receivers: $confirmedCount/$totalReceivers Confirmed",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    if (state.receiverAvatars.isNotEmpty()) {
+                                        ReceiversAvatarRow(
+                                            avatars = state.receiverAvatars,
+                                            onOpenUserProfile = onOpenUserProfile
+                                        )
+                                    }
+                                    Text(
+                                        text = "Provider: ${if (svc.providerConfirmed == true) "Confirmed" else "Pending"}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    val completionWaiting = waitingForOtherToConfirm(
+                        state.service,
+                        state.transaction,
+                        state.currentUserId
+                    )
+                    val completionCanMark = canConfirmCompletion(
+                        state.service,
+                        state.transaction,
+                        state.currentUserId
+                    )
+                    val completionOtherName = state.completionOtherUserName ?: "the other participant"
+                    val showCompletionCard = state.service?.status?.lowercase() == "in_progress" &&
+                        state.transaction != null &&
+                        (completionWaiting || (completionCanMark && onNavigateToCompleteRating != null))
+                    if (showCompletionCard) {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    if (completionWaiting) {
+                                        Text(
+                                            text = "Waiting for $completionOtherName to confirm completion.",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    } else if (completionCanMark && onNavigateToCompleteRating != null) {
+                                        val svc = state.service!!
+                                        val txn = state.transaction!!
+                                        val uid = state.currentUserId!!
+                                        val ratedUserId =
+                                            if (uid == txn.providerId) txn.requesterId else txn.providerId
+                                        Button(
+                                            onClick = {
+                                                onNavigateToCompleteRating(
+                                                    CompleteServiceRatingArgs(
+                                                        transactionId = txn.id,
+                                                        serviceTitle = svc.title,
+                                                        otherName = completionOtherName,
+                                                        creditsHours = txn.timebankHours,
+                                                        ratedUserId = ratedUserId
+                                                    )
+                                                )
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = ManageServiceLime,
+                                                contentColor = OnManageServiceLime
+                                            )
+                                        ) {
+                                            Text("Mark as completed")
+                                        }
                                     }
                                 }
                             }
@@ -338,6 +611,7 @@ fun ManageServiceRequestsScreen(
     onOpenUserProfile: ((String) -> Unit)? = null,
     onStartChat: ((String) -> Unit)? = null,
     onNavigateToCompleteRating: ((CompleteServiceRatingArgs) -> Unit)? = null,
+    onEditService: ((String) -> Unit)? = null,
     viewModel: ManageServiceRequestsViewModel = hiltViewModel()
 ) {
     ManageServiceScreen(
@@ -346,6 +620,7 @@ fun ManageServiceRequestsScreen(
         onOpenUserProfile = onOpenUserProfile,
         onStartChat = onStartChat,
         onNavigateToCompleteRating = onNavigateToCompleteRating,
+        onEditService = onEditService,
         viewModel = viewModel
     )
 }
@@ -360,6 +635,17 @@ private fun ManageRequestCard(
 ) {
     val context = LocalContext.current
     var pendingAction by remember { mutableStateOf<String?>(null) }
+    var badgeNameDialog by remember { mutableStateOf<String?>(null) }
+    badgeNameDialog?.let { name ->
+        AlertDialog(
+            onDismissRequest = { badgeNameDialog = null },
+            title = { Text("Badge") },
+            text = { Text(name) },
+            confirmButton = {
+                TextButton(onClick = { badgeNameDialog = null }) { Text("OK") }
+            }
+        )
+    }
     if (pendingAction != null) {
         val action = pendingAction!!
         var adminMsg by remember { mutableStateOf("") }
@@ -404,83 +690,91 @@ private fun ManageRequestCard(
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
-                modifier = profileRowModifier,
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
             ) {
-                Box(
+                Row(
                     modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surface),
-                    contentAlignment = Alignment.Center
+                        .weight(1f)
+                        .then(profileRowModifier),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    val img = buildImageRequest(context, row.profilePictureUrl)
-                    if (img != null) {
-                        AsyncImage(
-                            model = img,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        Icon(
-                            Icons.Default.Person,
-                            contentDescription = null,
-                            modifier = Modifier.size(28.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = row.userName,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(top = 4.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surface),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Star,
+                        val img = buildImageRequest(context, row.profilePictureUrl)
+                        if (img != null) {
+                            AsyncImage(
+                                model = img,
                                 contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = Color(0xFFFFC107)
+                                modifier = Modifier.fillMaxSize()
                             )
-                            Text(
-                                text = row.averageRating?.let { String.format(Locale.US, "%.1f", it) }
-                                    ?: "—",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = "(${row.ratingTotal} ratings)",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            Icon(
+                                Icons.Default.Person,
+                                contentDescription = null,
+                                modifier = Modifier.size(28.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.padding(top = 4.dp)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = row.userName,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 4.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Star,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = Color(0xFFFFC107)
+                                )
+                                Text(
+                                    text = row.averageRating?.let { String.format(Locale.US, "%.1f", it) }
+                                        ?: "—",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "(${row.ratingTotal} ratings)",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+                if (row.primaryBadgeKey != null) {
+                    IconButton(
+                        onClick = {
+                            badgeNameDialog = row.primaryBadgeName
+                                ?: row.primaryBadgeKey
+                                ?: "Badge"
+                        },
+                        modifier = Modifier.padding(start = 4.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.EmojiEvents,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = "${row.badgesEarned}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            imageVector = serviceRequestBadgeIcon(row.primaryBadgeKey),
+                            contentDescription = row.primaryBadgeName ?: row.primaryBadgeKey,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
                         )
                     }
                 }
@@ -526,14 +820,19 @@ private fun ManageRequestCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedButton(onClick = onMessage) { Text("Message") }
                 if (req.status == "pending") {
-                    Button(onClick = { pendingAction = "approved" }) { Text("Approve") }
-                    OutlinedButton(onClick = { pendingAction = "rejected" }) { Text("Reject") }
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(onClick = { pendingAction = "approved" }) { Text("Approve") }
+                        OutlinedButton(onClick = { pendingAction = "rejected" }) { Text("Reject") }
+                    }
                 }
+                Spacer(modifier = Modifier.weight(1f))
+                OutlinedButton(onClick = onMessage) { Text("Message") }
             }
         }
     }

@@ -23,6 +23,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/** Matched receiver on the service (for confirmation avatars in Manage Service). */
+data class ReceiverAvatarUi(
+    val userId: String,
+    val profilePictureUrl: String?,
+    val confirmed: Boolean
+)
+
 data class ServiceRequestRow(
     val request: JoinRequestResponse,
     val userName: String,
@@ -30,6 +37,9 @@ data class ServiceRequestRow(
     val applicantUsername: String,
     val profilePictureUrl: String?,
     val badgesEarned: Int,
+    /** API returns badges in importance order; first earned badge is shown in the UI. */
+    val primaryBadgeKey: String?,
+    val primaryBadgeName: String?,
     val averageRating: Double?,
     val ratingTotal: Int
 )
@@ -40,6 +50,8 @@ data class ManageRequestsUiState(
     val currentUserId: String? = null,
     /** Display name of the user to rate when completing (the other party). */
     val completionOtherUserName: String? = null,
+    /** Profile pics for [ServiceResponse.matchedUserIds], with [ReceiverAvatarUi.confirmed] from [ServiceResponse.receiverConfirmedIds]. */
+    val receiverAvatars: List<ReceiverAvatarUi> = emptyList(),
     val isLoading: Boolean = true,
     val error: String? = null,
     val requestRows: List<ServiceRequestRow> = emptyList()
@@ -82,6 +94,20 @@ class ManageServiceRequestsViewModel @Inject constructor(
                 }
             } else null
 
+            val receiverAvatars = coroutineScope {
+                val confirmedIds = service.receiverConfirmedIds.orEmpty().toSet()
+                service.matchedUserIds.orEmpty().map { uid ->
+                    async {
+                        val user = usersRepository.getUser(uid).getOrNull()
+                        ReceiverAvatarUi(
+                            userId = uid,
+                            profilePictureUrl = user?.profilePicture,
+                            confirmed = confirmedIds.contains(uid)
+                        )
+                    }
+                }.awaitAll()
+            }
+
             joinRequestsRepository.getServiceRequests(serviceId, page = 1, limit = 100).fold(
                 onSuccess = { listResponse ->
                     val requests = listResponse.requests
@@ -100,6 +126,7 @@ class ManageServiceRequestsViewModel @Inject constructor(
                                 val earned = badges?.earnedCount
                                     ?: badges?.badges?.count { it.earned }
                                     ?: 0
+                                val primaryEarned = badges?.badges?.firstOrNull { it.earned }
                                 val displayName = user?.fullName?.takeIf { it.isNotBlank() }
                                     ?: user?.username
                                     ?: "User ${uid.take(8)}…"
@@ -111,6 +138,8 @@ class ManageServiceRequestsViewModel @Inject constructor(
                                     applicantUsername = usernameForLabel,
                                     profilePictureUrl = user?.profilePicture,
                                     badgesEarned = earned,
+                                    primaryBadgeKey = primaryEarned?.key,
+                                    primaryBadgeName = primaryEarned?.name,
                                     averageRating = ratings?.averageScore,
                                     ratingTotal = ratings?.total ?: 0
                                 )
@@ -122,6 +151,7 @@ class ManageServiceRequestsViewModel @Inject constructor(
                         transaction = txn,
                         currentUserId = userId,
                         completionOtherUserName = completionName,
+                        receiverAvatars = receiverAvatars,
                         isLoading = false,
                         error = null,
                         requestRows = rows
@@ -133,10 +163,33 @@ class ManageServiceRequestsViewModel @Inject constructor(
                         transaction = txn,
                         currentUserId = userId,
                         completionOtherUserName = completionName,
+                        receiverAvatars = receiverAvatars,
                         isLoading = false,
                         error = e.message ?: "Failed to load requests"
                     )
                 }
+            )
+        }
+    }
+
+    fun deleteService(serviceId: String, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            servicesRepository.deleteService(serviceId).fold(
+                onSuccess = { onResult(true, null) },
+                onFailure = { onResult(false, it.message) }
+            )
+        }
+    }
+
+    /** Marks service as cancelled (see OpenAPI ServiceUpdate.status). */
+    fun cancelService(serviceId: String, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            servicesRepository.updateService(serviceId, ServiceUpdate(status = "cancelled")).fold(
+                onSuccess = {
+                    loadedServiceId?.let { load(it) }
+                    onResult(true, null)
+                },
+                onFailure = { onResult(false, it.message) }
             )
         }
     }

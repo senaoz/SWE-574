@@ -187,8 +187,7 @@ fun ServiceDetailScreen(
             }
             val scrollState = rememberScrollState()
             val showBottomBar = viewModel != null &&
-                service.status in listOf("active", "in_progress") &&
-                (if (isOwner) onManageJoinRequests != null else true)
+                service.status in listOf("active", "in_progress")
             Box(modifier = modifier.fillMaxSize()) {
                 Column(
                     modifier = Modifier
@@ -649,16 +648,23 @@ fun ServiceDetailScreen(
                 }
                 }
                 if (showBottomBar) {
-                    Row(
+                    Surface(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
-                            .navigationBarsPadding()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            .navigationBarsPadding(),
+                        tonalElevation = 6.dp,
+                        shadowElevation = 8.dp,
+                        color = MaterialTheme.colorScheme.surface
+                    ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                            if (isOwner && onManageJoinRequests != null) {
+                            if (isOwner && viewModel != null && onManageJoinRequests != null) {
                                 Button(
                                     onClick = onManageJoinRequests,
                                     modifier = Modifier.fillMaxWidth()
@@ -711,6 +717,7 @@ fun ServiceDetailScreen(
                                 }
                             }
                         }
+                    }
                 }
             }
         }

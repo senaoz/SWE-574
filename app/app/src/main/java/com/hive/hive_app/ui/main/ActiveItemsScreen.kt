@@ -62,6 +62,8 @@ fun ActiveItemsScreen(
     onOpenUserProfile: ((String) -> Unit)? = null
 ) {
     var selectedServiceId by remember { mutableStateOf<String?>(null) }
+    var showCreateServiceScreen by remember { mutableStateOf(false) }
+    var editServiceId by remember { mutableStateOf<String?>(null) }
     var manageRequestsServiceId by remember { mutableStateOf<String?>(null) }
     var completeServiceRatingArgs by remember { mutableStateOf<CompleteServiceRatingArgs?>(null) }
     val detailViewModel: ServiceDetailViewModel = hiltViewModel()
@@ -95,9 +97,37 @@ fun ActiveItemsScreen(
                 onNavigateToCompleteRating = { args ->
                     completeServiceRatingArgs = args
                     manageRequestsServiceId = null
+                },
+                onEditService = { sid ->
+                    manageRequestsServiceId = null
+                    editServiceId = sid
+                    showCreateServiceScreen = true
                 }
             )
         }
+        return
+    }
+
+    if (showCreateServiceScreen) {
+        CreateServiceScreen(
+            modifier = modifier.fillMaxSize(),
+            editServiceId = editServiceId,
+            userLat = null,
+            userLon = null,
+            locationPermissionGranted = false,
+            onRequestLocationPermission = { },
+            onRefreshLocation = { },
+            onBack = {
+                showCreateServiceScreen = false
+                editServiceId = null
+            },
+            onCreated = { serviceId ->
+                showCreateServiceScreen = false
+                editServiceId = null
+                viewModel.load()
+                selectedServiceId = serviceId
+            }
+        )
         return
     }
 

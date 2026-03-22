@@ -27,6 +27,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.outlined.Groups
@@ -83,6 +84,7 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.rememberDatePickerState
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import android.view.MotionEvent
@@ -132,6 +134,8 @@ private fun hiveLimeFilterChipColors(): SelectableChipColors =
 @Composable
 fun CreateServiceScreen(
     modifier: Modifier = Modifier,
+    /** When set, form loads this service and submit calls [CreateServiceViewModel.updateService]. */
+    editServiceId: String? = null,
     userLat: Double?,
     userLon: Double?,
     locationPermissionGranted: Boolean,
@@ -170,6 +174,7 @@ fun CreateServiceScreen(
     var locationNameText by remember { mutableStateOf("") }
 
     var selectedImageUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var existingServerImageUrls by remember(editServiceId) { mutableStateOf<List<String>>(emptyList()) }
     var localError by remember { mutableStateOf<String?>(null) }
 
     val isLoading by viewModel.isLoading.collectAsState()
@@ -197,7 +202,8 @@ fun CreateServiceScreen(
     }
 
     // Sync map + Location name from user's coordinates (geocoded address, not placeholder text).
-    LaunchedEffect(userLat, userLon, isRemote) {
+    LaunchedEffect(userLat, userLon, isRemote, editServiceId) {
+        if (editServiceId != null) return@LaunchedEffect
         if (userLat == null || userLon == null) return@LaunchedEffect
         selectedLat = userLat
         selectedLon = userLon
@@ -214,6 +220,51 @@ fun CreateServiceScreen(
     val mapOverlayLastKey = remember { object { var value: String? = null } }
     LaunchedEffect(isRemote) {
         if (!isRemote) mapOverlayLastKey.value = null
+    }
+
+    LaunchedEffect(editServiceId) {
+        val id = editServiceId ?: return@LaunchedEffect
+        val svc = viewModel.fetchServiceForEdit(id) ?: run {
+            localError = "Could not load service"
+            return@LaunchedEffect
+        }
+        localError = null
+        serviceType = svc.serviceType
+        isRemote = svc.isRemote
+        title = svc.title
+        description = svc.description
+        selectedTags = svc.tags.map { t ->
+            WikidataTagSuggestion(
+                id = (t.entityId ?: t.id).orEmpty(),
+                label = t.label ?: t.name ?: ""
+            )
+        }.filter { it.id.isNotBlank() }
+        val d = svc.estimatedDuration
+        estimatedDurationText = if (d % 1.0 == 0.0) d.toInt().toString() else d.toString()
+        maxParticipantsText = (svc.maxParticipants ?: 1).toString()
+        schedulingMode = when (svc.schedulingType?.lowercase()) {
+            "specific" -> SchedulingMode.SPECIFIC
+            "recurring" -> SchedulingMode.RECURRING
+            else -> SchedulingMode.OPEN
+        }
+        svc.specificDate?.let { dateStr ->
+            try {
+                val ld = LocalDate.parse(dateStr)
+                specificDateMillis = ld.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            } catch (_: Exception) {
+            }
+        }
+        specificTimeHHmm = svc.specificTime?.takeIf { it.isNotBlank() } ?: "09:00"
+        recurringDays = svc.recurringPattern?.days?.toSet() ?: emptySet()
+        recurringTimeHHmm = svc.recurringPattern?.time?.takeIf { it.isNotBlank() } ?: "09:00"
+        openAvailabilityText = svc.openAvailability ?: ""
+        selectedLat = svc.location.latitude
+        selectedLon = svc.location.longitude
+        locationNameText = svc.location.address?.takeIf { it.isNotBlank() }
+            ?: "%.5f, %.5f".format(svc.location.latitude, svc.location.longitude)
+        existingServerImageUrls = svc.imageUrls.orEmpty()
+        selectedImageUris = emptyList()
+        mapOverlayLastKey.value = null
     }
 
     val specificDateLabel = specificDateMillis?.let {
@@ -253,7 +304,7 @@ fun CreateServiceScreen(
                     Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
                 }
                 Text(
-                    text = "Create service",
+                    text = if (editServiceId != null) "Edit service" else "Create service",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
@@ -746,7 +797,41 @@ fun CreateServiceScreen(
                         enabled = !isLoading,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Clear (${selectedImageUris.size})")
+                        Text("Clear new (${selectedImageUris.size})")
+                    }
+                }
+            }
+
+            if (existingServerImageUrls.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(existingServerImageUrls, key = { it }) { url ->
+                        Box(modifier = Modifier.size(72.dp)) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context).data(url).crossfade(true).build(),
+                                contentDescription = "Existing image",
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                            )
+                            IconButton(
+                                onClick = {
+                                    existingServerImageUrls = existingServerImageUrls.filterNot { it == url }
+                                },
+                                enabled = !isLoading,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .size(28.dp)
+                            ) {
+                                Icon(
+                                    Icons.Filled.Close,
+                                    contentDescription = "Remove image",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -858,28 +943,54 @@ fun CreateServiceScreen(
                     val openAvailStr =
                         if (schedulingMode == SchedulingMode.OPEN) openAvailabilityText.trim() else null
 
-                    viewModel.createService(
-                        title = title.trim(),
-                        description = description.trim(),
-                        category = null,
-                        tags = tags,
-                        estimatedDuration = parsedDuration,
-                        location = location,
-                        serviceType = serviceType,
-                        maxParticipants = maxParticipants,
-                        deadline = null,
-                        isRemote = isRemote,
-                        imageUris = selectedImageUris,
-                        schedulingType = schedulingTypeStr,
-                        specificDate = specificDateStr,
-                        specificTime = specificTimeStr,
-                        recurringPattern = recurringPatternDto,
-                        openAvailability = openAvailStr,
-                        onResult = { success, created, err ->
-                            if (success && created != null) onCreated(created._id)
-                            else localError = err ?: "Failed to create service"
-                        }
-                    )
+                    val editId = editServiceId
+                    if (editId != null) {
+                        viewModel.updateService(
+                            serviceId = editId,
+                            existingImageUrls = existingServerImageUrls,
+                            title = title.trim(),
+                            description = description.trim(),
+                            category = null,
+                            tags = tags,
+                            estimatedDuration = parsedDuration,
+                            location = location,
+                            deadline = null,
+                            isRemote = isRemote,
+                            imageUris = selectedImageUris,
+                            schedulingType = schedulingTypeStr,
+                            specificDate = specificDateStr,
+                            specificTime = specificTimeStr,
+                            recurringPattern = recurringPatternDto,
+                            openAvailability = openAvailStr,
+                            onResult = { success, err ->
+                                if (success) onCreated(editId)
+                                else localError = err ?: "Failed to update service"
+                            }
+                        )
+                    } else {
+                        viewModel.createService(
+                            title = title.trim(),
+                            description = description.trim(),
+                            category = null,
+                            tags = tags,
+                            estimatedDuration = parsedDuration,
+                            location = location,
+                            serviceType = serviceType,
+                            maxParticipants = maxParticipants,
+                            deadline = null,
+                            isRemote = isRemote,
+                            imageUris = selectedImageUris,
+                            schedulingType = schedulingTypeStr,
+                            specificDate = specificDateStr,
+                            specificTime = specificTimeStr,
+                            recurringPattern = recurringPatternDto,
+                            openAvailability = openAvailStr,
+                            onResult = { success, created, err ->
+                                if (success && created != null) onCreated(created._id)
+                                else localError = err ?: "Failed to create service"
+                            }
+                        )
+                    }
                 },
                 enabled = !isLoading && selectedTags.isNotEmpty(),
                 modifier = Modifier.fillMaxWidth()
@@ -890,7 +1001,7 @@ fun CreateServiceScreen(
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                 } else {
-                    Text("Create")
+                    Text(if (editServiceId != null) "Save" else "Create")
                 }
             }
         }

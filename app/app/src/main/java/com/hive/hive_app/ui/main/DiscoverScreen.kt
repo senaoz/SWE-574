@@ -74,6 +74,7 @@ fun DiscoverScreen(
     var manageRequestsServiceId by remember { mutableStateOf<String?>(null) }
     var completeServiceRatingArgs by remember { mutableStateOf<CompleteServiceRatingArgs?>(null) }
     var showCreateServiceScreen by remember { mutableStateOf(false) }
+    var editServiceId by remember { mutableStateOf<String?>(null) }
     val detailViewModel: ServiceDetailViewModel = hiltViewModel()
     val activeItemsVm: ActiveItemsViewModel = hiltViewModel()
     val context = LocalContext.current
@@ -103,6 +104,11 @@ fun DiscoverScreen(
                 onNavigateToCompleteRating = { args ->
                     completeServiceRatingArgs = args
                     manageRequestsServiceId = null
+                },
+                onEditService = { sid ->
+                    manageRequestsServiceId = null
+                    editServiceId = sid
+                    showCreateServiceScreen = true
                 }
             )
         }
@@ -165,6 +171,7 @@ fun DiscoverScreen(
     if (showCreateServiceScreen) {
         CreateServiceScreen(
             modifier = modifier.fillMaxSize(),
+            editServiceId = editServiceId,
             userLat = state.userLat,
             userLon = state.userLon,
             locationPermissionGranted = state.locationPermissionGranted,
@@ -172,9 +179,13 @@ fun DiscoverScreen(
                 permissionLauncher.launch(android.Manifest.permission.ACCESS_COARSE_LOCATION)
             },
             onRefreshLocation = { viewModel.refreshLocation() },
-            onBack = { showCreateServiceScreen = false },
+            onBack = {
+                showCreateServiceScreen = false
+                editServiceId = null
+            },
             onCreated = { serviceId ->
                 showCreateServiceScreen = false
+                editServiceId = null
                 viewModel.loadServices(page = 1)
                 selectedServiceId = serviceId
             }
@@ -329,7 +340,10 @@ fun DiscoverScreen(
     }
 
         FloatingActionButton(
-            onClick = { showCreateServiceScreen = true },
+            onClick = {
+                editServiceId = null
+                showCreateServiceScreen = true
+            },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp)

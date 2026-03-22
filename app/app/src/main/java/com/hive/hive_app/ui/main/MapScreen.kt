@@ -72,6 +72,8 @@ fun MapScreen(
     onOpenUserProfile: ((String) -> Unit)? = null
 ) {
     var selectedServiceId by remember { mutableStateOf<String?>(null) }
+    var showCreateServiceScreen by remember { mutableStateOf(false) }
+    var editServiceId by remember { mutableStateOf<String?>(null) }
     var manageRequestsServiceId by remember { mutableStateOf<String?>(null) }
     var completeServiceRatingArgs by remember { mutableStateOf<CompleteServiceRatingArgs?>(null) }
     val detailViewModel: ServiceDetailViewModel = androidx.hilt.navigation.compose.hiltViewModel()
@@ -79,6 +81,12 @@ fun MapScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val state by viewModel.state.collectAsState()
+
+    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        viewModel.setLocationPermissionGranted(granted)
+    }
 
     completeServiceRatingArgs?.let { args ->
         key(args.transactionId) {
@@ -105,9 +113,39 @@ fun MapScreen(
                 onNavigateToCompleteRating = { args ->
                     completeServiceRatingArgs = args
                     manageRequestsServiceId = null
+                },
+                onEditService = { sid ->
+                    manageRequestsServiceId = null
+                    editServiceId = sid
+                    showCreateServiceScreen = true
                 }
             )
         }
+        return
+    }
+
+    if (showCreateServiceScreen) {
+        CreateServiceScreen(
+            modifier = modifier.fillMaxSize(),
+            editServiceId = editServiceId,
+            userLat = state.userLat,
+            userLon = state.userLon,
+            locationPermissionGranted = state.locationPermissionGranted,
+            onRequestLocationPermission = {
+                permissionLauncher.launch(android.Manifest.permission.ACCESS_COARSE_LOCATION)
+            },
+            onRefreshLocation = { viewModel.refreshLocation() },
+            onBack = {
+                showCreateServiceScreen = false
+                editServiceId = null
+            },
+            onCreated = { serviceId ->
+                showCreateServiceScreen = false
+                editServiceId = null
+                viewModel.loadServices()
+                selectedServiceId = serviceId
+            }
+        )
         return
     }
 
@@ -142,12 +180,6 @@ fun MapScreen(
             }
         )
         return
-    }
-
-    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        viewModel.setLocationPermissionGranted(granted)
     }
 
     LaunchedEffect(Unit) {
