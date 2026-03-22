@@ -25,6 +25,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -71,10 +72,23 @@ fun MapScreen(
     onOpenUserProfile: ((String) -> Unit)? = null
 ) {
     var selectedServiceId by remember { mutableStateOf<String?>(null) }
+    var manageRequestsServiceId by remember { mutableStateOf<String?>(null) }
     val detailViewModel: ServiceDetailViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val state by viewModel.state.collectAsState()
+
+    manageRequestsServiceId?.let { mrId ->
+        key(mrId) {
+            ManageServiceRequestsScreen(
+                serviceId = mrId,
+                onBack = { manageRequestsServiceId = null },
+                onOpenUserProfile = onOpenUserProfile,
+                onStartChat = onStartChat
+            )
+        }
+        return
+    }
 
     if (selectedServiceId != null) {
         val id = selectedServiceId!!
@@ -100,7 +114,11 @@ fun MapScreen(
             creatorRating = detailCreatorRating,
             isSaved = detailIsSaved,
             onStartChat = onStartChat,
-            onOpenUserProfile = onOpenUserProfile
+            onOpenUserProfile = onOpenUserProfile,
+            onManageJoinRequests = {
+                manageRequestsServiceId = id
+                selectedServiceId = null
+            }
         )
         return
     }

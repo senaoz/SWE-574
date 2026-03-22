@@ -1,16 +1,21 @@
 package com.hive.hive_app.ui.main
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
@@ -38,20 +43,27 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.hive.hive_app.data.api.dto.JoinRequestResponse
 import com.hive.hive_app.data.api.dto.ServiceResponse
 import com.hive.hive_app.util.formatApplicationDate
+import com.hive.hive_app.util.formatServiceSchedulingDisplay
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
@@ -79,6 +91,7 @@ fun ActiveItemsScreen(
     onOpenUserProfile: ((String) -> Unit)? = null
 ) {
     var selectedServiceId by remember { mutableStateOf<String?>(null) }
+    var manageRequestsServiceId by remember { mutableStateOf<String?>(null) }
     var confirmCompletionData by remember { mutableStateOf<ConfirmCompletionData?>(null) }
     val detailViewModel: ServiceDetailViewModel = hiltViewModel()
     val state by viewModel.state.collectAsState()
@@ -97,6 +110,21 @@ fun ActiveItemsScreen(
                 }
             }
         )
+    }
+
+    manageRequestsServiceId?.let { mrId ->
+        key(mrId) {
+            ManageServiceRequestsScreen(
+                serviceId = mrId,
+                onBack = {
+                    manageRequestsServiceId = null
+                    viewModel.load()
+                },
+                onOpenUserProfile = onOpenUserProfile,
+                onStartChat = onStartChat
+            )
+        }
+        return
     }
 
     if (selectedServiceId != null) {
@@ -123,7 +151,11 @@ fun ActiveItemsScreen(
             creatorRating = detailCreatorRating,
             isSaved = detailIsSaved,
             onStartChat = onStartChat,
-            onOpenUserProfile = onOpenUserProfile
+            onOpenUserProfile = onOpenUserProfile,
+            onManageJoinRequests = {
+                manageRequestsServiceId = id
+                selectedServiceId = null
+            }
         )
         return
     }
@@ -161,14 +193,18 @@ fun ActiveItemsScreen(
             }
         } else {
             items(state.myActiveServices, key = { it._id }) { service ->
-                val ownerName = state.ownerNamesByUserId[service.userId]
-                val timeSlotText = formatServiceTimeSlot(service)
+                val timeSlotText = formatServiceSchedulingDisplay(service)
                 ActiveServiceCard(
                     service = service,
-                    ownerName = ownerName,
+                    ownerName = null,
                     timeSlotText = timeSlotText,
                     onView = { selectedServiceId = service._id },
-                    onMessage = { /* TODO: Message */ }
+                    onMessage = null,
+                    showOwner = false,
+                    showCreationDateBottomLeft = true,
+                    matchedUserAvatars = emptyList(),
+                    manageRequestCount = state.joinRequestCountsByServiceId[service._id] ?: 0,
+                    onManageRequests = { manageRequestsServiceId = service._id }
                 )
             }
         }
@@ -215,11 +251,15 @@ fun ActiveItemsScreen(
                 val ownerId = state.applicationServiceOwnerIds[request.serviceId]
                 val ownerName = ownerId?.let { state.ownerNamesByUserId[it] }
                 val timeSlotText = state.applicationServiceTimeSlots[request.serviceId]
+                val metrics = state.applicationServiceMetrics[request.serviceId]
                 ApplicationCard(
                     request = request,
                     serviceTitle = serviceTitle,
                     ownerName = ownerName,
                     timeSlotText = timeSlotText,
+                    estimatedDurationHours = metrics?.estimatedDurationHours ?: 0.0,
+                    maxParticipants = metrics?.maxParticipants ?: 1,
+                    acceptedCount = metrics?.acceptedCount ?: 0,
                     onView = { selectedServiceId = request.serviceId },
                     onCancel = {
                         viewModel.cancelRequest(request._id) { ok, _ ->
@@ -253,7 +293,8 @@ fun ActiveItemsScreen(
                     transaction.requesterConfirmed != true
                 val transactionId = transaction?.id
                 val ownerName = state.ownerNamesByUserId[service.userId]
-                val timeSlotText = formatServiceTimeSlot(service)
+                val timeSlotText = formatServiceSchedulingDisplay(service)
+                val avatars = state.matchedUserProfilePicturesByServiceId[service._id].orEmpty()
                 ActiveServiceCard(
                     service = service,
                     ownerName = ownerName,
@@ -264,6 +305,9 @@ fun ActiveItemsScreen(
                             roomId?.let { onStartChat?.invoke(it) }
                         }
                     },
+                    showOwner = true,
+                    showCreationDateBottomLeft = true,
+                    matchedUserAvatars = avatars,
                     showConfirmReceived = canConfirmReceived,
                     onConfirmReceived = if (canConfirmReceived) {
                         val txn = transaction!!
@@ -422,20 +466,29 @@ private fun EmptySectionCard(text: String) {
     }
 }
 
-private fun formatServiceTimeSlot(service: ServiceResponse): String? {
-    val date = service.specificDate
-    val time = service.specificTime
-    val open = service.openAvailability
-    return when {
-        !date.isNullOrBlank() && !time.isNullOrBlank() -> "$date at $time"
-        !date.isNullOrBlank() -> date
-        !open.isNullOrBlank() -> "Open: $open"
-        else -> null
-    }
-}
-
 private fun formatDuration(hours: Double): String =
     if (hours >= 1 && hours == hours.toLong().toDouble()) "${hours.toLong()}h" else "${hours}h"
+
+@Composable
+private fun TimeSlotWithCalendarIcon(slot: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.CalendarToday,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = slot,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
 
 @Composable
 private fun ActiveServiceCard(
@@ -443,10 +496,16 @@ private fun ActiveServiceCard(
     ownerName: String? = null,
     timeSlotText: String? = null,
     onView: () -> Unit,
-    onMessage: () -> Unit,
+    onMessage: (() -> Unit)?,
+    showOwner: Boolean = true,
+    showCreationDateBottomLeft: Boolean = false,
+    matchedUserAvatars: List<String?> = emptyList(),
     showConfirmReceived: Boolean = false,
-    onConfirmReceived: (() -> Unit)? = null
+    onConfirmReceived: (() -> Unit)? = null,
+    manageRequestCount: Int = 0,
+    onManageRequests: (() -> Unit)? = null
 ) {
+    val context = LocalContext.current
     val max = service.maxParticipants ?: 1
     val acceptedCount = service.matchedUserIds?.size ?: 0
     val (statusIcon, statusLabel) = when (service.status?.lowercase()) {
@@ -513,25 +572,60 @@ private fun ActiveServiceCard(
                     }
                 }
             }
-            if (ownerName != null || timeSlotText != null) {
-                Row(
-                    modifier = Modifier.padding(top = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            val showOwnerOrSlot = (showOwner && ownerName != null) || timeSlotText != null
+            val showMetaBlock = matchedUserAvatars.isNotEmpty() || showOwnerOrSlot
+            if (showMetaBlock) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    ownerName?.let { name ->
-                        Text(
-                            text = "Owner: $name",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    if (matchedUserAvatars.isNotEmpty()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            matchedUserAvatars.take(12).forEach { picUrl ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    val req = buildImageRequest(context, picUrl)
+                                    if (req != null) {
+                                        AsyncImage(
+                                            model = req,
+                                            contentDescription = null,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.Person,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
-                    timeSlotText?.let { slot ->
-                        Text(
-                            text = slot,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    if (showOwnerOrSlot) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            if (showOwner && ownerName != null) {
+                                Text(
+                                    text = "Owner: $ownerName",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            timeSlotText?.let { slot ->
+                                TimeSlotWithCalendarIcon(slot = slot)
+                            }
+                        }
                     }
                 }
             }
@@ -539,7 +633,6 @@ private fun ActiveServiceCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
@@ -558,11 +651,36 @@ private fun ActiveServiceCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = onMessage) { Text("Message") }
+                Spacer(modifier = Modifier.weight(1f))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (onManageRequests != null) {
+                        OutlinedButton(onClick = onManageRequests) {
+                            Text("Manage Requests ($manageRequestCount)")
+                        }
+                    }
+                    if (onMessage != null) {
+                        OutlinedButton(onClick = onMessage) { Text("Message") }
+                    }
                     if (showConfirmReceived && onConfirmReceived != null) {
                         Button(onClick = onConfirmReceived) { Text("Confirm I received") }
                     }
+                }
+            }
+            if (showCreationDateBottomLeft) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    Text(
+                        text = formatApplicationDate(service.createdAt),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
+                    )
                 }
             }
         }
@@ -575,6 +693,9 @@ private fun ApplicationCard(
     serviceTitle: String,
     ownerName: String?,
     timeSlotText: String?,
+    estimatedDurationHours: Double,
+    maxParticipants: Int,
+    acceptedCount: Int,
     onView: () -> Unit,
     onCancel: () -> Unit
 ) {
@@ -594,25 +715,59 @@ private fun ApplicationCard(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = serviceTitle,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
                 )
-                Text(
-                    text = formatApplicationDate(request.createdAt),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            if (ownerName != null || timeSlotText != null) {
                 Row(
-                    modifier = Modifier.padding(top = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AccessTime,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = formatDuration(estimatedDurationHours),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.People,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "$acceptedCount/$maxParticipants",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            val showOwnerOrSlot = (ownerName != null) || (timeSlotText != null)
+            if (showOwnerOrSlot) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     ownerName?.let { name ->
                         Text(
@@ -622,25 +777,9 @@ private fun ApplicationCard(
                         )
                     }
                     timeSlotText?.let { slot ->
-                        Text(
-                            text = slot,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        TimeSlotWithCalendarIcon(slot = slot)
                     }
                 }
-            }
-            Surface(
-                shape = RoundedCornerShape(percent = 50),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
-                modifier = Modifier.padding(top = 8.dp)
-            ) {
-                Text(
-                    text = "Application",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                )
             }
             request.message?.takeIf { it.isNotBlank() }?.let { msg ->
                 Text(
@@ -673,8 +812,7 @@ private fun ApplicationCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                    .padding(top = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
@@ -693,9 +831,22 @@ private fun ApplicationCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                Spacer(modifier = Modifier.weight(1f))
                 if (request.status == "pending") {
                     OutlinedButton(onClick = onCancel) { Text("Cancel") }
                 }
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.Start
+            ) {
+                Text(
+                    text = formatApplicationDate(request.createdAt),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
+                )
             }
         }
     }

@@ -42,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -70,9 +71,22 @@ fun DiscoverScreen(
     onOpenUserProfile: ((String) -> Unit)? = null
 ) {
     var selectedServiceId by remember { mutableStateOf<String?>(null) }
+    var manageRequestsServiceId by remember { mutableStateOf<String?>(null) }
     var showCreateServiceScreen by remember { mutableStateOf(false) }
     val detailViewModel: ServiceDetailViewModel = hiltViewModel()
     val context = LocalContext.current
+
+    manageRequestsServiceId?.let { mrId ->
+        key(mrId) {
+            ManageServiceRequestsScreen(
+                serviceId = mrId,
+                onBack = { manageRequestsServiceId = null },
+                onOpenUserProfile = onOpenUserProfile,
+                onStartChat = onStartChat
+            )
+        }
+        return
+    }
 
     if (selectedServiceId != null) {
         val id = selectedServiceId!!
@@ -98,7 +112,11 @@ fun DiscoverScreen(
             creatorRating = detailCreatorRating,
             isSaved = detailIsSaved,
             onStartChat = onStartChat,
-            onOpenUserProfile = onOpenUserProfile
+            onOpenUserProfile = onOpenUserProfile,
+            onManageJoinRequests = {
+                manageRequestsServiceId = id
+                selectedServiceId = null
+            }
         )
         return
     }

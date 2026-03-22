@@ -112,7 +112,9 @@ fun ServiceDetailScreen(
     creatorRating: com.hive.hive_app.data.api.dto.RatingListResponse? = null,
     isSaved: Boolean = false,
     onStartChat: ((String) -> Unit)? = null,
-    onOpenUserProfile: ((String) -> Unit)? = null
+    onOpenUserProfile: ((String) -> Unit)? = null,
+    /** Owner: open full-screen manage requests instead of a dialog. */
+    onManageJoinRequests: (() -> Unit)? = null
 ) {
     var expandedImageUrl by remember { mutableStateOf<String?>(null) }
 
@@ -154,7 +156,6 @@ fun ServiceDetailScreen(
                 ?: remember { mutableStateOf("") }
             val focusManager = LocalFocusManager.current
             var showApplyDialog by remember { mutableStateOf(false) }
-            var showManageRequests by remember { mutableStateOf(false) }
             if (showApplyDialog && viewModel != null) {
                 var message by remember { mutableStateOf("") }
                 AlertDialog(
@@ -181,18 +182,6 @@ fun ServiceDetailScreen(
                         }) { Text("Submit") }
                     },
                     dismissButton = { TextButton(onClick = { showApplyDialog = false }) { Text("Cancel") } }
-                )
-            }
-            if (showManageRequests && viewModel != null) {
-                ManageRequestsSheet(
-                    requests = joinRequests,
-                    onDismiss = { showManageRequests = false },
-                    onApprove = { req, adminMsg ->
-                        viewModel.updateRequestStatus(req._id, "approved", adminMsg) { showManageRequests = false }
-                    },
-                    onReject = { req, adminMsg ->
-                        viewModel.updateRequestStatus(req._id, "rejected", adminMsg) { showManageRequests = false }
-                    }
                 )
             }
             Column(
@@ -653,8 +642,10 @@ fun ServiceDetailScreen(
                                 }
                             }
                         } else {
-                            Button(onClick = { showManageRequests = true }) {
-                                Text("Manage join requests (${joinRequests.size})")
+                            if (onManageJoinRequests != null) {
+                                OutlinedButton(onClick = onManageJoinRequests) {
+                                    Text("Manage join requests (${joinRequests.size})")
+                                }
                             }
                         }
                     }
@@ -963,71 +954,3 @@ private fun LabelValue(label: String, value: String) {
     }
 }
 
-@Composable
-private fun ManageRequestsSheet(
-    requests: List<JoinRequestResponse>,
-    onDismiss: () -> Unit,
-    onApprove: (JoinRequestResponse, String?) -> Unit,
-    onReject: (JoinRequestResponse, String?) -> Unit
-) {
-    var pendingAction by remember { mutableStateOf<Pair<JoinRequestResponse, String>?>(null) }
-    if (pendingAction != null) {
-        val (req, action) = pendingAction!!
-        var adminMsg by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { pendingAction = null },
-            title = { Text(if (action == "approved") "Approve request" else "Reject request") },
-            text = {
-                OutlinedTextField(
-                    value = adminMsg,
-                    onValueChange = { adminMsg = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Message to applicant (optional)") },
-                    minLines = 2
-                )
-            },
-            confirmButton = {
-                Button(onClick = {
-                    if (action == "approved") onApprove(req, adminMsg.takeIf { it.isNotBlank() })
-                    else onReject(req, adminMsg.takeIf { it.isNotBlank() })
-                    pendingAction = null
-                }) { Text("Confirm") }
-            },
-            dismissButton = { TextButton(onClick = { pendingAction = null }) { Text("Cancel") } }
-        )
-    }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Join requests") },
-        text = {
-            if (requests.isEmpty()) {
-                Text("No join requests yet.")
-            } else {
-                LazyColumn(
-                    modifier = Modifier.heightIn(max = 400.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(requests, key = { it._id }) { req ->
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Text("Request ${req._id.take(8)}… • ${req.status}", style = MaterialTheme.typography.titleSmall)
-                                req.message?.takeIf { it.isNotBlank() }?.let {
-                                    Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
-                                }
-                                if (req.status == "pending") {
-                                    Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Button(onClick = { pendingAction = req to "approved" }) { Text("Approve") }
-                                        OutlinedButton(onClick = { pendingAction = req to "rejected" }) { Text("Reject") }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = { Button(onClick = onDismiss) { Text("Close") } }
-    )
-}
