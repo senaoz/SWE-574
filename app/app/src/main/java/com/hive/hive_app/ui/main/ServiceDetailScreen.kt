@@ -483,7 +483,7 @@ fun ServiceDetailScreen(
                                         color = HiveTheme.semanticColors.tag.copy(alpha = 0.4f)
                                     ) {
                                         Text(
-                                            text = tag.label ?: tag.name ?: tag.id ?: "",
+                                            text = tag.label ?: tag.name ?: tag.entityId ?: tag.id ?: "",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurface,
                                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
@@ -502,12 +502,20 @@ fun ServiceDetailScreen(
                             }
                             service.specificDate?.let { LabelValue("Date", it) }
                             service.specificTime?.let { LabelValue("Time", it) }
+                            service.recurringPattern?.let { rp ->
+                                if (rp.days.isNotEmpty()) {
+                                    LabelValue("Recurring days", rp.days.joinToString(", "))
+                                }
+                                if (rp.time.isNotBlank()) {
+                                    LabelValue("Time", rp.time)
+                                }
+                            }
                             service.openAvailability?.let { LabelValue("Availability", it) }
                             service.deadline?.let { LabelValue("Deadline", it) }
                             LabelValue("Duration", formatDurationHours(service.estimatedDuration))
                             if (service.schedulingType == null && service.specificDate == null &&
-                                service.specificTime == null && service.openAvailability == null &&
-                                service.deadline == null
+                                service.specificTime == null && service.recurringPattern == null &&
+                                service.openAvailability == null && service.deadline == null
                             ) {
                                 Text(
                                     text = "No specific schedule set",
