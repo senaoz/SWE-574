@@ -3,11 +3,15 @@ package com.hive.hive_app.ui.main
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hive.hive_app.data.api.dto.JoinRequestResponse
+import com.hive.hive_app.data.api.dto.ServiceResponse
+import com.hive.hive_app.data.api.dto.ServiceUpdate
+import com.hive.hive_app.data.api.dto.TransactionResponse
 import com.hive.hive_app.data.repository.AuthRepository
 import com.hive.hive_app.data.repository.ChatRepository
 import com.hive.hive_app.data.repository.JoinRequestsRepository
 import com.hive.hive_app.data.repository.RatingsRepository
 import com.hive.hive_app.data.repository.ServicesRepository
+import com.hive.hive_app.data.repository.TransactionsRepository
 import com.hive.hive_app.data.repository.UsersRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
@@ -31,6 +35,11 @@ data class ServiceRequestRow(
 )
 
 data class ManageRequestsUiState(
+    val service: ServiceResponse? = null,
+    val transaction: TransactionResponse? = null,
+    val currentUserId: String? = null,
+    /** Display name of the user to rate when completing (the other party). */
+    val completionOtherUserName: String? = null,
     val isLoading: Boolean = true,
     val error: String? = null,
     val requestRows: List<ServiceRequestRow> = emptyList()
@@ -43,7 +52,8 @@ class ManageServiceRequestsViewModel @Inject constructor(
     private val usersRepository: UsersRepository,
     private val ratingsRepository: RatingsRepository,
     private val chatRepository: ChatRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val transactionsRepository: TransactionsRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ManageRequestsUiState())
@@ -60,17 +70,29 @@ class ManageServiceRequestsViewModel @Inject constructor(
                 _state.value = ManageRequestsUiState(isLoading = false, error = "Service not found")
                 return@launch
             }
+            val userId = authRepository.getCurrentUser().getOrNull()?._id
+            val transactions = transactionsRepository.getMyTransactions(page = 1, limit = 100).getOrNull()?.transactions.orEmpty()
+            val txn = transactions.firstOrNull { it.serviceId == serviceId }
+            val ratedUserId = if (userId != null && txn != null) {
+                if (userId == txn.providerId) txn.requesterId else txn.providerId
+            } else null
+            val completionName = if (ratedUserId != null) {
+                usersRepository.getUser(ratedUserId).getOrNull()?.let { u ->
+                    u.fullName?.takeIf { it.isNotBlank() } ?: u.username
+                }
+            } else null
+
             joinRequestsRepository.getServiceRequests(serviceId, page = 1, limit = 100).fold(
                 onSuccess = { listResponse ->
                     val requests = listResponse.requests
                     val rows = coroutineScope {
                         requests.map { req ->
                             async {
-                                val userId = req.userId
-                                val userDef = async { usersRepository.getUser(userId).getOrNull() }
-                                val badgesDef = async { usersRepository.getUserBadges(userId).getOrNull() }
+                                val uid = req.userId
+                                val userDef = async { usersRepository.getUser(uid).getOrNull() }
+                                val badgesDef = async { usersRepository.getUserBadges(uid).getOrNull() }
                                 val ratingsDef = async {
-                                    ratingsRepository.getUserRatings(userId, page = 1, limit = 20).getOrNull()
+                                    ratingsRepository.getUserRatings(uid, page = 1, limit = 20).getOrNull()
                                 }
                                 val user = userDef.await()
                                 val badges = badgesDef.await()
@@ -80,9 +102,9 @@ class ManageServiceRequestsViewModel @Inject constructor(
                                     ?: 0
                                 val displayName = user?.fullName?.takeIf { it.isNotBlank() }
                                     ?: user?.username
-                                    ?: "User ${userId.take(8)}…"
+                                    ?: "User ${uid.take(8)}…"
                                 val usernameForLabel = user?.username?.takeIf { it.isNotBlank() }
-                                    ?: userId.take(8)
+                                    ?: uid.take(8)
                                 ServiceRequestRow(
                                     request = req,
                                     userName = displayName,
@@ -96,6 +118,10 @@ class ManageServiceRequestsViewModel @Inject constructor(
                         }.awaitAll()
                     }
                     _state.value = ManageRequestsUiState(
+                        service = service,
+                        transaction = txn,
+                        currentUserId = userId,
+                        completionOtherUserName = completionName,
                         isLoading = false,
                         error = null,
                         requestRows = rows
@@ -103,10 +129,27 @@ class ManageServiceRequestsViewModel @Inject constructor(
                 },
                 onFailure = { e ->
                     _state.value = ManageRequestsUiState(
+                        service = service,
+                        transaction = txn,
+                        currentUserId = userId,
+                        completionOtherUserName = completionName,
                         isLoading = false,
                         error = e.message ?: "Failed to load requests"
                     )
                 }
+            )
+        }
+    }
+
+    /** PUT /services/{id} with status in_progress (see OpenAPI ServiceUpdate.status). */
+    fun startService(serviceId: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            servicesRepository.updateService(serviceId, ServiceUpdate(status = "in_progress")).fold(
+                onSuccess = {
+                    loadedServiceId?.let { load(it) }
+                    onResult(true)
+                },
+                onFailure = { onResult(false) }
             )
         }
     }

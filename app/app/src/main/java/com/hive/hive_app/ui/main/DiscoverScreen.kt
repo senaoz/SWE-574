@@ -72,17 +72,38 @@ fun DiscoverScreen(
 ) {
     var selectedServiceId by remember { mutableStateOf<String?>(null) }
     var manageRequestsServiceId by remember { mutableStateOf<String?>(null) }
+    var completeServiceRatingArgs by remember { mutableStateOf<CompleteServiceRatingArgs?>(null) }
     var showCreateServiceScreen by remember { mutableStateOf(false) }
     val detailViewModel: ServiceDetailViewModel = hiltViewModel()
+    val activeItemsVm: ActiveItemsViewModel = hiltViewModel()
     val context = LocalContext.current
+
+    completeServiceRatingArgs?.let { args ->
+        key(args.transactionId) {
+            CompleteServiceRatingScreen(
+                args = args,
+                onBack = { completeServiceRatingArgs = null },
+                onSuccess = {
+                    completeServiceRatingArgs = null
+                    viewModel.refresh()
+                },
+                viewModel = activeItemsVm
+            )
+        }
+        return
+    }
 
     manageRequestsServiceId?.let { mrId ->
         key(mrId) {
-            ManageServiceRequestsScreen(
+            ManageServiceScreen(
                 serviceId = mrId,
                 onBack = { manageRequestsServiceId = null },
                 onOpenUserProfile = onOpenUserProfile,
-                onStartChat = onStartChat
+                onStartChat = onStartChat,
+                onNavigateToCompleteRating = { args ->
+                    completeServiceRatingArgs = args
+                    manageRequestsServiceId = null
+                }
             )
         }
         return

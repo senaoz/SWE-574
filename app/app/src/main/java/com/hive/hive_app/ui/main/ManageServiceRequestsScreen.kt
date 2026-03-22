@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -50,15 +51,56 @@ import coil.compose.AsyncImage
 import com.hive.hive_app.util.formatApplicationDate
 import java.util.Locale
 
+private fun canStartService(service: com.hive.hive_app.data.api.dto.ServiceResponse?): Boolean =
+    service?.status?.lowercase() == "active"
+
+private val ManageServiceGreen = Color(0xFF388E3C)
+
+private fun canConfirmCompletion(
+    service: com.hive.hive_app.data.api.dto.ServiceResponse?,
+    txn: com.hive.hive_app.data.api.dto.TransactionResponse?,
+    userId: String?
+): Boolean {
+    if (service == null || txn == null || userId == null) return false
+    if (service.status?.lowercase() != "in_progress") return false
+    return when (userId) {
+        txn.requesterId -> txn.requesterConfirmed != true
+        txn.providerId -> txn.providerConfirmed != true
+        else -> false
+    }
+}
+
 @Composable
-fun ManageServiceRequestsScreen(
+fun ManageServiceScreen(
     serviceId: String,
     onBack: () -> Unit,
     onOpenUserProfile: ((String) -> Unit)? = null,
     onStartChat: ((String) -> Unit)? = null,
+    /** When set, opens full-screen rating after "Confirm completion" (e.g. from Active tab). */
+    onNavigateToCompleteRating: ((CompleteServiceRatingArgs) -> Unit)? = null,
     viewModel: ManageServiceRequestsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    var showStartServiceConfirm by remember { mutableStateOf(false) }
+
+    if (showStartServiceConfirm) {
+        AlertDialog(
+            onDismissRequest = { showStartServiceConfirm = false },
+            title = { Text("Start service") },
+            text = {
+                Text("Mark this service as started? Participants will see it as in progress.")
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showStartServiceConfirm = false
+                    viewModel.startService(serviceId) { }
+                }) { Text("Start") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showStartServiceConfirm = false }) { Text("Cancel") }
+            }
+        )
+    }
 
     LaunchedEffect(serviceId) {
         viewModel.load(serviceId)
@@ -104,20 +146,39 @@ fun ManageServiceRequestsScreen(
                 }
             }
             else -> {
-                if (state.requestRows.isEmpty()) {
-                    Text(
-                        text = "No join requests yet.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(16.dp)
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(state.requestRows, key = { it.request._id }) { row ->
+                val pendingRows = state.requestRows.filter {
+                    it.request.status.equals("pending", ignoreCase = true)
+                }
+                val participantRows = state.requestRows.filter {
+                    it.request.status.equals("approved", ignoreCase = true)
+                }
+                val declinedRows = state.requestRows.filter {
+                    it.request.status.equals("rejected", ignoreCase = true)
+                }
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    item {
+                        Text(
+                            text = "Requests",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                    }
+                    if (pendingRows.isEmpty()) {
+                        item {
+                            Text(
+                                text = "No pending requests.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        items(pendingRows, key = { it.request._id }) { row ->
                             ManageRequestCard(
                                 row = row,
                                 onApprove = { adminMsg ->
@@ -145,10 +206,148 @@ fun ManageServiceRequestsScreen(
                             )
                         }
                     }
+                    item {
+                        Text(
+                            text = "Participants",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                        )
+                    }
+                    if (participantRows.isEmpty()) {
+                        item {
+                            Text(
+                                text = "No participants yet. Approve a request above to add someone here.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        items(participantRows, key = { it.request._id }) { row ->
+                            ManageRequestCard(
+                                row = row,
+                                onApprove = { },
+                                onReject = { },
+                                onOpenProfile = onOpenUserProfile?.let { cb ->
+                                    { cb(row.request.userId) }
+                                },
+                                onMessage = {
+                                    viewModel.startChatWithRequester(serviceId, row.request.userId) { roomId ->
+                                        roomId?.let { onStartChat?.invoke(it) }
+                                    }
+                                }
+                            )
+                        }
+                    }
+                    if (declinedRows.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = "Declined",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                            )
+                        }
+                        items(declinedRows, key = { it.request._id }) { row ->
+                            ManageRequestCard(
+                                row = row,
+                                onApprove = { },
+                                onReject = { },
+                                onOpenProfile = onOpenUserProfile?.let { cb ->
+                                    { cb(row.request.userId) }
+                                },
+                                onMessage = {
+                                    viewModel.startChatWithRequester(serviceId, row.request.userId) { roomId ->
+                                        roomId?.let { onStartChat?.invoke(it) }
+                                    }
+                                }
+                            )
+                        }
+                    }
+                    item {
+                        Text(
+                            text = "Manage Service",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                        )
+                    }
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                if (canStartService(state.service)) {
+                                    Button(
+                                        onClick = { showStartServiceConfirm = true },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text("Start service")
+                                    }
+                                }
+                                if (onNavigateToCompleteRating != null &&
+                                    canConfirmCompletion(state.service, state.transaction, state.currentUserId)
+                                ) {
+                                    val svc = state.service!!
+                                    val txn = state.transaction!!
+                                    val uid = state.currentUserId!!
+                                    val ratedUserId =
+                                        if (uid == txn.providerId) txn.requesterId else txn.providerId
+                                    Button(
+                                        onClick = {
+                                            onNavigateToCompleteRating(
+                                                CompleteServiceRatingArgs(
+                                                    transactionId = txn.id,
+                                                    serviceTitle = svc.title,
+                                                    otherName = state.completionOtherUserName ?: "Participant",
+                                                    creditsHours = txn.timebankHours,
+                                                    ratedUserId = ratedUserId
+                                                )
+                                            )
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = if (canStartService(state.service)) 8.dp else 0.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = ManageServiceGreen,
+                                            contentColor = Color.White
+                                        )
+                                    ) {
+                                        Text("Confirm completion & rate")
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
     }
+}
+
+/** @deprecated Use [ManageServiceScreen] */
+@Deprecated("Renamed to ManageServiceScreen", ReplaceWith("ManageServiceScreen"))
+@Composable
+fun ManageServiceRequestsScreen(
+    serviceId: String,
+    onBack: () -> Unit,
+    onOpenUserProfile: ((String) -> Unit)? = null,
+    onStartChat: ((String) -> Unit)? = null,
+    onNavigateToCompleteRating: ((CompleteServiceRatingArgs) -> Unit)? = null,
+    viewModel: ManageServiceRequestsViewModel = hiltViewModel()
+) {
+    ManageServiceScreen(
+        serviceId = serviceId,
+        onBack = onBack,
+        onOpenUserProfile = onOpenUserProfile,
+        onStartChat = onStartChat,
+        onNavigateToCompleteRating = onNavigateToCompleteRating,
+        viewModel = viewModel
+    )
 }
 
 @Composable

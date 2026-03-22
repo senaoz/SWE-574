@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -184,11 +185,17 @@ fun ServiceDetailScreen(
                     dismissButton = { TextButton(onClick = { showApplyDialog = false }) { Text("Cancel") } }
                 )
             }
-            Column(
-                modifier = modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-            ) {
+            val scrollState = rememberScrollState()
+            val showBottomBar = viewModel != null &&
+                service.status in listOf("active", "in_progress") &&
+                (if (isOwner) onManageJoinRequests != null else true)
+            Box(modifier = modifier.fillMaxSize()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(scrollState)
+                        .padding(bottom = if (showBottomBar) 88.dp else 0.dp)
+                ) {
                 // Top bar
                 Row(
                     modifier = Modifier
@@ -590,63 +597,16 @@ fun ServiceDetailScreen(
                         }
                     }
 
-                    // Apply / Manage requests (FR-5)
-                    if (viewModel != null && service.status in listOf("active", "in_progress")) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        if (!isOwner) {
-                            if (myJoinRequest != null) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    StatusChip(status = myJoinRequest!!.status)
-                                    if (creator != null && onStartChat != null) {
-                                        OutlinedButton(onClick = {
-                                            viewModel.startChat(service._id, creator._id) { result ->
-                                                result.getOrNull()?.let { roomId -> onStartChat(roomId) }
-                                            }
-                                        }) {
-                                            Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
-                                            Spacer(modifier = Modifier.size(8.dp))
-                                            Text("Start Chat")
-                                        }
-                                    }
-                                }
-                            } else {
-                                val buttonLabel = if (service.serviceType == "need") "Offer Help" else "Request Service"
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Button(onClick = { showApplyDialog = true }) { Text(buttonLabel) }
-                                    if (creator != null && onStartChat != null) {
-                                        OutlinedButton(onClick = {
-                                            viewModel.startChat(service._id, creator._id) { result ->
-                                                result.getOrNull()?.let { roomId -> onStartChat(roomId) }
-                                            }
-                                        }) {
-                                            Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
-                                            Spacer(modifier = Modifier.size(8.dp))
-                                            Text("Start Chat")
-                                        }
-                                    }
-                                }
-                                applyMessage?.let { msg ->
-                                    Text(
-                                        text = msg,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(top = 4.dp)
-                                    )
-                                }
-                            }
-                        } else {
-                            if (onManageJoinRequests != null) {
-                                OutlinedButton(onClick = onManageJoinRequests) {
-                                    Text("Manage join requests (${joinRequests.size})")
-                                }
-                            }
+                    // Apply feedback (after request submit); primary actions are in the floating bar below
+                    if (viewModel != null && !isOwner && service.status in listOf("active", "in_progress")) {
+                        applyMessage?.let { msg ->
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = msg,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
                         }
                     }
 
@@ -686,6 +646,71 @@ fun ServiceDetailScreen(
                             )
                         }
                     }
+                }
+                }
+                if (showBottomBar) {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                            if (isOwner && onManageJoinRequests != null) {
+                                Button(
+                                    onClick = onManageJoinRequests,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Manage service (${joinRequests.size})")
+                                }
+                            } else if (!isOwner) {
+                                if (myJoinRequest != null) {
+                                    StatusChip(status = myJoinRequest!!.status)
+                                    Spacer(modifier = Modifier.weight(1f))
+                                    if (creator != null && onStartChat != null) {
+                                        IconButton(
+                                            onClick = {
+                                                viewModel.startChat(service._id, creator._id) { result ->
+                                                    result.getOrNull()?.let { roomId -> onStartChat(roomId) }
+                                                }
+                                            }
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Chat,
+                                                contentDescription = "Start chat",
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    val buttonLabel =
+                                        if (service.serviceType == "need") "Offer Help" else "Request Service"
+                                    Button(
+                                        onClick = { showApplyDialog = true },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(buttonLabel)
+                                    }
+                                    if (creator != null && onStartChat != null) {
+                                        IconButton(
+                                            onClick = {
+                                                viewModel.startChat(service._id, creator._id) { result ->
+                                                    result.getOrNull()?.let { roomId -> onStartChat(roomId) }
+                                                }
+                                            }
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Chat,
+                                                contentDescription = "Start chat",
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                 }
             }
         }

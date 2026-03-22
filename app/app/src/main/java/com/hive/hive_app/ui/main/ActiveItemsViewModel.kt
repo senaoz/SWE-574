@@ -77,7 +77,7 @@ class ActiveItemsViewModel @Inject constructor(
         val pendingCount: Int = 0,
         val approvedCount: Int = 0,
         val rejectedCount: Int = 0,
-        /** Owner-only: total join requests per active service (for "Manage Requests (n)"). */
+        /** Owner-only: total join requests per active service (for "Manage service (n)"). */
         val joinRequestCountsByServiceId: Map<String, Int> = emptyMap(),
         val isLoading: Boolean = false,
         val error: String? = null

@@ -73,18 +73,39 @@ fun MapScreen(
 ) {
     var selectedServiceId by remember { mutableStateOf<String?>(null) }
     var manageRequestsServiceId by remember { mutableStateOf<String?>(null) }
+    var completeServiceRatingArgs by remember { mutableStateOf<CompleteServiceRatingArgs?>(null) }
     val detailViewModel: ServiceDetailViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    val activeItemsVm: ActiveItemsViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val state by viewModel.state.collectAsState()
 
+    completeServiceRatingArgs?.let { args ->
+        key(args.transactionId) {
+            CompleteServiceRatingScreen(
+                args = args,
+                onBack = { completeServiceRatingArgs = null },
+                onSuccess = {
+                    completeServiceRatingArgs = null
+                    viewModel.loadServices()
+                },
+                viewModel = activeItemsVm
+            )
+        }
+        return
+    }
+
     manageRequestsServiceId?.let { mrId ->
         key(mrId) {
-            ManageServiceRequestsScreen(
+            ManageServiceScreen(
                 serviceId = mrId,
                 onBack = { manageRequestsServiceId = null },
                 onOpenUserProfile = onOpenUserProfile,
-                onStartChat = onStartChat
+                onStartChat = onStartChat,
+                onNavigateToCompleteRating = { args ->
+                    completeServiceRatingArgs = args
+                    manageRequestsServiceId = null
+                }
             )
         }
         return

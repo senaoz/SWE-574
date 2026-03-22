@@ -10,35 +10,21 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.Star
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -67,21 +53,6 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-
-private data class ConfirmCompletionData(
-    val transactionId: String,
-    val serviceTitle: String,
-    val otherName: String,
-    val creditsHours: Double,
-    val ratedUserId: String
-)
-
-private val FEEDBACK_TAGS = listOf(
-    "Clear Communicator", "Prepared", "Organized", "Responsible", "Trustworthy",
-    "Helpful", "Kind", "Respectful", "Flexible", "Patient", "Reliable",
-    "Collaborative", "Understanding", "Appreciative", "Easy to Work With"
-)
 
 @Composable
 fun ActiveItemsScreen(
@@ -92,36 +63,39 @@ fun ActiveItemsScreen(
 ) {
     var selectedServiceId by remember { mutableStateOf<String?>(null) }
     var manageRequestsServiceId by remember { mutableStateOf<String?>(null) }
-    var confirmCompletionData by remember { mutableStateOf<ConfirmCompletionData?>(null) }
+    var completeServiceRatingArgs by remember { mutableStateOf<CompleteServiceRatingArgs?>(null) }
     val detailViewModel: ServiceDetailViewModel = hiltViewModel()
     val state by viewModel.state.collectAsState()
 
-    confirmCompletionData?.let { data ->
-        ConfirmServiceCompletionDialog(
-            serviceTitle = data.serviceTitle,
-            otherName = data.otherName,
-            creditsHours = data.creditsHours,
-            onDismiss = { confirmCompletionData = null },
-            onConfirm = { confirmed, score, feedbackTags, comment ->
-                if (confirmed && score in 1..5) {
-                    viewModel.confirmAndRate(data.transactionId, data.ratedUserId, score, feedbackTags, comment) { ok, _ ->
-                        if (ok) confirmCompletionData = null
-                    }
-                }
-            }
-        )
+    completeServiceRatingArgs?.let { args ->
+        key(args.transactionId) {
+            CompleteServiceRatingScreen(
+                args = args,
+                onBack = { completeServiceRatingArgs = null },
+                onSuccess = {
+                    completeServiceRatingArgs = null
+                    viewModel.load()
+                },
+                viewModel = viewModel
+            )
+        }
+        return
     }
 
     manageRequestsServiceId?.let { mrId ->
         key(mrId) {
-            ManageServiceRequestsScreen(
+            ManageServiceScreen(
                 serviceId = mrId,
                 onBack = {
                     manageRequestsServiceId = null
                     viewModel.load()
                 },
                 onOpenUserProfile = onOpenUserProfile,
-                onStartChat = onStartChat
+                onStartChat = onStartChat,
+                onNavigateToCompleteRating = { args ->
+                    completeServiceRatingArgs = args
+                    manageRequestsServiceId = null
+                }
             )
         }
         return
@@ -287,10 +261,15 @@ fun ActiveItemsScreen(
             items(state.acceptedParticipation, key = { it._id }) { service ->
                 val transaction = state.acceptedServiceTransactions[service._id]
                 val serviceInProgress = service.status?.lowercase() == "in_progress"
+                val uid = state.currentUserId
                 val canConfirmReceived = serviceInProgress &&
                     transaction != null &&
-                    transaction.requesterId == state.currentUserId &&
-                    transaction.requesterConfirmed != true
+                    uid != null &&
+                    when (uid) {
+                        transaction.requesterId -> transaction.requesterConfirmed != true
+                        transaction.providerId -> transaction.providerConfirmed != true
+                        else -> false
+                    }
                 val transactionId = transaction?.id
                 val ownerName = state.ownerNamesByUserId[service.userId]
                 val timeSlotText = formatServiceSchedulingDisplay(service)
@@ -311,141 +290,21 @@ fun ActiveItemsScreen(
                     showConfirmReceived = canConfirmReceived,
                     onConfirmReceived = if (canConfirmReceived) {
                         val txn = transaction!!
+                        val otherPartyId =
+                            if (state.currentUserId == txn.providerId) txn.requesterId else txn.providerId
+                        val otherDisplayName =
+                            state.ownerNamesByUserId[otherPartyId] ?: ownerName ?: "Participant"
                         {
-                            confirmCompletionData = ConfirmCompletionData(
+                            completeServiceRatingArgs = CompleteServiceRatingArgs(
                                 transactionId = transactionId!!,
                                 serviceTitle = service.title,
-                                otherName = ownerName ?: "Unknown",
+                                otherName = otherDisplayName,
                                 creditsHours = txn.timebankHours,
-                                ratedUserId = if (state.currentUserId == txn.providerId) txn.requesterId else txn.providerId
+                                ratedUserId = otherPartyId
                             )
                         }
                     } else null
                 )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ConfirmServiceCompletionDialog(
-    serviceTitle: String,
-    otherName: String,
-    creditsHours: Double,
-    onDismiss: () -> Unit,
-    onConfirm: (confirmed: Boolean, score: Int, feedbackTags: List<String>, comment: String?) -> Unit
-) {
-    var confirmed by remember { mutableStateOf(false) }
-    var score by remember { mutableStateOf(0) }
-    var selectedTags by remember { mutableStateOf(setOf<String>()) }
-    var comment by remember { mutableStateOf("") }
-    val scrollState = rememberScrollState()
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .padding(16.dp),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(20.dp)
-                    .verticalScroll(scrollState)
-            ) {
-                Text(
-                    text = "Confirm Service Completion",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(text = "Service: $serviceTitle", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 12.dp))
-                Text(text = "With: $otherName", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-                Text(text = "Credits: ${if (creditsHours == 1.0) "1 hour" else "$creditsHours hours"}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 16.dp)) {
-                    Checkbox(checked = confirmed, onCheckedChange = { confirmed = it })
-                    Text(text = "I confirm that the service was completed as agreed.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-                }
-                Surface(
-                    modifier = Modifier.padding(top = 8.dp),
-                    color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                        Text(
-                            text = "Once confirmed, the time credits will be transferred and this action cannot be undone.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(start = 8.dp)
-                        )
-                    }
-                }
-
-                Text(text = "Rate this exchange*", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 16.dp))
-                Row(modifier = Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    (1..5).forEach { s ->
-                        IconButton(onClick = { score = s }) {
-                            Icon(
-                                imageVector = if (s <= score) Icons.Filled.Star else Icons.Outlined.Star,
-                                contentDescription = "$s stars",
-                                tint = if (s <= score) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                            )
-                        }
-                    }
-                }
-
-                Text(text = "Feedback*", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 12.dp))
-                FlowRow(
-                    modifier = Modifier.padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FEEDBACK_TAGS.forEach { tag ->
-                        FilterChip(
-                            selected = tag in selectedTags,
-                            onClick = { selectedTags = if (tag in selectedTags) selectedTags - tag else selectedTags + tag },
-                            label = { Text(tag) }
-                        )
-                    }
-                }
-
-                Text(text = "Additional Comments (Optional)", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 12.dp))
-                OutlinedTextField(
-                    value = comment,
-                    onValueChange = { comment = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp),
-                    placeholder = { Text("How was your experience?") },
-                    minLines = 2,
-                    shape = RoundedCornerShape(12.dp)
-                )
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 24.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    TextButton(onClick = onDismiss) { Text("Cancel") }
-                    val canSubmit = confirmed && score in 1..5 && selectedTags.isNotEmpty()
-                    Button(
-                        onClick = {
-                            if (canSubmit) {
-                                onConfirm(confirmed, score, selectedTags.toList(), comment.takeIf { it.isNotBlank() })
-                            }
-                        },
-                        enabled = canSubmit,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("Confirm & Rate", modifier = Modifier.padding(start = 4.dp))
-                    }
-                }
             }
         }
     }
@@ -658,7 +517,7 @@ private fun ActiveServiceCard(
                 ) {
                     if (onManageRequests != null) {
                         OutlinedButton(onClick = onManageRequests) {
-                            Text("Manage Requests ($manageRequestCount)")
+                            Text("Manage service ($manageRequestCount)")
                         }
                     }
                     if (onMessage != null) {
