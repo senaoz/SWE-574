@@ -426,8 +426,9 @@ class TransactionService:
             service = await self.services_collection.find_one({"_id": svc_oid})
             service_title = service.get("title", "Service") if service else "Service"
             hours = float(transaction.get("timebank_hours", transaction.get("hours", 0)))
+            service_type = service.get("service_type", "offer")
 
-            print(f"[FINALIZE] Transaction {transaction_id} | Service: {service_title} | Hours: {hours}")
+            print(f"[FINALIZE] Transaction {transaction_id} | Service: {service_title} | Hours: {hours} | Service Type: {service_type}")
             print(f"[FINALIZE] Provider ID: {transaction['provider_id']} | Requester ID: {transaction['requester_id']}")
 
             from .user_service import UserService
@@ -441,7 +442,13 @@ class TransactionService:
                 "_id": {"$ne": ObjectId(transaction_id)}
             })
             
-            # Requester spends hours (always — each receiver pays independently)
+            if service_type == "offer":
+                hours = hours
+            else:
+                hours = -hours
+
+            print(f"Hours: {hours} - Is Offer: {service_type == 'offer'} - {service_type}")
+
             requester_success = await user_service.add_timebank_transaction(
                 str(transaction["requester_id"]),
                 -hours,
