@@ -209,6 +209,7 @@ class ServiceListResponse(BaseModel):
 
 
 class ServiceFilters(BaseModel):
+    q: Optional[str] = None
     service_type: Optional[ServiceType] = None
     category: Optional[str] = None
     tags: Optional[List[str]] = None
