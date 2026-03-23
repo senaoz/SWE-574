@@ -48,8 +48,45 @@ class ServiceService:
         # Tags in DB are now dicts with "label" field
         return tags  # Return as-is, MongoDB query will handle matching
 
+    @staticmethod
+    def _location_to_geojson(location: dict) -> dict:
+        """Convert {latitude, longitude, address} to GeoJSON for MongoDB 2dsphere index"""
+        if not location:
+            return location
+        # Already GeoJSON
+        if location.get("type") == "Point" and "coordinates" in location:
+            return location
+        if "latitude" in location and "longitude" in location:
+            geojson = {
+                "type": "Point",
+                "coordinates": [location["longitude"], location["latitude"]],
+            }
+            if location.get("address"):
+                geojson["address"] = location["address"]
+            return geojson
+        return location
+
+    @staticmethod
+    def _location_from_geojson(location: dict) -> dict:
+        """Convert GeoJSON back to {latitude, longitude, address} for API response"""
+        if not location:
+            return location
+        if location.get("type") == "Point" and "coordinates" in location:
+            coords = location["coordinates"]
+            result = {
+                "latitude": coords[1],
+                "longitude": coords[0],
+            }
+            if location.get("address"):
+                result["address"] = location["address"]
+            return result
+        return location
+
     def _normalize_service_doc(self, service_doc: dict) -> dict:
         """Normalize service document for response (handles backward compatibility)"""
+        # Convert GeoJSON location back to lat/lng format for API
+        if "location" in service_doc and service_doc["location"]:
+            service_doc["location"] = self._location_from_geojson(service_doc["location"])
         # Ensure optional confirmation fields are set
         if "receiver_confirmed_ids" not in service_doc or service_doc["receiver_confirmed_ids"] is None or not isinstance(service_doc["receiver_confirmed_ids"], list):
             service_doc["receiver_confirmed_ids"] = []
@@ -99,6 +136,10 @@ class ServiceService:
             if "tags" in service_dict:
                 service_dict["tags"] = self._normalize_tags(service_dict["tags"])
             
+            # Convert location to GeoJSON for 2dsphere index
+            if "location" in service_dict and service_dict["location"]:
+                service_dict["location"] = self._location_to_geojson(service_dict["location"])
+
             service_doc = {
                 **service_dict,
                 "user_id": ObjectId(user_id),
@@ -295,7 +336,11 @@ class ServiceService:
             # Normalize tags if they're being updated
             if "tags" in update_data:
                 update_data["tags"] = self._normalize_tags(update_data["tags"])
-            
+
+            # Convert location to GeoJSON for 2dsphere index
+            if "location" in update_data and update_data["location"]:
+                update_data["location"] = self._location_to_geojson(update_data["location"])
+
             update_data["updated_at"] = datetime.utcnow()
             
             result = await self.services_collection.update_one(
