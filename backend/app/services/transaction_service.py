@@ -529,25 +529,36 @@ class TransactionService:
     async def _update_timebank_balances(self, transaction):
         """Update timebank balances for both users"""
         try:
+            # TODO: Update timebank balances
+            # if offer, provider earns hours, requester spends hours
+            # if need, provider spends hours, requester earns hours
+            if transaction["service_type"] == "offer":
+                provider_hours = transaction["hours"]
+                requester_hours = -transaction["hours"]
+            else:
+                provider_hours = -transaction["hours"]
+                requester_hours = transaction["hours"]
+
             # Add hours to provider
             await self.users_collection.update_one(
                 {"_id": transaction["provider_id"]},
-                {"$inc": {"timebank_balance": transaction["hours"]}}
+                {"$inc": {"timebank_balance": provider_hours}}
             )
             
             # Subtract hours from requester
             await self.users_collection.update_one(
                 {"_id": transaction["requester_id"]},
-                {"$inc": {"timebank_balance": -transaction["hours"]}}
+                {"$inc": {"timebank_balance": requester_hours}}
             )
             
+
             # Record timebank transactions
             timebank_collection = self.db.timebank_transactions
             
             # Provider earns hours
             await timebank_collection.insert_one({
                 "user_id": transaction["provider_id"],
-                "amount": transaction["hours"],
+                "amount": provider_hours,
                 "description": f"Completed service: {transaction.get('description', 'Service exchange')}",
                 "transaction_type": "earned",
                 "created_at": datetime.utcnow(),
@@ -557,7 +568,7 @@ class TransactionService:
             # Requester spends hours
             await timebank_collection.insert_one({
                 "user_id": transaction["requester_id"],
-                "amount": -transaction["hours"],
+                "amount": requester_hours,
                 "description": f"Used service: {transaction.get('description', 'Service exchange')}",
                 "transaction_type": "spent",
                 "created_at": datetime.utcnow(),
