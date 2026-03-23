@@ -156,7 +156,10 @@ class ServiceService:
             
             result = await self.services_collection.insert_one(service_doc)
             service_doc["_id"] = result.inserted_id
-            
+
+            # Convert GeoJSON back for response
+            service_doc = self._normalize_service_doc(service_doc)
+
             return ServiceResponse(**service_doc)
         except Exception as e:
             raise ValueError(f"Error creating service: {str(e)}")
