@@ -426,7 +426,10 @@ class TransactionService:
             service = await self.services_collection.find_one({"_id": svc_oid})
             service_title = service.get("title", "Service") if service else "Service"
             hours = float(transaction.get("timebank_hours", transaction.get("hours", 0)))
-            
+
+            print(f"[FINALIZE] Transaction {transaction_id} | Service: {service_title} | Hours: {hours}")
+            print(f"[FINALIZE] Provider ID: {transaction['provider_id']} | Requester ID: {transaction['requester_id']}")
+
             from .user_service import UserService
             user_service = UserService(self.db)
             
@@ -481,102 +484,6 @@ class TransactionService:
             return provider_success and requester_success
         except Exception as e:
             raise ValueError(f"Error finalizing transaction: {str(e)}")
-
-    async def complete_transaction(self, transaction_id: str, current_user_id: str, completion_notes: str = None) -> Optional[TransactionResponse]:
-        """Mark a transaction as completed (deprecated - use confirm_transaction_completion instead)"""
-        try:
-            transaction = await self.transactions_collection.find_one({"_id": ObjectId(transaction_id)})
-            if not transaction:
-                raise ValueError("Transaction not found")
-            
-            # Check if user is authorized to complete this transaction
-            if (str(transaction["provider_id"]) != current_user_id and 
-                str(transaction["requester_id"]) != current_user_id):
-                raise ValueError("You are not authorized to complete this transaction")
-            
-            if transaction["status"] != TransactionStatus.PENDING:
-                raise ValueError(f"Transaction is already {transaction['status']} and cannot be completed")
-
-            update_doc = {
-                "status": TransactionStatus.COMPLETED,
-                "completed_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow()
-            }
-            
-            if completion_notes:
-                update_doc["completion_notes"] = completion_notes
-
-            result = await self.transactions_collection.update_one(
-                {"_id": ObjectId(transaction_id)},
-                {"$set": update_doc}
-            )
-
-            if result.modified_count > 0:
-                # Update timebank balances
-                await self._update_timebank_balances(transaction)
-                
-                updated_transaction = await self.transactions_collection.find_one({"_id": ObjectId(transaction_id)})
-                # Ensure boolean fields are not None
-                if updated_transaction.get("provider_confirmed") is None:
-                    updated_transaction["provider_confirmed"] = False
-                if updated_transaction.get("requester_confirmed") is None:
-                    updated_transaction["requester_confirmed"] = False
-                return TransactionResponse(**updated_transaction)
-            return None
-        except Exception as e:
-            raise ValueError(f"Error completing transaction: {str(e)}")
-
-    async def _update_timebank_balances(self, transaction):
-        """Update timebank balances for both users"""
-        try:
-            # if offer, provider earns hours, requester spends hours
-            # if need, provider spends hours, requester earns hours
-            isOffer = transaction["service_type"] == "offer"
-            
-            if not isOffer:
-                hours = -hours
-
-            print(f"Hours: {hours} - Is Offer: {isOffer}")
-            print(f"Provider ID: {transaction['provider_id']}")
-            print(f"Requester ID: {transaction['requester_id']}")
-            
-            # Add hours to provider
-            await self.users_collection.update_one(
-                {"_id": transaction["provider_id"]},
-                {"$inc": {"timebank_balance": hours}}
-            )
-            
-            # Subtract hours from requester
-            await self.users_collection.update_one(
-                {"_id": transaction["requester_id"]},
-                {"$inc": {"timebank_balance": -hours}}
-            )
-            
-            # Record timebank transactions
-            timebank_collection = self.db.timebank_transactions
-            
-            # Provider earns hours
-            await timebank_collection.insert_one({
-                "user_id": transaction["provider_id"],
-                "amount": transaction["hours"],
-                "description": f"Completed service: {transaction.get('description', 'Service exchange')}",
-                "transaction_type": "earned",
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow()
-            })
-            
-            # Requester spends hours
-            await timebank_collection.insert_one({
-                "user_id": transaction["requester_id"],
-                "amount": -transaction["hours"],
-                "description": f"Used service: {transaction.get('description', 'Service exchange')}",
-                "transaction_type": "spent",
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow()
-            })
-            
-        except Exception as e:
-            print(f"Warning: Error updating timebank balances: {e}")
 
     async def get_all_transactions(self, page: int = 1, limit: int = 20) -> tuple[List[TransactionResponse], int]:
         """Get all transactions (admin or moderator only)"""
