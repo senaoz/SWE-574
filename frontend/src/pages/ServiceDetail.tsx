@@ -31,11 +31,14 @@ import {
   PersonIcon,
   Pencil1Icon,
 } from "@radix-ui/react-icons";
-import { AlertOctagonIcon, CalendarRangeIcon, MessageCircleIcon } from "lucide-react";
+import {
+  AlertOctagonIcon,
+  CalendarRangeIcon,
+  MessageCircleIcon,
+} from "lucide-react";
 import { ProviderProfileSummary } from "@/components/ui/ProviderProfileSummary";
 import { ServiceMap } from "@/components/map/ServiceMap";
 import { HandShakeModal } from "@/components/ui/HandShakeModal";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CommentSection } from "@/components/ui/CommentSection";
 import { ParticipantAvatars } from "@/components/ui/ParticipantAvatars";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -59,10 +62,9 @@ export function ServiceDetail() {
   const [isCancellingRequest, setIsCancellingRequest] = useState(false);
   const [linkedEvents, setLinkedEvents] = useState<ForumEvent[]>([]);
   const [copied, setCopied] = useState(false);
-  const [completeConfirmOpen, setCompleteConfirmOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
-  const { currentUserId, refetchUser, user: currentUser } = useUser();
+  const { currentUserId, user: currentUser } = useUser();
   const queryClient = useQueryClient();
   const { data: savedIdsData } = useQuery({
     queryKey: ["saved-service-ids"],
@@ -302,25 +304,6 @@ export function ServiceDetail() {
       setIsParticipating(false);
     }
   };
-  const handleMarkServiceComplete = async () => {
-    if (!service || !id) return;
-    setCompleteConfirmOpen(true);
-  };
-  const handleConfirmMarkComplete = async () => {
-    if (!id) return;
-    try {
-      await servicesApi.completeService(id);
-      refetchUser();
-      const res = await servicesApi.getService(id);
-      setService(res.data);
-    } catch (error: any) {
-      console.error("Error completing service:", error);
-      alert(
-        error.response?.data?.detail ||
-          "Failed to mark service as completed. Please try again.",
-      );
-    }
-  };
   const handleCancelRequest = async () => {
     if (!pendingRequest) return;
     try {
@@ -359,14 +342,6 @@ export function ServiceDetail() {
   };
   return (
     <>
-      <ConfirmDialog
-        open={completeConfirmOpen}
-        onOpenChange={setCompleteConfirmOpen}
-        title="Mark service as completed?"
-        description="TimeBank will be updated after both parties confirm the completion."
-        confirmLabel="Mark complete"
-        onConfirm={handleConfirmMarkComplete}
-      />
       {service && id && (
         <ReportDialog
           open={reportDialogOpen}
@@ -456,17 +431,23 @@ export function ServiceDetail() {
           <div className="grid grid-cols-1 gap-2 mb-2">
             <Flex align="center" gap="2">
               <ClockIcon className="w-5 h-5" color="gray" />
-              <Text size="3" weight="medium">Duration:</Text>
+              <Text size="3" weight="medium">
+                Duration:
+              </Text>
               <Text size="3">{formatDuration(service.estimated_duration)}</Text>
             </Flex>
             <Flex align="center" gap="2">
               <PersonIcon className="w-5 h-5" color="gray" />
-              <Text size="3" weight="medium">Max participants:</Text>
+              <Text size="3" weight="medium">
+                Max participants:
+              </Text>
               <Text size="3">{service.max_participants ?? "No limit"}</Text>
             </Flex>
             <Flex align="center" gap="2">
               <Crosshair1Icon className="w-5 h-5" color="gray" />
-              <Text size="3" weight="medium">Location:</Text>
+              <Text size="3" weight="medium">
+                Location:
+              </Text>
               <Text size="3">
                 {service.is_remote
                   ? "Remote (online)"
@@ -476,7 +457,9 @@ export function ServiceDetail() {
             {service.deadline && (
               <Flex align="center" gap="2">
                 <CalendarRangeIcon className="w-5 h-5" color="gray" />
-                <Text size="3" weight="medium">Deadline:</Text>
+                <Text size="3" weight="medium">
+                  Deadline:
+                </Text>
                 <Text size="3">{formatDate(service.deadline)}</Text>
               </Flex>
             )}
