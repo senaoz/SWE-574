@@ -38,12 +38,15 @@ interface MyServicesProps {
   }) => void;
   /** When tab is "services", filter/scroll to this status (from URL ?status=). */
   statusFilter?: string;
+  /** When set, scroll to and highlight the service card with this ID. */
+  highlightServiceId?: string;
 }
 
 export function MyServices({
   activeTab: activeTabProp,
   onDataLoad,
   statusFilter,
+  highlightServiceId,
 }: MyServicesProps = {}) {
   const navigate = useNavigate();
   const { currentUserId, refetchUser } = useUser();
@@ -480,6 +483,7 @@ export function MyServices({
             onRequestUpdate={fetchData}
             formatDate={formatDate}
             statusFilter={statusFilter}
+            highlightServiceId={highlightServiceId}
           />
         </div>
       )}

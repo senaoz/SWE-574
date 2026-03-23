@@ -46,6 +46,8 @@ interface MyServicesTabProps {
   formatDate: (dateString: string) => string;
   /** When set (from URL ?status=), scroll to this section and highlight the filter button. */
   statusFilter?: string;
+  /** When set, scroll to and highlight the service card with this ID. */
+  highlightServiceId?: string;
 }
 
 export function MyServicesTab({
@@ -63,6 +65,7 @@ export function MyServicesTab({
   onRequestUpdate,
   formatDate,
   statusFilter,
+  highlightServiceId,
 }: MyServicesTabProps) {
   const navigate = useNavigate();
   const [transactionRatings, setTransactionRatings] = useState<
@@ -166,6 +169,23 @@ export function MyServicesTab({
       el.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [statusFilter]);
+
+  // Scroll to and highlight a specific service card
+  const [highlightActive, setHighlightActive] = useState(false);
+
+  useEffect(() => {
+    if (!highlightServiceId) return;
+    // Small delay so the DOM has rendered (status filter may change visible cards)
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`service-card-${highlightServiceId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHighlightActive(true);
+        setTimeout(() => setHighlightActive(false), 3000);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [highlightServiceId, services]);
 
   const getServiceTypeLabel = (type: string) => {
     return type === "offer" ? "Offer" : "Need";
@@ -291,7 +311,11 @@ export function MyServicesTab({
             </Flex>
             <div className="space-y-6 max-w-[calc(100vw-5rem)]">
               {servicesInStatus.map((service) => (
-                <Card key={service._id} className="p-6">
+                <Card
+                  key={service._id}
+                  id={`service-card-${service._id}`}
+                  className={`p-6 transition-all duration-700 ${highlightActive && highlightServiceId === service._id ? "ring-2 ring-[var(--accent-9)] bg-[var(--accent-a2)]" : ""}`}
+                >
                   <div className="flex flex-col gap-3">
                     <Flex direction="column" gap="1">
                       <Flex justify="between" gap="2" align="center">

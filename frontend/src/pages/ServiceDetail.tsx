@@ -741,14 +741,18 @@ export function ServiceDetail() {
                 </Button>
               </Tooltip>
             )}
-            {/* Provider: Mark service as completed */}
+            {/* Provider: Mark service as completed — navigate to My Services tab */}
             {isServingUser &&
               service.status === "in_progress" &&
               currentUserId && (
                 <Button
                   color="green"
                   size="3"
-                  onClick={handleMarkServiceComplete}
+                  onClick={() =>
+                    navigate(
+                      `/profile?tab=services&status=in_progress&highlight=${id}`,
+                    )
+                  }
                 >
                   <CheckCircledIcon className="w-4 h-4 mr-2" />
                   Mark as completed
