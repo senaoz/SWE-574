@@ -86,10 +86,12 @@ export function Dashboard() {
       .catch(() => setForumEvents([]));
   }, []);
 
-  const fetchServices = async () => {
+  const fetchServices = async (searchQ?: string) => {
     try {
       setLoading(true);
-      const response = await servicesApi.getServices();
+      const response = await servicesApi.getServices({
+        q: searchQ?.trim() || undefined,
+      });
       setServices(response.data.services || []);
       setFilteredServices(response.data.services || []);
     } catch (error) {
@@ -105,7 +107,19 @@ export function Dashboard() {
     fetchServices();
   }, []);
 
-  // Filter services based on search query, city, and tag URL param
+  // Re-fetch when search query changes (debounced)
+  useEffect(() => {
+    if (!searchQuery) {
+      fetchServices();
+      return;
+    }
+    const timeout = setTimeout(() => {
+      fetchServices(searchQuery);
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
+
+  // Filter services based on city and tag URL param (search is now server-side)
   useEffect(() => {
     let filtered = services;
 
@@ -122,26 +136,6 @@ export function Dashboard() {
       );
     }
 
-    // Filter by search query
-    if (searchQuery.trim()) {
-      filtered = filtered.filter(
-        (service) =>
-          (service.title || "")
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          (service.description || "")
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          (service.category || "")
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          service.tags?.some((tag) => {
-            const tagLabel = typeof tag === "string" ? tag : tag.label;
-            return tagLabel?.toLowerCase().includes(searchQuery.toLowerCase());
-          }),
-      );
-    }
-
     // Filter by city
     if (selectedCity && selectedCity !== "all") {
       filtered = filtered.filter((service) => {
@@ -151,7 +145,7 @@ export function Dashboard() {
     }
 
     setFilteredServices(filtered);
-  }, [services, searchQuery, selectedCity, tagParam]);
+  }, [services, selectedCity, tagParam]);
 
   const displayedServices = useMemo(
     () => applyMapFilters(filteredServices, mapFilters, userPosition),

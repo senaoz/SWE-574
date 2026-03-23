@@ -164,6 +164,7 @@ export const servicesApi = {
   getServices: (params?: {
     page?: number;
     limit?: number;
+    q?: string;
     service_type?: string;
     category?: string;
     tags?: string;

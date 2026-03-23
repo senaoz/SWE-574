@@ -32,27 +32,10 @@ export function SearchBar({ className = "", onSearchChange }: SearchBarProps) {
       const response = await servicesApi.getServices({
         page: 1,
         limit: 10,
-        // Search in title, description, category, and tags
-        // Note: The backend might need to support text search parameters
+        q: query.trim(),
       });
 
-      // Filter results on frontend for now (backend search would be better)
-      const filteredResults = response.data.services.filter(
-        (service: Service) =>
-          (service.title || "").toLowerCase().includes(query.toLowerCase()) ||
-          (service.description || "")
-            .toLowerCase()
-            .includes(query.toLowerCase()) ||
-          (service.category || "")
-            .toLowerCase()
-            .includes(query.toLowerCase()) ||
-          service.tags?.some((tag) => {
-            const tagLabel = typeof tag === "string" ? tag : tag.label;
-            return tagLabel?.toLowerCase().includes(query.toLowerCase());
-          }),
-      );
-
-      setSearchResults(filteredResults);
+      setSearchResults(response.data.services);
       setShowSearchResults(true);
     } catch (error) {
       console.error("Error searching services:", error);
