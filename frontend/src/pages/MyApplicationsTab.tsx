@@ -285,8 +285,8 @@ export function MyApplicationsTab({
                             return (
                               <>
                                 {/* Completion status for in_progress / completed services */}
-                                {(service.status === "in_progress" ||
-                                  service.status === "completed") && (
+                                {service.status === "in_progress" ||
+                                service.status === "completed" ? (
                                   <div>
                                     <Flex direction="column" gap="3">
                                       <Flex
@@ -467,6 +467,13 @@ export function MyApplicationsTab({
                                           );
                                         })()}
                                     </Flex>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <Text size="2" color="red">
+                                      You have approved for this service, but it
+                                      is not in progress or completed yet.
+                                    </Text>
                                   </div>
                                 )}
                               </>
