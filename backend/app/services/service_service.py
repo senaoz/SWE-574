@@ -1,6 +1,7 @@
 from typing import List, Tuple, Optional
 from datetime import datetime
 import math
+import re
 from bson import ObjectId
 
 from ..models.service import ServiceCreate, ServiceUpdate, ServiceResponse, ServiceFilters, ServiceStatus
@@ -157,7 +158,21 @@ class ServiceService:
                 query["user_id"] = user_id_obj
             if filters.is_remote is not None:
                 query["is_remote"] = filters.is_remote
-            
+
+            # Handle free-text search
+            if filters.q:
+                escaped = re.escape(filters.q)
+                search_or = [
+                    {"title": {"$regex": escaped, "$options": "i"}},
+                    {"description": {"$regex": escaped, "$options": "i"}},
+                    {"category": {"$regex": escaped, "$options": "i"}},
+                    {"tags.label": {"$regex": escaped, "$options": "i"}},
+                ]
+                if "$or" in query:
+                    query["$and"] = [{"$or": query.pop("$or")}, {"$or": search_or}]
+                else:
+                    query["$or"] = search_or
+
             # Handle location-based filtering
             if filters.location and filters.radius:
                 # For location-based queries, we need to use aggregation pipeline
@@ -196,7 +211,21 @@ class ServiceService:
                     match_stage["user_id"] = user_id_obj
                 if filters.is_remote is not None:
                     match_stage["is_remote"] = filters.is_remote
-                
+
+                # Handle free-text search in geo pipeline
+                if filters.q:
+                    escaped = re.escape(filters.q)
+                    search_or = [
+                        {"title": {"$regex": escaped, "$options": "i"}},
+                        {"description": {"$regex": escaped, "$options": "i"}},
+                        {"category": {"$regex": escaped, "$options": "i"}},
+                        {"tags.label": {"$regex": escaped, "$options": "i"}},
+                    ]
+                    if "$or" in match_stage:
+                        match_stage["$and"] = [{"$or": match_stage.pop("$or")}, {"$or": search_or}]
+                    else:
+                        match_stage["$or"] = search_or
+
                 if match_stage:
                     pipeline.append({"$match": match_stage})
                 

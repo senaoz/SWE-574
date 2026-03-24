@@ -20,6 +20,7 @@ router = APIRouter(prefix="/services", tags=["services"])
 async def get_services(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
+    q: Optional[str] = None,
     service_type: Optional[str] = None,
     category: Optional[str] = None,
     tags: Optional[str] = None,
@@ -45,6 +46,7 @@ async def get_services(
     
     # Create filters
     filters = ServiceFilters(
+        q=q,
         service_type=service_type,
         category=category,
         tags=tag_list,

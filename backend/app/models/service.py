@@ -67,26 +67,20 @@ class Location(BaseModel):
     latitude: float = Field(..., ge=-90, le=90)
     longitude: float = Field(..., ge=-180, le=180)
     address: Optional[str] = None
-    
+
+    @model_validator(mode='before')
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-    
-    @classmethod
-    def validate(cls, v):
+    def parse_geojson(cls, v):
         if isinstance(v, dict):
-            # Handle GeoJSON format
+            # Handle GeoJSON format from MongoDB
             if 'type' in v and 'coordinates' in v and v['type'] == 'Point':
                 coords = v['coordinates']
                 if len(coords) == 2:
-                    return cls(
-                        latitude=coords[1],  # latitude is second coordinate
-                        longitude=coords[0],  # longitude is first coordinate
-                        address=v.get('address')
-                    )
-            # Handle regular format
-            elif 'latitude' in v and 'longitude' in v:
-                return cls(**v)
+                    return {
+                        'latitude': coords[1],
+                        'longitude': coords[0],
+                        'address': v.get('address'),
+                    }
         return v
 
 
@@ -209,6 +203,7 @@ class ServiceListResponse(BaseModel):
 
 
 class ServiceFilters(BaseModel):
+    q: Optional[str] = None
     service_type: Optional[ServiceType] = None
     category: Optional[str] = None
     tags: Optional[List[str]] = None
