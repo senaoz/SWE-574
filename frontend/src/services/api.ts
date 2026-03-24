@@ -192,9 +192,6 @@ export const servicesApi = {
   
   matchService: (id: string): Promise<AxiosResponse<{ message: string }>> =>
     api.post(`/services/${id}/match`),
-  
-  completeService: (id: string): Promise<AxiosResponse<{ message: string }>> =>
-    api.post(`/services/${id}/complete`),
 
   saveService: (id: string): Promise<AxiosResponse<{ message: string }>> =>
     api.post(`/services/${id}/save`),

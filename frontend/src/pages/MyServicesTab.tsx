@@ -28,7 +28,6 @@ interface MyServicesTabProps {
   currentUserId: string | null;
   requiresNeedCreation?: boolean;
   onSetServiceInProgress: (serviceId: string) => Promise<void>;
-  onMarkServiceComplete: (serviceId: string) => Promise<void>;
   onDeleteService: (serviceId: string) => Promise<void>;
   onCancelService: (serviceId: string) => Promise<void>;
   onStartChat: (transactionId: string) => Promise<void>;
@@ -56,7 +55,6 @@ export function MyServicesTab({
   currentUserId,
   requiresNeedCreation = false,
   onSetServiceInProgress,
-  onMarkServiceComplete,
   onDeleteService,
   onCancelService,
   onStartChat,
@@ -430,44 +428,13 @@ export function MyServicesTab({
                             >
                               <div className="grid">
                                 <Text size="3" weight="bold">
-                                  Mark as completed
+                                  Transaction confirmations
                                 </Text>
                                 <Text size="2" color="gray" className="mt-1">
-                                  As the service owner, you can mark the service
-                                  as completed. TimeBank will be updated after
-                                  both parties confirm the completion.
+                                  The service will be automatically marked as
+                                  completed once all participants confirm.
                                 </Text>
                               </div>
-
-                              {service.status === "in_progress" &&
-                                currentUserId &&
-                                String(service.user_id) === currentUserId && (
-                                  <Button
-                                    size="2"
-                                    color="green"
-                                    disabled={
-                                      requiresNeedCreation ||
-                                      serviceTransactions[service._id].every(
-                                        (transaction) =>
-                                          !(
-                                            transaction.provider_confirmed &&
-                                            transaction.requester_confirmed
-                                          ),
-                                      )
-                                    }
-                                    title={
-                                      requiresNeedCreation
-                                        ? "Create a Need before you can give help"
-                                        : undefined
-                                    }
-                                    onClick={() =>
-                                      onMarkServiceComplete(service._id)
-                                    }
-                                  >
-                                    <CheckCircledIcon className="w-4 h-4 mr-2" />
-                                    Mark as completed
-                                  </Button>
-                                )}
                             </Flex>
 
                             <div className="space-y-3">

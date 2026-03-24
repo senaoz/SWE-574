@@ -487,10 +487,39 @@ class TransactionService:
                     }
                 }
             )
-            
+
+            # Auto-complete service if ALL its transactions are now completed
+            await self._auto_complete_service_if_ready(transaction["service_id"])
+
             return provider_success and requester_success
         except Exception as e:
             raise ValueError(f"Error finalizing transaction: {str(e)}")
+
+    async def _auto_complete_service_if_ready(self, service_id) -> None:
+        """Auto-complete a service when all its transactions are confirmed and finalized."""
+        try:
+            svc_oid = ObjectId(str(service_id))
+            # Check if there are any non-completed transactions left
+            pending_count = await self.transactions_collection.count_documents({
+                "service_id": svc_oid,
+                "status": {"$ne": TransactionStatus.COMPLETED}
+            })
+            if pending_count > 0:
+                return
+
+            # All transactions completed — auto-complete the service
+            service = await self.services_collection.find_one({"_id": svc_oid})
+            if not service or service.get("status") == "completed":
+                return
+
+            print(f"[AUTO-COMPLETE] All transactions confirmed for service {service_id}, auto-completing service.")
+            from .service_service import ServiceService
+            service_service = ServiceService(self.db)
+            service_resp = await service_service.get_service_by_id(str(svc_oid))
+            if service_resp:
+                await service_service._finalize_service_completion(str(svc_oid), service_resp)
+        except Exception as e:
+            print(f"Warning: Auto-complete check failed for service {service_id}: {e}")
 
     async def get_all_transactions(self, page: int = 1, limit: int = 20) -> tuple[List[TransactionResponse], int]:
         """Get all transactions (admin or moderator only)"""

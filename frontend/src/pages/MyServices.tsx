@@ -347,30 +347,6 @@ export function MyServices({
     });
   };
 
-  const handleMarkServiceComplete = async (serviceId: string) => {
-    setConfirmState({
-      open: true,
-      title: "Mark service as completed?",
-      description:
-        "TimeBank will be updated after both parties confirm the completion.",
-      variant: "default",
-      onConfirm: async () => {
-        try {
-          await servicesApi.completeService(serviceId);
-          refetchUser();
-          // alert("Service marked as completed.");
-          await fetchData();
-        } catch (error: any) {
-          console.error("Error completing service:", error);
-          alert(
-            error.response?.data?.detail ||
-              "Failed to mark service as completed. Please try again.",
-          );
-        }
-      },
-    });
-  };
-
   const handleDeleteService = async (serviceId: string) => {
     setConfirmState({
       open: true,
@@ -474,8 +450,7 @@ export function MyServices({
             currentUserId={currentUserId}
             requiresNeedCreation={timebankData?.requires_need_creation ?? false}
             onSetServiceInProgress={handleSetServiceInProgress}
-            onMarkServiceComplete={handleMarkServiceComplete}
-            onDeleteService={handleDeleteService}
+onDeleteService={handleDeleteService}
             onCancelService={handleCancelService}
             onStartChat={handleStartChat}
             onCancelTransaction={handleCancelTransaction}
