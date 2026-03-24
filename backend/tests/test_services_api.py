@@ -79,6 +79,54 @@ class TestServicesAPI:
         response = test_client.get(f"/services/{fake_id}")
         
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    @pytest.mark.asyncio
+    async def test_get_potential_matches_endpoint(
+        self, test_client, mock_db, sample_service, second_user, auth_headers, sample_service_data
+    ):
+        """Test fetching opposite-type potential matches for a service."""
+        from datetime import datetime, timezone
+        from app.models.service import ServiceCreate
+        from app.services.service_service import ServiceService
+
+        service_service = ServiceService(mock_db)
+
+        matching_need_data = sample_service_data.copy()
+        matching_need_data["service_type"] = "need"
+        matching_need = await service_service.create_service(
+            ServiceCreate(**matching_need_data),
+            str(second_user.id),
+        )
+
+        saved_need_data = sample_service_data.copy()
+        saved_need_data["title"] = "Saved need"
+        saved_need_data["service_type"] = "need"
+        saved_need = await service_service.create_service(
+            ServiceCreate(**saved_need_data),
+            str(second_user.id),
+        )
+
+        await mock_db.saved_services.insert_one(
+            {
+                "user_id": str(sample_service.user_id),
+                "service_id": str(saved_need.id),
+                "created_at": datetime.now(timezone.utc),
+            }
+        )
+
+        response = test_client.get(
+            f"/services/{sample_service.id}/potential-matches",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
+        service_id = data["items"][0]["service"].get("id") or data["items"][0]["service"].get("_id")
+        assert service_id == str(matching_need.id)
+        assert data["items"][0]["service"]["service_type"] == "need"
+        assert data["items"][0]["reason_label"]
     
     def test_update_service_endpoint(self, test_client, sample_service, auth_headers):
         """Test updating a service via API"""
@@ -235,4 +283,3 @@ class TestServicesAPI:
         )
         
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-

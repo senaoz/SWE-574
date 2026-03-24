@@ -5,12 +5,17 @@ from datetime import datetime, timezone
 from bson import ObjectId
 
 from ..models.service import (
-    ServiceCreate, ServiceUpdate, ServiceResponse, ServiceListResponse, 
-    ServiceFilters, ServiceStatus
+    PotentialMatchListResponse,
+    ServiceCreate,
+    ServiceFilters,
+    ServiceListResponse,
+    ServiceResponse,
+    ServiceStatus,
+    ServiceUpdate,
 )
 from ..models.user import UserResponse
 from ..services.service_service import ServiceService
-from ..api.auth import get_current_user
+from ..api.auth import get_current_user, get_optional_current_user
 from ..core.database import get_database
 
 router = APIRouter(prefix="/services", tags=["services"])
@@ -137,6 +142,45 @@ async def get_saved_service_ids(
     )
     docs = await cursor.to_list(length=500)
     return {"service_ids": [doc["service_id"] for doc in docs]}
+
+
+@router.get("/{service_id}/potential-matches", response_model=PotentialMatchListResponse)
+async def get_potential_matches(
+    service_id: str,
+    limit: int = Query(6, ge=1, le=12),
+    current_user: Optional[UserResponse] = Depends(get_optional_current_user),
+    db=Depends(get_database)
+):
+    """Get matching services for the current post, preferring opposite-type results first."""
+    if not ObjectId.is_valid(service_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Service not found"
+        )
+
+    service_service = ServiceService(db)
+
+    try:
+        current_service = await service_service.get_service_by_id(service_id)
+        if not current_service:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Service not found"
+            )
+
+        items, total = await service_service.get_potential_matches(
+            service_id=service_id,
+            current_user_id=str(current_user.id) if current_user else None,
+            limit=limit,
+        )
+        return PotentialMatchListResponse(items=items, total=total)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error fetching potential matches: {str(e)}"
+        )
 
 
 @router.get("/{service_id}", response_model=ServiceResponse)
@@ -338,7 +382,7 @@ async def complete_service(
     current_user: UserResponse = Depends(get_current_user),
     db=Depends(get_database)
 ):
-    """Mark service as completed (provider only). Updates status, TimeBank, and linked transactions."""
+    """Mark service as completed (owner only). Updates status and linked transactions."""
     service_service = ServiceService(db)
     
     try:
