@@ -127,6 +127,7 @@ export function Profile() {
   const [searchParams, setSearchParams] = useSearchParams();
   const profileTabFromUrl = searchParams.get("tab") || "profile";
   const profileStatusFromUrl = searchParams.get("status") || undefined;
+  const highlightServiceId = searchParams.get("highlight") || undefined;
   const selectInterests = searchParams.get("interests") || undefined;
 
   const allowedTabs = [
@@ -1237,6 +1238,9 @@ export function Profile() {
               onDataLoad={setMyservicesCounts}
               statusFilter={
                 profileTab === "services" ? profileStatusFromUrl : undefined
+              }
+              highlightServiceId={
+                profileTab === "services" ? highlightServiceId : undefined
               }
             />
           </Tabs.Content>

@@ -426,7 +426,11 @@ class TransactionService:
             service = await self.services_collection.find_one({"_id": svc_oid})
             service_title = service.get("title", "Service") if service else "Service"
             hours = float(transaction.get("timebank_hours", transaction.get("hours", 0)))
-            
+            service_type = service.get("service_type", "offer")
+
+            print(f"[FINALIZE] Transaction {transaction_id} | Service: {service_title} | Hours: {hours} | Service Type: {service_type}")
+            print(f"[FINALIZE] Provider ID: {transaction['provider_id']} | Requester ID: {transaction['requester_id']}")
+
             from .user_service import UserService
             user_service = UserService(self.db)
             
@@ -438,7 +442,13 @@ class TransactionService:
                 "_id": {"$ne": ObjectId(transaction_id)}
             })
             
-            # Requester spends hours (always — each receiver pays independently)
+            if service_type == "offer":
+                hours = hours
+            else:
+                hours = -hours
+
+            print(f"Hours: {hours} - Is Offer: {service_type == 'offer'} - {service_type}")
+
             requester_success = await user_service.add_timebank_transaction(
                 str(transaction["requester_id"]),
                 -hours,
@@ -477,106 +487,39 @@ class TransactionService:
                     }
                 }
             )
-            
+
+            # Auto-complete service if ALL its transactions are now completed
+            await self._auto_complete_service_if_ready(transaction["service_id"])
+
             return provider_success and requester_success
         except Exception as e:
             raise ValueError(f"Error finalizing transaction: {str(e)}")
 
-    async def complete_transaction(self, transaction_id: str, current_user_id: str, completion_notes: str = None) -> Optional[TransactionResponse]:
-        """Mark a transaction as completed (deprecated - use confirm_transaction_completion instead)"""
+    async def _auto_complete_service_if_ready(self, service_id) -> None:
+        """Auto-complete a service when all its transactions are confirmed and finalized."""
         try:
-            transaction = await self.transactions_collection.find_one({"_id": ObjectId(transaction_id)})
-            if not transaction:
-                raise ValueError("Transaction not found")
-            
-            # Check if user is authorized to complete this transaction
-            if (str(transaction["provider_id"]) != current_user_id and 
-                str(transaction["requester_id"]) != current_user_id):
-                raise ValueError("You are not authorized to complete this transaction")
-            
-            if transaction["status"] != TransactionStatus.PENDING:
-                raise ValueError(f"Transaction is already {transaction['status']} and cannot be completed")
-
-            update_doc = {
-                "status": TransactionStatus.COMPLETED,
-                "completed_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow()
-            }
-            
-            if completion_notes:
-                update_doc["completion_notes"] = completion_notes
-
-            result = await self.transactions_collection.update_one(
-                {"_id": ObjectId(transaction_id)},
-                {"$set": update_doc}
-            )
-
-            if result.modified_count > 0:
-                # Update timebank balances
-                await self._update_timebank_balances(transaction)
-                
-                updated_transaction = await self.transactions_collection.find_one({"_id": ObjectId(transaction_id)})
-                # Ensure boolean fields are not None
-                if updated_transaction.get("provider_confirmed") is None:
-                    updated_transaction["provider_confirmed"] = False
-                if updated_transaction.get("requester_confirmed") is None:
-                    updated_transaction["requester_confirmed"] = False
-                return TransactionResponse(**updated_transaction)
-            return None
-        except Exception as e:
-            raise ValueError(f"Error completing transaction: {str(e)}")
-
-    async def _update_timebank_balances(self, transaction):
-        """Update timebank balances for both users"""
-        try:
-            # TODO: Update timebank balances
-            # if offer, provider earns hours, requester spends hours
-            # if need, provider spends hours, requester earns hours
-            if transaction["service_type"] == "offer":
-                provider_hours = transaction["hours"]
-                requester_hours = -transaction["hours"]
-            else:
-                provider_hours = -transaction["hours"]
-                requester_hours = transaction["hours"]
-
-            # Add hours to provider
-            await self.users_collection.update_one(
-                {"_id": transaction["provider_id"]},
-                {"$inc": {"timebank_balance": provider_hours}}
-            )
-            
-            # Subtract hours from requester
-            await self.users_collection.update_one(
-                {"_id": transaction["requester_id"]},
-                {"$inc": {"timebank_balance": requester_hours}}
-            )
-            
-
-            # Record timebank transactions
-            timebank_collection = self.db.timebank_transactions
-            
-            # Provider earns hours
-            await timebank_collection.insert_one({
-                "user_id": transaction["provider_id"],
-                "amount": provider_hours,
-                "description": f"Completed service: {transaction.get('description', 'Service exchange')}",
-                "transaction_type": "earned",
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow()
+            svc_oid = ObjectId(str(service_id))
+            # Check if there are any non-completed transactions left
+            pending_count = await self.transactions_collection.count_documents({
+                "service_id": svc_oid,
+                "status": {"$ne": TransactionStatus.COMPLETED}
             })
-            
-            # Requester spends hours
-            await timebank_collection.insert_one({
-                "user_id": transaction["requester_id"],
-                "amount": requester_hours,
-                "description": f"Used service: {transaction.get('description', 'Service exchange')}",
-                "transaction_type": "spent",
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow()
-            })
-            
+            if pending_count > 0:
+                return
+
+            # All transactions completed — auto-complete the service
+            service = await self.services_collection.find_one({"_id": svc_oid})
+            if not service or service.get("status") == "completed":
+                return
+
+            print(f"[AUTO-COMPLETE] All transactions confirmed for service {service_id}, auto-completing service.")
+            from .service_service import ServiceService
+            service_service = ServiceService(self.db)
+            service_resp = await service_service.get_service_by_id(str(svc_oid))
+            if service_resp:
+                await service_service._finalize_service_completion(str(svc_oid), service_resp)
         except Exception as e:
-            print(f"Warning: Error updating timebank balances: {e}")
+            print(f"Warning: Auto-complete check failed for service {service_id}: {e}")
 
     async def get_all_transactions(self, page: int = 1, limit: int = 20) -> tuple[List[TransactionResponse], int]:
         """Get all transactions (admin or moderator only)"""
