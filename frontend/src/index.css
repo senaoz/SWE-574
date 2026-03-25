@@ -222,7 +222,7 @@ p {
 }
 
 .custom-badge-icon {
-    background-color: var(--lime-3);
+    background-color: var(--lime-4);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -246,7 +246,7 @@ p {
 .custom-badge-icon svg {
     stroke: var(--lime-8);
     stroke-width: 2px;
-    fill: var(--lime-3);
+    fill: var(--lime-4);
 }
 
 .border-none-card.rt-Card:where(.rt-variant-surface)::after {

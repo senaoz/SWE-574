@@ -721,9 +721,7 @@ export function ServiceDetail() {
           {/* Action buttons */}
           <div className="flex flex-wrap gap-3">
             {/* Edit button for owner or admin */}
-            {service.status === "active" &&
-              (service.user_id === currentUserId ||
-                currentUser?.role === "admin") && (
+            {(service.status === "active" && service.user_id === currentUserId) || currentUser?.role === "admin" && (
                 <Button
                   variant="soft"
                   size="3"
@@ -967,8 +965,9 @@ export function ServiceDetail() {
 
                     return (
                         <Card
+                            id={`recommendation-card-${match?._id || ''}`}
                             key={match._id}
-                            className="p-4 cursor-pointer hover:shadow-lg transition-shadow"
+                            className="p-4 hover-card"
                             onClick={() => navigate(`/service/${match._id}`)}
                         >
                           <Flex direction="column" gap="3">
@@ -990,13 +989,23 @@ export function ServiceDetail() {
                               <Text size="3" weight="bold" className="line-clamp-2">
                                 {match.title}
                               </Text>
-                              <Text
-                                  size="2"
-                                  color="gray"
-                                  className="line-clamp-3 mt-2"
-                              >
-                                {match.description}
-                              </Text>
+                              <div className="prose-content card-description">
+                                <ReactMarkdown
+                                    components={{
+                                      a: ({ node, ...props }) => (
+                                          <a
+                                              {...props}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                          >
+                                            {props.children}
+                                          </a>
+                                      ),
+                                    }}
+                                >
+                                  {match.description}
+                                </ReactMarkdown>
+                              </div>
                             </div>
 
                             <div className="flex flex-wrap gap-2">
@@ -1044,6 +1053,7 @@ export function ServiceDetail() {
             )}
           </div>
         </div>
+
         {/* Sidebar */}
         <div className="space-y-6">
           <ProviderProfileSummary user={provider} />
@@ -1055,6 +1065,7 @@ export function ServiceDetail() {
               <ParticipantAvatars participants={participants} />
             </Card>
           )}
+
           {service.is_remote ? (
             <Card className="p-4">
               <Flex direction="column" gap="2" align="center">
@@ -1078,6 +1089,7 @@ export function ServiceDetail() {
               sticky={false}
             />
           )}
+
           {linkedEvents.length > 0 && (
             <Card className="p-4">
               <Text size="3" weight="bold" className="mb-3 block">
@@ -1109,6 +1121,7 @@ export function ServiceDetail() {
               </div>
             </Card>
           )}
+
           <CommentSection serviceId={service._id} />
         </div>
       </div>

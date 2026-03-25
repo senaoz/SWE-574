@@ -104,7 +104,7 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
   };
 
   return (
-    <Card className="p-4">
+    <div>
       <Flex align="center" gap="2" className="mb-4">
         <MessageCircleIcon className="w-5 h-5" />
         <Text size="4" weight="bold">
@@ -197,6 +197,6 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
           No comments yet. Be the first to share your thoughts!
         </Text>
       )}
-    </Card>
+    </div>
   );
 }
