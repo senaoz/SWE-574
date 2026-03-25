@@ -1,5 +1,5 @@
 import axios, { AxiosResponse } from 'axios';
-import { AuthResponse, User, Service, ServiceListResponse, PotentialMatchListResponse, TimeBankResponse, TimeBankTransaction, LoginForm, RegisterForm, ServiceForm, Comment, CommentListResponse, CommentForm, JoinRequest, JoinRequestListResponse, JoinRequestForm, Transaction, TransactionListResponse, TransactionForm, ChatRoom, ChatRoomListResponse, ChatRoomForm, Message, MessageListResponse, MessageForm, UserSettings, PasswordChangeForm, AccountDeletionForm, BadgeSummary, Rating, RatingListResponse, RatingForm, ForumDiscussion, ForumDiscussionListResponse, ForumDiscussionForm, ForumEvent, ForumEventListResponse, ForumEventForm, ForumComment, ForumCommentListResponse } from '@/types';
+import { AuthResponse, User, Service, ServiceListResponse, PotentialMatchListResponse, TimeBankResponse, TimeBankTransaction, LoginForm, RegisterForm, ServiceForm, Comment, CommentListResponse, CommentForm, JoinRequest, JoinRequestListResponse, JoinRequestForm, Transaction, TransactionListResponse, TransactionForm, ChatRoom, ChatRoomListResponse, ChatRoomForm, Message, MessageListResponse, MessageForm, UserSettings, PasswordChangeForm, AccountDeletionForm, BadgeSummary, Rating, RatingListResponse, RatingDetailedListResponse, RatingForm, ForumDiscussion, ForumDiscussionListResponse, ForumDiscussionForm, ForumEvent, ForumEventListResponse, ForumEventForm, ForumComment, ForumCommentListResponse } from '@/types';
 
 // Use relative URL /api to leverage nginx proxy, or absolute URL if provided via env var
 // This ensures requests go through the same HTTPS domain as the frontend
@@ -164,6 +164,7 @@ export const servicesApi = {
   getServices: (params?: {
     page?: number;
     limit?: number;
+    q?: string;
     service_type?: string;
     category?: string;
     tags?: string;
@@ -192,9 +193,6 @@ export const servicesApi = {
   
   matchService: (id: string): Promise<AxiosResponse<{ message: string }>> =>
     api.post(`/services/${id}/match`),
-  
-  completeService: (id: string): Promise<AxiosResponse<{ message: string }>> =>
-    api.post(`/services/${id}/complete`),
 
   saveService: (id: string): Promise<AxiosResponse<{ message: string }>> =>
     api.post(`/services/${id}/save`),
@@ -321,6 +319,9 @@ export const ratingsApi = {
   getUserRatings: (userId: string, page?: number, limit?: number): Promise<AxiosResponse<RatingListResponse>> =>
     api.get(`/ratings/user/${userId}`, { params: { page, limit } }),
 
+  getUserRatingsDetailed: (userId: string, page?: number, limit?: number): Promise<AxiosResponse<RatingDetailedListResponse>> =>
+    api.get(`/ratings/user/${userId}/detailed`, { params: { page, limit } }),
+
   getTransactionRatings: (transactionId: string): Promise<AxiosResponse<Rating[]>> =>
     api.get(`/ratings/transaction/${transactionId}`),
 };
@@ -384,6 +385,20 @@ export const forumApi = {
 
   deleteComment: (id: string): Promise<AxiosResponse<{ message: string }>> =>
     api.delete(`/forum/comments/${id}`),
+};
+
+export const reportsApi = {
+  createReport: (data: import('../types').ReportForm) =>
+    api.post('/reports/', data),
+
+  getPendingReport: (params: { report_type: import('../types').ReportType; reported_id: string }) =>
+    api.get('/reports/pending', { params }),
+
+  getReports: (params?: { page?: number; limit?: number; status?: string; report_type?: string }) =>
+    api.get('/reports/admin', { params }),
+
+  updateReport: (id: string, data: { status: string; resolution_notes?: string }) =>
+    api.put(`/reports/admin/${id}`, data),
 };
 
 export default api;

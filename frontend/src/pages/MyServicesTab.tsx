@@ -10,6 +10,7 @@ import {
   type ConfirmCompletionRatingData,
 } from "@/components/ui/ConfirmCompletionModal";
 import { InterestChip } from "@/components/ui/InterestChip";
+import { EditServiceDialog } from "@/components/forms/EditServiceDialog";
 import { ratingsApi } from "@/services/api";
 import {
   ClockIcon,
@@ -17,6 +18,7 @@ import {
   ArrowRightIcon,
   TrashIcon,
   CrossCircledIcon,
+  Pencil1Icon,
 } from "@radix-ui/react-icons";
 import { useNavigate } from "react-router-dom";
 
@@ -26,7 +28,6 @@ interface MyServicesTabProps {
   currentUserId: string | null;
   requiresNeedCreation?: boolean;
   onSetServiceInProgress: (serviceId: string) => Promise<void>;
-  onMarkServiceComplete: (serviceId: string) => Promise<void>;
   onDeleteService: (serviceId: string) => Promise<void>;
   onCancelService: (serviceId: string) => Promise<void>;
   onStartChat: (transactionId: string) => Promise<void>;
@@ -44,6 +45,8 @@ interface MyServicesTabProps {
   formatDate: (dateString: string) => string;
   /** When set (from URL ?status=), scroll to this section and highlight the filter button. */
   statusFilter?: string;
+  /** When set, scroll to and highlight the service card with this ID. */
+  highlightServiceId?: string;
 }
 
 export function MyServicesTab({
@@ -52,7 +55,6 @@ export function MyServicesTab({
   currentUserId,
   requiresNeedCreation = false,
   onSetServiceInProgress,
-  onMarkServiceComplete,
   onDeleteService,
   onCancelService,
   onStartChat,
@@ -61,6 +63,7 @@ export function MyServicesTab({
   onRequestUpdate,
   formatDate,
   statusFilter,
+  highlightServiceId,
 }: MyServicesTabProps) {
   const navigate = useNavigate();
   const [transactionRatings, setTransactionRatings] = useState<
@@ -69,6 +72,7 @@ export function MyServicesTab({
   const [ratingLoading, setRatingLoading] = useState<string | null>(null);
   const [confirmModalTransaction, setConfirmModalTransaction] =
     useState<Transaction | null>(null);
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
 
   // Fetch ratings for transactions where the current user has confirmed or both confirmed.
   useEffect(() => {
@@ -164,12 +168,25 @@ export function MyServicesTab({
     }
   }, [statusFilter]);
 
+  // Scroll to and highlight a specific service card
+  const [highlightActive, setHighlightActive] = useState(false);
+
+  useEffect(() => {
+    if (!highlightServiceId) return;
+    // Small delay so the DOM has rendered (status filter may change visible cards)
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`service-card-${highlightServiceId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHighlightActive(true);
+        setTimeout(() => setHighlightActive(false), 3000);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [highlightServiceId, services]);
+
   const getServiceTypeLabel = (type: string) => {
     return type === "offer" ? "Offer" : "Need";
-  };
-
-  const getServiceTypeColor = (type: string) => {
-    return type === "offer" ? "blue" : "green";
   };
 
   if (services.length === 0) {
@@ -292,7 +309,11 @@ export function MyServicesTab({
             </Flex>
             <div className="space-y-6 max-w-[calc(100vw-5rem)]">
               {servicesInStatus.map((service) => (
-                <Card key={service._id} className="p-6">
+                <Card
+                  key={service._id}
+                  id={`service-card-${service._id}`}
+                  className={`p-6 transition-all duration-700 ${highlightActive && highlightServiceId === service._id ? "ring-2 ring-[var(--accent-9)] bg-[var(--accent-a2)]" : ""}`}
+                >
                   <div className="flex flex-col gap-3">
                     <Flex direction="column" gap="1">
                       <Flex justify="between" gap="2" align="center">
@@ -352,6 +373,14 @@ export function MyServicesTab({
                               >
                                 <TrashIcon className="w-4 h-4" />
                               </Button>
+                              <Button
+                                disabled={service.status !== "active"}
+                                size="2"
+                                variant="soft"
+                                onClick={() => setEditingServiceId(service._id)}
+                              >
+                                <Pencil1Icon className="w-4 h-4" />
+                              </Button>
                             </>
                           )}
                         </Flex>
@@ -399,35 +428,13 @@ export function MyServicesTab({
                             >
                               <div className="grid">
                                 <Text size="3" weight="bold">
-                                  Mark as completed
+                                  Transaction confirmations
                                 </Text>
                                 <Text size="2" color="gray" className="mt-1">
-                                  As the service owner, you can mark the service
-                                  as completed. TimeBank will be updated after
-                                  both parties confirm the completion.
+                                  The service will be automatically marked as
+                                  completed once all participants confirm.
                                 </Text>
                               </div>
-
-                              {service.status === "in_progress" &&
-                                currentUserId &&
-                                String(service.user_id) === currentUserId && (
-                                  <Button
-                                    size="2"
-                                    color="green"
-                                    disabled={requiresNeedCreation}
-                                    title={
-                                      requiresNeedCreation
-                                        ? "Create a Need before you can give help"
-                                        : undefined
-                                    }
-                                    onClick={() =>
-                                      onMarkServiceComplete(service._id)
-                                    }
-                                  >
-                                    <CheckCircledIcon className="w-4 h-4 mr-2" />
-                                    Mark as completed
-                                  </Button>
-                                )}
                             </Flex>
 
                             <div className="space-y-3">
@@ -449,6 +456,36 @@ export function MyServicesTab({
                                       ? transaction.requester_id
                                       : transaction.provider_id;
 
+                                  const transactionStatus =
+                                    transaction.provider_confirmed &&
+                                    transaction.requester_confirmed
+                                      ? "completed"
+                                      : transaction.provider_confirmed
+                                        ? "provider_confirmed"
+                                        : transaction.requester_confirmed
+                                          ? "requester_confirmed"
+                                          : "pending";
+                                  const transactionStatusColor =
+                                    transactionStatus === "completed"
+                                      ? "green"
+                                      : transactionStatus ===
+                                          "provider_confirmed"
+                                        ? "yellow"
+                                        : transactionStatus ===
+                                            "requester_confirmed"
+                                          ? "yellow"
+                                          : "red";
+                                  const transactionStatusText =
+                                    transactionStatus === "completed"
+                                      ? "✓ Exchange completed"
+                                      : transactionStatus ===
+                                          "provider_confirmed"
+                                        ? "✓ You confirmed but requester not confirmed - Exchange not completed"
+                                        : transactionStatus ===
+                                            "requester_confirmed"
+                                          ? "✓ Requester confirmed but you not confirmed - Exchange not completed"
+                                          : "✗ Both you and requester not confirmed - Exchange not completed";
+
                                   return (
                                     <Flex
                                       direction="column"
@@ -469,27 +506,10 @@ export function MyServicesTab({
                                         </Text>
                                         <Text
                                           size="1"
-                                          color={
-                                            transaction.provider_confirmed &&
-                                            transaction.requester_confirmed
-                                              ? "green"
-                                              : transaction.provider_confirmed
-                                                ? "yellow"
-                                                : transaction.requester_confirmed
-                                                  ? "yellow"
-                                                  : "red"
-                                          }
+                                          color={transactionStatusColor}
                                         >
-                                          {transaction.provider_confirmed &&
-                                          transaction.requester_confirmed
-                                            ? "✓ Exchange completed"
-                                            : transaction.provider_confirmed
-                                              ? "✓ You confirmed but requester not confirmed - Exchange not completed"
-                                              : transaction.requester_confirmed
-                                                ? "✓ Requester confirmed but you not confirmed - Exchange not completed"
-                                                : "✗ Both you and requester not confirmed - Exchange not completed"}{" "}
-                                          for {transaction.timebank_hours}{" "}
-                                          hour(s)
+                                          {transactionStatusText} for{" "}
+                                          {transaction.timebank_hours} hour(s)
                                         </Text>
                                       </Flex>
 
@@ -654,6 +674,20 @@ export function MyServicesTab({
           transaction={confirmModalTransaction}
           currentUserId={currentUserId}
           onSubmit={handleConfirmWithRating}
+        />
+      )}
+
+      {editingServiceId && (
+        <EditServiceDialog
+          open={!!editingServiceId}
+          onOpenChange={(open) => {
+            if (!open) setEditingServiceId(null);
+          }}
+          service={services.find((s) => s._id === editingServiceId)!}
+          onSuccess={() => {
+            setEditingServiceId(null);
+            onRequestUpdate();
+          }}
         />
       )}
     </div>

@@ -15,6 +15,7 @@ from ..models.service import (
 )
 from ..models.user import UserResponse
 from ..services.service_service import ServiceService
+from ..services.user_service import UserService
 from ..api.auth import get_current_user, get_optional_current_user
 from ..core.database import get_database
 
@@ -24,6 +25,7 @@ router = APIRouter(prefix="/services", tags=["services"])
 async def get_services(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
+    q: Optional[str] = None,
     service_type: Optional[str] = None,
     category: Optional[str] = None,
     tags: Optional[str] = None,
@@ -49,6 +51,7 @@ async def get_services(
     
     # Create filters
     filters = ServiceFilters(
+        q=q,
         service_type=service_type,
         category=category,
         tags=tag_list,
@@ -221,11 +224,12 @@ async def update_service(
     current_user: UserResponse = Depends(get_current_user),
     db=Depends(get_database)
 ):
-    """Update service (only by owner)"""
+    """Update service (by owner or admin)"""
     service_service = ServiceService(db)
-    
+    user_service = UserService(db)
+
     try:
-        # Check if service exists and user owns it
+        # Check if service exists
         existing_service = await service_service.get_service_by_id(service_id)
         if not existing_service:
             raise HTTPException(
@@ -233,7 +237,11 @@ async def update_service(
                 detail="Service not found"
             )
         
-        if str(existing_service.user_id) != str(current_user.id):
+        # Check authorization: owner or admin
+        is_owner = str(existing_service.user_id) == str(current_user.id)
+        is_admin = await user_service.is_admin(str(current_user.id))
+
+        if not (is_owner or is_admin):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to update this service"

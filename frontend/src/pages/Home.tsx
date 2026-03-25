@@ -1,36 +1,56 @@
-import { servicesApi } from "@/services/api";
-import { Section, Button, Card, Text, Heading, Badge } from "@radix-ui/themes";
-import { ClockIcon, ChatBubbleIcon, GlobeIcon } from "@radix-ui/react-icons";
+import { forumApi, servicesApi } from "@/services/api";
+import {
+  Section,
+  Button,
+  Card,
+  Text,
+  Heading,
+  Badge,
+  Box,
+  Flex,
+  Grid,
+  Container,
+} from "@radix-ui/themes";
+import { ClockIcon, GlobeIcon, CheckIcon } from "@radix-ui/react-icons";
+import { MessageCircleIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ServiceMap } from "@/components/map/ServiceMap";
 import { useState, useEffect } from "react";
-import { Service } from "@/types";
+import { ForumEvent, Service } from "@/types";
 import ReactMarkdown from "react-markdown";
+
+// @ts-ignore
+import handshakeIcon from "../assets/handshakeIcon.png";
 
 export function Home() {
   const navigate = useNavigate();
   const [recentOffers, setRecentOffers] = useState<Service[]>([]);
   const [recentNeeds, setRecentNeeds] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const [recentEvents, setRecentEvents] = useState<ForumEvent[]>([]);
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const [offersResponse, needsResponse] = await Promise.all([
-          servicesApi.getServices({
-            service_type: "offer",
-            status: "active",
-            limit: 4,
-          }),
-          servicesApi.getServices({
-            service_type: "need",
-            status: "active",
-            limit: 4,
-          }),
-        ]);
+        const [offersResponse, needsResponse, eventsResponse] =
+          await Promise.all([
+            servicesApi.getServices({
+              service_type: "offer",
+              status: "active",
+              limit: 4,
+            }),
+            servicesApi.getServices({
+              service_type: "need",
+              status: "active",
+              limit: 4,
+            }),
+            forumApi.getEvents({
+              limit: 4,
+            }),
+          ]);
 
         setRecentOffers(offersResponse.data.services || []);
         setRecentNeeds(needsResponse.data.services || []);
+        setRecentEvents(eventsResponse.data.events.slice(0, 4) || []);
       } catch (error) {
         console.error("Error fetching services:", error);
         setRecentOffers([]);
@@ -44,15 +64,15 @@ export function Home() {
   }, []);
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="">
       {/* Hero Section */}
       <Section className="mx-auto max-w-4xl grid text-center">
         <Heading size="8" className="mb-6 ">
-          A Virtual Public Space for Services
+          A Neighborhood TimeBank for Sharing Skills
         </Heading>
         <Text size="5" className=" mb-8 max-w-2xl mx-auto">
-          Exchange services, share skills, and build connections. One hour of
-          your time is worth one hour of your neighbor's.
+          Offer help, ask for help, and get to know the people around you. In
+          our TimeBank, one hour you give is one hour you can receive.
         </Text>
         <Button
           variant="solid"
@@ -60,7 +80,7 @@ export function Home() {
           className="w-fit mx-auto"
           onClick={() => navigate("/dashboard")}
         >
-          Explore the Community
+          See What's Happening
         </Button>
       </Section>
 
@@ -76,8 +96,8 @@ export function Home() {
                 Community-First
               </Heading>
               <Text size="4">
-                Built on mutual support and shared values, not profit. Every
-                contribution matters.
+                Neighbors supporting neighbors—built on trust, care, and shared
+                values, not profit.
               </Text>
             </Card>
 
@@ -89,22 +109,24 @@ export function Home() {
                 Equal Value
               </Heading>
               <Text size="4">
-                Teaching code, sharing recipes, reading stories—all
-                contributions are valued equally.
+                From tutoring to errands to listening—everyone's time counts the
+                same here.
               </Text>
             </Card>
           </div>
         </div>
       </Section>
 
+      <HighlightsSection />
+
       {/* What Can You Share Section */}
       <Section>
         <div className="text-center mb-12">
           <Heading size="6" className="mb-4">
-            What Can You Share?
+            What Can You Offer?
           </Heading>
           <Text size="4" className="max-w-2xl mx-auto">
-            From the practical to the profound, all offerings are welcome
+            Big or small, practical or personal—every offer helps someone.
           </Text>
         </div>
 
@@ -155,11 +177,11 @@ export function Home() {
       <Section className="py-16">
         <div className="text-center max-w-3xl mx-auto space-y-4">
           <Heading size="6" className="mb-4">
-            Ready to Join the Community?
+            Ready to Meet Your Community?
           </Heading>
           <Text size="4">
-            Start by exploring what others are offering, or share your own
-            unique skills and services
+            Start by browsing what neighbors need and offer, then post a service
+            of your own when you're ready.
           </Text>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
@@ -167,32 +189,38 @@ export function Home() {
               size="3"
               onClick={() => navigate("/dashboard")}
             >
-              Get Started
+              Join In
             </Button>
             <Button
               variant="outline"
               size="3"
               onClick={() => navigate("/dashboard")}
             >
-              Browse Services
+              Browse Offers & Needs
             </Button>
           </div>
         </div>
       </Section>
+
+      <ServiceMap
+        services={recentOffers.concat(recentNeeds)}
+        height="400px"
+        sticky={false}
+      />
 
       {/* How It Works Section */}
       <Section>
         <div className="grid md:grid-cols-3 gap-8">
           <Card className="p-6 text-center">
             <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-              <ChatBubbleIcon className="w-8 h-8" />
+              <MessageCircleIcon className="w-8 h-8" />
             </div>
             <Heading size="4" className="mb-3 ">
               Offer & Request
             </Heading>
             <Text className="">
-              Post a service you can offer or a need you have. Share your skills
-              and let others know what you're looking for.
+              Post what you can offer or what you need. A clear ask or a small
+              offer is often all it takes to spark connection.
             </Text>
           </Card>
 
@@ -204,8 +232,8 @@ export function Home() {
               Exchange Time
             </Heading>
             <Text className="">
-              Connect with a member and complete the exchange. One hour = one
-              TimeBank credit. Simple and fair.
+              Pair up with another member and complete the exchange. One hour
+              given becomes one TimeBank credit you can use later.
             </Text>
           </Card>
 
@@ -217,8 +245,8 @@ export function Home() {
               Build Community
             </Heading>
             <Text className="">
-              Use your credits to receive services and participate in our
-              forums. Grow stronger together.
+              Spend credits when you need support, and keep the circle going in
+              the forums. We grow stronger together.
             </Text>
           </Card>
         </div>
@@ -228,10 +256,10 @@ export function Home() {
       <Section>
         <div className="flex items-center justify-between mb-8">
           <Heading size="6" className="">
-            Live Community Activity
+            Community Activity
           </Heading>
           <Badge color="green" variant="soft">
-            Real-time updates
+            Fresh updates
           </Badge>
         </div>
 
@@ -252,10 +280,9 @@ export function Home() {
                   >
                     <div className="flex flex-col gap-2">
                       <Text className="font-medium">{service.title}</Text>
-                      <div className="line-clamp-2 text-ellipsis overflow-hidden text-xs prose prose-sm max-w-none [&_p]:my-0 [&_p]:inline">
+                      <div className="prose-content card-description">
                         <ReactMarkdown
                           components={{
-                            p: ({ node, ...props }) => <span {...props} />,
                             a: ({ node, ...props }) => (
                               <a
                                 {...props}
@@ -278,9 +305,6 @@ export function Home() {
                         </ReactMarkdown>
                       </div>
                     </div>
-                    <Badge color="green" variant="soft">
-                      Offer
-                    </Badge>
                   </div>
                 ))
               )}
@@ -303,10 +327,9 @@ export function Home() {
                   >
                     <div className="flex flex-col gap-2">
                       <Text className="font-medium ">{service.title}</Text>
-                      <div className="line-clamp-2 text-ellipsis overflow-hidden text-sm prose prose-sm max-w-none [&_p]:my-0 [&_p]:inline">
+                      <div className="prose-content card-description">
                         <ReactMarkdown
                           components={{
-                            p: ({ node, ...props }) => <span {...props} />,
                             a: ({ node, ...props }) => (
                               <a
                                 {...props}
@@ -314,24 +337,12 @@ export function Home() {
                                 rel="noopener noreferrer"
                               />
                             ),
-                            h1: ({ node, ...props }) => (
-                              <h1 className="text-base font-bold" {...props} />
-                            ),
-                            h2: ({ node, ...props }) => (
-                              <h2 className="text-sm font-bold" {...props} />
-                            ),
-                            h3: ({ node, ...props }) => (
-                              <h3 className="text-xs font-bold" {...props} />
-                            ),
                           }}
                         >
                           {service.description}
                         </ReactMarkdown>
                       </div>
                     </div>
-                    <Badge color="blue" variant="soft">
-                      Need
-                    </Badge>
                   </div>
                 ))
               )}
@@ -340,56 +351,12 @@ export function Home() {
         </div>
       </Section>
 
-      <ServiceMap
-        services={recentOffers.concat(recentNeeds)}
-        height="300px"
-        sticky={false}
-      />
-
-      {/* Values/Philosophy Section */}
-      <Section>
-        <Heading size="6" className="mb-8 ">
-          Our Values
-        </Heading>
-        <div className="grid md:grid-cols-3 gap-8">
-          <div>
-            <Heading size="4" className="mb-3 ">
-              Fairness
-            </Heading>
-            <Text className="">
-              All hours are equal. Whether you're teaching, fixing, or
-              listening, your time has the same value.
-            </Text>
-          </div>
-
-          <div>
-            <Heading size="4" className="mb-3 ">
-              Inclusivity
-            </Heading>
-            <Text className="">
-              All skills are valuable. From professional expertise to everyday
-              kindness, everyone has something to offer.
-            </Text>
-          </div>
-
-          <div>
-            <Heading size="4" className="mb-3 ">
-              Mutual Support
-            </Heading>
-            <Text className="">
-              We are all both givers and receivers. The strongest communities
-              are built on reciprocal care.
-            </Text>
-          </div>
-        </div>
-      </Section>
-
       {/* Community Forums Spotlight */}
       <Section className="mb-16">
         <div className="flex items-center mb-8">
-          <ChatBubbleIcon className="w-6 h-6 mr-3" />
+          <MessageCircleIcon className="w-6 h-6 mr-3" />
           <Heading size="6" className="">
-            Community Conversations
+            Conversations & Connections
           </Heading>
         </div>
 
@@ -404,8 +371,8 @@ export function Home() {
               </Badge>
             </div>
             <Text className=" mb-4">
-              "Just joined and already feeling the warmth of this community.
-              Can't wait to contribute!"
+              "Just joined and already met someone nearby who offered to help.
+              Excited to give back, too!"
             </Text>
             <div className="flex items-center text-sm">
               <Text>Sarah M. • 2 hours ago • 12 replies</Text>
@@ -422,8 +389,8 @@ export function Home() {
               </Badge>
             </div>
             <Text className=" mb-4">
-              "Just completed my first exchange! Maria helped me with gardening,
-              and I taught her basic coding. This system works!"
+              "Just completed my first exchange! We swapped gardening help for a
+              little coding practice—felt good on both sides."
             </Text>
             <div className="flex items-center text-sm">
               <Text>Alex K. • 5 hours ago • 8 replies</Text>
@@ -440,3 +407,339 @@ export function Home() {
     </div>
   );
 }
+
+const HighlightsSection = () => {
+  return (
+    <Section
+      position="relative"
+      overflow="hidden"
+      size={{ initial: "2", sm: "4" }}
+      mb={{ md: "9" }}
+      height={"auto"}
+    >
+      <Container mx={{ initial: "5", xs: "6", sm: "7", md: "9" }}>
+        <Box position="relative">
+          <Box position="relative" mb="4" style={{ pointerEvents: "none" }}>
+            <Box
+              position="absolute"
+              height="100%"
+              top="50%"
+              left="50%"
+              style={{ transform: "translate(-50%, -50%)" }}
+            >
+              <Circle
+                size={180}
+                angle={-45}
+                color1="var(--lime-a4)"
+                color2="var(--indigo-a6)"
+              />
+              <Circle
+                size={300}
+                angle={20}
+                color1="var(--lime-a3)"
+                color2="var(--indigo-a5)"
+              />
+              <Circle
+                size={420}
+                angle={35}
+                color1="var(--lime-a2)"
+                color2="var(--indigo-a4)"
+              />
+              <Circle
+                size={540}
+                angle={-50}
+                color1="var(--lime-a2)"
+                color2="var(--indigo-a3)"
+              />
+              {[
+                660, 780, 900, 1020, 1140, 1260, 1380, 1500, 1620, 1740, 1860,
+                1980, 2100,
+              ].map((size, i) => (
+                <Circle
+                  key={i}
+                  size={size + i * i * 5}
+                  angle={-45 + i * 15}
+                  color1="var(--lime-a2)"
+                  color2="var(--indigo-a3)"
+                  opacity={Math.max(0, 1 - i * 0.05)}
+                />
+              ))}
+            </Box>
+            <Flex
+              align="center"
+              justify="center"
+              position="relative"
+              style={{
+                height: "800px",
+              }}
+            >
+              <img
+                src={handshakeIcon}
+                alt="Handshake"
+                className="w-full h-20 object-contain"
+              />
+            </Flex>
+          </Box>
+
+          <Grid
+            gap={{ initial: "5", sm: "7" }}
+            flow={{ initial: "column", sm: "row" }}
+            justify={{ initial: "start", sm: "center" }}
+            columns={{ initial: "none", sm: "auto auto" }}
+            style={{ gridAutoColumns: "max-content" }}
+          >
+            <Box
+              className="flex flex-col justify-center items-center text-center"
+              position={{ lg: "absolute" }}
+              style={{
+                width: "var(--component-highlights-item-width)",
+                maxWidth: 300,
+                top: "-1%",
+                left: "27%",
+              }}
+            >
+              <Flex gap="2" align="start" mb="1">
+                <Checkmark />
+                <Heading as="h3" size="3">
+                  Fairness
+                </Heading>
+              </Flex>
+              <Text as="p" color="gray" size="3">
+                Everyone’s time matters here, no matter how big or small the
+                help is.
+              </Text>
+            </Box>
+
+            <Box
+              className="flex flex-col justify-center items-center text-center"
+              position={{ lg: "absolute" }}
+              style={{
+                width: "var(--component-highlights-item-width)",
+                maxWidth: 300,
+                top: "14%",
+                left: "60%",
+              }}
+            >
+              <Flex gap="2" align="start" mb="1">
+                <Checkmark />
+                <Heading as="h3" size="3">
+                  Inclusivity
+                </Heading>
+              </Flex>
+              <Text as="p" color="gray" size="3">
+                There’s a place for everyone — we all have something valuable to
+                share.
+              </Text>
+            </Box>
+
+            <Box
+              className="flex flex-col justify-center items-center text-center"
+              position={{ lg: "absolute" }}
+              style={{
+                width: "var(--component-highlights-item-width)",
+                maxWidth: 300,
+                top: "40%",
+                left: "74%",
+              }}
+            >
+              <Flex gap="2" align="start" mb="1">
+                <Checkmark />
+                <Heading as="h3" size="3">
+                  Everyday Skills
+                </Heading>
+              </Flex>
+              <Text as="p" color="gray" size="3">
+                Whether it’s fixing, teaching, or simply listening, it all
+                counts.
+              </Text>
+            </Box>
+
+            <Box
+              className="flex flex-col justify-center items-center text-center"
+              position={{ lg: "absolute" }}
+              style={{
+                width: "var(--component-highlights-item-width)",
+                maxWidth: 320,
+                top: "67%",
+                left: "69%",
+              }}
+            >
+              <Flex gap="2" align="start" mb="1">
+                <Checkmark />
+                <Heading as="h3" size="3">
+                  Community-First
+                </Heading>
+              </Flex>
+              <Text as="p" color="gray" size="3">
+                Neighbors supporting neighbors—built on trust, care, and shared
+                values.
+              </Text>
+            </Box>
+
+            <Box
+              className="flex flex-col justify-center items-center text-center"
+              position={{ lg: "absolute" }}
+              style={{
+                width: "var(--component-highlights-item-width)",
+                maxWidth: 300,
+                top: "94%",
+                left: "39%",
+              }}
+            >
+              <Flex gap="2" align="start" mb="1" mr="-1">
+                <Checkmark />
+                <Heading as="h3" size="3">
+                  Trust
+                </Heading>
+              </Flex>
+              <Text as="p" color="gray" size="3">
+                We show up for each other with honesty, care, and respect.
+              </Text>
+            </Box>
+
+            <Box
+              className="flex flex-col justify-center items-center text-center"
+              position={{ lg: "absolute" }}
+              style={{
+                width: "var(--component-highlights-item-width)",
+                maxWidth: 320,
+                top: "76%",
+                left: "8%",
+              }}
+            >
+              <Flex gap="2" align="start" mb="1">
+                <Checkmark />
+                <Heading as="h3" size="3">
+                  Equal Exchange
+                </Heading>
+              </Flex>
+              <Text as="p" color="gray" size="3">
+                Giving and receiving feels fair, simple, and balanced.
+              </Text>
+            </Box>
+
+            <Box
+              className="flex flex-col justify-center items-center text-center"
+              position={{ lg: "absolute" }}
+              style={{
+                width: "var(--component-highlights-item-width)",
+                maxWidth: 320,
+                top: "49%",
+                left: "-1%",
+              }}
+            >
+              <Flex gap="2" align="start" mb="1">
+                <Checkmark />
+                <Heading as="h3" size="3">
+                  Connections
+                </Heading>
+              </Flex>
+              <Text as="p" color="gray" size="3">
+                It’s not just about tasks — it’s about building real
+                connections.
+              </Text>
+            </Box>
+
+            <Box
+              className="flex flex-col justify-center items-center text-center"
+              position={{ lg: "absolute" }}
+              style={{
+                width: "var(--component-highlights-item-width)",
+                maxWidth: 300,
+                top: "19%",
+                left: "4%",
+              }}
+            >
+              <Flex gap="2" align="start" mb="1">
+                <Checkmark />
+                <Heading as="h3" size="3">
+                  Open to All
+                </Heading>
+              </Flex>
+              <Text as="p" color="gray" size="3">
+                Anyone can join, contribute, and feel part of something
+                meaningful.
+              </Text>
+            </Box>
+
+            <Box pr="5" display={{ sm: "none" }} />
+          </Grid>
+        </Box>
+      </Container>
+    </Section>
+  );
+};
+
+const Checkmark = () => (
+  <CheckIcon
+    style={{
+      color: "var(--lime-11)",
+      backgroundColor: "var(--lime-4)",
+      padding: "var(--space-1)",
+      width: "var(--space-5)",
+      height: "var(--space-5)",
+      marginTop: -1,
+      marginBottom: -1,
+      borderRadius: "100%",
+      flexGrow: 0,
+      flexShrink: 0,
+    }}
+  />
+);
+
+const Circle = ({
+  size,
+  color1,
+  color2,
+  angle = 90,
+  opacity = 1,
+}: {
+  size: number;
+  angle?: number;
+  color1: string;
+  color2: string;
+  opacity?: number;
+}) => {
+  return (
+    <Box
+      style={{
+        position: "absolute",
+        left: "50%",
+        top: "50%",
+        width: size,
+        height: size,
+        opacity: opacity,
+        transform: `translate(-50%, -50%) rotate(${angle}deg)`,
+      }}
+    >
+      <svg
+        viewBox="0 0 100 100"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        style={{ width: "100%", height: "100%" }}
+      >
+        <circle
+          cx="50"
+          cy="50"
+          r="49"
+          stroke={`url(#circle-${size})`}
+          strokeWidth="1"
+          vectorEffect="non-scaling-stroke"
+        />
+        <defs>
+          <linearGradient
+            id={`circle-${size}`}
+            gradientUnits="userSpaceOnUse"
+            x1="50"
+            y1="0"
+            x2="50"
+            y2="100"
+          >
+            <stop stopColor={color1} />
+            <stop stopColor={color2} offset="1" />
+          </linearGradient>
+        </defs>
+      </svg>
+    </Box>
+  );
+};

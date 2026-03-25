@@ -9,9 +9,10 @@ import {
   Badge,
 } from "@radix-ui/themes";
 import { Comment, Service } from "@/types";
-import { ChatBubbleIcon, PaperPlaneIcon } from "@radix-ui/react-icons";
+import { PaperPlaneIcon } from "@radix-ui/react-icons";
 import { commentsApi, getImageUrl, servicesApi } from "@/services/api";
 import { useNavigate } from "react-router-dom";
+import { MessageCircleIcon } from "lucide-react";
 
 interface CommentSectionProps {
   serviceId: string;
@@ -105,7 +106,7 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
   return (
     <Card className="p-4">
       <Flex align="center" gap="2" className="mb-4">
-        <ChatBubbleIcon className="w-5 h-5" />
+        <MessageCircleIcon className="w-5 h-5" />
         <Text size="4" weight="bold">
           Comments & Ideas ({comments.length})
         </Text>
@@ -119,6 +120,7 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
           onChange={(e) => setNewComment(e.target.value)}
           className="mb-3"
           rows={3}
+          variant="soft"
         />
         <Flex justify="end">
           <Button

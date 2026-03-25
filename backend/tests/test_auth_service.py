@@ -1,5 +1,5 @@
 import pytest
-from app.services.auth_service import AuthService
+from app.services.auth_service import AuthService, LoginNotAllowedError
 from app.models.user import UserCreate, UserRole
 from app.core.security import verify_password
 
@@ -132,3 +132,20 @@ class TestAuthService:
         assert retrieved_user.id == created_user.id
         assert retrieved_user.username == test_user_data["username"]
 
+    @pytest.mark.asyncio
+    async def test_authenticate_user_banned(self, mock_db, test_user_data):
+        """Test authentication is blocked for banned users"""
+        auth_service = AuthService(mock_db)
+        user_create = UserCreate(**test_user_data)
+
+        await auth_service.create_user(user_create)
+        await mock_db.users.update_one(
+            {"email": test_user_data["email"]},
+            {"$set": {"role": UserRole.BANNED.value}}
+        )
+
+        with pytest.raises(LoginNotAllowedError):
+            await auth_service.authenticate_user(
+                test_user_data["email"],
+                test_user_data["password"]
+            )

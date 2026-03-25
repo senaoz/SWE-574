@@ -105,7 +105,7 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
               <Text size="1" color="gray" className="mr-1">
                 Services:
               </Text>
-              {room.services.map((service, idx) => (
+              {room.services.map((service) => (
                 <Badge
                   key={service.id}
                   color="blue"

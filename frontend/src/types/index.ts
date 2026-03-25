@@ -1,4 +1,4 @@
-export type UserRole = 'user' | 'moderator' | 'admin';
+export type UserRole = 'user' | 'moderator' | 'admin' | 'banned';
 
 export interface SocialLinks {
   linkedin?: string;
@@ -49,6 +49,41 @@ export interface Rating {
 
 export interface RatingListResponse {
   ratings: Rating[];
+  total: number;
+  average_score?: number;
+}
+
+export interface RatingDetailed {
+  _id: string;
+  transaction_id: string;
+  rater_id: string;
+  rated_user_id: string;
+  score: number;
+  comment?: string;
+  tags?: string[];
+  created_at: string;
+  rater?: {
+    id: string;
+    username: string;
+    full_name?: string;
+  };
+  transaction?: {
+    id: string;
+    timebank_hours: number;
+    completed_at?: string;
+    created_at?: string;
+  };
+  service?: {
+    id: string;
+    title: string;
+    description?: string;
+    service_type?: string;
+    status?: string;
+  };
+}
+
+export interface RatingDetailedListResponse {
+  ratings: RatingDetailed[];
   total: number;
   average_score?: number;
 }
@@ -583,4 +618,44 @@ export interface ForumCommentListResponse {
   total: number;
   page: number;
   limit: number;
+}
+
+export type ReportType = 'user' | 'service';
+export type ReportReason = 'inappropriate' | 'abusive' | 'harassment' | 'spam' | 'other';
+export type ReportStatus = 'pending' | 'under_review' | 'resolved' | 'dismissed';
+
+export interface Report {
+  _id: string;
+  report_type: ReportType;
+  reported_id: string;
+  reported_by: string;
+  reason: ReportReason;
+  description?: string;
+  status: ReportStatus;
+  resolved_by?: string;
+  resolution_notes?: string;
+  created_at: string;
+  updated_at: string;
+  reported_details?: { _id: string; username?: string; email?: string; title?: string };
+  reporter_details?: { _id: string; username?: string; email?: string };
+}
+
+export interface ReportForm {
+  report_type: ReportType;
+  reported_id: string;
+  reason: ReportReason;
+  description?: string;
+}
+
+export interface ReportListResponse {
+  reports: Report[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface ReportPendingResponse {
+  pending: boolean;
+  report_id?: string;
+  created_at?: string;
 }

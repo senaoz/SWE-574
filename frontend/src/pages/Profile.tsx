@@ -127,6 +127,7 @@ export function Profile() {
   const [searchParams, setSearchParams] = useSearchParams();
   const profileTabFromUrl = searchParams.get("tab") || "profile";
   const profileStatusFromUrl = searchParams.get("status") || undefined;
+  const highlightServiceId = searchParams.get("highlight") || undefined;
   const selectInterests = searchParams.get("interests") || undefined;
 
   const allowedTabs = [
@@ -207,7 +208,7 @@ export function Profile() {
   const averageRating = ratingsData?.data?.average_score ?? null;
   const ratingCount = ratingsData?.data?.total ?? 0;
 
-  const rejectedRequests = rejectedRequestsData?.data.requests || [];
+  let rejectedRequests = rejectedRequestsData?.data.requests || [];
   const recentRejectedCount = rejectedRequests.filter((req: JoinRequest) => {
     const rejectedDate = new Date(req.updated_at);
     const daysSinceRejected =
@@ -431,7 +432,7 @@ export function Profile() {
     <div className="space-y-12">
       {/* Rejected Requests Notification */}
       {recentRejectedCount > 0 && (
-        <Card className="p-4" style={{ backgroundColor: "var(--orange-2)" }}>
+        <Card style={{ backgroundColor: "var(--orange-2)" }}>
           <Flex align="center" justify="between">
             <Flex align="center" gap="3">
               <ExclamationTriangleIcon className="w-5 h-5" color="orange" />
@@ -1238,6 +1239,9 @@ export function Profile() {
               statusFilter={
                 profileTab === "services" ? profileStatusFromUrl : undefined
               }
+              highlightServiceId={
+                profileTab === "services" ? highlightServiceId : undefined
+              }
             />
           </Tabs.Content>
 
@@ -1481,7 +1485,9 @@ export function Profile() {
           <Flex gap="3" mt="4" justify="end">
             <Button
               variant="soft"
-              onClick={() => setShowRejectedRequestsDialog(false)}
+              onClick={() => {
+                setShowRejectedRequestsDialog(false);
+              }}
             >
               Close
             </Button>

@@ -4,24 +4,21 @@ import { Card, Text } from "@radix-ui/themes";
 import { ChatRoom } from "@/types";
 import { ChatRoomsList } from "@/components/ui/ChatRoomsList";
 import { ChatRoomComponent } from "@/components/ui/ChatRoom";
-import { ChatBubbleIcon } from "@radix-ui/react-icons";
 import { chatApi } from "@/services/api";
 import { useUser } from "@/App";
-
+// @ts-ignore
+import messageIcon from "../assets/message.webp";
 export function Chat() {
   const [searchParams] = useSearchParams();
   const [roomId, setRoomId] = useState<string | null>(null);
   const [selectedRoom, setSelectedRoom] = useState<ChatRoom | null>(null);
   const { currentUserId } = useUser();
-
   const roomIdFromUrl = searchParams.get("room_id");
-
   useEffect(() => {
     if (roomIdFromUrl) {
       setRoomId(roomIdFromUrl);
     }
   }, [roomIdFromUrl]);
-
   useEffect(() => {
     if (roomId !== selectedRoom?._id && roomId) {
       chatApi.getChatRoom(roomId).then((response) => {
@@ -29,12 +26,10 @@ export function Chat() {
       });
     }
   }, [roomId, selectedRoom?._id, currentUserId]);
-
   const handleSelectRoom = (room: ChatRoom) => {
     setRoomId(room._id);
     setSelectedRoom(room);
   };
-
   if (!currentUserId) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -42,7 +37,6 @@ export function Chat() {
       </div>
     );
   }
-
   return (
     <>
       <div className="grid grid-cols-1 lg:grid-cols-3 h-[75vh]">
@@ -51,7 +45,6 @@ export function Chat() {
           onSelectRoom={handleSelectRoom}
           selectedRoomId={selectedRoom?._id}
         />
-
         {/* Chat Room */}
         <div className="lg:col-span-2">
           <Card className="h-full">
@@ -63,7 +56,7 @@ export function Chat() {
             ) : (
               <div className="h-full flex items-center justify-center">
                 <div className="text-center">
-                  <ChatBubbleIcon className="w-16 h-16 mx-auto mb-4" />
+                  <img src={messageIcon} className={"w-32 mx-auto mb-4"} />
                   <Text size="4" weight="bold" className="block mb-2">
                     Select a Chat Room
                   </Text>

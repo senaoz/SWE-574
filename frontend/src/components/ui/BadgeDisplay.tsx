@@ -16,6 +16,31 @@ import {
 import { Badge as BadgeType, BadgeSummary } from "@/types";
 import { usersApi } from "@/services/api";
 
+export const BADGE_PRIORITY: string[] = [
+  "generous_giver",     // Queen Bee
+  "master_helper",      // Elite Forager
+  "community_favorite", // Queen's Choice
+  "helper_hero",        // Pollinator Bee
+  "popular",            // Honeycomb Star
+  "helper",             // Worker Bee
+  "well_tagged",        // Nectar Expert
+  "rated",              // Sweet Taste
+  "first_exchange",     // Honey Maker
+  "newcomer",           // Newcomer
+  "profile_complete",   // Polished Wings
+  "tagged",             // Pollen Collector
+];
+
+export function getHighestPriorityBadge(badges: BadgeType[]): BadgeType | null {
+  const earned = badges.filter((b) => b.earned);
+  if (earned.length === 0) return null;
+  return (
+    BADGE_PRIORITY.map((key) => earned.find((b) => b.key === key)).find(
+      Boolean
+    ) ?? earned[0]
+  );
+}
+
 const ICON_MAP: Record<string, React.ElementType> = {
   "user-plus": UserPlus,
   image: Image,

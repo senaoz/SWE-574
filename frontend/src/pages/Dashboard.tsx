@@ -35,6 +35,7 @@ export function Dashboard() {
   const [services, setServices] = useState<Service[]>([]);
   const [filteredServices, setFilteredServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
   const { searchQuery, selectedCity } = useFilters();
   const [selectedStatusFilter, setSelectedStatusFilter] = useState("active");
   const [searchParams, setSearchParams] = useSearchParams();
@@ -43,8 +44,6 @@ export function Dashboard() {
   const [userPosition, setUserPosition] = useState<[number, number] | null>(
     null,
   );
-  const [needDialogOpen, setNeedDialogOpen] = useState(false);
-
   const { data: timebankData } = useQuery({
     queryKey: ["timebank"],
     queryFn: () => usersApi.getTimeBank().then((res) => res.data),
@@ -88,10 +87,17 @@ export function Dashboard() {
       .catch(() => setForumEvents([]));
   }, []);
 
-  const fetchServices = async () => {
+  const fetchServices = async (searchQ?: string) => {
+    const isInitialLoad = services.length === 0 && loading;
     try {
-      setLoading(true);
-      const response = await servicesApi.getServices();
+      if (isInitialLoad) {
+        setLoading(true);
+      } else {
+        setIsSearching(true);
+      }
+      const response = await servicesApi.getServices({
+        q: searchQ?.trim() || undefined,
+      });
       setServices(response.data.services || []);
       setFilteredServices(response.data.services || []);
     } catch (error) {
@@ -100,6 +106,7 @@ export function Dashboard() {
       setFilteredServices([]);
     } finally {
       setLoading(false);
+      setIsSearching(false);
     }
   };
 
@@ -107,7 +114,19 @@ export function Dashboard() {
     fetchServices();
   }, []);
 
-  // Filter services based on search query, city, and tag URL param
+  // Re-fetch when search query changes (debounced)
+  useEffect(() => {
+    if (!searchQuery) {
+      fetchServices();
+      return;
+    }
+    const timeout = setTimeout(() => {
+      fetchServices(searchQuery);
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
+
+  // Filter services based on city and tag URL param (search is now server-side)
   useEffect(() => {
     let filtered = services;
 
@@ -124,26 +143,6 @@ export function Dashboard() {
       );
     }
 
-    // Filter by search query
-    if (searchQuery.trim()) {
-      filtered = filtered.filter(
-        (service) =>
-          (service.title || "")
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          (service.description || "")
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          (service.category || "")
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          service.tags?.some((tag) => {
-            const tagLabel = typeof tag === "string" ? tag : tag.label;
-            return tagLabel?.toLowerCase().includes(searchQuery.toLowerCase());
-          }),
-      );
-    }
-
     // Filter by city
     if (selectedCity && selectedCity !== "all") {
       filtered = filtered.filter((service) => {
@@ -153,7 +152,7 @@ export function Dashboard() {
     }
 
     setFilteredServices(filtered);
-  }, [services, searchQuery, selectedCity, tagParam]);
+  }, [services, selectedCity, tagParam]);
 
   const displayedServices = useMemo(
     () => applyMapFilters(filteredServices, mapFilters, userPosition),
@@ -194,7 +193,7 @@ export function Dashboard() {
             <Flex align="center" gap="2" wrap="wrap">
               <Crosshair1Icon className="w-4 h-4" />
               <Text size="2" weight="medium" color="gray">
-                {displayedServices.length} services found
+                {isSearching ? "Searching..." : `${displayedServices.length} services found`}
                 {searchQuery && ` for "${searchQuery}"`}
                 {selectedCity &&
                   selectedCity !== "all" &&
@@ -281,15 +280,21 @@ export function Dashboard() {
             </Flex>
           </Flex>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className={`grid grid-cols-1 md:grid-cols-2 gap-3 transition-opacity duration-200 ${isSearching ? "opacity-50 pointer-events-none" : "opacity-100"}`}>
             {displayedServices
               .filter((service) =>
                 selectedStatusFilter === "all"
                   ? true
                   : service.status === selectedStatusFilter,
               )
-              .map((service) => (
-                <OfferListingCard key={service._id} service={service} />
+              .map((service, index) => (
+                <div
+                  key={service._id}
+                  className="service-card-animate"
+                  style={{ animationDelay: `${Math.min(index * 30, 300)}ms` }}
+                >
+                  <OfferListingCard service={service} />
+                </div>
               ))}
           </div>
 

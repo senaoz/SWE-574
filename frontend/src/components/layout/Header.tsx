@@ -19,12 +19,12 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getImageUrl } from "@/services/api";
 import {
-  ChatBubbleIcon,
   GearIcon,
   HomeIcon,
   AvatarIcon,
   GlobeIcon,
 } from "@radix-ui/react-icons";
+import { MessageCircleIcon } from "lucide-react";
 
 export const useScroll = (threshold: number) => {
   const [scrolled, setScrolled] = useState(false);
@@ -121,9 +121,7 @@ export function Header() {
                     {user.profile_picture ? (
                       <Avatar
                         src={getImageUrl(user.profile_picture)}
-                        fallback={
-                          user.full_name?.[0] || user.username[0]
-                        }
+                        fallback={user.full_name?.[0] || user.username[0]}
                         size="1"
                         radius="full"
                       />
@@ -144,11 +142,10 @@ export function Header() {
                 </Tooltip>
                 <Tooltip content="Chat">
                   <IconButton onClick={() => navigate("/profile?tab=chat")}>
-                    <ChatBubbleIcon className="w-4 h-4" />
+                    <MessageCircleIcon className="w-4 h-4" />
                   </IconButton>
                 </Tooltip>
-                {(user.role === "admin" ||
-                  user.role === "moderator") && (
+                {(user.role === "admin" || user.role === "moderator") && (
                   <Tooltip content="Admin Panel">
                     <IconButton
                       onClick={() => navigate("/admin")}

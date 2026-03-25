@@ -30,11 +30,14 @@ export function ProtectedRoute({
 
   // If no specific role is required, any authenticated user can access
   if (!requiredRole) {
+    if (user.role === "banned") {
+      return <Navigate to={fallbackPath} replace />;
+    }
     return <>{children}</>;
   }
 
   // Role hierarchy: admin > moderator > user
-  const roleHierarchy = { admin: 3, moderator: 2, user: 1 };
+  const roleHierarchy = { admin: 3, moderator: 2, user: 1, banned: 0 };
   const userLevel =
     roleHierarchy[user.role as keyof typeof roleHierarchy] || 0;
   const requiredLevel = roleHierarchy[requiredRole];

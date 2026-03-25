@@ -28,7 +28,16 @@ h3 {
 }
 
 p {
-    @apply text-base;
+    @apply text-base inline;
+}
+
+.prose-content {
+    @apply prose prose-sm max-w-none leading-relaxed prose-strong:text-foreground prose-em:text-foreground prose-a:text-foreground prose-headings:text-foreground;
+    color: var(--color-foreground) !important;
+}
+
+.prose-content.card-description {
+    @apply line-clamp-2 text-ellipsis overflow-hidden opacity-80 [&_p]:my-0 [&_p]:text-sm [&_p]:mb-2 [&_h1]:m-0 [&_h1]:text-base [&_h2]:my-1 [&_h2]:text-sm [&_h3]:m-0 [&_h3]:text-sm [&_ul]:m-0;
 }
 
 .rt-BaseDialogOverlay::before {
@@ -125,7 +134,7 @@ p {
 }
 
 .hover-card {
-    @apply hover:shadow-md hover:cursor-pointer transition-all duration-200;
+    @apply cursor-pointer hover:shadow-md transition-all duration-200;
     border-color: var(--gray-5) !important;
 }
 
@@ -242,4 +251,27 @@ p {
 
 .border-none-card.rt-Card:where(.rt-variant-surface)::after {
     box-shadow: none !important;
+}
+
+.rt-TextAreaRoot:where(.rt-variant-soft) {
+    background-color: var(--accent-a2) !important;
+}
+
+button {
+    cursor: pointer !important;
+}
+
+@keyframes fadeSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.service-card-animate {
+    animation: fadeSlideIn 0.25s ease-out both;
 }
