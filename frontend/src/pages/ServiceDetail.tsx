@@ -497,6 +497,23 @@ export function ServiceDetail() {
   const shareUrl = window.location.href;
   const shareTitle = `${service?.service_type === "offer" ? "Offer" : "Need"}: ${service?.title}`;
   const shareText = `Check out this service on our community: "${service?.title}"`;
+  const localPotentialMatchItems =
+    service && potentialMatchFallbackServices
+      ? buildLocalPotentialMatches(
+          service,
+          potentialMatchFallbackServices,
+          savedIdsData?.service_ids ?? [],
+          4,
+        )
+      : [];
+  const showPotentialMatchesError =
+    potentialMatchesError &&
+    !potentialMatchesData?.items?.length &&
+    potentialMatchFallbackServices === undefined;
+  const potentialMatchItems =
+    potentialMatchesData?.items?.length && !potentialMatchesError
+      ? potentialMatchesData.items
+      : localPotentialMatchItems;
 
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(shareUrl);
@@ -664,6 +681,7 @@ export function ServiceDetail() {
                 img: ({ node, ...props }) => (
                   <img
                     {...props}
+                    alt={props.alt || "Service description image"}
                     className="my-4 w-full h-auto rounded-xl max-w-4xl"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
