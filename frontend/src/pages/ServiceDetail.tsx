@@ -939,111 +939,110 @@ export function ServiceDetail() {
                 </Button>
               )}
           </div>
+          <div className={"pt-6"}>
+            <div className="flex items-end justify-between gap-4 mb-4">
+              <div>
+                <Text size="5" weight="bold" className="block">
+                  Custom Recommendations for You!
+                </Text>
+                <Text size="2" color="gray">
+                  Matching opposite-type services first, then similar posts if needed.
+                </Text>
+              </div>
+              {!potentialMatchesLoading && potentialMatchItems.length > 0 && (
+                  <Badge color="green" variant="soft">
+                    {potentialMatchItems.length} match
+                    {potentialMatchItems.length === 1 ? "" : "es"}
+                  </Badge>
+              )}
+            </div>
 
-            <Card className="p-6">
-                <div className="flex items-end justify-between gap-4 mb-4">
-                    <div>
-                        <Text size="5" weight="bold" className="block">
-                            Potential Matches
-                        </Text>
-                        <Text size="2" color="gray">
-                            Matching opposite-type services first, then similar posts if needed.
-                        </Text>
-                    </div>
-                    {!potentialMatchesLoading && potentialMatchItems.length > 0 && (
-                        <Badge color="green" variant="soft">
-                            {potentialMatchItems.length} match
-                            {potentialMatchItems.length === 1 ? "" : "es"}
-                        </Badge>
-                    )}
+            {potentialMatchItems.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {potentialMatchItems.map((item) => {
+                    const match = item.service;
+                    const matchLocation = match.is_remote
+                        ? "Remote"
+                        : match.location?.address || "Nearby";
+
+                    return (
+                        <Card
+                            key={match._id}
+                            className="p-4 cursor-pointer hover:shadow-lg transition-shadow"
+                            onClick={() => navigate(`/service/${match._id}`)}
+                        >
+                          <Flex direction="column" gap="3">
+                            <Flex justify="between" align="start" gap="2">
+                              <Badge
+                                  color={
+                                    match.service_type === "offer" ? "purple" : "blue"
+                                  }
+                                  variant="soft"
+                              >
+                                {match.service_type === "offer" ? "OFFER" : "NEED"}
+                              </Badge>
+                              <Badge color="green" variant="soft">
+                                {item.reason_label}
+                              </Badge>
+                            </Flex>
+
+                            <div>
+                              <Text size="3" weight="bold" className="line-clamp-2">
+                                {match.title}
+                              </Text>
+                              <Text
+                                  size="2"
+                                  color="gray"
+                                  className="line-clamp-3 mt-2"
+                              >
+                                {match.description}
+                              </Text>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                              {match.tags.slice(0, 2).map((tag, index) => (
+                                  <ClickableTag
+                                      key={
+                                        typeof tag === "string"
+                                            ? tag
+                                            : (tag.entityId || tag.label) + index
+                                      }
+                                      tag={tag}
+                                      size="1"
+                                      variant="outline"
+                                      stopPropagation
+                                  />
+                              ))}
+                            </div>
+
+                            <Flex justify="between" align="center">
+                              <Text size="1" color="gray">
+                                {matchLocation}
+                              </Text>
+                              <Text size="1" color="gray">
+                                {formatDuration(match.estimated_duration)}
+                              </Text>
+                            </Flex>
+                          </Flex>
+                        </Card>
+                    );
+                  })}
                 </div>
-
-                {potentialMatchItems.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {potentialMatchItems.map((item) => {
-                            const match = item.service;
-                            const matchLocation = match.is_remote
-                                ? "Remote"
-                                : match.location?.address || "Nearby";
-
-                            return (
-                                <Card
-                                    key={match._id}
-                                    className="p-4 cursor-pointer hover:shadow-lg transition-shadow"
-                                    onClick={() => navigate(`/service/${match._id}`)}
-                                >
-                                    <Flex direction="column" gap="3">
-                                        <Flex justify="between" align="start" gap="2">
-                                            <Badge
-                                                color={
-                                                    match.service_type === "offer" ? "purple" : "blue"
-                                                }
-                                                variant="soft"
-                                            >
-                                                {match.service_type === "offer" ? "OFFER" : "NEED"}
-                                            </Badge>
-                                            <Badge color="green" variant="soft">
-                                                {item.reason_label}
-                                            </Badge>
-                                        </Flex>
-
-                                        <div>
-                                            <Text size="3" weight="bold" className="line-clamp-2">
-                                                {match.title}
-                                            </Text>
-                                            <Text
-                                                size="2"
-                                                color="gray"
-                                                className="line-clamp-3 mt-2"
-                                            >
-                                                {match.description}
-                                            </Text>
-                                        </div>
-
-                                        <div className="flex flex-wrap gap-2">
-                                            {match.tags.slice(0, 2).map((tag, index) => (
-                                                <ClickableTag
-                                                    key={
-                                                        typeof tag === "string"
-                                                            ? tag
-                                                            : (tag.entityId || tag.label) + index
-                                                    }
-                                                    tag={tag}
-                                                    size="1"
-                                                    variant="outline"
-                                                    stopPropagation
-                                                />
-                                            ))}
-                                        </div>
-
-                                        <Flex justify="between" align="center">
-                                            <Text size="1" color="gray">
-                                                {matchLocation}
-                                            </Text>
-                                            <Text size="1" color="gray">
-                                                {formatDuration(match.estimated_duration)}
-                                            </Text>
-                                        </Flex>
-                                    </Flex>
-                                </Card>
-                            );
-                        })}
-                    </div>
-                ) : potentialMatchesLoading ? (
-                    <Text size="2" color="gray">
-                        Looking for related services...
-                    </Text>
-                ) : showPotentialMatchesError ? (
-                    <Text size="2" color="gray">
-                        Potential matches could not be loaded right now.
-                    </Text>
-                ) : (
-                    <Text size="2" color="gray">
-                        No potential matches yet. Matching offers/needs will appear here when
-                        similar posts are available.
-                    </Text>
-                )}
-            </Card>
+            ) : potentialMatchesLoading ? (
+                <Text size="2" color="gray">
+                  Looking for related services...
+                </Text>
+            ) : showPotentialMatchesError ? (
+                <Text size="2" color="gray">
+                  Potential matches could not be loaded right now.
+                </Text>
+            ) : (
+                <Text size="2" color="gray">
+                  No potential matches yet. Matching offers/needs will appear here when
+                  similar posts are available.
+                </Text>
+            )}
+          </div>
         </div>
         {/* Sidebar */}
         <div className="space-y-6">
