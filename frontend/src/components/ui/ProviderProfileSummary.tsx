@@ -3,7 +3,8 @@ import { BadgeSummary, User } from "@/types";
 import { useNavigate } from "react-router-dom";
 import { getImageUrl, usersApi, ratingsApi } from "@/services/api";
 import { useState, useEffect } from "react";
-import { CheckIcon, ClockIcon, LocateIcon, StarIcon } from "lucide-react";
+import { CheckIcon, StarIcon } from "lucide-react";
+// ClockIcon, LocateIcon,
 import { CustomBadge, getHighestPriorityBadge } from "./BadgeDisplay";
 
 interface ProviderProfileSummaryProps {
@@ -95,19 +96,24 @@ export function ProviderProfileSummary({ user }: ProviderProfileSummaryProps) {
           </Text>
         )}
 
-        <div className="grid grid-cols-2 gap-2 border-t opacity-60 text-sm pt-2">
-          <div className="col-span-2 flex flex-row justify-start items-center gap-2">
-            <LocateIcon className="w-4 h-4 flex-shrink-0" />
-            <Text className="w-full ellipsis overflow-hidden text-ellipsis line-clamp-1">
-              {user.location}
-            </Text>
-          </div>
-          <div className="flex flex-row justify-start items-center gap-2">
-            <ClockIcon className="w-4 h-4" />
-            <Text>TimeBank Hours</Text>
-          </div>
-          <span className="text-right">{user.timebank_balance}</span>
-        </div>
+        {
+          /*
+            <div className="grid grid-cols-2 gap-2 border-t opacity-60 text-sm pt-2">
+              <div className="col-span-2 flex flex-row justify-start items-center gap-2">
+                <LocateIcon className="w-4 h-4 flex-shrink-0" />
+                <Text className="w-full ellipsis overflow-hidden text-ellipsis line-clamp-1">
+                  {user.location}
+                </Text>
+              </div>
+              <div className="flex flex-row justify-start items-center gap-2">
+                <ClockIcon className="w-4 h-4" />
+                <Text>TimeBank Hours</Text>
+              </div>
+              <span className="text-right">{user.timebank_balance}</span>
+            </div>
+           */
+        }
+
 
         {/* Action button */}
         <Button
