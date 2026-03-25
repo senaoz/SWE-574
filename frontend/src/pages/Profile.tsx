@@ -152,7 +152,7 @@ export function Profile() {
   };
 
   useEffect(() => {
-    if (selectInterests) {
+    if (selectInterests && selectInterests === "true") {
       setShowInterestSelector(true);
     }
   }, [selectInterests]);
