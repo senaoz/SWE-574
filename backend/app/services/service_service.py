@@ -1,10 +1,18 @@
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Set
 from datetime import datetime
 import math
 import re
 from bson import ObjectId
 
-from ..models.service import ServiceCreate, ServiceUpdate, ServiceResponse, ServiceFilters, ServiceStatus
+from ..models.service import (
+    PotentialMatchItem,
+    ServiceCreate,
+    ServiceFilters,
+    ServiceResponse,
+    ServiceStatus,
+    ServiceType,
+    ServiceUpdate,
+)
 from ..models.user import UserResponse
 from ..core.database import get_database
 from .content_moderation_service import is_offensive
@@ -18,6 +26,9 @@ class ServiceService:
         self.db = db
         self.services_collection = db.services
         self.users_collection = db.users
+        self.saved_services_collection = db.saved_services
+        self.join_requests_collection = db.join_requests
+        self.transactions_collection = db.transactions
     
     def _normalize_tags(self, tags) -> List[dict]:
         """Normalize tags to entity format (handle backward compatibility with string tags)"""
@@ -113,6 +124,374 @@ class ServiceService:
             service_doc["tags"] = self._normalize_tags(service_doc["tags"])
         
         return service_doc
+
+    def _normalize_object_id(self, value):
+        if isinstance(value, ObjectId):
+            return value
+        if isinstance(value, str) and ObjectId.is_valid(value):
+            return ObjectId(value)
+        return value
+
+    def _get_tag_labels(self, tags) -> Set[str]:
+        labels: Set[str] = set()
+        if not tags:
+            return labels
+
+        for tag in tags:
+            if isinstance(tag, str):
+                label = tag
+            elif isinstance(tag, dict):
+                label = tag.get("label", "")
+            else:
+                label = str(tag)
+
+            normalized_label = label.strip().lower()
+            if normalized_label:
+                labels.add(normalized_label)
+
+        return labels
+
+    def _tokenize_text(self, *values: Optional[str]) -> Set[str]:
+        tokens: Set[str] = set()
+        for value in values:
+            if not value:
+                continue
+            for token in re.findall(r"\b[\wçğıöşü]+\b", str(value).lower()):
+                if len(token) > 2:
+                    tokens.add(token)
+        return tokens
+
+    def _jaccard_similarity(self, left: Set[str], right: Set[str]) -> float:
+        if not left or not right:
+            return 0.0
+
+        union = left | right
+        if not union:
+            return 0.0
+
+        return len(left & right) / len(union)
+
+    def _is_service_full(self, service_doc: dict) -> bool:
+        matched_user_ids = service_doc.get("matched_user_ids") or []
+        if not isinstance(matched_user_ids, list):
+            matched_user_ids = [matched_user_ids]
+
+        max_participants = service_doc.get("max_participants", 1)
+        try:
+            max_participants = int(max_participants)
+        except (TypeError, ValueError):
+            max_participants = 1
+
+        return max_participants > 0 and len(matched_user_ids) >= max_participants
+
+    def _calculate_recency_score(self, service_doc: dict) -> float:
+        created_at = service_doc.get("created_at")
+        if not isinstance(created_at, datetime):
+            return 0.0
+
+        age_days = max((datetime.utcnow() - created_at).total_seconds() / 86400, 0)
+        return math.exp(-age_days / 14)
+
+    def _calculate_proximity_score(self, source_service: ServiceResponse, candidate_doc: dict) -> float:
+        candidate_is_remote = bool(candidate_doc.get("is_remote"))
+        if source_service.is_remote and candidate_is_remote:
+            return 1.0
+        if source_service.is_remote or candidate_is_remote:
+            return 0.7
+
+        candidate_location = candidate_doc.get("location") or {}
+        latitude = candidate_location.get("latitude")
+        longitude = candidate_location.get("longitude")
+        if latitude is None or longitude is None:
+            return 0.0
+
+        distance_km = self.calculate_distance(
+            source_service.location.latitude,
+            source_service.location.longitude,
+            latitude,
+            longitude,
+        )
+        return math.exp(-distance_km / 10)
+
+    def _resolve_potential_match_reason(
+        self,
+        tag_similarity: float,
+        category_similarity: float,
+        keyword_similarity: float,
+        proximity_score: float,
+        viewer_interest_match: float,
+        viewer_activity_match: float,
+        source_service: ServiceResponse,
+        candidate_doc: dict,
+    ) -> str:
+        proximity_label = "Near this post"
+        if source_service.is_remote or candidate_doc.get("is_remote"):
+            proximity_label = "Works well remotely"
+
+        reason_scores = [
+            ("Matching tags", tag_similarity),
+            ("Matches your interests", viewer_interest_match),
+            ("Similar to your activity", viewer_activity_match),
+            ("Same category", category_similarity),
+            ("Similar details", keyword_similarity),
+            (proximity_label, proximity_score),
+        ]
+        best_reason, best_score = max(reason_scores, key=lambda item: item[1])
+        return best_reason if best_score > 0 else "Potential match"
+
+    async def _get_saved_service_ids(self, user_id: str) -> Set[str]:
+        cursor = self.saved_services_collection.find({"user_id": user_id})
+        saved_docs = await cursor.to_list(length=500)
+        return {str(doc["service_id"]) for doc in saved_docs if doc.get("service_id")}
+
+    async def _get_applied_service_ids(self, user_id: str) -> Set[str]:
+        user_id_filter = {"$or": [{"user_id": user_id}]}
+        normalized_user_id = self._normalize_object_id(user_id)
+        if isinstance(normalized_user_id, ObjectId):
+            user_id_filter["$or"].append({"user_id": normalized_user_id})
+
+        cursor = self.join_requests_collection.find(user_id_filter)
+        request_docs = await cursor.to_list(length=500)
+        return {
+            str(doc["service_id"])
+            for doc in request_docs
+            if doc.get("service_id") and doc.get("status") != "cancelled"
+        }
+
+    async def _get_completed_service_ids(self, user_id: str) -> Set[str]:
+        user_query = {"$or": [{"provider_id": user_id}, {"requester_id": user_id}]}
+        normalized_user_id = self._normalize_object_id(user_id)
+        if isinstance(normalized_user_id, ObjectId):
+            user_query["$or"].extend(
+                [{"provider_id": normalized_user_id}, {"requester_id": normalized_user_id}]
+            )
+
+        cursor = self.transactions_collection.find(user_query)
+        transaction_docs = await cursor.to_list(length=500)
+
+        completed_service_ids: Set[str] = set()
+        for doc in transaction_docs:
+            is_completed = (
+                doc.get("status") == "completed"
+                or doc.get("completed_at") is not None
+                or (doc.get("provider_confirmed") and doc.get("requester_confirmed"))
+            )
+            if is_completed and doc.get("service_id"):
+                completed_service_ids.add(str(doc["service_id"]))
+
+        return completed_service_ids
+
+    async def _collect_service_tags(self, service_ids: Set[str]) -> Set[str]:
+        tag_labels: Set[str] = set()
+
+        for service_id in service_ids:
+            service_doc = await self.services_collection.find_one(
+                {"_id": self._normalize_object_id(service_id)}
+            )
+            if not service_doc:
+                continue
+
+            normalized_service_doc = self._normalize_service_doc(service_doc)
+            tag_labels.update(self._get_tag_labels(normalized_service_doc.get("tags")))
+
+        return tag_labels
+
+    async def _get_user_preference_profile(
+        self, user_id: Optional[str]
+    ) -> Tuple[Set[str], Set[str], Set[str], Set[str]]:
+        if not user_id:
+            return set(), set(), set(), set()
+
+        user_doc = await self.users_collection.find_one(
+            {"_id": self._normalize_object_id(user_id)}
+        )
+        interests = {
+            interest.strip().lower()
+            for interest in (user_doc or {}).get("interests", []) or []
+            if isinstance(interest, str) and interest.strip()
+        }
+
+        saved_service_ids = await self._get_saved_service_ids(user_id)
+        applied_service_ids = await self._get_applied_service_ids(user_id)
+        completed_service_ids = await self._get_completed_service_ids(user_id)
+        activity_service_ids = saved_service_ids | applied_service_ids | completed_service_ids
+        activity_tags = await self._collect_service_tags(activity_service_ids)
+
+        return interests, activity_tags, saved_service_ids, applied_service_ids
+
+    async def _collect_match_candidates(
+        self,
+        source_service: ServiceResponse,
+        target_service_type: ServiceType,
+        current_tags: Set[str],
+        current_category: str,
+        current_keywords: Set[str],
+        viewer_interest_tags: Set[str],
+        viewer_activity_tags: Set[str],
+        saved_service_ids: Set[str],
+        applied_service_ids: Set[str],
+        current_user_id: Optional[str],
+        exclude_service_ids: Set[str],
+    ) -> List[PotentialMatchItem]:
+        cursor = (
+            self.services_collection.find(
+                {"service_type": target_service_type, "status": ServiceStatus.ACTIVE}
+            )
+            .sort("created_at", -1)
+            .limit(200)
+        )
+
+        matches: List[PotentialMatchItem] = []
+        async for candidate_doc in cursor:
+            candidate_doc = self._normalize_service_doc(candidate_doc)
+            candidate_id = str(candidate_doc.get("_id"))
+
+            if candidate_id in exclude_service_ids:
+                continue
+            if current_user_id and (
+                candidate_id in saved_service_ids or candidate_id in applied_service_ids
+            ):
+                continue
+            if self._is_service_full(candidate_doc):
+                continue
+
+            candidate_tags = self._get_tag_labels(candidate_doc.get("tags"))
+            candidate_category = str(candidate_doc.get("category") or "").strip().lower()
+            candidate_keywords = self._tokenize_text(
+                candidate_doc.get("title"),
+                candidate_doc.get("description"),
+                candidate_doc.get("category"),
+            )
+
+            tag_similarity = self._jaccard_similarity(current_tags, candidate_tags)
+            common_tag_count = len(current_tags & candidate_tags)
+            category_similarity = 1.0 if current_category and current_category == candidate_category else 0.0
+            keyword_similarity = self._jaccard_similarity(current_keywords, candidate_keywords)
+
+            # One shared tag is enough to qualify; category/keyword similarity can also qualify.
+            if common_tag_count == 0 and category_similarity == 0 and keyword_similarity == 0:
+                continue
+
+            proximity_score = self._calculate_proximity_score(source_service, candidate_doc)
+            recency_score = self._calculate_recency_score(candidate_doc)
+            viewer_interest_match = self._jaccard_similarity(
+                viewer_interest_tags, candidate_tags
+            )
+            viewer_activity_match = self._jaccard_similarity(
+                viewer_activity_tags, candidate_tags
+            )
+
+            base_score = (
+                0.45 * tag_similarity
+                + 0.20 * category_similarity
+                + 0.15 * keyword_similarity
+                + 0.15 * proximity_score
+                + 0.05 * recency_score
+            )
+            final_score = base_score
+            if viewer_interest_tags or viewer_activity_tags:
+                final_score = (
+                    0.85 * base_score
+                    + 0.10 * viewer_interest_match
+                    + 0.05 * viewer_activity_match
+                )
+
+            if final_score <= 0:
+                continue
+
+            matches.append(
+                PotentialMatchItem(
+                    service=ServiceResponse(**candidate_doc),
+                    relevance_score=round(final_score, 4),
+                    reason_label=self._resolve_potential_match_reason(
+                        tag_similarity=tag_similarity,
+                        category_similarity=category_similarity,
+                        keyword_similarity=keyword_similarity,
+                        proximity_score=proximity_score,
+                        viewer_interest_match=viewer_interest_match,
+                        viewer_activity_match=viewer_activity_match,
+                        source_service=source_service,
+                        candidate_doc=candidate_doc,
+                    ),
+                )
+            )
+
+        matches.sort(
+            key=lambda item: (
+                item.relevance_score,
+                item.service.created_at,
+            ),
+            reverse=True,
+        )
+        return matches
+
+    async def get_potential_matches(
+        self,
+        service_id: str,
+        current_user_id: Optional[str] = None,
+        limit: int = 6,
+    ) -> Tuple[List[PotentialMatchItem], int]:
+        current_service = await self.get_service_by_id(service_id)
+        if not current_service:
+            return [], 0
+
+        opposite_service_type = (
+            ServiceType.NEED
+            if current_service.service_type == ServiceType.OFFER
+            else ServiceType.OFFER
+        )
+        current_tags = self._get_tag_labels(current_service.tags)
+        current_category = (current_service.category or "").strip().lower()
+        current_keywords = self._tokenize_text(
+            current_service.title,
+            current_service.description,
+            current_service.category,
+        )
+        (
+            viewer_interest_tags,
+            viewer_activity_tags,
+            saved_service_ids,
+            applied_service_ids,
+        ) = await self._get_user_preference_profile(current_user_id)
+        exclude_service_ids = {service_id}
+
+        potential_matches = await self._collect_match_candidates(
+            source_service=current_service,
+            target_service_type=opposite_service_type,
+            current_tags=current_tags,
+            current_category=current_category,
+            current_keywords=current_keywords,
+            viewer_interest_tags=viewer_interest_tags,
+            viewer_activity_tags=viewer_activity_tags,
+            saved_service_ids=saved_service_ids,
+            applied_service_ids=applied_service_ids,
+            current_user_id=current_user_id,
+            exclude_service_ids=exclude_service_ids,
+        )
+
+        if len(potential_matches) < limit:
+            exclude_service_ids.update(
+                {item.service.id for item in potential_matches}
+            )
+            fallback_matches = await self._collect_match_candidates(
+                source_service=current_service,
+                target_service_type=current_service.service_type,
+                current_tags=current_tags,
+                current_category=current_category,
+                current_keywords=current_keywords,
+                viewer_interest_tags=viewer_interest_tags,
+                viewer_activity_tags=viewer_activity_tags,
+                saved_service_ids=saved_service_ids,
+                applied_service_ids=applied_service_ids,
+                current_user_id=current_user_id,
+                exclude_service_ids=exclude_service_ids,
+            )
+            potential_matches.extend(
+                fallback_matches[: max(limit - len(potential_matches), 0)]
+            )
+
+        total = len(potential_matches)
+        return potential_matches[:limit], total
 
     async def create_service(self, service_data: ServiceCreate, user_id: str) -> ServiceResponse:
         """Create a new service"""
@@ -440,23 +819,81 @@ class ServiceService:
             raise ValueError(f"Error matching service: {str(e)}")
 
     async def complete_service(self, service_id: str, user_id: str) -> bool:
-        """Mark service as completed (provider only). Updates status, TimeBank, and linked transactions."""
+        """Mark service as completed (owner only). Updates status and linked transactions."""
         service = await self.get_service_by_id(service_id)
         if not service:
             raise ValueError("Service not found")
         if str(service.user_id) != user_id:
-            raise ValueError("Only the service owner (provider) can mark the service as completed")
+            raise ValueError("Only the service owner can mark the service as completed")
         if service.status not in (ServiceStatus.ACTIVE, ServiceStatus.IN_PROGRESS):
             raise ValueError("Service is not in a state that can be completed")
-        # Optional: provider must create a Need first when giving help
-        from .user_service import UserService
-        user_service = UserService(self.db)
-        if await user_service.requires_need_creation(user_id):
-            raise ValueError(
-                "You must create a Need before you can give help. "
-                "You've reached the 10-hour surplus limit."
-            )
+        # Only owners of OFFER services are constrained by the "must create need"
+        # rule because that rule applies while giving help.
+        if service.service_type == "offer":
+            from .user_service import UserService
+            user_service = UserService(self.db)
+            if await user_service.requires_need_creation(user_id):
+                raise ValueError(
+                    "You must create a Need before you can give help. "
+                    "You've reached the 10-hour surplus limit."
+                )
+        await self._ensure_transactions_for_approved_requests(service_id, service)
         return await self._finalize_service_completion(service_id, service)
+
+    async def _ensure_transactions_for_approved_requests(
+        self,
+        service_id: str,
+        service: ServiceResponse,
+    ) -> None:
+        """Backfill missing transactions for approved join requests."""
+        approved_requests = await self.db.join_requests.find(
+            {"service_id": ObjectId(service_id), "status": "approved"}
+        ).to_list(length=None)
+
+        if not approved_requests:
+            return
+
+        from .transaction_service import TransactionService
+        from ..models.transaction import TransactionCreate
+
+        transaction_service = TransactionService(self.db)
+        owner_id = str(service.user_id)
+        duration = float(service.estimated_duration)
+        title = service.title or "Service"
+
+        for req in approved_requests:
+            applicant_id = str(req["user_id"])
+            if service.service_type == "need":
+                provider_id = applicant_id
+                requester_id = owner_id
+            else:
+                provider_id = owner_id
+                requester_id = applicant_id
+
+            existing_tx = await self.db.transactions.find_one(
+                {
+                    "service_id": ObjectId(service_id),
+                    "provider_id": ObjectId(provider_id),
+                    "requester_id": ObjectId(requester_id),
+                }
+            )
+            if existing_tx:
+                continue
+
+            try:
+                await transaction_service.create_transaction(
+                    TransactionCreate(
+                        service_id=service_id,
+                        provider_id=provider_id,
+                        requester_id=requester_id,
+                        timebank_hours=duration,
+                        description=f"Service exchange: {title}",
+                    )
+                )
+            except Exception as e:
+                raise ValueError(
+                    f"Could not create transaction for approved participant {applicant_id}: {str(e)}"
+                )
 
     async def _finalize_service_completion(self, service_id: str, service: ServiceResponse) -> bool:
         """Finalize service completion and update TimeBank (called when both parties confirm)"""
@@ -491,12 +928,18 @@ class ServiceService:
             from ..models.transaction import TransactionStatus
             transactions_collection = self.db.transactions
 
-            # Record provider's confirmation on all linked transactions
+            # Record owner's confirmation on all linked transactions.
+            # Offer owner is provider; need owner is requester.
+            owner_confirm_field = (
+                "provider_confirmed"
+                if service.service_type == "offer"
+                else "requester_confirmed"
+            )
             await transactions_collection.update_many(
                 {"service_id": ObjectId(service_id), "status": {"$ne": TransactionStatus.COMPLETED}},
                 {
                     "$set": {
-                        "provider_confirmed": True,
+                        owner_confirm_field: True,
                         "updated_at": datetime.utcnow(),
                     }
                 }

@@ -49,7 +49,7 @@ export function MyServices({
   highlightServiceId,
 }: MyServicesProps = {}) {
   const navigate = useNavigate();
-  const { currentUserId, refetchUser } = useUser();
+  const { currentUserId } = useUser();
   const [services, setServices] = useState<Service[]>([]);
   const [applicationServices, setApplicationServices] = useState<Service[]>([]); // Services for approved applications
   const [requests, setRequests] = useState<JoinRequest[]>([]);

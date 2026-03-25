@@ -202,6 +202,23 @@ class ServiceListResponse(BaseModel):
         json_encoders = {ObjectId: str}
 
 
+class PotentialMatchItem(BaseModel):
+    service: ServiceResponse
+    relevance_score: float = Field(..., ge=0)
+    reason_label: str = Field(..., min_length=1, max_length=120)
+
+    class Config:
+        json_encoders = {ObjectId: str}
+
+
+class PotentialMatchListResponse(BaseModel):
+    items: List[PotentialMatchItem]
+    total: int
+
+    class Config:
+        json_encoders = {ObjectId: str}
+
+
 class ServiceFilters(BaseModel):
     q: Optional[str] = None
     service_type: Optional[ServiceType] = None
