@@ -275,3 +275,38 @@ button {
 .service-card-animate {
     animation: fadeSlideIn 0.25s ease-out both;
 }
+
+/* Airbnb-style filter bar */
+.filter-bar-scroll {
+    scrollbar-width: none;          /* Firefox */
+    -ms-overflow-style: none;       /* IE/Edge */
+    -webkit-mask-image: linear-gradient(
+        to right,
+        transparent 0,
+        black 8px,
+        black calc(100% - 8px),
+        transparent 100%
+    );
+    mask-image: linear-gradient(
+        to right,
+        transparent 0,
+        black 8px,
+        black calc(100% - 8px),
+        transparent 100%
+    );
+    padding-left: 8px;
+    padding-right: 8px;
+}
+.filter-bar-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+.filter-pill {
+    background-color: var(--color-panel-solid);
+}
+.filter-pill:hover {
+    background-color: var(--gray-3);
+}
+.filter-pill-active {
+    background-color: var(--gray-3);
+}
