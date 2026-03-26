@@ -97,7 +97,10 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
           </Text>
           {room.participants && room.participants.length > 2 && (
             <Text size="1" color="gray">
-              {room.participants.length} participants
+              {room.participants.length} participants:{" "}
+              {room.participants
+                .map((p) => p.full_name || p.username || p.id)
+                .join(", ")}
             </Text>
           )}
           {room.description && (
@@ -166,7 +169,10 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
               >
                 {message.sender_id !== currentUserId && (
                   <Text size="1" weight="bold" className="block mb-1">
-                    {message.sender?.username || "Unknown User"}
+                    {message.sender?.full_name ||
+                      message.sender?.username ||
+                      message.sender?.id ||
+                      "Unknown User"}
                   </Text>
                 )}
                 <Text size="2">{message.content}</Text>

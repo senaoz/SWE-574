@@ -113,11 +113,11 @@ export function NewGroupChatDialog({
     >
       <Dialog.Content maxWidth="480px">
         <Dialog.Title>New Group Chat</Dialog.Title>
-        <Dialog.Description size="2" color="gray" mb="4">
+        <Dialog.Description size="2" color="gray">
           Add participants and start a group conversation.
         </Dialog.Description>
 
-        <Flex direction="column" gap="3">
+        <Flex direction="column" gap="3" className="mt-4">
           {/* Group name */}
           <div>
             <Text size="2" weight="medium" className="block mb-1">
