@@ -88,12 +88,18 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
       >
         <div className="flex flex-col gap-1 flex-1">
           <Text size="3" weight="bold">
-            Chat Room with{" "}
-            {room.participants
-              ?.filter((participant) => participant.id !== currentUserId)
-              ?.map((participant) => participant.full_name)
-              .join(", ")}
+            {room.name
+              ? room.name
+              : `Chat with ${room.participants
+                  ?.filter((p) => p.id !== currentUserId)
+                  ?.map((p) => p.full_name || p.username)
+                  .join(", ")}`}
           </Text>
+          {room.participants && room.participants.length > 2 && (
+            <Text size="1" color="gray">
+              {room.participants.length} participants
+            </Text>
+          )}
           {room.description && (
             <Text size="2" color="gray">
               {room.description}

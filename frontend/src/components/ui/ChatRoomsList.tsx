@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Card, Text, Flex, Badge, IconButton } from "@radix-ui/themes";
+import { Card, Text, Flex, Badge, IconButton, Button } from "@radix-ui/themes";
 import { ChatRoom } from "@/types";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { chatApi } from "@/services/api";
-import { ClockIcon, ReloadIcon } from "@radix-ui/react-icons";
+import { ClockIcon, ReloadIcon, PlusIcon } from "@radix-ui/react-icons";
 import { useUser } from "@/App";
 import { MessageCircleIcon } from "lucide-react";
+import { NewGroupChatDialog } from "./NewGroupChatDialog";
 
 interface ChatRoomsListProps {
   onSelectRoom: (room: ChatRoom) => void;
@@ -19,6 +20,8 @@ export function ChatRoomsList({
   const [page] = useState(1);
   const [limit] = useState(20);
   const { currentUserId } = useUser();
+  const [newChatOpen, setNewChatOpen] = useState(false);
+  const queryClient = useQueryClient();
   // Fetch chat rooms
   const {
     data: roomsData,
@@ -69,6 +72,11 @@ export function ChatRoomsList({
 
   const rooms = roomsData?.data.rooms || [];
 
+  const handleChatCreated = (room: ChatRoom) => {
+    queryClient.invalidateQueries({ queryKey: ["chat-rooms"] });
+    onSelectRoom(room);
+  };
+
   if (rooms.length === 0) {
     return (
       <Card className="p-4 mr-4 flex flex-col items-center justify-center">
@@ -77,10 +85,18 @@ export function ChatRoomsList({
           <Text size="3" weight="bold" className="block mb-2">
             This space is feeling a little... empty
           </Text>
-          <Text color="gray">
-            Why not be the first to say hi? Hit that pen icon and slide into a new convo.
+          <Text color="gray" className="block mb-4">
+            Why not be the first to say hi? Start a new conversation.
           </Text>
+          <Button onClick={() => setNewChatOpen(true)}>
+            <PlusIcon /> New Chat
+          </Button>
         </div>
+        <NewGroupChatDialog
+          open={newChatOpen}
+          onOpenChange={setNewChatOpen}
+          onCreated={handleChatCreated}
+        />
       </Card>
     );
   }
@@ -94,14 +110,24 @@ export function ChatRoomsList({
         <Text size="3" weight="bold">
           Chat Rooms
         </Text>
-        <IconButton
-          variant="ghost"
-          size="2"
-          onClick={() => refetch()}
-          disabled={isLoading}
-        >
-          <ReloadIcon className="w-4 h-4" />
-        </IconButton>
+        <Flex gap="2" align="center">
+          <IconButton
+            variant="ghost"
+            size="2"
+            onClick={() => refetch()}
+            disabled={isLoading}
+          >
+            <ReloadIcon className="w-4 h-4" />
+          </IconButton>
+          <IconButton
+            variant="soft"
+            size="2"
+            onClick={() => setNewChatOpen(true)}
+            title="New Chat"
+          >
+            <PlusIcon className="w-4 h-4" />
+          </IconButton>
+        </Flex>
       </div>
 
       <div className="space-y-2">
@@ -115,19 +141,21 @@ export function ChatRoomsList({
           >
             <div className="flex-1">
               <Text size="3" weight="bold" className="block mb-1 capitalize">
-                {room.participants && room.participants.length > 0
-                  ? (() => {
-                      const others = Array.from(
-                        new Map(
-                          room.participants!.map((p) => [p.id, p])
-                        ).values()
-                      ).filter((p) => String(p.id) !== String(currentUserId));
-                      const names = others.map((p) => p.full_name).join(", ");
-                      return names
-                        ? "Chat Room with " + names
-                        : "Chat Room";
-                    })()
-                  : "Chat Room"}
+                {room.name
+                  ? room.name
+                  : room.participants && room.participants.length > 0
+                    ? (() => {
+                        const others = Array.from(
+                          new Map(
+                            room.participants!.map((p) => [p.id, p])
+                          ).values()
+                        ).filter((p) => String(p.id) !== String(currentUserId));
+                        const names = others
+                          .map((p) => p.full_name || p.username)
+                          .join(", ");
+                        return names ? "Chat with " + names : "Chat Room";
+                      })()
+                    : "Chat Room"}
               </Text>
               {room.description && (
                 <Text size="2" color="gray" className="block mb-2">
@@ -197,6 +225,12 @@ export function ChatRoomsList({
           </Card>
         ))}
       </div>
+
+      <NewGroupChatDialog
+        open={newChatOpen}
+        onOpenChange={setNewChatOpen}
+        onCreated={handleChatCreated}
+      />
     </div>
   );
 }

@@ -84,6 +84,20 @@ async def get_available_interests():
     logger.info("GET /users/available-interests")
     return AVAILABLE_INTERESTS
 
+@router.get("/search", response_model=list[UserResponse])
+async def search_users(
+    q: str,
+    limit: int = 10,
+    current_user: UserResponse = Depends(get_current_user),
+    db=Depends(get_database)
+):
+    """Search users by username or full name (for chat participant selection)"""
+    logger.info("GET /users/search q=%s user_id=%s", q, current_user.id)
+    if not q or len(q) < 2:
+        return []
+    user_service = UserService(db)
+    return await user_service.search_users(q, exclude_user_id=str(current_user.id), limit=min(limit, 20))
+
 @router.get("/settings", response_model=UserResponse)
 async def get_user_settings(
     current_user: UserResponse = Depends(get_current_user)
