@@ -56,6 +56,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -114,6 +116,17 @@ private enum class SchedulingMode {
     OPEN
 }
 
+private val wikidataTagSuggestionSaver = listSaver<List<WikidataTagSuggestion>, String>(
+    save = { list -> list.flatMap { listOf(it.id, it.label) } },
+    restore = { flat ->
+        flat.chunked(2).mapNotNull { pair ->
+            val id = pair.getOrNull(0) ?: return@mapNotNull null
+            val label = pair.getOrNull(1) ?: ""
+            WikidataTagSuggestion(id = id, label = label)
+        }
+    }
+)
+
 private val weekDaysOrdered = listOf(
     "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
 )
@@ -170,30 +183,32 @@ fun CreateServiceScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var serviceType by remember { mutableStateOf("offer") }
-    var isRemote by remember { mutableStateOf(false) }
+    var serviceType by rememberSaveable { mutableStateOf("offer") }
+    var isRemote by rememberSaveable { mutableStateOf(false) }
 
-    var title by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var tagQuery by remember { mutableStateOf("") }
-    var selectedTags by remember { mutableStateOf<List<WikidataTagSuggestion>>(emptyList()) }
-    var estimatedDurationText by remember { mutableStateOf("1") }
-    var maxParticipantsText by remember { mutableStateOf("1") }
+    var title by rememberSaveable { mutableStateOf("") }
+    var description by rememberSaveable { mutableStateOf("") }
+    var tagQuery by rememberSaveable { mutableStateOf("") }
+    var estimatedDurationText by rememberSaveable { mutableStateOf("1") }
+    var maxParticipantsText by rememberSaveable { mutableStateOf("1") }
+    var selectedTags by rememberSaveable(stateSaver = wikidataTagSuggestionSaver) {
+        mutableStateOf<List<WikidataTagSuggestion>>(emptyList())
+    }
 
-    var schedulingMode by remember { mutableStateOf(SchedulingMode.SPECIFIC) }
-    var specificDateMillis by remember { mutableStateOf<Long?>(null) }
-    var specificTimeHHmm by remember { mutableStateOf("09:00") }
-    var recurringDays by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var recurringTimeHHmm by remember { mutableStateOf("09:00") }
-    var showDatePicker by remember { mutableStateOf(false) }
-    var timeSlotDialogFor by remember { mutableStateOf<SchedulingMode?>(null) }
-    var openAvailabilityText by remember { mutableStateOf("") }
+    var schedulingMode by rememberSaveable { mutableStateOf(SchedulingMode.SPECIFIC) }
+    var specificDateMillis by rememberSaveable { mutableStateOf<Long?>(null) }
+    var specificTimeHHmm by rememberSaveable { mutableStateOf("09:00") }
+    var recurringDays by rememberSaveable { mutableStateOf<Set<String>>(emptySet()) }
+    var recurringTimeHHmm by rememberSaveable { mutableStateOf("09:00") }
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
+    var timeSlotDialogFor by rememberSaveable { mutableStateOf<SchedulingMode?>(null) }
+    var openAvailabilityText by rememberSaveable { mutableStateOf("") }
 
     // Tap-to-pick location on map (specific location).
-    var selectedLat by remember { mutableStateOf(userLat ?: FALLBACK_LAT) }
-    var selectedLon by remember { mutableStateOf(userLon ?: FALLBACK_LON) }
+    var selectedLat by rememberSaveable { mutableStateOf(userLat ?: FALLBACK_LAT) }
+    var selectedLon by rememberSaveable { mutableStateOf(userLon ?: FALLBACK_LON) }
 
-    var locationNameText by remember { mutableStateOf("") }
+    var locationNameText by rememberSaveable { mutableStateOf("") }
 
     var selectedImageUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var existingServerImageUrls by remember(editServiceId) { mutableStateOf<List<String>>(emptyList()) }
@@ -851,7 +866,7 @@ fun CreateServiceScreen(
                                 setAnchor(Marker.ANCHOR_BOTTOM, Marker.ANCHOR_CENTER)
                                 if (markerIcon != null) setIcon(markerIcon.mutate())
                                 // No map marker title - location should only be in the textbox.
-                                title = ""
+                                setTitle("")
                             }
                             map.overlays.add(marker)
 

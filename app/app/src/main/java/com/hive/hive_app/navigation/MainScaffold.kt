@@ -2,6 +2,7 @@ package com.hive.hive_app.navigation
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -30,6 +31,20 @@ fun MainScaffold(
     var openChatRoomId by remember { mutableStateOf<String?>(null) }
     var overlayUserId by remember { mutableStateOf<String?>(null) }
     var showSavedServices by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = true) {
+        when {
+            overlayUserId != null -> overlayUserId = null
+            showSavedServices -> showSavedServices = false
+            currentDestination != MainDestinations.DISCOVER -> {
+                currentDestination = MainDestinations.DISCOVER
+                openChatRoomId = null
+            }
+            else -> {
+                // Consume back on the root screen to avoid immediately backgrounding the app.
+            }
+        }
+    }
 
     val onStartChat: (String) -> Unit = { roomId ->
         openChatRoomId = roomId

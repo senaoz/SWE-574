@@ -2,6 +2,7 @@ package com.hive.hive_app.navigation
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -12,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.hive.hive_app.data.api.UnauthorizedHandler
@@ -28,6 +30,8 @@ fun AppNavGraph(
     unauthorizedHandler: UnauthorizedHandler
 ) {
     val isLoggedIn by mainViewModel.isLoggedIn.collectAsState(initial = null)
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = backStackEntry?.destination?.route
 
     LaunchedEffect(unauthorizedHandler) {
         unauthorizedHandler.onUnauthorized = {
@@ -42,6 +46,14 @@ fun AppNavGraph(
             }
         }
         false -> {
+            BackHandler(enabled = true) {
+                when (currentRoute) {
+                    "register" -> navController.popBackStack()
+                    // Consume back on the login/root auth screen to prevent backgrounding the app.
+                    "login", null -> Unit
+                    else -> if (!navController.popBackStack()) Unit
+                }
+            }
             NavHost(
                 navController = navController,
                 startDestination = "login",
