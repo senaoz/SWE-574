@@ -1,21 +1,13 @@
 import { useMemo } from "react";
-import {
-  Button,
-  Flex,
-  Popover,
-  Text,
-  Separator,
-} from "@radix-ui/themes";
-import {
-  ChevronDownIcon,
-  Cross2Icon,
-} from "@radix-ui/react-icons";
+import { Button, Flex, Popover, Text, Separator } from "@radix-ui/themes";
+import { ChevronDownIcon, Cross2Icon } from "@radix-ui/react-icons";
 import { InterestChip } from "./InterestChip";
 import { TagEntity } from "@/types";
 import {
   DISTANCE_OPTIONS_KM,
   type ServiceTypeFilter,
 } from "@/components/map/ServiceMap";
+import { getCityOptions } from "@/constants/turkishCities";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -27,6 +19,7 @@ export interface DashboardFilters {
   selectedTags: string[];
   remoteFilter: "all" | "remote" | "in_person";
   distance: number | "any";
+  city: string;
 }
 
 export const defaultDashboardFilters: DashboardFilters = {
@@ -35,6 +28,7 @@ export const defaultDashboardFilters: DashboardFilters = {
   selectedTags: [],
   remoteFilter: "all",
   distance: "any",
+  city: "all",
 };
 
 interface DashboardFilterBarProps {
@@ -75,9 +69,15 @@ function isDefault(filters: DashboardFilters): boolean {
     filters.status === defaultDashboardFilters.status &&
     filters.selectedTags.length === 0 &&
     filters.remoteFilter === defaultDashboardFilters.remoteFilter &&
-    filters.distance === defaultDashboardFilters.distance
+    filters.distance === defaultDashboardFilters.distance &&
+    filters.city === defaultDashboardFilters.city
   );
 }
+
+const CITY_OPTIONS = [
+  { value: "all", label: "All Cities" },
+  ...getCityOptions().map((c) => ({ value: c.value, label: c.label })),
+] as const;
 
 /** Label shown on the pill when a non-default value is selected */
 function pillLabel(
@@ -183,7 +183,9 @@ export function DashboardFilterBar({
     if (activeTagCount === 0) return "Tags";
     if (activeTagCount === 1) {
       const tag = availableTags.find(
-        (t) => t.entityId === filters.selectedTags[0] || t.label === filters.selectedTags[0],
+        (t) =>
+          t.entityId === filters.selectedTags[0] ||
+          t.label === filters.selectedTags[0],
       );
       return tag?.label ?? "1 tag";
     }
@@ -194,7 +196,7 @@ export function DashboardFilterBar({
     onFiltersChange({ ...filters, ...partial });
 
   return (
-    <div className="filter-bar-scroll flex items-center gap-2 py-2 overflow-x-auto">
+    <div className="filter-bar-scroll flex items-center gap-2 pt-2 overflow-x-auto col-span-2">
       {/* Service Type */}
       <FilterPill
         label={pillLabel("Type", filters.serviceType, SERVICE_TYPE_OPTIONS)}
@@ -217,6 +219,49 @@ export function DashboardFilterBar({
                 variant="ghost"
                 color="gray"
                 onClick={() => update({ serviceType: "all" })}
+              >
+                Reset
+              </Button>
+            </>
+          )}
+        </Flex>
+      </FilterPill>
+
+      {/* City */}
+      <FilterPill
+        label={pillLabel("City", filters.city, CITY_OPTIONS)}
+        isActive={filters.city !== "all"}
+      >
+        <Flex direction="column" gap="3" p="1" style={{ maxWidth: 280 }}>
+          <Text size="2" weight="bold">
+            City
+          </Text>
+          <Flex
+            direction="column"
+            gap="1"
+            style={{ maxHeight: 280, overflowY: "auto" }}
+          >
+            {CITY_OPTIONS.map((opt) => (
+              <Button
+                key={opt.value}
+                size="2"
+                variant={filters.city === opt.value ? "solid" : "outline"}
+                color="gray"
+                onClick={() => update({ city: opt.value })}
+                style={{ cursor: "pointer", justifyContent: "flex-start" }}
+              >
+                {opt.label}
+              </Button>
+            ))}
+          </Flex>
+          {filters.city !== "all" && (
+            <>
+              <Separator size="4" />
+              <Button
+                size="1"
+                variant="ghost"
+                color="gray"
+                onClick={() => update({ city: "all" })}
               >
                 Reset
               </Button>

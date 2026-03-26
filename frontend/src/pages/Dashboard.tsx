@@ -41,7 +41,7 @@ export function Dashboard() {
   const [filteredServices, setFilteredServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
-  const { searchQuery, selectedCity } = useFilters();
+  const { searchQuery, selectedCity, setSelectedCity } = useFilters();
   const [dashFilters, setDashFilters] = useState<DashboardFilters>(
     defaultDashboardFilters,
   );
@@ -76,16 +76,28 @@ export function Dashboard() {
     return tags.sort((a, b) => a.label.localeCompare(b.label));
   }, [services]);
 
+  // Sync header city → dashFilters
+  useEffect(() => {
+    setDashFilters((prev) =>
+      prev.city !== selectedCity ? { ...prev, city: selectedCity } : prev,
+    );
+  }, [selectedCity]);
+
   // Keep map filters in sync with dashboard filter bar
-  const handleDashFiltersChange = useCallback((next: DashboardFilters) => {
-    setDashFilters(next);
-    // Sync overlapping fields to map
-    setMapFilters((prev) => ({
-      ...prev,
-      serviceType: next.serviceType,
-      distance: next.distance,
-    }));
-  }, []);
+  const handleDashFiltersChange = useCallback(
+    (next: DashboardFilters) => {
+      setDashFilters(next);
+      // Sync overlapping fields to map
+      setMapFilters((prev) => ({
+        ...prev,
+        serviceType: next.serviceType,
+        distance: next.distance,
+      }));
+      // Sync city to header/context
+      setSelectedCity(next.city);
+    },
+    [setSelectedCity],
+  );
 
   useEffect(() => {
     const onSuccess = (pos: GeolocationPosition) => {
@@ -283,8 +295,6 @@ export function Dashboard() {
                 </Button>
               )}
             </Flex>
-
-            {/* Airbnb-style filter bar */}
             <DashboardFilterBar
               filters={dashFilters}
               onFiltersChange={handleDashFiltersChange}

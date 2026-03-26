@@ -77,11 +77,6 @@ export function Header() {
           {user ? (
             <Flex gap="2" className="w-full max-w-xl mx-auto">
               <SearchBar onSearchChange={setSearchQuery} />
-              <CityFilter
-                className="w-48"
-                selectedCity={selectedCity}
-                onCityChange={setSelectedCity}
-              />
             </Flex>
           ) : (
             <div className="w-full" />
