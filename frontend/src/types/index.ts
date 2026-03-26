@@ -227,6 +227,17 @@ export interface ServiceListResponse {
   limit: number;
 }
 
+export interface PotentialMatchItem {
+  service: Service;
+  relevance_score: number;
+  reason_label: string;
+}
+
+export interface PotentialMatchListResponse {
+  items: PotentialMatchItem[];
+  total: number;
+}
+
 export interface AuthResponse {
   access_token: string;
   token_type: string;

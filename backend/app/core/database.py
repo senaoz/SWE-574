@@ -49,6 +49,17 @@ async def create_indexes():
         await db.database.users.create_index("email", unique=True)
         await db.database.users.create_index("username", unique=True)
         
+        # Migrate old location format {latitude, longitude} to GeoJSON before creating index
+        async for doc in db.database.services.find({"location.latitude": {"$exists": True}, "location.type": {"$exists": False}}):
+            loc = doc["location"]
+            geojson = {
+                "type": "Point",
+                "coordinates": [loc["longitude"], loc["latitude"]],
+            }
+            if loc.get("address"):
+                geojson["address"] = loc["address"]
+            await db.database.services.update_one({"_id": doc["_id"]}, {"$set": {"location": geojson}})
+
         # Services collection indexes
         await db.database.services.create_index([("location", "2dsphere")])
         await db.database.services.create_index("user_id")

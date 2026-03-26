@@ -19,6 +19,7 @@ from ..services.auth_service import AuthService, LoginNotAllowedError
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 security = HTTPBearer()
+optional_security = HTTPBearer(auto_error=False)
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -56,6 +57,36 @@ async def get_current_user(
             detail="Your account is inactive."
         )
     
+    return user
+
+
+async def get_optional_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_security),
+    db=Depends(get_database)
+) -> Optional[UserResponse]:
+    """Get current user if a bearer token is provided, otherwise return None."""
+    if credentials is None:
+        return None
+
+    token = credentials.credentials
+    payload = verify_token(token)
+    user_id = payload.get("sub")
+
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        )
+
+    user_service = UserService(db)
+    user = await user_service.get_user_by_id(user_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found"
+        )
+
     return user
 
 @router.post("/register")

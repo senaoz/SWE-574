@@ -10,7 +10,7 @@ import {
 import { useEffect, useState } from "react";
 import { usersApi, ratingsApi } from "@/services/api";
 import { StatusBadge } from "./StatusBadge";
-import { CustomBadge } from "./BadgeDisplay";
+import { CustomBadge, getHighestPriorityBadge } from "./BadgeDisplay";
 
 export function OfferListingCard({ service }: { service: Service }) {
   const navigate = useNavigate();
@@ -37,10 +37,7 @@ export function OfferListingCard({ service }: { service: Service }) {
           earned_count: badgesRes.data?.earned_count ?? 0,
           total_count: badgesRes.data?.total_count ?? 0,
           earned_badges: earnedBadges,
-          last_earned_badge:
-            earnedBadges.length > 0
-              ? earnedBadges[earnedBadges.length - 1]
-              : null,
+          last_earned_badge: getHighestPriorityBadge(earnedBadges),
         });
         setAverageRating(ratingsRes.data?.average_score ?? null);
         setRatingCount(ratingsRes.data?.total ?? 0);
@@ -92,29 +89,32 @@ export function OfferListingCard({ service }: { service: Service }) {
       className="hover-card flex flex-col h-full gap-2 overflow-hidden"
       onClick={handleCardClick}
     >
-      {/* Header with title and status */}
-      <div className="flex gap-2 flex-wrap justify-between items-center">
-        <div>
-          <Flex align="center" gap="1">
-            <StatusBadge status={service.status} size="1" variant="soft" />
-            <Badge
-              color={service?.service_type === "offer" ? "orange" : "blue"}
-              variant="soft"
-            >
-              {service?.service_type === "offer" ? "OFFER" : "NEED"}
-            </Badge>
-          </Flex>
-        </div>
+      {/* Header with status badges (left) and user info (right) */}
+      <div className="flex gap-2 justify-between items-center">
+        <Flex align="center" gap="1">
+          <StatusBadge status={service.status} size="1" variant="soft" />
+          <Badge
+            color={service?.service_type === "offer" ? "orange" : "blue"}
+            variant="soft"
+          >
+            {service?.service_type === "offer" ? "OFFER" : "NEED"}
+          </Badge>
+        </Flex>
+        <Flex align="center" gap="1" className="text-sm opacity-70">
+          {badgeSummary?.last_earned_badge && (
+            <CustomBadge badge={badgeSummary.last_earned_badge} size={14} />
+          )}
+          {averageRating != null && (
+            <Flex align="center" gap="1">
+              <StarFilledIcon className="w-3 h-3 text-yellow-500" />
+              <Text size="1">{averageRating.toFixed(1)}</Text>
+            </Flex>
+          )}
+          <Text size="1" className="max-w-[100px] truncate">
+            {user?.full_name || `@${user?.username || ""}`}
+          </Text>
+        </Flex>
       </div>
-
-      {badgeSummary && badgeSummary.last_earned_badge && (
-        <CustomBadge
-          key={badgeSummary.last_earned_badge.key}
-          badge={badgeSummary.last_earned_badge}
-          size={16}
-          className="absolute top-2 right-2"
-        />
-      )}
       <h3 className="capitalize text-xl font-bold leading-tight my-1">
         {service.title}
       </h3>
@@ -123,12 +123,6 @@ export function OfferListingCard({ service }: { service: Service }) {
       <Flex align="center" gap="1" className="text-sm">
         <ClockIcon className="w-4 h-4" />
         <Text>{formatDuration(service.estimated_duration)}</Text>
-        {averageRating && (
-          <Flex align="center" gap="1">
-            <StarFilledIcon className="w-4 h-4 ml-2" />
-            {averageRating}/5 ({ratingCount} ratings)
-          </Flex>
-        )}
       </Flex>
       <Flex align="center" gap="1" className="text-sm">
         <Crosshair1Icon className="w-4 h-4 flex-shrink-0" />
@@ -162,8 +156,7 @@ export function OfferListingCard({ service }: { service: Service }) {
       )}
 
       <Text size="1" className="opacity-60">
-        Posted {formatDate(service.created_at)} by{" "}
-        {user?.full_name || `@${user?.username || "unknown"}`}
+        Posted {formatDate(service.created_at)}
         {service.deadline && ` | Deadline: ${formatDate(service.deadline)}`}
       </Text>
     </Card>

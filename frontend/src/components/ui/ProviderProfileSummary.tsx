@@ -1,9 +1,11 @@
 import { Card, Text, Flex, Avatar, Badge, Button } from "@radix-ui/themes";
 import { BadgeSummary, User } from "@/types";
 import { useNavigate } from "react-router-dom";
-import { getImageUrl, usersApi } from "@/services/api";
+import { getImageUrl, usersApi, ratingsApi } from "@/services/api";
 import { useState, useEffect } from "react";
-import { CheckIcon, ClockIcon, LocateIcon } from "lucide-react";
+import { CheckIcon, StarIcon } from "lucide-react";
+// ClockIcon, LocateIcon,
+import { CustomBadge, getHighestPriorityBadge } from "./BadgeDisplay";
 
 interface ProviderProfileSummaryProps {
   user: User;
@@ -16,22 +18,29 @@ export function ProviderProfileSummary({ user }: ProviderProfileSummaryProps) {
   };
 
   const [userBadges, setUserBadges] = useState<BadgeSummary | null>(null);
+  const [averageRating, setAverageRating] = useState<number | null>(null);
+  const [ratingCount, setRatingCount] = useState(0);
 
   useEffect(() => {
-    async function fetchUserBadges() {
-      const badges = await usersApi.getUserBadges(user._id);
+    async function fetchUserData() {
+      const [badgesRes, ratingsRes] = await Promise.all([
+        usersApi.getUserBadges(user._id).catch(() => ({ data: null })),
+        ratingsApi.getUserRatings(user._id, 1, 1).catch(() => ({
+          data: { total: 0, average_score: null },
+        })),
+      ]);
+      const earnedBadges = badgesRes.data?.badges.filter((b) => b.earned) ?? [];
       setUserBadges({
-        badges: badges.data?.badges ?? [],
-        earned_count: badges.data?.earned_count ?? 0,
-        total_count: badges.data?.total_count ?? 0,
-        earned_badges: badges.data?.badges.filter((b) => b.earned) ?? [],
-        last_earned_badge:
-          badges.data?.badges.length > 0
-            ? badges.data?.badges[badges.data?.badges.length - 1]
-            : null,
+        badges: badgesRes.data?.badges ?? [],
+        earned_count: badgesRes.data?.earned_count ?? 0,
+        total_count: badgesRes.data?.total_count ?? 0,
+        earned_badges: earnedBadges,
+        last_earned_badge: getHighestPriorityBadge(earnedBadges),
       });
+      setAverageRating(ratingsRes.data?.average_score ?? null);
+      setRatingCount(ratingsRes.data?.total ?? 0);
     }
-    fetchUserBadges();
+    fetchUserData();
   }, [user._id]);
 
   return (
@@ -45,12 +54,27 @@ export function ProviderProfileSummary({ user }: ProviderProfileSummaryProps) {
             size="4"
           />
           <div className="flex-1 flex flex-col">
-            <Text size="3" weight="bold">
-              {user.full_name || user.username}
-            </Text>
+            <Flex align="center" gap="2">
+              <Text size="3" weight="bold">
+                {user.full_name || user.username}
+              </Text>
+              {userBadges?.last_earned_badge && (
+                <CustomBadge badge={userBadges.last_earned_badge} size={16} />
+              )}
+            </Flex>
             <Text size="2" color="gray">
               @{user.username}
             </Text>
+            <Flex align="center" gap="1" className="mt-1">
+              <StarIcon className="w-3 h-3 text-yellow-500" />
+              {averageRating != null ? (
+                <Text size="1">
+                  {averageRating.toFixed(1)} ({ratingCount} rating{ratingCount !== 1 ? "s" : ""})
+                </Text>
+              ) : (
+                <Text size="1" color="gray">Not rated</Text>
+              )}
+            </Flex>
             {user.is_verified && (
               <Badge
                 color="green"
@@ -72,26 +96,24 @@ export function ProviderProfileSummary({ user }: ProviderProfileSummaryProps) {
           </Text>
         )}
 
-        <div className="grid grid-cols-2 gap-2 border-t opacity-60 text-sm pt-2">
-          <div className="col-span-2 flex flex-row justify-start items-center gap-2">
-            <LocateIcon className="w-4 h-4 flex-shrink-0" />
-            <Text className="w-full ellipsis overflow-hidden text-ellipsis line-clamp-1">
-              {user.location}
-            </Text>
-          </div>
-          <div className="flex flex-row justify-start items-center gap-2">
-            <ClockIcon className="w-4 h-4" />
-            <Text>TimeBank Hours</Text>
-          </div>
-          <span className="text-right">{user.timebank_balance}</span>
-          {userBadges?.earned_badges &&
-            userBadges?.earned_badges?.length > 0 && (
-              <span className="col-span-2">
-                <span className="font-bold">Badges Earned:</span>{" "}
-                {userBadges?.earned_badges?.map((b) => b.name).join(", ")}
-              </span>
-            )}
-        </div>
+        {
+          /*
+            <div className="grid grid-cols-2 gap-2 border-t opacity-60 text-sm pt-2">
+              <div className="col-span-2 flex flex-row justify-start items-center gap-2">
+                <LocateIcon className="w-4 h-4 flex-shrink-0" />
+                <Text className="w-full ellipsis overflow-hidden text-ellipsis line-clamp-1">
+                  {user.location}
+                </Text>
+              </div>
+              <div className="flex flex-row justify-start items-center gap-2">
+                <ClockIcon className="w-4 h-4" />
+                <Text>TimeBank Hours</Text>
+              </div>
+              <span className="text-right">{user.timebank_balance}</span>
+            </div>
+           */
+        }
+
 
         {/* Action button */}
         <Button

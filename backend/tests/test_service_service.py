@@ -96,6 +96,90 @@ class TestServiceService:
         # Get second page
         services_page2, _ = await service_service.get_services(filters, page=2, limit=2)
         assert len(services_page2) == 2
+
+    @pytest.mark.asyncio
+    async def test_get_potential_matches_excludes_saved_and_full_services(
+        self, mock_db, test_user, second_user, sample_service, sample_service_data
+    ):
+        """Test potential matches only return eligible opposite-type services."""
+        from app.models.service import ServiceCreate
+        from bson import ObjectId
+
+        service_service = ServiceService(mock_db)
+
+        matching_need_data = sample_service_data.copy()
+        matching_need_data["service_type"] = "need"
+        matching_need = await service_service.create_service(
+            ServiceCreate(**matching_need_data),
+            str(second_user.id),
+        )
+
+        saved_need_data = sample_service_data.copy()
+        saved_need_data["title"] = "Saved need"
+        saved_need_data["service_type"] = "need"
+        saved_need = await service_service.create_service(
+            ServiceCreate(**saved_need_data),
+            str(second_user.id),
+        )
+
+        full_need_data = sample_service_data.copy()
+        full_need_data["title"] = "Full need"
+        full_need_data["service_type"] = "need"
+        full_need = await service_service.create_service(
+            ServiceCreate(**full_need_data),
+            str(second_user.id),
+        )
+
+        await mock_db.saved_services.insert_one(
+            {
+                "user_id": str(test_user.id),
+                "service_id": str(saved_need.id),
+                "created_at": datetime.utcnow(),
+            }
+        )
+        await mock_db.services.update_one(
+            {"_id": ObjectId(str(full_need.id))},
+            {"$set": {"matched_user_ids": [ObjectId(str(test_user.id))]}},
+        )
+
+        items, total = await service_service.get_potential_matches(
+            str(sample_service.id),
+            current_user_id=str(test_user.id),
+            limit=10,
+        )
+
+        assert total == 1
+        assert len(items) == 1
+        assert items[0].service.id == str(matching_need.id)
+        assert items[0].service.service_type == ServiceType.NEED
+        assert items[0].reason_label
+
+    @pytest.mark.asyncio
+    async def test_get_potential_matches_falls_back_to_same_type_when_needed(
+        self, mock_db, sample_service, second_user, sample_service_data
+    ):
+        """Test similar same-type services are returned when no opposite-type matches exist."""
+        from app.models.service import ServiceCreate
+
+        service_service = ServiceService(mock_db)
+
+        similar_offer_data = sample_service_data.copy()
+        similar_offer_data["title"] = "Another test service"
+        similar_offer = await service_service.create_service(
+            ServiceCreate(**similar_offer_data),
+            str(second_user.id),
+        )
+
+        items, total = await service_service.get_potential_matches(
+            str(sample_service.id),
+            current_user_id=None,
+            limit=10,
+        )
+
+        assert total == 1
+        assert len(items) == 1
+        assert items[0].service.id == str(similar_offer.id)
+        assert items[0].service.service_type == ServiceType.OFFER
     
     @pytest.mark.asyncio
     async def test_update_service(self, mock_db, sample_service):
@@ -302,4 +386,3 @@ class TestServiceService:
                 str(sample_service.id),
                 str(sample_service.user_id),
             )
-
