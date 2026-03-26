@@ -329,25 +329,25 @@ export function UserDetail() {
 
               {/* Stats */}
               <div className="space-y-2">
-                <Flex justify="between" align="center">
+                <Flex gap={"2"} align="center">
                   <Text size="2">TimeBank Balance</Text>
                   <Text size="2" weight="bold">
                     {user.timebank_balance} hours
                   </Text>
                 </Flex>
-                <Flex justify="between" align="center">
+                <Flex gap={"2"} align="center">
                   <Text size="2">Services Provided</Text>
                   <Text size="2" weight="bold">
                     {servicesProvided.length}
                   </Text>
                 </Flex>
-                <Flex justify="between" align="center">
+                <Flex gap={"2"} align="center">
                   <Text size="2">Services Received</Text>
                   <Text size="2" weight="bold">
                     {servicesReceived.length}
                   </Text>
                 </Flex>
-                <Flex justify="between" align="center">
+                <Flex gap={"2"} align="center">
                   <Text size="2">Completed</Text>
                   <Text size="2" weight="bold">
                     {completedServices.length}
