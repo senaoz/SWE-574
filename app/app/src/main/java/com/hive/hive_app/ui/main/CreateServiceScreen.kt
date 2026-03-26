@@ -44,9 +44,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -119,6 +122,24 @@ private fun halfHourTimes24h(): List<String> = buildList(48) {
         add("%02d:%02d".format(h, 0))
         add("%02d:%02d".format(h, 30))
     }
+}
+
+private fun ordinalSuffix(day: Int): String = when {
+    day % 100 in 11..13 -> "th"
+    day % 10 == 1 -> "st"
+    day % 10 == 2 -> "nd"
+    day % 10 == 3 -> "rd"
+    else -> "th"
+}
+
+private fun formatPrettyDate(localDate: LocalDate): String =
+    "${localDate.format(DateTimeFormatter.ofPattern("MMMM d"))}${ordinalSuffix(localDate.dayOfMonth)}"
+
+private fun parseHHmm(time: String): Pair<Int, Int> {
+    val parts = time.split(":")
+    val h = parts.getOrNull(0)?.toIntOrNull() ?: 9
+    val m = parts.getOrNull(1)?.toIntOrNull() ?: 0
+    return h.coerceIn(0, 23) to m.coerceIn(0, 59)
 }
 
 /** Selected chips use app lime (Lime50 fill, Lime500 label/icons). */
@@ -269,7 +290,7 @@ fun CreateServiceScreen(
 
     val specificDateLabel = specificDateMillis?.let {
         val localDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
-        localDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+        formatPrettyDate(localDate)
     } ?: ""
 
     val offerNeedTitleExample = if (serviceType == "offer") {
@@ -551,35 +572,59 @@ fun CreateServiceScreen(
 
             when (schedulingMode) {
                 SchedulingMode.SPECIFIC -> {
-                    OutlinedTextField(
-                        value = specificDateLabel,
-                        onValueChange = {},
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .clickableNoRipple { showDatePicker = true },
-                        label = { Text("Date") },
-                        placeholder = { Text("YYYY-MM-DD") },
-                        singleLine = true,
-                        readOnly = true,
-                        shape = RoundedCornerShape(12.dp)
-                    )
+                            .clickableNoRipple { showDatePicker = true }
+                    ) {
+                        OutlinedTextField(
+                            value = specificDateLabel,
+                            onValueChange = {},
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Date") },
+                            placeholder = { Text("Select a date") },
+                            singleLine = true,
+                            readOnly = true,
+                            enabled = false,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                                disabledBorderColor = MaterialTheme.colorScheme.outline,
+                                disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = specificTimeHHmm,
-                        onValueChange = {},
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .clickableNoRipple {
-                                timeSlotDialogFor = SchedulingMode.SPECIFIC
-                            },
-                        label = { Text("Time") },
-                        placeholder = { Text("HH:mm") },
-                        singleLine = true,
-                        readOnly = true,
-                        shape = RoundedCornerShape(12.dp)
-                    )
+                            .clickableNoRipple { timeSlotDialogFor = SchedulingMode.SPECIFIC }
+                    ) {
+                        OutlinedTextField(
+                            value = specificTimeHHmm,
+                            onValueChange = {},
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Time") },
+                            placeholder = { Text("HH:mm") },
+                            singleLine = true,
+                            readOnly = true,
+                            enabled = false,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                                disabledBorderColor = MaterialTheme.colorScheme.outline,
+                                disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
                 }
                 SchedulingMode.RECURRING -> {
                     Text(
@@ -605,21 +650,32 @@ fun CreateServiceScreen(
                         }
                     }
                     Spacer(modifier = Modifier.height(10.dp))
-                    OutlinedTextField(
-                        value = recurringTimeHHmm,
-                        onValueChange = {},
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .clickableNoRipple {
-                                timeSlotDialogFor = SchedulingMode.RECURRING
-                            },
-                        label = { Text("Time") },
-                        placeholder = { Text("HH:mm") },
-                        singleLine = true,
-                        readOnly = true,
-                        shape = RoundedCornerShape(12.dp)
-                    )
+                            .clickableNoRipple { timeSlotDialogFor = SchedulingMode.RECURRING }
+                    ) {
+                        OutlinedTextField(
+                            value = recurringTimeHHmm,
+                            onValueChange = {},
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Time") },
+                            placeholder = { Text("Select a time") },
+                            singleLine = true,
+                            readOnly = true,
+                            enabled = false,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                                disabledBorderColor = MaterialTheme.colorScheme.outline,
+                                disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
                 }
                 SchedulingMode.OPEN -> {
                     OutlinedTextField(
@@ -1024,35 +1080,42 @@ fun CreateServiceScreen(
         }
 
         val slotTarget = timeSlotDialogFor
+        val timePickerState = rememberTimePickerState(
+            initialHour = 9,
+            initialMinute = 0,
+            is24Hour = true
+        )
+        LaunchedEffect(slotTarget) {
+            val (h, m) = when (slotTarget) {
+                SchedulingMode.SPECIFIC -> parseHHmm(specificTimeHHmm)
+                SchedulingMode.RECURRING -> parseHHmm(recurringTimeHHmm)
+                else -> parseHHmm("09:00")
+            }
+            timePickerState.hour = h
+            timePickerState.minute = m
+        }
         if (slotTarget != null) {
             AlertDialog(
                 onDismissRequest = { timeSlotDialogFor = null },
-                title = { Text("Select time (24h)") },
+                title = { Text("Select time") },
                 text = {
-                    LazyColumn(
-                        modifier = Modifier.heightIn(max = 400.dp)
-                    ) {
-                        items(halfHourTimes24h()) { slot ->
-                            TextButton(
-                                onClick = {
-                                    when (slotTarget) {
-                                        SchedulingMode.SPECIFIC -> specificTimeHHmm = slot
-                                        SchedulingMode.RECURRING -> recurringTimeHHmm = slot
-                                        else -> {}
-                                    }
-                                    timeSlotDialogFor = null
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(slot)
-                            }
-                        }
-                    }
+                    TimePicker(state = timePickerState)
                 },
                 confirmButton = {
-                    TextButton(onClick = { timeSlotDialogFor = null }) {
-                        Text("Close")
-                    }
+                    TextButton(
+                        onClick = {
+                            val slot = "%02d:%02d".format(timePickerState.hour, timePickerState.minute)
+                            when (slotTarget) {
+                                SchedulingMode.SPECIFIC -> specificTimeHHmm = slot
+                                SchedulingMode.RECURRING -> recurringTimeHHmm = slot
+                                else -> {}
+                            }
+                            timeSlotDialogFor = null
+                        }
+                    ) { Text("OK") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { timeSlotDialogFor = null }) { Text("Cancel") }
                 }
             )
         }
