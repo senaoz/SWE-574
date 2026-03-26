@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -64,8 +65,10 @@ import coil.compose.AsyncImage
 import com.hive.hive_app.util.formatApplicationDate
 import java.util.Locale
 
-private fun canStartService(service: com.hive.hive_app.data.api.dto.ServiceResponse?): Boolean =
-    service?.status?.lowercase() == "active"
+private fun canStartService(
+    service: com.hive.hive_app.data.api.dto.ServiceResponse?,
+    hasParticipants: Boolean
+): Boolean = service?.status?.lowercase() == "active" && hasParticipants
 
 private fun canDeleteCancelEdit(service: com.hive.hive_app.data.api.dto.ServiceResponse?): Boolean {
     val s = service?.status?.lowercase() ?: return false
@@ -320,6 +323,7 @@ fun ManageServiceScreen(
                 val declinedRows = state.requestRows.filter {
                     it.request.status.equals("rejected", ignoreCase = true)
                 }
+                val canStart = canStartService(state.service, hasParticipants = participantRows.isNotEmpty())
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
@@ -446,16 +450,26 @@ fun ManageServiceScreen(
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
-                                if (canStartService(state.service)) {
+                                if (canStart) {
                                     Button(
                                         onClick = { showStartServiceConfirm = true },
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Text("Start service")
                                     }
+                                } else if (state.service?.status?.lowercase() == "active") {
+                                    OutlinedTextField(
+                                        value = "You need at least one participant to start the service.",
+                                        onValueChange = {},
+                                        modifier = Modifier.fillMaxWidth(),
+                                        enabled = false,
+                                        readOnly = true,
+                                        singleLine = false,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
                                 }
                                 if (canDeleteCancelEdit(state.service)) {
-                                    if (canStartService(state.service)) {
+                                    if (canStart) {
                                         Spacer(modifier = Modifier.height(10.dp))
                                     }
                                     Row(

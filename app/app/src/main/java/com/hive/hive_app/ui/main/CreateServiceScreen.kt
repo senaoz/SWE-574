@@ -85,6 +85,7 @@ import androidx.compose.foundation.border
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.rememberDatePickerState
 import java.time.Instant
 import java.time.LocalDate
@@ -179,7 +180,7 @@ fun CreateServiceScreen(
     var estimatedDurationText by remember { mutableStateOf("1") }
     var maxParticipantsText by remember { mutableStateOf("1") }
 
-    var schedulingMode by remember { mutableStateOf(SchedulingMode.OPEN) }
+    var schedulingMode by remember { mutableStateOf(SchedulingMode.SPECIFIC) }
     var specificDateMillis by remember { mutableStateOf<Long?>(null) }
     var specificTimeHHmm by remember { mutableStateOf("09:00") }
     var recurringDays by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -205,8 +206,17 @@ fun CreateServiceScreen(
     val tagSearchLoading by viewModel.tagSearchLoading.collectAsState()
     val tagSearchError by viewModel.tagSearchError.collectAsState()
 
+    val todayLocalDate = remember { LocalDate.now() }
     val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = specificDateMillis
+        initialSelectedDateMillis = specificDateMillis,
+        selectableDates = object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                val picked = Instant.ofEpochMilli(utcTimeMillis)
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDate()
+                return !picked.isBefore(todayLocalDate)
+            }
+        }
     )
 
     val pickImagesLauncher = rememberLauncherForActivityResult(
@@ -417,15 +427,29 @@ fun CreateServiceScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            OutlinedTextField(
-                value = description,
-                onValueChange = { description = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Description") },
-                placeholder = { Text(offerNeedDescriptionExample) },
-                minLines = 3,
-                shape = RoundedCornerShape(12.dp)
-            )
+            val descTrimmedLen = description.trim().length
+            val descTooShort = descTrimmedLen in 1..9
+            Box(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Description") },
+                    placeholder = { Text(offerNeedDescriptionExample) },
+                    isError = descTooShort,
+                    minLines = 3,
+                    shape = RoundedCornerShape(12.dp)
+                )
+                Text(
+                    text = "${description.length} characters",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (descTrimmedLen < 10) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 16.dp, bottom = 10.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(10.dp))
 
@@ -444,7 +468,7 @@ fun CreateServiceScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Search tags") },
-                placeholder = { Text("Start typing (e.g. chemical element)") },
+                placeholder = { Text("Start typing (e.g. photography)") },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp)
             )
@@ -508,7 +532,20 @@ fun CreateServiceScreen(
                             selected = true,
                             onClick = { selectedTags = selectedTags.filterNot { it.id == suggestion.id } },
                             label = { Text(suggestion.label) },
-                            colors = hiveLimeFilterChipColors()
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = Color.White,
+                                labelColor = Lime500,
+                                iconColor = Lime500,
+                                selectedContainerColor = Color.White,
+                                selectedLabelColor = Lime500,
+                                selectedLeadingIconColor = Lime500
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = true,
+                                borderColor = Lime500,
+                                selectedBorderColor = Lime500
+                            )
                         )
                     }
                 }
@@ -930,6 +967,10 @@ fun CreateServiceScreen(
                     }
                     if (description.isBlank()) {
                         localError = "Description is required"
+                        return@Button
+                    }
+                    if (description.trim().length <= 10) {
+                        localError = "Description must be more than 10 characters"
                         return@Button
                     }
                     if (parsedDuration == null || parsedDuration <= 0.0) {
