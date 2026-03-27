@@ -62,9 +62,7 @@ export function Header() {
 
   return (
     <Box
-      className={`px-10 py-4 sticky top-0 w-full ${
-        scrolled ? "backdrop-blur-xl border-b border-gray-200/10" : "bg-white/0"
-      } z-30 transition-all`}
+      className={`px-10 py-4 sticky top-0 w-full bg-background z-30 transition-all`}
     >
       <div>
         <div className="grid grid-cols-[1fr_3fr_1fr] gap-2 items-center">
@@ -79,11 +77,6 @@ export function Header() {
           {user ? (
             <Flex gap="2" className="w-full max-w-xl mx-auto">
               <SearchBar onSearchChange={setSearchQuery} />
-              <CityFilter
-                className="w-48"
-                selectedCity={selectedCity}
-                onCityChange={setSelectedCity}
-              />
             </Flex>
           ) : (
             <div className="w-full" />

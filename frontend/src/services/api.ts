@@ -173,6 +173,7 @@ export const servicesApi = {
     longitude?: number;
     radius?: number;
     user_id?: string;
+    is_remote?: boolean;
   }): Promise<AxiosResponse<ServiceListResponse>> =>
     api.get('/services/', { params }),
   

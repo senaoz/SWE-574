@@ -5,6 +5,11 @@ import {
   type MapFilters,
 } from "@/components/map/ServiceMap";
 import { OfferListingCard } from "@/components/ui/OfferListingCard";
+import {
+  DashboardFilterBar,
+  defaultDashboardFilters,
+  type DashboardFilters,
+} from "@/components/ui/DashboardFilterBar";
 import { servicesApi, forumApi } from "@/services/api";
 import {
   Button,
@@ -25,10 +30,10 @@ import { usersApi } from "@/services/api";
 import { Callout } from "@radix-ui/themes";
 import { OfferNeedForm } from "@/components/forms/OfferNeedForm";
 import { useFilters } from "@/contexts/FilterContext";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Service } from "@/types";
+import { Service, TagEntity } from "@/types";
 import { ForumEvent } from "@/types";
 
 export function Dashboard() {
@@ -36,8 +41,10 @@ export function Dashboard() {
   const [filteredServices, setFilteredServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
-  const { searchQuery, selectedCity } = useFilters();
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState("active");
+  const { searchQuery, selectedCity, setSelectedCity } = useFilters();
+  const [dashFilters, setDashFilters] = useState<DashboardFilters>(
+    defaultDashboardFilters,
+  );
   const [searchParams, setSearchParams] = useSearchParams();
   const tagParam = searchParams.get("tag");
   const [mapFilters, setMapFilters] = useState<MapFilters>(defaultMapFilters);
@@ -51,6 +58,46 @@ export function Dashboard() {
     retry: false,
   });
   const [forumEvents, setForumEvents] = useState<ForumEvent[]>([]);
+
+  // Derive unique tags from loaded services for the filter bar
+  const availableTags = useMemo<TagEntity[]>(() => {
+    const seen = new Set<string>();
+    const tags: TagEntity[] = [];
+    for (const s of services) {
+      for (const t of s.tags ?? []) {
+        if (typeof t === "string") continue;
+        const id = t.entityId || t.label;
+        if (!seen.has(id)) {
+          seen.add(id);
+          tags.push(t);
+        }
+      }
+    }
+    return tags.sort((a, b) => a.label.localeCompare(b.label));
+  }, [services]);
+
+  // Sync header city → dashFilters
+  useEffect(() => {
+    setDashFilters((prev) =>
+      prev.city !== selectedCity ? { ...prev, city: selectedCity } : prev,
+    );
+  }, [selectedCity]);
+
+  // Keep map filters in sync with dashboard filter bar
+  const handleDashFiltersChange = useCallback(
+    (next: DashboardFilters) => {
+      setDashFilters(next);
+      // Sync overlapping fields to map
+      setMapFilters((prev) => ({
+        ...prev,
+        serviceType: next.serviceType,
+        distance: next.distance,
+      }));
+      // Sync city to header/context
+      setSelectedCity(next.city);
+    },
+    [setSelectedCity],
+  );
 
   useEffect(() => {
     const onSuccess = (pos: GeolocationPosition) => {
@@ -154,10 +201,67 @@ export function Dashboard() {
     setFilteredServices(filtered);
   }, [services, selectedCity, tagParam]);
 
-  const displayedServices = useMemo(
-    () => applyMapFilters(filteredServices, mapFilters, userPosition),
-    [filteredServices, mapFilters, userPosition],
-  );
+  const displayedServices = useMemo(() => {
+    let list = applyMapFilters(filteredServices, mapFilters, userPosition);
+
+    // Status filter
+    if (dashFilters.status !== "all") {
+      list = list.filter((s) => s.status === dashFilters.status);
+    }
+
+    // Remote / in-person filter
+    if (dashFilters.remoteFilter === "remote") {
+      list = list.filter((s) => s.is_remote === true);
+    } else if (dashFilters.remoteFilter === "in_person") {
+      list = list.filter((s) => s.is_remote === false);
+    }
+
+    // Tags filter (OR: service must have at least one of the selected tags)
+    if (dashFilters.selectedTags.length > 0) {
+      list = list.filter((s) =>
+        dashFilters.selectedTags.some((tagId) =>
+          (s.tags ?? []).some((t) => {
+            if (typeof t === "string") return t === tagId;
+            return t.entityId === tagId || t.label === tagId;
+          }),
+        ),
+      );
+    }
+
+    // Availability / scheduling filter
+    if (dashFilters.dateFilter !== "all") {
+      if (dashFilters.dateFilter === "open_availability") {
+        list = list.filter((s) => s.scheduling_type === "open");
+      } else if (dashFilters.dateFilter === "recurring") {
+        list = list.filter((s) => s.scheduling_type === "recurring");
+      } else {
+        // specific_date based: today / tomorrow / this_week
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+        const tomorrow = new Date(now);
+        tomorrow.setDate(now.getDate() + 1);
+        const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
+
+        list = list.filter((s) => {
+          if (s.scheduling_type !== "specific" || !s.specific_date) return false;
+          const dateStr = s.specific_date.slice(0, 10); // "YYYY-MM-DD"
+          if (dashFilters.dateFilter === "today") return dateStr === todayStr;
+          if (dashFilters.dateFilter === "tomorrow") return dateStr === tomorrowStr;
+          // this_week: Mon–Sun of current week
+          const startOfWeek = new Date(now);
+          startOfWeek.setDate(now.getDate() - now.getDay());
+          startOfWeek.setHours(0, 0, 0, 0);
+          const endOfWeek = new Date(startOfWeek);
+          endOfWeek.setDate(startOfWeek.getDate() + 6);
+          endOfWeek.setHours(23, 59, 59, 999);
+          const d = new Date(s.specific_date);
+          return d >= startOfWeek && d <= endOfWeek;
+        });
+      }
+    }
+
+    return list;
+  }, [filteredServices, mapFilters, userPosition, dashFilters]);
 
   if (loading) {
     return (
@@ -189,11 +293,18 @@ export function Dashboard() {
           )}
 
           {/* Services Count and Results */}
-          <Flex gap="2" className="mb-4" direction="column">
+          <Flex
+            gap="1"
+            className="sticky top-16 z-20 bg-background py-2 mb-2"
+            direction="column"
+            id="dashboard-header"
+          >
             <Flex align="center" gap="2" wrap="wrap">
               <Crosshair1Icon className="w-4 h-4" />
               <Text size="2" weight="medium" color="gray">
-                {isSearching ? "Searching..." : `${displayedServices.length} services found`}
+                {isSearching
+                  ? "Searching..."
+                  : `${displayedServices.length} services found`}
                 {searchQuery && ` for "${searchQuery}"`}
                 {selectedCity &&
                   selectedCity !== "all" &&
@@ -216,86 +327,26 @@ export function Dashboard() {
                 </Button>
               )}
             </Flex>
-
-            <Flex align="center" gap="2" direction="row" wrap="wrap">
-              {/* Status Filters */}
-              <Button
-                size="1"
-                color="gray"
-                variant={selectedStatusFilter === "all" ? "solid" : "outline"}
-                onClick={() => setSelectedStatusFilter("all")}
-              >
-                All
-              </Button>
-              <Button
-                size="1"
-                color="green"
-                variant={
-                  selectedStatusFilter === "active" ? "solid" : "outline"
-                }
-                onClick={() => setSelectedStatusFilter("active")}
-              >
-                Active
-              </Button>
-              <Button
-                size="1"
-                color="blue"
-                variant={
-                  selectedStatusFilter === "in_progress" ? "solid" : "outline"
-                }
-                onClick={() => setSelectedStatusFilter("in_progress")}
-              >
-                In Progress
-              </Button>
-              <Button
-                size="1"
-                color="gray"
-                variant={
-                  selectedStatusFilter === "completed" ? "solid" : "outline"
-                }
-                onClick={() => setSelectedStatusFilter("completed")}
-              >
-                Completed
-              </Button>
-              <Button
-                size="1"
-                color="red"
-                variant={
-                  selectedStatusFilter === "cancelled" ? "solid" : "outline"
-                }
-                onClick={() => setSelectedStatusFilter("cancelled")}
-              >
-                Cancelled
-              </Button>
-              <Button
-                size="1"
-                color="orange"
-                variant={
-                  selectedStatusFilter === "expired" ? "solid" : "outline"
-                }
-                onClick={() => setSelectedStatusFilter("expired")}
-              >
-                Expired
-              </Button>
-            </Flex>
+            <DashboardFilterBar
+              filters={dashFilters}
+              onFiltersChange={handleDashFiltersChange}
+              availableTags={availableTags}
+              hasLocation={userPosition !== null}
+            />
           </Flex>
 
-          <div className={`grid grid-cols-1 md:grid-cols-2 gap-3 transition-opacity duration-200 ${isSearching ? "opacity-50 pointer-events-none" : "opacity-100"}`}>
-            {displayedServices
-              .filter((service) =>
-                selectedStatusFilter === "all"
-                  ? true
-                  : service.status === selectedStatusFilter,
-              )
-              .map((service, index) => (
-                <div
-                  key={service._id}
-                  className="service-card-animate"
-                  style={{ animationDelay: `${Math.min(index * 30, 300)}ms` }}
-                >
-                  <OfferListingCard service={service} />
-                </div>
-              ))}
+          <div
+            className={`grid grid-cols-1 md:grid-cols-2 gap-3 transition-opacity duration-200 ${isSearching ? "opacity-50 pointer-events-none" : "opacity-100"}`}
+          >
+            {displayedServices.map((service, index) => (
+              <div
+                key={service._id}
+                className="service-card-animate"
+                style={{ animationDelay: `${Math.min(index * 30, 300)}ms` }}
+              >
+                <OfferListingCard service={service} />
+              </div>
+            ))}
           </div>
 
           {/* No Results Message */}

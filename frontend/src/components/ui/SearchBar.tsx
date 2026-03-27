@@ -98,13 +98,13 @@ export function SearchBar({ className = "", onSearchChange }: SearchBarProps) {
   }, [showSearchResults]);
 
   return (
-    <div className={`relative search-container w-full ${className}`}>
+    <div className={`relative search-container ${className}`}>
       <div className="relative w-full">
         <TextField.Root
           placeholder="Search services..."
           value={searchQuery}
           onChange={handleSearchInputChange}
-          className="w-full"
+          className="w-full search-bar"
         >
           <TextField.Slot>
             <MagnifyingGlassIcon className="w-4 h-4" />

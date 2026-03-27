@@ -21,6 +21,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { GuestOnlyRoute } from "@/components/auth/GuestOnlyRoute";
 import { FilterProvider } from "@/contexts/FilterContext";
 import { UserProvider, useUser } from "@/contexts/UserContext";
+import { OnboardingModal } from "@/components/onboarding/OnboardingModal";
 import { useState, createContext, useContext, useEffect } from "react";
 
 // Re-export useUser for backward compatibility (components may import from App)
@@ -69,6 +70,7 @@ function App() {
           <Theme accentColor="lime" radius="full" appearance={appearance}>
             <Router>
               <ScrollToTop />
+              <OnboardingModal />
               <Layout>
                 <Routes>
                   <Route path="/" element={<Home />} />

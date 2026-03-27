@@ -1,12 +1,11 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { authApi, usersApi } from "@/services/api";
+import { authApi } from "@/services/api";
 import { useUser } from "@/contexts/UserContext";
-import { Button, Card, TextField } from "@radix-ui/themes";
+import { Button, TextField } from "@radix-ui/themes";
 import { Form } from "radix-ui";
 import { validateEmail, validatePassword } from "@/utils/utils";
-import { InterestSelector } from "@/components/ui/InterestSelector";
 
 interface RegisterFormData {
   username: string;
@@ -40,13 +39,6 @@ export function RegisterForm({
     location: "",
   });
   const [errors, setErrors] = useState<Partial<RegisterFormData>>({});
-  const [showInterestOnboarding, setShowInterestOnboarding] = useState(false);
-
-  if (localStorage.getItem("access_token") && !showInterestOnboarding) {
-    setLoginDialogOpen?.(false);
-    navigate("/profile?interests=true");
-    return null;
-  }
 
   const registerMutation = useMutation({
     mutationFn: authApi.register,
@@ -59,9 +51,9 @@ export function RegisterForm({
           queryClient.setQueryData(["currentUser"], user);
         }
         setAuthToken(true);
-        setShowInterestOnboarding(true);
+
         setLoginDialogOpen?.(false);
-        navigate("/profile?interests=true");
+        navigate("/dashboard");
         return;
       }
       const legacyUser = response.data as { email?: string; username?: string };
@@ -79,9 +71,9 @@ export function RegisterForm({
               queryClient.setQueryData(["currentUser"], loginUser);
             }
             setAuthToken(true);
-            setShowInterestOnboarding(true);
+    
             setLoginDialogOpen?.(false);
-            navigate("/profile?interests=true");
+            navigate("/dashboard");
             return;
           }
         } catch (e) {
