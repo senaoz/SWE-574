@@ -65,7 +65,7 @@ const createIcon = (color: string, label: string) =>
   });
 
 const offerIcon = createIcon("#059669", "🫴"); // open palm — giving/offering
-const needIcon = createIcon("#dc2626", "✋");  // raised hand — asking for help
+const needIcon = createIcon("#d97706", "✋");  // raised hand — asking for help
 const eventIcon = createIcon("#7c3aed", "📅"); // calendar — event
 
 export const DISTANCE_OPTIONS_KM = [5, 10, 25, 50, 100] as const;
@@ -363,9 +363,9 @@ export function ServiceMap({
                   radius={APPROXIMATE_LOCATION_RADIUS_M}
                   pathOptions={{
                     color:
-                      service.service_type === "offer" ? "#10B981" : "#EF4444",
+                      service.service_type === "offer" ? "#10B981" : "#F59E0B",
                     fillColor:
-                      service.service_type === "offer" ? "#10B981" : "#EF4444",
+                      service.service_type === "offer" ? "#10B981" : "#F59E0B",
                     fillOpacity: 0.12,
                     weight: 1.5,
                   }}
@@ -439,7 +439,7 @@ export function ServiceMap({
                   width: 14,
                   height: 14,
                   borderRadius: "50%",
-                  backgroundColor: "#dc2626",
+                  backgroundColor: "#d97706",
                 }}
               />
               <Text size="1">Need</Text>
