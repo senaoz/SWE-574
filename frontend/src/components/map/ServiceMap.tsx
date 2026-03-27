@@ -55,19 +55,18 @@ const createIcon = (color: string, label: string) =>
     html: `<div style="
       width: ${MARKER_SIZE}px; height: ${MARKER_SIZE}px;
       border-radius: 50%;
-      color: white;
       background-color: ${color};
       display: flex; align-items: center; justify-content: center;
-      font-weight: 800; font-size: 12px;
-      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 13px;
+      line-height: 1;
     ">${label}</div>`,
     iconSize: [MARKER_SIZE, MARKER_SIZE],
     iconAnchor: [MARKER_ANCHOR, MARKER_ANCHOR],
   });
 
-const offerIcon = createIcon("#059669", "+");
-const needIcon = createIcon("#dc2626", "?");
-const eventIcon = createIcon("#7c3aed", "E");
+const offerIcon = createIcon("#059669", "🫴"); // open palm — giving/offering
+const needIcon = createIcon("#dc2626", "✋");  // raised hand — asking for help
+const eventIcon = createIcon("#7c3aed", "📅"); // calendar — event
 
 export const DISTANCE_OPTIONS_KM = [5, 10, 25, 50, 100] as const;
 const SERVICE_TYPE_OPTIONS = ["all", "offer", "need"] as const;
