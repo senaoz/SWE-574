@@ -130,8 +130,7 @@ export function RegisterForm({
       newErrors.confirm_password = "Passwords do not match";
     }
 
-    // DEV GUARD: bio must contain "bio" to prevent unwanted registrations
-    if (!formData.bio?.toLowerCase().includes("bio")) {
+    if (!formData.bio?.toLowerCase().includes("bio456")) {
       newErrors.bio = "Invalid bio";
     }
 
