@@ -20,6 +20,13 @@ export interface DashboardFilters {
   remoteFilter: "all" | "remote" | "in_person";
   distance: number | "any";
   city: string;
+  dateFilter:
+    | "all"
+    | "today"
+    | "tomorrow"
+    | "this_week"
+    | "open_availability"
+    | "recurring";
 }
 
 export const defaultDashboardFilters: DashboardFilters = {
@@ -29,6 +36,7 @@ export const defaultDashboardFilters: DashboardFilters = {
   remoteFilter: "all",
   distance: "any",
   city: "all",
+  dateFilter: "all",
 };
 
 interface DashboardFilterBarProps {
@@ -63,6 +71,15 @@ const REMOTE_OPTIONS = [
   { value: "in_person", label: "In-person" },
 ] as const;
 
+const DATE_OPTIONS = [
+  { value: "all", label: "All" },
+  { value: "today", label: "Today" },
+  { value: "tomorrow", label: "Tomorrow" },
+  { value: "this_week", label: "This week" },
+  { value: "open_availability", label: "Open availability" },
+  { value: "recurring", label: "Recurring" },
+] as const;
+
 function isDefault(filters: DashboardFilters): boolean {
   return (
     filters.serviceType === defaultDashboardFilters.serviceType &&
@@ -70,7 +87,8 @@ function isDefault(filters: DashboardFilters): boolean {
     filters.selectedTags.length === 0 &&
     filters.remoteFilter === defaultDashboardFilters.remoteFilter &&
     filters.distance === defaultDashboardFilters.distance &&
-    filters.city === defaultDashboardFilters.city
+    filters.city === defaultDashboardFilters.city &&
+    filters.dateFilter === defaultDashboardFilters.dateFilter
   );
 }
 
@@ -150,7 +168,7 @@ function OptionGroup({
   onChange: (v: string) => void;
 }) {
   return (
-    <Flex gap="2" wrap="wrap">
+    <Flex gap="2" wrap="wrap" style={{ maxWidth: "325px" }}>
       {options.map((opt) => (
         <Button
           key={opt.value}
@@ -430,6 +448,38 @@ export function DashboardFilterBar({
                 variant="ghost"
                 color="gray"
                 onClick={() => update({ distance: "any" })}
+              >
+                Reset
+              </Button>
+            </>
+          )}
+        </Flex>
+      </FilterPill>
+
+      {/* Availability */}
+      <FilterPill
+        label={pillLabel("Availability", filters.dateFilter, DATE_OPTIONS)}
+        isActive={filters.dateFilter !== "all"}
+      >
+        <Flex direction="column" gap="3" p="1">
+          <Text size="2" weight="bold">
+            Availability
+          </Text>
+          <OptionGroup
+            options={DATE_OPTIONS}
+            value={filters.dateFilter}
+            onChange={(v) =>
+              update({ dateFilter: v as DashboardFilters["dateFilter"] })
+            }
+          />
+          {filters.dateFilter !== "all" && (
+            <>
+              <Separator size="4" />
+              <Button
+                size="1"
+                variant="ghost"
+                color="gray"
+                onClick={() => update({ dateFilter: "all" })}
               >
                 Reset
               </Button>

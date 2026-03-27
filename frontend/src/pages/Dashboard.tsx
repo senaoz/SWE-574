@@ -228,6 +228,38 @@ export function Dashboard() {
       );
     }
 
+    // Availability / scheduling filter
+    if (dashFilters.dateFilter !== "all") {
+      if (dashFilters.dateFilter === "open_availability") {
+        list = list.filter((s) => s.scheduling_type === "open");
+      } else if (dashFilters.dateFilter === "recurring") {
+        list = list.filter((s) => s.scheduling_type === "recurring");
+      } else {
+        // specific_date based: today / tomorrow / this_week
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+        const tomorrow = new Date(now);
+        tomorrow.setDate(now.getDate() + 1);
+        const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
+
+        list = list.filter((s) => {
+          if (s.scheduling_type !== "specific" || !s.specific_date) return false;
+          const dateStr = s.specific_date.slice(0, 10); // "YYYY-MM-DD"
+          if (dashFilters.dateFilter === "today") return dateStr === todayStr;
+          if (dashFilters.dateFilter === "tomorrow") return dateStr === tomorrowStr;
+          // this_week: Mon–Sun of current week
+          const startOfWeek = new Date(now);
+          startOfWeek.setDate(now.getDate() - now.getDay());
+          startOfWeek.setHours(0, 0, 0, 0);
+          const endOfWeek = new Date(startOfWeek);
+          endOfWeek.setDate(startOfWeek.getDate() + 6);
+          endOfWeek.setHours(23, 59, 59, 999);
+          const d = new Date(s.specific_date);
+          return d >= startOfWeek && d <= endOfWeek;
+        });
+      }
+    }
+
     return list;
   }, [filteredServices, mapFilters, userPosition, dashFilters]);
 
