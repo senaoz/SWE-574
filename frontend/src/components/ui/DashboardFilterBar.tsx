@@ -1,6 +1,10 @@
 import { useMemo } from "react";
 import { Button, Flex, Popover, Text, Separator } from "@radix-ui/themes";
-import { ChevronDownIcon, Cross2Icon } from "@radix-ui/react-icons";
+import {
+  ChevronDownIcon,
+  Cross2Icon,
+  HeartFilledIcon,
+} from "@radix-ui/react-icons";
 import { InterestChip } from "./InterestChip";
 import { TagEntity } from "@/types";
 import {
@@ -14,6 +18,7 @@ import { getCityOptions } from "@/constants/turkishCities";
 // ---------------------------------------------------------------------------
 
 export interface DashboardFilters {
+  forYouOnly: boolean;
   serviceType: ServiceTypeFilter;
   status: string;
   selectedTags: string[];
@@ -30,6 +35,7 @@ export interface DashboardFilters {
 }
 
 export const defaultDashboardFilters: DashboardFilters = {
+  forYouOnly: false,
   serviceType: "all",
   status: "active",
   selectedTags: [],
@@ -82,6 +88,7 @@ const DATE_OPTIONS = [
 
 function isDefault(filters: DashboardFilters): boolean {
   return (
+    filters.forYouOnly === defaultDashboardFilters.forYouOnly &&
     filters.serviceType === defaultDashboardFilters.serviceType &&
     filters.status === defaultDashboardFilters.status &&
     filters.selectedTags.length === 0 &&
@@ -214,7 +221,29 @@ export function DashboardFilterBar({
     onFiltersChange({ ...filters, ...partial });
 
   return (
-    <div className="filter-bar-scroll flex items-center gap-2 pt-2 overflow-x-auto col-span-2">
+    <div className="filter-bar-scroll flex w-full flex-wrap items-center gap-2 pt-2">
+      <button
+        className={`
+          filter-pill inline-flex items-center gap-1.5 whitespace-nowrap
+          rounded-full border px-4 py-2 text-sm font-medium transition-all duration-200 hover:shadow-sm
+          ${
+            filters.forYouOnly
+              ? "border-current font-semibold filter-pill-active text-[var(--teal-11)]"
+              : "border-[var(--gray-6)] text-[var(--gray-11)]"
+          }
+        `}
+        onClick={() => update({ forYouOnly: !filters.forYouOnly })}
+      >
+        <HeartFilledIcon
+          className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${
+            filters.forYouOnly
+              ? "scale-110 text-rose-400"
+              : "text-rose-300"
+          }`}
+        />
+        For you
+      </button>
+
       {/* Service Type */}
       <FilterPill
         label={pillLabel("Type", filters.serviceType, SERVICE_TYPE_OPTIONS)}

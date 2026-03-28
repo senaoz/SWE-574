@@ -219,6 +219,26 @@ class PotentialMatchListResponse(BaseModel):
         json_encoders = {ObjectId: str}
 
 
+class RecommendedServiceItem(BaseModel):
+    service: ServiceResponse
+    reason: str = Field(..., min_length=1, max_length=160)
+    score: float = Field(..., ge=0)
+    matched_interests: List[str] = Field(default_factory=list)
+
+    class Config:
+        json_encoders = {ObjectId: str}
+
+
+class RecommendedServiceListResponse(BaseModel):
+    items: List[RecommendedServiceItem]
+    total: int
+    page: int
+    limit: int
+
+    class Config:
+        json_encoders = {ObjectId: str}
+
+
 class ServiceFilters(BaseModel):
     q: Optional[str] = None
     service_type: Optional[ServiceType] = None

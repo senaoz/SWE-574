@@ -6,6 +6,7 @@ from bson import ObjectId
 
 from ..models.service import (
     PotentialMatchListResponse,
+    RecommendedServiceListResponse,
     ServiceCreate,
     ServiceFilters,
     ServiceListResponse,
@@ -145,6 +146,88 @@ async def get_saved_service_ids(
     )
     docs = await cursor.to_list(length=500)
     return {"service_ids": [doc["service_id"] for doc in docs]}
+
+
+@router.get("/recommendations", response_model=RecommendedServiceListResponse)
+async def get_recommended_services(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    q: Optional[str] = None,
+    service_type: Optional[str] = None,
+    category: Optional[str] = None,
+    tags: Optional[str] = None,
+    service_status: Optional[str] = Query(ServiceStatus.ACTIVE, alias="status"),
+    city: Optional[str] = None,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
+    radius: Optional[float] = Query(None, ge=0),
+    is_remote: Optional[bool] = None,
+    date_filter: Optional[str] = None,
+    current_user: UserResponse = Depends(get_current_user),
+    db=Depends(get_database),
+):
+    """Get personalized service recommendations for the current user."""
+    if (latitude is None) != (longitude is None):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Latitude and longitude must be provided together",
+        )
+    if radius is not None and (latitude is None or longitude is None):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Latitude and longitude are required when radius is provided",
+        )
+
+    service_service = ServiceService(db)
+    tag_list = tags.split(",") if tags else None
+    normalized_service_type = None if service_type in (None, "", "all") else service_type
+    normalized_status = None if service_status in (None, "", "all") else service_status
+    normalized_date_filter = None if date_filter in (None, "", "all") else date_filter
+
+    filters = ServiceFilters(
+        q=q,
+        service_type=normalized_service_type,
+        category=category,
+        tags=tag_list,
+        status=normalized_status,
+        location={
+            "latitude": latitude,
+            "longitude": longitude,
+            "address": city,
+        }
+        if latitude is not None and longitude is not None
+        else None,
+        radius=radius,
+        is_remote=is_remote,
+    )
+
+    try:
+        items, total = await service_service.get_recommended_services(
+            user_id=str(current_user.id),
+            filters=filters,
+            page=page,
+            limit=limit,
+            city=city,
+            date_filter=normalized_date_filter,
+            viewer_latitude=latitude,
+            viewer_longitude=longitude,
+        )
+        return RecommendedServiceListResponse(
+            items=items,
+            total=total,
+            page=page,
+            limit=limit,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error fetching recommendations: {str(e)}",
+        )
 
 
 @router.get("/{service_id}/potential-matches", response_model=PotentialMatchListResponse)

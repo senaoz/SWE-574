@@ -1,11 +1,12 @@
 from typing import List, Tuple, Optional, Set
-from datetime import datetime
+from datetime import datetime, timedelta
 import math
 import re
 from bson import ObjectId
 
 from ..models.service import (
     PotentialMatchItem,
+    RecommendedServiceItem,
     ServiceCreate,
     ServiceFilters,
     ServiceResponse,
@@ -239,10 +240,207 @@ class ServiceService:
         best_reason, best_score = max(reason_scores, key=lambda item: item[1])
         return best_reason if best_score > 0 else "Potential match"
 
+    @staticmethod
+    def _normalize_text_value(value: Optional[str]) -> str:
+        return str(value or "").strip().lower()
+
+    def _build_tag_filter_conditions(self, tags: List[str]) -> List[dict]:
+        return [
+            {"tags": {"$in": tags}},
+            {"tags.label": {"$in": tags}},
+            {"tags.entityId": {"$in": tags}},
+        ]
+
+    def _build_search_conditions(self, query_text: str) -> List[dict]:
+        escaped = re.escape(query_text)
+        return [
+            {"title": {"$regex": escaped, "$options": "i"}},
+            {"description": {"$regex": escaped, "$options": "i"}},
+            {"category": {"$regex": escaped, "$options": "i"}},
+            {"tags.label": {"$regex": escaped, "$options": "i"}},
+            {"tags.entityId": {"$regex": escaped, "$options": "i"}},
+            {"location.address": {"$regex": escaped, "$options": "i"}},
+        ]
+
+    def _build_recommendation_query(
+        self,
+        filters: ServiceFilters,
+        city: Optional[str] = None,
+        date_filter: Optional[str] = None,
+    ) -> dict:
+        clauses: List[dict] = []
+
+        if filters.service_type:
+            clauses.append({"service_type": filters.service_type})
+        if filters.category:
+            clauses.append({"category": filters.category})
+        if filters.tags:
+            clauses.append({"$or": self._build_tag_filter_conditions(filters.tags)})
+        if filters.status:
+            clauses.append({"status": filters.status})
+        if filters.user_id:
+            user_id_obj = (
+                ObjectId(filters.user_id)
+                if isinstance(filters.user_id, str)
+                else filters.user_id
+            )
+            clauses.append({"user_id": user_id_obj})
+        if filters.is_remote is not None:
+            clauses.append({"is_remote": filters.is_remote})
+        if filters.q:
+            clauses.append({"$or": self._build_search_conditions(filters.q)})
+
+        normalized_city = self._normalize_text_value(city)
+        if normalized_city:
+            clauses.append(
+                {"location.address": {"$regex": re.escape(normalized_city), "$options": "i"}}
+            )
+
+        if date_filter == "open_availability":
+            clauses.append({"scheduling_type": "open"})
+        elif date_filter == "recurring":
+            clauses.append({"scheduling_type": "recurring"})
+        elif date_filter in {"today", "tomorrow", "this_week"}:
+            now = datetime.utcnow()
+            today_str = now.strftime("%Y-%m-%d")
+            tomorrow_str = (now + timedelta(days=1)).strftime("%Y-%m-%d")
+            if date_filter == "tomorrow":
+                tomorrow_str = (now + timedelta(days=1)).strftime("%Y-%m-%d")
+            clauses.append({"scheduling_type": "specific"})
+            if date_filter == "today":
+                clauses.append({"specific_date": today_str})
+            elif date_filter == "tomorrow":
+                clauses.append({"specific_date": tomorrow_str})
+            else:
+                days_since_sunday = (now.weekday() + 1) % 7
+                start_of_week = now - timedelta(days=days_since_sunday)
+                end_of_week = start_of_week + timedelta(days=6)
+                clauses.append(
+                    {
+                        "specific_date": {
+                            "$gte": start_of_week.strftime("%Y-%m-%d"),
+                            "$lte": end_of_week.strftime("%Y-%m-%d"),
+                        }
+                    }
+                )
+
+        if not clauses:
+            return {}
+        if len(clauses) == 1:
+            return clauses[0]
+        return {"$and": clauses}
+
+    def _build_service_content_blob(self, service_like: dict) -> str:
+        location = service_like.get("location") or {}
+        tag_labels = sorted(self._get_tag_labels(service_like.get("tags")))
+        return self._normalize_text_value(
+            " ".join(
+                str(part)
+                for part in [
+                    service_like.get("title"),
+                    service_like.get("description"),
+                    service_like.get("category"),
+                    location.get("address"),
+                    *tag_labels,
+                ]
+                if part
+            )
+        )
+
+    def _build_similarity_profile(self, service_like: dict) -> Tuple[Set[str], Set[str]]:
+        tag_labels = self._get_tag_labels(service_like.get("tags"))
+        location = service_like.get("location") or {}
+        tokens = self._tokenize_text(
+            service_like.get("title"),
+            service_like.get("description"),
+            service_like.get("category"),
+            location.get("address"),
+            *tag_labels,
+        )
+        return tag_labels, tokens
+
+    def _max_profile_similarity(
+        self,
+        candidate_profile: Tuple[Set[str], Set[str]],
+        reference_profiles: List[Tuple[Set[str], Set[str]]],
+    ) -> float:
+        candidate_tags, candidate_tokens = candidate_profile
+        max_similarity = 0.0
+
+        for reference_tags, reference_tokens in reference_profiles:
+            max_similarity = max(
+                max_similarity,
+                self._jaccard_similarity(candidate_tags, reference_tags),
+                self._jaccard_similarity(candidate_tokens, reference_tokens),
+            )
+
+        return max_similarity
+
+    @staticmethod
+    def _format_distance_label(distance_value: float) -> str:
+        if distance_value < 1:
+            return f"{round(distance_value * 1000)} m"
+        return f"{round(distance_value)} km"
+
+    def _resolve_dashboard_recommendation_reason(
+        self,
+        matched_interests: List[str],
+        saved_similarity: float,
+        transaction_similarity: float,
+        distance_value: Optional[float],
+        city: Optional[str],
+        search_query: Optional[str],
+        service_doc: dict,
+    ) -> str:
+        if saved_similarity >= 0.2:
+            return "Because it's similar to services you saved"
+        if transaction_similarity >= 0.2:
+            return "Because it matches your previous exchanges"
+        if distance_value is not None and distance_value <= 10:
+            return f"Because it's only {self._format_distance_label(distance_value)} away"
+        if matched_interests:
+            return f"Because it matches your interest in {matched_interests[0]}"
+        if (search_query or "").strip():
+            return f'Because it fits "{search_query.strip()}"'
+        normalized_city = self._normalize_text_value(city)
+        if normalized_city:
+            return f"Because it's active in {normalized_city}"
+        if service_doc.get("is_remote"):
+            return "Because it works well remotely"
+        return "Because it's a fresh active post"
+
     async def _get_saved_service_ids(self, user_id: str) -> Set[str]:
         cursor = self.saved_services_collection.find({"user_id": user_id})
         saved_docs = await cursor.to_list(length=500)
         return {str(doc["service_id"]) for doc in saved_docs if doc.get("service_id")}
+
+    async def _get_services_by_ids(self, service_ids: Set[str]) -> List[dict]:
+        object_ids = []
+        for service_id in service_ids:
+            normalized_id = self._normalize_object_id(service_id)
+            if isinstance(normalized_id, ObjectId):
+                object_ids.append(normalized_id)
+
+        if not object_ids:
+            return []
+
+        cursor = self.services_collection.find({"_id": {"$in": object_ids}})
+        docs = await cursor.to_list(length=len(object_ids))
+        return [self._normalize_service_doc(doc) for doc in docs]
+
+    async def _get_user_transactions_for_recommendations(self, user_id: str) -> List[dict]:
+        query = {"$or": [{"provider_id": user_id}, {"requester_id": user_id}]}
+        normalized_user_id = self._normalize_object_id(user_id)
+        if isinstance(normalized_user_id, ObjectId):
+            query["$or"].extend(
+                [
+                    {"provider_id": normalized_user_id},
+                    {"requester_id": normalized_user_id},
+                ]
+            )
+
+        cursor = self.transactions_collection.find(query).sort("created_at", -1)
+        return await cursor.to_list(length=500)
 
     async def _get_applied_service_ids(self, user_id: str) -> Set[str]:
         user_id_filter = {"$or": [{"user_id": user_id}]}
@@ -493,6 +691,205 @@ class ServiceService:
         total = len(potential_matches)
         return potential_matches[:limit], total
 
+    async def get_recommended_services(
+        self,
+        user_id: str,
+        filters: Optional[ServiceFilters] = None,
+        page: int = 1,
+        limit: int = 20,
+        city: Optional[str] = None,
+        date_filter: Optional[str] = None,
+        viewer_latitude: Optional[float] = None,
+        viewer_longitude: Optional[float] = None,
+    ) -> Tuple[List[RecommendedServiceItem], int]:
+        filters = filters or ServiceFilters()
+        viewer_position = (
+            (viewer_latitude, viewer_longitude)
+            if viewer_latitude is not None and viewer_longitude is not None
+            else None
+        )
+
+        user_doc = await self.users_collection.find_one(
+            {"_id": self._normalize_object_id(user_id)}
+        )
+        normalized_interests = [
+            {
+                "label": interest,
+                "normalized": self._normalize_text_value(interest),
+            }
+            for interest in (user_doc or {}).get("interests", []) or []
+            if isinstance(interest, str) and self._normalize_text_value(interest)
+        ]
+
+        saved_service_ids = await self._get_saved_service_ids(user_id)
+        saved_service_docs = await self._get_services_by_ids(saved_service_ids)
+        saved_profiles = [
+            self._build_similarity_profile(service_doc)
+            for service_doc in saved_service_docs
+        ]
+
+        transaction_docs = await self._get_user_transactions_for_recommendations(user_id)
+        transacted_service_ids = {
+            str(doc["service_id"])
+            for doc in transaction_docs
+            if doc.get("service_id")
+        }
+        transaction_service_docs = await self._get_services_by_ids(transacted_service_ids)
+        service_lookup = {
+            str(service_doc.get("_id")): service_doc
+            for service_doc in [*saved_service_docs, *transaction_service_docs]
+        }
+
+        transaction_profiles: List[Tuple[Set[str], Set[str]]] = []
+        for transaction_doc in transaction_docs:
+            service_doc = service_lookup.get(str(transaction_doc.get("service_id")))
+            if service_doc:
+                transaction_profiles.append(
+                    self._build_similarity_profile(service_doc)
+                )
+                continue
+
+            fallback_service = (
+                transaction_doc.get("service")
+                if isinstance(transaction_doc.get("service"), dict)
+                else {}
+            )
+            profile = self._build_similarity_profile(
+                {
+                    "title": fallback_service.get("title"),
+                    "description": fallback_service.get("description"),
+                    "category": fallback_service.get("category"),
+                    "location": fallback_service.get("location"),
+                    "tags": fallback_service.get("tags"),
+                }
+            )
+            if profile[0] or profile[1]:
+                transaction_profiles.append(profile)
+
+        query = self._build_recommendation_query(
+            filters=filters,
+            city=city,
+            date_filter=date_filter,
+        )
+        cursor = self.services_collection.find(query).sort("created_at", -1)
+
+        normalized_city = self._normalize_text_value(city)
+        search_text = self._normalize_text_value(filters.q)
+        recommended_items: List[RecommendedServiceItem] = []
+
+        async for raw_service_doc in cursor:
+            service_doc = self._normalize_service_doc(raw_service_doc)
+            candidate_id = str(service_doc.get("_id"))
+            if not candidate_id:
+                continue
+            if str(service_doc.get("user_id")) == str(user_id):
+                continue
+            if candidate_id in saved_service_ids or candidate_id in transacted_service_ids:
+                continue
+
+            location = service_doc.get("location") or {}
+            raw_distance_value: Optional[float] = None
+            if (
+                viewer_position
+                and location.get("latitude") is not None
+                and location.get("longitude") is not None
+            ):
+                raw_distance_value = self.calculate_distance(
+                    viewer_position[0],
+                    viewer_position[1],
+                    float(location["latitude"]),
+                    float(location["longitude"]),
+                )
+
+            if filters.radius is not None and viewer_position:
+                if raw_distance_value is None or raw_distance_value > filters.radius:
+                    continue
+
+            candidate_profile = self._build_similarity_profile(service_doc)
+            content_blob = self._build_service_content_blob(service_doc)
+
+            matched_interests = [
+                interest["label"]
+                for interest in normalized_interests
+                if interest["normalized"] in candidate_profile[0]
+                or interest["normalized"] in content_blob
+            ]
+            saved_similarity = self._max_profile_similarity(
+                candidate_profile,
+                saved_profiles,
+            )
+            transaction_similarity = self._max_profile_similarity(
+                candidate_profile,
+                transaction_profiles,
+            )
+
+            address_text = self._normalize_text_value(location.get("address"))
+            city_match = bool(normalized_city and normalized_city in address_text)
+            search_match = bool(search_text and search_text in content_blob)
+            distance_value = (
+                None if service_doc.get("is_remote") else raw_distance_value
+            )
+            distance_boost = (
+                0.2
+                if distance_value is None and service_doc.get("is_remote")
+                else 1.6
+                if distance_value is not None and distance_value <= 3
+                else 1.15
+                if distance_value is not None and distance_value <= 10
+                else 0.6
+                if distance_value is not None and distance_value <= 25
+                else 0.0
+            )
+
+            has_recommendation_signal = (
+                saved_similarity >= 0.2
+                or transaction_similarity >= 0.2
+                or len(matched_interests) > 0
+                or (distance_value is not None and distance_value <= 25)
+                or search_match
+                or city_match
+            )
+
+            if not has_recommendation_signal:
+                continue
+
+            score = (
+                len(matched_interests) * 2.4
+                + saved_similarity * 3.4
+                + transaction_similarity * 3.0
+                + distance_boost
+                + (0.8 if city_match else 0.0)
+                + (0.8 if search_match else 0.0)
+                + self._calculate_recency_score(service_doc) * 0.5
+            )
+
+            recommended_items.append(
+                RecommendedServiceItem(
+                    service=ServiceResponse(**service_doc),
+                    reason=self._resolve_dashboard_recommendation_reason(
+                        matched_interests=matched_interests,
+                        saved_similarity=saved_similarity,
+                        transaction_similarity=transaction_similarity,
+                        distance_value=distance_value,
+                        city=city,
+                        search_query=filters.q,
+                        service_doc=service_doc,
+                    ),
+                    score=round(score, 4),
+                    matched_interests=matched_interests,
+                )
+            )
+
+        recommended_items.sort(
+            key=lambda item: (item.score, item.service.created_at),
+            reverse=True,
+        )
+
+        total = len(recommended_items)
+        start = max((page - 1) * limit, 0)
+        end = start + limit
+        return recommended_items[start:end], total
+
     async def create_service(self, service_data: ServiceCreate, user_id: str) -> ServiceResponse:
         """Create a new service"""
         try:
@@ -566,13 +963,7 @@ class ServiceService:
             if filters.category:
                 query["category"] = filters.category
             if filters.tags:
-                # Tags are now dicts with "label" field, so we need to match against labels
-                # Support both old string tags and new entity tags
-                tag_labels = filters.tags
-                query["$or"] = [
-                    {"tags": {"$in": tag_labels}},  # Match old string format
-                    {"tags.label": {"$in": tag_labels}}  # Match new entity format
-                ]
+                query["$or"] = self._build_tag_filter_conditions(filters.tags)
             if filters.status:
                 query["status"] = filters.status
             if filters.user_id:
@@ -620,12 +1011,7 @@ class ServiceService:
                 if filters.category:
                     match_stage["category"] = filters.category
                 if filters.tags:
-                    # Tags are now dicts with "label" field, so we need to match against labels
-                    tag_labels = filters.tags
-                    match_stage["$or"] = [
-                        {"tags": {"$in": tag_labels}},  # Match old string format
-                        {"tags.label": {"$in": tag_labels}}  # Match new entity format
-                    ]
+                    match_stage["$or"] = self._build_tag_filter_conditions(filters.tags)
                 if filters.status:
                     match_stage["status"] = filters.status
                 if filters.user_id:
