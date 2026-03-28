@@ -472,7 +472,7 @@ export function Dashboard() {
           filters={mapFilters}
           onFiltersChange={setMapFilters}
           userPosition={userPosition}
-          height="72vh"
+          height={`calc(100vh - 220px)`}
         />
       </div>
     </div>
