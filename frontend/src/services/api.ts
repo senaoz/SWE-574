@@ -402,4 +402,22 @@ export const reportsApi = {
     api.put(`/reports/admin/${id}`, data),
 };
 
+// Notifications API
+export const notificationsApi = {
+  getUnreadCount: (): Promise<AxiosResponse<{ count: number }>> =>
+    api.get('/notifications/unread-count'),
+
+  getNotifications: (page?: number, limit?: number): Promise<AxiosResponse<import('../types').NotificationListResponse>> =>
+    api.get('/notifications/', { params: { page, limit } }),
+
+  markAsRead: (notificationId: string): Promise<AxiosResponse<import('../types').Notification>> =>
+    api.put(`/notifications/${notificationId}/read`),
+
+  markAllAsRead: (): Promise<AxiosResponse<{ marked_read: number }>> =>
+    api.put('/notifications/read-all'),
+
+  deleteNotification: (notificationId: string): Promise<AxiosResponse<{ deleted: boolean }>> =>
+    api.delete(`/notifications/${notificationId}`),
+};
+
 export default api;
