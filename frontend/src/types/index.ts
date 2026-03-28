@@ -238,6 +238,20 @@ export interface PotentialMatchListResponse {
   total: number;
 }
 
+export interface RecommendedServiceItem {
+  service: Service;
+  reason: string;
+  score: number;
+  matched_interests: string[];
+}
+
+export interface RecommendedServiceListResponse {
+  items: RecommendedServiceItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export interface AuthResponse {
   access_token: string;
   token_type: string;
