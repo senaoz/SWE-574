@@ -140,6 +140,11 @@ async def create_indexes():
             name="uniq_pending_report_per_target",
         )
 
+        # Notifications indexes
+        await db.database.notifications.create_index("user_id")
+        await db.database.notifications.create_index("is_read")
+        await db.database.notifications.create_index([("user_id", 1), ("created_at", -1)])
+
         logger.info("Database indexes created successfully")
     except Exception as e:
         logger.error(f"Error creating indexes: {e}")

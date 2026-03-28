@@ -910,6 +910,25 @@ class ServiceService:
                 }
             )
             
+            # Notify all participants that the service is completed
+            try:
+                from .notification_service import NotificationService
+                from ..models.notification import NotificationType, NotificationRelatedType
+                notif_service = NotificationService(self.db)
+                participants = list(service.matched_user_ids or [])
+                participants.append(str(service.user_id))
+                for uid in participants:
+                    await notif_service.create_notification(
+                        user_id=str(uid),
+                        notification_type=NotificationType.SERVICE_COMPLETED,
+                        title="Service completed",
+                        body=f"'{service.title}' has been marked as completed",
+                        related_id=service_id,
+                        related_type=NotificationRelatedType.SERVICE,
+                    )
+            except Exception as e:
+                print(f"Warning: Failed to send service completion notifications: {e}")
+
             # Reject all pending join requests for this service
             from .join_request_service import JoinRequestService
             join_request_service = JoinRequestService(self.db)
