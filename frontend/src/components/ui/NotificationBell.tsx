@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { IconButton, Popover, Flex, Text, Badge, Tooltip } from "@radix-ui/themes";
-import { BellIcon } from "lucide-react";
+import { BellIcon, XIcon } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { notificationsApi, getApiBaseUrl } from "@/services/api";
 import { Notification } from "@/types";
@@ -105,6 +105,13 @@ export function NotificationBell() {
     },
   });
 
+  const deleteNotification = useMutation({
+    mutationFn: (id: string) => notificationsApi.deleteNotification(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications-list"] });
+    },
+  });
+
   const notifications = listData?.notifications ?? [];
 
   function handleOpenChange(open: boolean) {
@@ -198,6 +205,11 @@ export function NotificationBell() {
                 <Text size="1" color="gray">{n.body}</Text>
                 <Text size="1" color="gray">{formatRelativeTime(n.created_at)}</Text>
               </Flex>
+              <XIcon
+                size={14}
+                style={{ flexShrink: 0, color: "var(--gray-8)", marginTop: "2px" }}
+                onClick={(e) => { e.stopPropagation(); deleteNotification.mutate(n._id); }}
+              />
             </Flex>
           ))
         )}

@@ -93,6 +93,12 @@ class NotificationService:
             {"user_id": ObjectId(user_id), "is_read": False}
         )
 
+    async def get_notification_by_id(self, notification_id: str, user_id: str) -> "NotificationResponse | None":
+        doc = await self.notifications_collection.find_one(
+            {"_id": ObjectId(notification_id), "user_id": ObjectId(user_id)}
+        )
+        return NotificationResponse(**doc) if doc else None
+
     async def mark_as_read(self, notification_id: str, user_id: str) -> bool:
         result = await self.notifications_collection.update_one(
             {"_id": ObjectId(notification_id), "user_id": ObjectId(user_id)},

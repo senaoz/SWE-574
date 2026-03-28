@@ -91,12 +91,10 @@ async def mark_as_read(
     if not success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
 
-    notifications, _, _ = await service.get_notifications(str(current_user.id), 1, 50)
-    for n in notifications:
-        if n.id == notification_id:
-            return n
-
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
+    notification = await service.get_notification_by_id(notification_id, str(current_user.id))
+    if not notification:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
+    return notification
 
 
 @router.put("/read-all")
