@@ -107,8 +107,11 @@ export function NotificationBell() {
 
   const deleteNotification = useMutation({
     mutationFn: (id: string) => notificationsApi.deleteNotification(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications-list"] });
+    onSuccess: (_, id) => {
+      queryClient.setQueryData(["notifications-list"], (old: import("@/types").NotificationListResponse | undefined) => {
+        if (!old) return old;
+        return { ...old, notifications: old.notifications.filter((n) => n._id !== id), total: old.total - 1 };
+      });
     },
   });
 
