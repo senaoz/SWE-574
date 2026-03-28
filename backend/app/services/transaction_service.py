@@ -491,6 +491,24 @@ class TransactionService:
             # Auto-complete service if ALL its transactions are now completed
             await self._auto_complete_service_if_ready(transaction["service_id"])
 
+            # Notify both parties that the transaction is complete
+            try:
+                from .notification_service import NotificationService
+                from ..models.notification import NotificationType, NotificationRelatedType
+                notif_service = NotificationService(self.db)
+                transaction_id_str = str(transaction_id)
+                for uid in [str(transaction["provider_id"]), str(transaction["requester_id"])]:
+                    await notif_service.create_notification(
+                        user_id=uid,
+                        notification_type=NotificationType.TRANSACTION_COMPLETED,
+                        title="Transaction completed",
+                        body=f"Hours have been transferred for '{service_title}'",
+                        related_id=transaction_id_str,
+                        related_type=NotificationRelatedType.TRANSACTION,
+                    )
+            except Exception as e:
+                print(f"Warning: Failed to send transaction completion notifications: {e}")
+
             return provider_success and requester_success
         except Exception as e:
             raise ValueError(f"Error finalizing transaction: {str(e)}")

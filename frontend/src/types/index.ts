@@ -673,3 +673,32 @@ export interface ReportPendingResponse {
   report_id?: string;
   created_at?: string;
 }
+
+export type NotificationType =
+  | 'join_request_received'
+  | 'join_request_approved'
+  | 'join_request_rejected'
+  | 'transaction_completed'
+  | 'service_completed';
+
+export type NotificationRelatedType = 'service' | 'join_request' | 'transaction';
+
+export interface Notification {
+  _id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  related_id: string;
+  related_type: NotificationRelatedType;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface NotificationListResponse {
+  notifications: Notification[];
+  total: number;
+  page: number;
+  limit: number;
+  unread_count: number;
+}

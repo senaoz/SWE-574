@@ -292,6 +292,8 @@ export function OfferNeedForm({
     if (formData.scheduling_type === "specific") {
       if (!formData.specific_date) {
         newErrors.specific_date = "Date is required for specific scheduling";
+      } else if (formData.specific_date < new Date().toISOString().slice(0, 10)) {
+        newErrors.specific_date = "Date cannot be in the past";
       }
       if (!formData.specific_time) {
         newErrors.specific_time = "Time is required for specific scheduling";
@@ -670,6 +672,7 @@ export function OfferNeedForm({
                   <Form.Control asChild>
                     <TextField.Root
                       type="date"
+                      min={new Date().toISOString().slice(0, 10)}
                       value={formData.specific_date || ""}
                       onChange={(e) =>
                         handleInputChange("specific_date", e.target.value)
