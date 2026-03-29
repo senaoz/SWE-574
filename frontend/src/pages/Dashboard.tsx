@@ -267,57 +267,6 @@ export function Dashboard() {
       enabled: !!currentUserId && dashFilters.forYouOnly,
       retry: false,
     });
-  const {
-    data: recommendedServicesData,
-    isFetching: isRecommendationsLoading,
-  } = useQuery({
-    queryKey: [
-      "dashboard-recommendations",
-      currentUserId,
-      searchQuery,
-      selectedCity,
-      dashFilters.serviceType,
-      dashFilters.status,
-      dashFilters.selectedTags,
-      dashFilters.remoteFilter,
-      dashFilters.distance,
-      dashFilters.dateFilter,
-      userPosition?.[0],
-      userPosition?.[1],
-    ],
-    queryFn: () =>
-      servicesApi
-        .getRecommendedServices({
-          page: 1,
-          limit: 100,
-          q: searchQuery?.trim() || undefined,
-          service_type:
-            dashFilters.serviceType !== "all"
-              ? dashFilters.serviceType
-              : undefined,
-          status: dashFilters.status !== "all" ? dashFilters.status : undefined,
-          tags:
-            dashFilters.selectedTags.length > 0
-              ? dashFilters.selectedTags.join(",")
-              : undefined,
-          city:
-            selectedCity && selectedCity !== "all" ? selectedCity : undefined,
-          latitude: userPosition?.[0],
-          longitude: userPosition?.[1],
-          radius:
-            typeof dashFilters.distance === "number"
-              ? dashFilters.distance
-              : undefined,
-          is_remote: remoteRecommendationFilter,
-          date_filter:
-            dashFilters.dateFilter !== "all"
-              ? dashFilters.dateFilter
-              : undefined,
-        })
-        .then((res) => res.data),
-    enabled: !!currentUserId && dashFilters.forYouOnly,
-    retry: false,
-  });
 
   useEffect(() => {
     if (!recommendedServicesData || !dashFilters.forYouOnly) return;

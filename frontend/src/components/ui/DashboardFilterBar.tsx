@@ -550,7 +550,7 @@ export function DashboardFilterBar({
         label={sortPillLabel(filters.sortBy)}
         isActive={filters.sortBy !== "default"}
         prefix={
-          <span className="shrink-0 text-[15px] leading-none text-amber-500">
+          <span className="shrink-0 text-[15px] leading-none">
             ⇅
           </span>
         }
