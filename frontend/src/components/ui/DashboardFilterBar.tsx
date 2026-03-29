@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { Button, Flex, Popover, Text, Separator } from "@radix-ui/themes";
+import { useMemo, useState } from "react";
+import { Button, Flex, Popover, Text, Separator, TextField } from "@radix-ui/themes";
 import {
   ChevronDownIcon,
   Cross2Icon,
@@ -248,6 +248,25 @@ export function DashboardFilterBar({
   const update = (partial: Partial<DashboardFilters>) =>
     onFiltersChange({ ...filters, ...partial });
 
+  const [citySearch, setCitySearch] = useState("");
+  const [tagSearch, setTagSearch] = useState("");
+
+  const filteredCityOptions = useMemo(
+    () =>
+      CITY_OPTIONS.filter((opt) =>
+        opt.label.toLowerCase().includes(citySearch.toLowerCase()),
+      ),
+    [citySearch],
+  );
+
+  const filteredTags = useMemo(
+    () =>
+      availableTags.filter((tag) =>
+        tag.label.toLowerCase().includes(tagSearch.toLowerCase()),
+      ),
+    [tagSearch, availableTags],
+  );
+
   return (
     <div className="filter-bar-scroll flex w-full flex-wrap items-center gap-2 pt-2">
       <button
@@ -311,12 +330,18 @@ export function DashboardFilterBar({
           <Text size="2" weight="bold">
             City
           </Text>
+          <TextField.Root
+            size="1"
+            placeholder="Search cities..."
+            value={citySearch}
+            onChange={(e) => setCitySearch(e.target.value)}
+          />
           <Flex
             direction="column"
             gap="1"
-            style={{ maxHeight: 280, overflowY: "auto" }}
+            style={{ maxHeight: 240, overflowY: "auto" }}
           >
-            {CITY_OPTIONS.map((opt) => (
+            {filteredCityOptions.map((opt) => (
               <Button
                 key={opt.value}
                 size="2"
@@ -382,12 +407,18 @@ export function DashboardFilterBar({
             <Text size="2" weight="bold">
               Tags
             </Text>
+            <TextField.Root
+              size="1"
+              placeholder="Search tags..."
+              value={tagSearch}
+              onChange={(e) => setTagSearch(e.target.value)}
+            />
             <Flex
               gap="2"
               wrap="wrap"
-              style={{ maxHeight: 240, overflowY: "auto" }}
+              style={{ maxHeight: 200, overflowY: "auto" }}
             >
-              {availableTags.map((tag) => {
+              {filteredTags.map((tag) => {
                 const id = tag.entityId || tag.label;
                 const selected = filters.selectedTags.includes(id);
                 return (

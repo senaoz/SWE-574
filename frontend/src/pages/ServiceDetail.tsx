@@ -36,6 +36,7 @@ import {
   Crosshair1Icon,
   PersonIcon,
   Pencil1Icon,
+  TrashIcon,
 } from "@radix-ui/react-icons";
 import {
   AlertOctagonIcon,
@@ -453,6 +454,16 @@ export function ServiceDetail() {
       setIsParticipating(false);
     }
   };
+  const handleDelete = async () => {
+    if (!id || !window.confirm("Are you sure you want to delete this service?"))
+      return;
+    try {
+      await servicesApi.deleteService(id);
+      navigate(-1);
+    } catch (error) {
+      console.error("Error deleting service:", error);
+    }
+  };
   const handleCancelRequest = async () => {
     if (!pendingRequest) return;
     try {
@@ -702,6 +713,18 @@ export function ServiceDetail() {
                   Edit
                 </Button>
               )}
+            {/* Delete button for admins */}
+            {currentUser?.role === "admin" && (
+              <Button
+                variant="soft"
+                color="red"
+                size="3"
+                onClick={handleDelete}
+              >
+                <TrashIcon className="w-4 h-4" />
+                Delete
+              </Button>
+            )}
             {!isParticipating && !isServingUser ? (
               pendingRequest ? (
                 <>
