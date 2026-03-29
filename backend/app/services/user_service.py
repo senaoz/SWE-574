@@ -44,6 +44,26 @@ class UserService:
         except Exception:
             return None
 
+    async def search_users(self, query: str, exclude_user_id: Optional[str] = None, limit: int = 10) -> List[UserResponse]:
+        """Search users by username or full_name"""
+        try:
+            filter_doc = {
+                "$or": [
+                    {"username": {"$regex": query, "$options": "i"}},
+                    {"full_name": {"$regex": query, "$options": "i"}},
+                ]
+            }
+            if exclude_user_id:
+                filter_doc["_id"] = {"$ne": ObjectId(exclude_user_id)}
+
+            cursor = self.users_collection.find(filter_doc).limit(limit)
+            users = []
+            async for user_doc in cursor:
+                users.append(UserResponse(**user_doc))
+            return users
+        except Exception:
+            return []
+
     async def update_user(self, user_id: str, user_update: UserUpdate) -> Optional[UserResponse]:
         """Update user profile"""
         try:

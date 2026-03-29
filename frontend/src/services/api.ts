@@ -157,6 +157,9 @@ export const usersApi = {
 
   getAvailableInterests: (): Promise<AxiosResponse<string[]>> =>
     api.get('/users/available-interests'),
+
+  searchUsers: (q: string, limit?: number): Promise<AxiosResponse<User[]>> =>
+    api.get('/users/search', { params: { q, limit } }),
 };
 
 // Services API
