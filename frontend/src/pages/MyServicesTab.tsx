@@ -1,4 +1,4 @@
-import { Card, Text, Flex, Badge, Button, Heading } from "@radix-ui/themes";
+import { Card, Text, Flex, Badge, Button, Heading, Tooltip } from "@radix-ui/themes";
 import { useEffect, useState } from "react";
 import { Service, Transaction, Rating } from "@/types";
 import { ApplicantsList } from "@/components/ui/ApplicantsList";
@@ -336,52 +336,69 @@ export function MyServicesTab({
                             <>
                               {/* Set to In Progress button for active services */}
                               {service.status === "active" && (
-                                <Button
-                                  size="2"
-                                  color="blue"
-                                  onClick={() =>
-                                    onSetServiceInProgress(service._id)
-                                  }
-                                  disabled={
+                                <Tooltip
+                                  content={
                                     !service.matched_user_ids ||
                                     service.matched_user_ids.length === 0
+                                      ? "No matched users yet"
+                                      : "Mark service as in progress"
                                   }
                                 >
-                                  <ArrowRightIcon className="w-4 h-4 mr-2" />
-                                  Start Service
-                                </Button>
+                                  <Button
+                                    size="2"
+                                    color="blue"
+                                    onClick={() =>
+                                      onSetServiceInProgress(service._id)
+                                    }
+                                    disabled={
+                                      !service.matched_user_ids ||
+                                      service.matched_user_ids.length === 0
+                                    }
+                                  >
+                                    <ArrowRightIcon className="w-4 h-4 mr-2" />
+                                    Start Service
+                                  </Button>
+                                </Tooltip>
                               )}
 
-                              <Button
-                                disabled={
-                                  service.status === "completed" ||
-                                  service.status === "cancelled" ||
-                                  service.status === "expired"
-                                }
-                                size="2"
-                                variant="soft"
-                                color="orange"
-                                onClick={() => onCancelService(service._id)}
-                              >
-                                <CrossCircledIcon className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                disabled={service.status !== "active"}
-                                size="2"
-                                variant="soft"
-                                color="red"
-                                onClick={() => onDeleteService(service._id)}
-                              >
-                                <TrashIcon className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                disabled={service.status !== "active"}
-                                size="2"
-                                variant="soft"
-                                onClick={() => setEditingServiceId(service._id)}
-                              >
-                                <Pencil1Icon className="w-4 h-4" />
-                              </Button>
+                              <Tooltip content="Cancel service">
+                                <Button
+                                  disabled={
+                                    service.status === "completed" ||
+                                    service.status === "cancelled" ||
+                                    service.status === "expired"
+                                  }
+                                  size="2"
+                                  variant="soft"
+                                  color="orange"
+                                  onClick={() => onCancelService(service._id)}
+                                >
+                                  <CrossCircledIcon className="w-4 h-4" />
+                                </Button>
+                              </Tooltip>
+                              <Tooltip content="Delete service">
+                                <Button
+                                  disabled={service.status !== "active"}
+                                  size="2"
+                                  variant="soft"
+                                  color="red"
+                                  onClick={() => onDeleteService(service._id)}
+                                >
+                                  <TrashIcon className="w-4 h-4" />
+                                </Button>
+                              </Tooltip>
+                              <Tooltip content="Edit service">
+                                <Button
+                                  disabled={service.status !== "active"}
+                                  size="2"
+                                  variant="soft"
+                                  onClick={() =>
+                                    setEditingServiceId(service._id)
+                                  }
+                                >
+                                  <Pencil1Icon className="w-4 h-4" />
+                                </Button>
+                              </Tooltip>
                             </>
                           )}
                         </Flex>
