@@ -359,6 +359,19 @@ class ServiceService:
         )
         return tag_labels, tokens
 
+    def _build_service_match_context(self, service_like: dict) -> dict:
+        return {
+            "title": str(service_like.get("title") or "").strip(),
+            "service_type": self._normalize_text_value(service_like.get("service_type")),
+            "tags": self._get_tag_labels(service_like.get("tags")),
+            "category": self._normalize_text_value(service_like.get("category")),
+            "keywords": self._tokenize_text(
+                service_like.get("title"),
+                service_like.get("description"),
+                service_like.get("category"),
+            ),
+        }
+
     def _max_profile_similarity(
         self,
         candidate_profile: Tuple[Set[str], Set[str]],
@@ -376,6 +389,56 @@ class ServiceService:
 
         return max_similarity
 
+    def _score_active_service_complement(
+        self,
+        candidate_doc: dict,
+        active_service_contexts: List[dict],
+    ) -> Tuple[float, Optional[dict]]:
+        candidate_context = self._build_service_match_context(candidate_doc)
+        candidate_type = candidate_context["service_type"]
+        if not candidate_type:
+            return 0.0, None
+
+        best_score = 0.0
+        best_match: Optional[dict] = None
+
+        for active_context in active_service_contexts:
+            active_type = active_context.get("service_type")
+            if not active_type or active_type == candidate_type:
+                continue
+
+            tag_similarity = self._jaccard_similarity(
+                active_context["tags"],
+                candidate_context["tags"],
+            )
+            common_tag_count = len(active_context["tags"] & candidate_context["tags"])
+            category_similarity = (
+                1.0
+                if active_context["category"]
+                and active_context["category"] == candidate_context["category"]
+                else 0.0
+            )
+            keyword_similarity = self._jaccard_similarity(
+                active_context["keywords"],
+                candidate_context["keywords"],
+            )
+
+            if common_tag_count == 0 and category_similarity == 0 and keyword_similarity == 0:
+                continue
+
+            complement_score = (
+                0.5 * tag_similarity
+                + 0.3 * category_similarity
+                + 0.2 * keyword_similarity
+                + min(common_tag_count * 0.08, 0.16)
+            )
+
+            if complement_score > best_score:
+                best_score = complement_score
+                best_match = active_context
+
+        return best_score, best_match
+
     @staticmethod
     def _format_distance_label(distance_value: float) -> str:
         if distance_value < 1:
@@ -384,20 +447,25 @@ class ServiceService:
 
     def _resolve_dashboard_recommendation_reason(
         self,
+        active_service_match_score: float,
+        active_service_match: Optional[dict],
         matched_interests: List[str],
         saved_similarity: float,
         transaction_similarity: float,
-        distance_value: Optional[float],
         city: Optional[str],
         search_query: Optional[str],
         service_doc: dict,
     ) -> str:
+        if active_service_match_score >= 0.2 and active_service_match:
+            active_title = str(active_service_match.get("title") or "").strip()
+            active_type = str(active_service_match.get("service_type") or "post").strip().lower()
+            if active_title:
+                return f"Because it complements your active {active_title} {active_type}"
+            return "Because it complements one of your active posts"
         if saved_similarity >= 0.2:
             return "Because it's similar to services you saved"
         if transaction_similarity >= 0.2:
             return "Because it matches your previous exchanges"
-        if distance_value is not None and distance_value <= 10:
-            return f"Because it's only {self._format_distance_label(distance_value)} away"
         if matched_interests:
             return f"Because it matches your interest in {matched_interests[0]}"
         if (search_query or "").strip():
@@ -441,6 +509,27 @@ class ServiceService:
 
         cursor = self.transactions_collection.find(query).sort("created_at", -1)
         return await cursor.to_list(length=500)
+
+    async def _get_user_active_services_for_recommendations(self, user_id: str) -> List[dict]:
+        user_filter = {"$or": [{"user_id": user_id}]}
+        normalized_user_id = self._normalize_object_id(user_id)
+        if isinstance(normalized_user_id, ObjectId):
+            user_filter["$or"].append({"user_id": normalized_user_id})
+
+        cursor = (
+            self.services_collection.find(
+                {
+                    "$and": [
+                        user_filter,
+                        {"status": ServiceStatus.ACTIVE},
+                    ]
+                }
+            )
+            .sort("created_at", -1)
+            .limit(100)
+        )
+        docs = await cursor.to_list(length=100)
+        return [self._normalize_service_doc(doc) for doc in docs]
 
     async def _get_applied_service_ids(self, user_id: str) -> Set[str]:
         user_id_filter = {"$or": [{"user_id": user_id}]}
@@ -696,7 +785,7 @@ class ServiceService:
         user_id: str,
         filters: Optional[ServiceFilters] = None,
         page: int = 1,
-        limit: int = 20,
+        limit: int = 10,
         city: Optional[str] = None,
         date_filter: Optional[str] = None,
         viewer_latitude: Optional[float] = None,
@@ -726,6 +815,11 @@ class ServiceService:
         saved_profiles = [
             self._build_similarity_profile(service_doc)
             for service_doc in saved_service_docs
+        ]
+        active_service_docs = await self._get_user_active_services_for_recommendations(user_id)
+        active_service_contexts = [
+            self._build_service_match_context(service_doc)
+            for service_doc in active_service_docs
         ]
 
         transaction_docs = await self._get_user_transactions_for_recommendations(user_id)
@@ -822,30 +916,22 @@ class ServiceService:
                 candidate_profile,
                 transaction_profiles,
             )
+            active_service_match_score, active_service_match = (
+                self._score_active_service_complement(
+                    candidate_doc=service_doc,
+                    active_service_contexts=active_service_contexts,
+                )
+            )
 
             address_text = self._normalize_text_value(location.get("address"))
             city_match = bool(normalized_city and normalized_city in address_text)
             search_match = bool(search_text and search_text in content_blob)
-            distance_value = (
-                None if service_doc.get("is_remote") else raw_distance_value
-            )
-            distance_boost = (
-                0.2
-                if distance_value is None and service_doc.get("is_remote")
-                else 1.6
-                if distance_value is not None and distance_value <= 3
-                else 1.15
-                if distance_value is not None and distance_value <= 10
-                else 0.6
-                if distance_value is not None and distance_value <= 25
-                else 0.0
-            )
 
             has_recommendation_signal = (
-                saved_similarity >= 0.2
+                active_service_match_score >= 0.2
+                or saved_similarity >= 0.2
                 or transaction_similarity >= 0.2
                 or len(matched_interests) > 0
-                or (distance_value is not None and distance_value <= 25)
                 or search_match
                 or city_match
             )
@@ -854,10 +940,10 @@ class ServiceService:
                 continue
 
             score = (
-                len(matched_interests) * 2.4
+                active_service_match_score * 4.2
+                + len(matched_interests) * 2.4
                 + saved_similarity * 3.4
                 + transaction_similarity * 3.0
-                + distance_boost
                 + (0.8 if city_match else 0.0)
                 + (0.8 if search_match else 0.0)
                 + self._calculate_recency_score(service_doc) * 0.5
@@ -867,10 +953,11 @@ class ServiceService:
                 RecommendedServiceItem(
                     service=ServiceResponse(**service_doc),
                     reason=self._resolve_dashboard_recommendation_reason(
+                        active_service_match_score=active_service_match_score,
+                        active_service_match=active_service_match,
                         matched_interests=matched_interests,
                         saved_similarity=saved_similarity,
                         transaction_similarity=transaction_similarity,
-                        distance_value=distance_value,
                         city=city,
                         search_query=filters.q,
                         service_doc=service_doc,

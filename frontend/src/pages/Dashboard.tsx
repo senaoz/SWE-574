@@ -40,6 +40,113 @@ import {
   TagEntity,
 } from "@/types";
 
+const RECOMMENDATION_PAGE_SIZE = 10;
+const MAX_RECOMMENDATION_POSTS = 30;
+
+function distanceKmBetween(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const earthRadiusKm = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadiusKm * c;
+}
+
+function getServiceDistance(
+  service: Service,
+  userPosition: [number, number] | null,
+): number {
+  if (!userPosition) return Number.POSITIVE_INFINITY;
+
+  const latitude = service.location?.latitude;
+  const longitude = service.location?.longitude;
+  if (latitude == null || longitude == null) return Number.POSITIVE_INFINITY;
+
+  return distanceKmBetween(
+    userPosition[0],
+    userPosition[1],
+    latitude,
+    longitude,
+  );
+}
+
+function sortDashboardServices(
+  services: Service[],
+  sortBy: DashboardFilters["sortBy"],
+  userPosition: [number, number] | null,
+): Service[] {
+  const sorted = [...services];
+
+  if (sortBy === "newest") {
+    return sorted.sort(
+      (left, right) =>
+        new Date(right.created_at).getTime() - new Date(left.created_at).getTime(),
+    );
+  }
+
+  if (sortBy === "oldest") {
+    return sorted.sort(
+      (left, right) =>
+        new Date(left.created_at).getTime() - new Date(right.created_at).getTime(),
+    );
+  }
+
+  if (sortBy === "hours_desc") {
+    return sorted.sort((left, right) => {
+      const durationDiff =
+        (right.estimated_duration ?? 0) - (left.estimated_duration ?? 0);
+      if (durationDiff !== 0) return durationDiff;
+      return (
+        new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
+      );
+    });
+  }
+
+  if (sortBy === "hours_asc") {
+    return sorted.sort((left, right) => {
+      const durationDiff =
+        (left.estimated_duration ?? 0) - (right.estimated_duration ?? 0);
+      if (durationDiff !== 0) return durationDiff;
+      return (
+        new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
+      );
+    });
+  }
+
+  if (sortBy === "closest") {
+    return sorted.sort((left, right) => {
+      const leftDistance = getServiceDistance(left, userPosition);
+      const rightDistance = getServiceDistance(right, userPosition);
+      if (leftDistance !== rightDistance) return leftDistance - rightDistance;
+      return (
+        new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
+      );
+    });
+  }
+
+  if (sortBy === "farthest") {
+    return sorted.sort((left, right) => {
+      const leftDistance = getServiceDistance(left, userPosition);
+      const rightDistance = getServiceDistance(right, userPosition);
+      if (leftDistance !== rightDistance) return rightDistance - leftDistance;
+      return (
+        new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
+      );
+    });
+  }
+
+  return sorted;
+}
+
 export function Dashboard() {
   const { currentUserId } = useUser();
   const [services, setServices] = useState<Service[]>([]);
@@ -56,6 +163,10 @@ export function Dashboard() {
   const [userPosition, setUserPosition] = useState<[number, number] | null>(
     null,
   );
+  const [recommendedPage, setRecommendedPage] = useState(1);
+  const [loadedRecommendedServices, setLoadedRecommendedServices] = useState<
+    RecommendedServiceItem[]
+  >([]);
   const { data: timebankData } = useQuery({
     queryKey: ["timebank"],
     queryFn: () => usersApi.getTimeBank().then((res) => res.data),
@@ -87,6 +198,75 @@ export function Dashboard() {
         ? false
         : undefined;
 
+  useEffect(() => {
+    setRecommendedPage(1);
+    setLoadedRecommendedServices([]);
+  }, [
+    currentUserId,
+    dashFilters.forYouOnly,
+    searchQuery,
+    selectedCity,
+    dashFilters.serviceType,
+    dashFilters.status,
+    dashFilters.selectedTags,
+    dashFilters.remoteFilter,
+    dashFilters.distance,
+    dashFilters.dateFilter,
+    userPosition?.[0],
+    userPosition?.[1],
+  ]);
+
+  const { data: recommendedServicesData, isFetching: isRecommendationsLoading } =
+    useQuery({
+      queryKey: [
+        "dashboard-recommendations",
+        currentUserId,
+        recommendedPage,
+        searchQuery,
+        selectedCity,
+        dashFilters.serviceType,
+        dashFilters.status,
+        dashFilters.selectedTags,
+        dashFilters.remoteFilter,
+        dashFilters.distance,
+        dashFilters.dateFilter,
+        userPosition?.[0],
+        userPosition?.[1],
+      ],
+      queryFn: () =>
+        servicesApi
+          .getRecommendedServices({
+            page: recommendedPage,
+            limit: RECOMMENDATION_PAGE_SIZE,
+            q: searchQuery?.trim() || undefined,
+            service_type:
+              dashFilters.serviceType !== "all"
+                ? dashFilters.serviceType
+                : undefined,
+            status:
+              dashFilters.status !== "all" ? dashFilters.status : undefined,
+            tags:
+              dashFilters.selectedTags.length > 0
+                ? dashFilters.selectedTags.join(",")
+                : undefined,
+            city:
+              selectedCity && selectedCity !== "all" ? selectedCity : undefined,
+            latitude: userPosition?.[0],
+            longitude: userPosition?.[1],
+            radius:
+              typeof dashFilters.distance === "number"
+                ? dashFilters.distance
+                : undefined,
+            is_remote: remoteRecommendationFilter,
+            date_filter:
+              dashFilters.dateFilter !== "all"
+                ? dashFilters.dateFilter
+                : undefined,
+          })
+          .then((res) => res.data),
+      enabled: !!currentUserId && dashFilters.forYouOnly,
+      retry: false,
+    });
   const {
     data: recommendedServicesData,
     isFetching: isRecommendationsLoading,
@@ -138,6 +318,24 @@ export function Dashboard() {
     enabled: !!currentUserId && dashFilters.forYouOnly,
     retry: false,
   });
+
+  useEffect(() => {
+    if (!recommendedServicesData || !dashFilters.forYouOnly) return;
+
+    setLoadedRecommendedServices((prev) => {
+      if (recommendedPage === 1) {
+        return recommendedServicesData.items;
+      }
+
+      const merged = [...prev];
+      for (const item of recommendedServicesData.items) {
+        if (!merged.some((existing) => existing.service._id === item.service._id)) {
+          merged.push(item);
+        }
+      }
+      return merged;
+    });
+  }, [dashFilters.forYouOnly, recommendedPage, recommendedServicesData]);
 
   useEffect(() => {
     setDashFilters((prev) =>
@@ -336,8 +534,15 @@ export function Dashboard() {
     return list;
   }, [filteredServices, mapFilters, userPosition, dashFilters]);
 
-  const recommendedServices: RecommendedServiceItem[] =
-    recommendedServicesData?.items ?? [];
+  const recommendedServices: RecommendedServiceItem[] = loadedRecommendedServices;
+  const maxVisibleRecommendationCount = Math.min(
+    recommendedServicesData?.total ?? recommendedServices.length,
+    MAX_RECOMMENDATION_POSTS,
+  );
+  const canLoadMoreRecommendations =
+    dashFilters.forYouOnly &&
+    recommendedServices.length < maxVisibleRecommendationCount &&
+    recommendedPage < MAX_RECOMMENDATION_POSTS / RECOMMENDATION_PAGE_SIZE;
 
   const recommendationReasonMap = useMemo(
     () =>
@@ -349,7 +554,7 @@ export function Dashboard() {
     [recommendedServices],
   );
 
-  const displayedServices = useMemo(
+  const baseDisplayedServices = useMemo(
     () =>
       dashFilters.forYouOnly
         ? applyMapFilters(
@@ -366,7 +571,24 @@ export function Dashboard() {
       userPosition,
     ],
   );
-  const isForYouLoading = dashFilters.forYouOnly && isRecommendationsLoading;
+  const displayedServices = useMemo(
+    () =>
+      sortDashboardServices(
+        baseDisplayedServices,
+        dashFilters.sortBy,
+        userPosition,
+      ),
+    [baseDisplayedServices, dashFilters.sortBy, userPosition],
+  );
+  const isForYouLoading =
+    dashFilters.forYouOnly &&
+    isRecommendationsLoading &&
+    recommendedPage === 1 &&
+    recommendedServices.length === 0;
+  const isLoadingMoreRecommendations =
+    dashFilters.forYouOnly &&
+    isRecommendationsLoading &&
+    recommendedPage > 1;
 
   if (loading) {
     return (
@@ -466,6 +688,27 @@ export function Dashboard() {
               </div>
             ))}
           </div>
+
+          {canLoadMoreRecommendations && (
+            <Flex justify="center" pt="2">
+              <Button
+                size="2"
+                variant="soft"
+                color="gray"
+                onClick={() =>
+                  setRecommendedPage((prev) =>
+                    Math.min(
+                      prev + 1,
+                      MAX_RECOMMENDATION_POSTS / RECOMMENDATION_PAGE_SIZE,
+                    ),
+                  )
+                }
+                disabled={isLoadingMoreRecommendations}
+              >
+                {isLoadingMoreRecommendations ? "Loading..." : "Load more"}
+              </Button>
+            </Flex>
+          )}
 
           {displayedServices.length === 0 && !loading && !isForYouLoading && (
             <Card className="flex flex-col items-center justify-center">
