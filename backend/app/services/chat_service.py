@@ -95,7 +95,8 @@ class ChatService:
                     "id": str(user["_id"]),
                     "username": user["username"],
                     "full_name": user.get("full_name"),
-                    "bio": user.get("bio")
+                    "bio": user.get("bio"),
+                    "profile_picture": user.get("profile_picture")
                 })
         room_doc["participants"] = participants
         
@@ -267,7 +268,8 @@ class ChatService:
                     message_doc["sender"] = {
                         "id": str(sender["_id"]),
                         "username": sender["username"],
-                        "full_name": sender.get("full_name")
+                        "full_name": sender.get("full_name"),
+                        "profile_picture": sender.get("profile_picture")
                     }
                 
                 # Populate reply to message if exists

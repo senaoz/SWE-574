@@ -7,11 +7,13 @@ import {
   TextField,
   Badge,
   IconButton,
+  Avatar,
 } from "@radix-ui/themes";
 import { Cross2Icon, MagnifyingGlassIcon } from "@radix-ui/react-icons";
-import { usersApi, chatApi } from "@/services/api";
+import { usersApi, chatApi, getImageUrl } from "@/services/api";
 import { User, ChatRoom } from "@/types";
 import { useUser } from "@/App";
+import { useNavigate } from "react-router-dom";
 
 interface NewGroupChatDialogProps {
   open: boolean;
@@ -25,6 +27,7 @@ export function NewGroupChatDialog({
   onCreated,
 }: NewGroupChatDialogProps) {
   const { currentUserId } = useUser();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<User[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
@@ -143,9 +146,15 @@ export function NewGroupChatDialog({
               <Text size="2" weight="medium" className="block mb-1">
                 Participants ({selectedUsers.length + 1}/10)
               </Text>
-              <Flex wrap="wrap" gap="1">
+              <Flex wrap="wrap" gap="2">
                 {selectedUsers.map((user) => (
                   <Badge key={user._id} color="blue" size="2" variant="soft">
+                    <Avatar
+                      src={getImageUrl(user.profile_picture) ?? undefined}
+                      fallback={user.full_name?.[0] || user.username[0]}
+                      size="1"
+                      radius="full"
+                    />
                     {user.full_name || user.username}
                     <IconButton
                       size="1"
@@ -187,25 +196,41 @@ export function NewGroupChatDialog({
           {searchResults.length > 0 && (
             <div className="max-h-40 overflow-y-auto border rounded-md">
               {searchResults.map((user) => (
-                <button
+                <div
                   key={user._id}
-                  onClick={() => addUser(user)}
-                  className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center justify-between cursor-pointer"
+                  className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-3 cursor-pointer"
                 >
-                  <div>
-                    <Text size="2" weight="medium">
-                      {user.full_name || user.username}
-                    </Text>
-                    {user.full_name && (
-                      <Text size="1" color="gray" className="ml-2">
-                        @{user.username}
+                  <Avatar
+                    src={getImageUrl(user.profile_picture) ?? undefined}
+                    fallback={user.full_name?.[0] || user.username[0]}
+                    size="2"
+                    radius="full"
+                    className="cursor-pointer flex-shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenChange(false);
+                      navigate(`/user/${user._id}`);
+                    }}
+                  />
+                  <button
+                    onClick={() => addUser(user)}
+                    className="flex-1 text-left flex items-center justify-between"
+                  >
+                    <div>
+                      <Text size="2" weight="medium">
+                        {user.full_name || user.username}
                       </Text>
-                    )}
-                  </div>
-                  <Text size="1" color="blue">
-                    + Add
-                  </Text>
-                </button>
+                      {user.full_name && (
+                        <Text size="1" color="gray" className="ml-2">
+                          @{user.username}
+                        </Text>
+                      )}
+                    </div>
+                    <Text size="1" color="blue">
+                      + Add
+                    </Text>
+                  </button>
+                </div>
               ))}
             </div>
           )}

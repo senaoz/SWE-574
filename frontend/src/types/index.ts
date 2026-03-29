@@ -437,6 +437,7 @@ export interface ChatRoom {
     username: string;
     full_name?: string;
     bio?: string;
+    profile_picture?: string;
   }[];
   services?: {
     id: string;
@@ -487,6 +488,7 @@ export interface Message {
     id: string;
     username: string;
     full_name?: string;
+    profile_picture?: string;
   };
   reply_to_message?: {
     id: string;
