@@ -354,16 +354,25 @@ private fun ConfirmServiceCompletionDialog(
                     }
                 }
 
-                Text(text = "Feedback*", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 12.dp))
+                Text(text = "Feedback* (up to 5)", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 12.dp))
                 FlowRow(
                     modifier = Modifier.padding(top = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     FEEDBACK_TAGS.forEach { tag ->
+                        val isSelected = tag in selectedTags
                         FilterChip(
-                            selected = tag in selectedTags,
-                            onClick = { selectedTags = if (tag in selectedTags) selectedTags - tag else selectedTags + tag },
+                            selected = isSelected,
+                            onClick = {
+                                selectedTags = if (isSelected) {
+                                    selectedTags - tag
+                                } else if (selectedTags.size < 5) {
+                                    selectedTags + tag
+                                } else {
+                                    selectedTags
+                                }
+                            },
                             label = { Text(tag) }
                         )
                     }
