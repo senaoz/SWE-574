@@ -12,8 +12,8 @@ from ..models.forum import (
 class ForumService:
     def __init__(self, db):
         self.db = db
-        self.discussions = db.forum_discussions
-        self.events = db.forum_events
+        self.discussions = db.discussions
+        self.events = db.events
         self.forum_comments = db.forum_comments
         self.users = db.users
         self.services = db.services
