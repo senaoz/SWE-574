@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Tabs } from "@radix-ui/themes";
+import { Tabs, Flex, Spinner } from "@radix-ui/themes";
 import { Service, JoinRequest, Transaction, TimeBankResponse } from "@/types";
 import {
   servicesApi,
@@ -423,7 +423,11 @@ export function MyServices({
   };
 
   if (isLoading) {
-    return <></>;
+    return (
+      <Flex align="center" justify="center" py="9">
+        <Spinner size="3" />
+      </Flex>
+    );
   }
 
   return (
