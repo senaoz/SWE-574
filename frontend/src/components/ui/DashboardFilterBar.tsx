@@ -25,6 +25,14 @@ export interface DashboardFilters {
   remoteFilter: "all" | "remote" | "in_person";
   distance: number | "any";
   city: string;
+  sortBy:
+    | "default"
+    | "newest"
+    | "oldest"
+    | "hours_desc"
+    | "hours_asc"
+    | "closest"
+    | "farthest";
   dateFilter:
     | "all"
     | "today"
@@ -42,6 +50,7 @@ export const defaultDashboardFilters: DashboardFilters = {
   remoteFilter: "all",
   distance: "any",
   city: "all",
+  sortBy: "default",
   dateFilter: "all",
 };
 
@@ -86,6 +95,16 @@ const DATE_OPTIONS = [
   { value: "recurring", label: "Recurring" },
 ] as const;
 
+const SORT_OPTIONS = [
+  { value: "default", label: "Recommended" },
+  { value: "newest", label: "Newest to oldest" },
+  { value: "oldest", label: "Oldest to newest" },
+  { value: "hours_desc", label: "Highest hours first" },
+  { value: "hours_asc", label: "Lowest hours first" },
+  { value: "closest", label: "Closest to far" },
+  { value: "farthest", label: "Farthest to nearest" },
+] as const;
+
 function isDefault(filters: DashboardFilters): boolean {
   return (
     filters.forYouOnly === defaultDashboardFilters.forYouOnly &&
@@ -95,6 +114,7 @@ function isDefault(filters: DashboardFilters): boolean {
     filters.remoteFilter === defaultDashboardFilters.remoteFilter &&
     filters.distance === defaultDashboardFilters.distance &&
     filters.city === defaultDashboardFilters.city &&
+    filters.sortBy === defaultDashboardFilters.sortBy &&
     filters.dateFilter === defaultDashboardFilters.dateFilter
   );
 }
@@ -114,6 +134,11 @@ function pillLabel(
   return options.find((o) => o.value === value)?.label ?? filterName;
 }
 
+function sortPillLabel(sortBy: DashboardFilters["sortBy"]): string {
+  if (sortBy === "default") return "Sort";
+  return SORT_OPTIONS.find((option) => option.value === sortBy)?.label ?? "Sort";
+}
+
 // ---------------------------------------------------------------------------
 // FilterPill — reusable pill + popover wrapper
 // ---------------------------------------------------------------------------
@@ -121,10 +146,12 @@ function pillLabel(
 function FilterPill({
   label,
   isActive,
+  prefix,
   children,
 }: {
   label: string;
   isActive: boolean;
+  prefix?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -142,6 +169,7 @@ function FilterPill({
             }
           `}
         >
+          {prefix}
           {isActive && (
             <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
           )}
@@ -509,6 +537,68 @@ export function DashboardFilterBar({
                 variant="ghost"
                 color="gray"
                 onClick={() => update({ dateFilter: "all" })}
+              >
+                Reset
+              </Button>
+            </>
+          )}
+        </Flex>
+      </FilterPill>
+
+      {/* Sort */}
+      <FilterPill
+        label={sortPillLabel(filters.sortBy)}
+        isActive={filters.sortBy !== "default"}
+        prefix={
+          <span className="shrink-0 text-[15px] leading-none text-amber-500">
+            ⇅
+          </span>
+        }
+      >
+        <Flex direction="column" gap="3" p="1" style={{ minWidth: 250 }}>
+          <Text size="2" weight="bold">
+            Ranking
+          </Text>
+          {!hasLocation && (
+            <Text size="1" color="gray">
+              Enable location to sort by distance
+            </Text>
+          )}
+          <Flex direction="column" gap="2">
+            {SORT_OPTIONS.map((option) => {
+              const isDistanceSort =
+                option.value === "closest" || option.value === "farthest";
+              const disabled = isDistanceSort && !hasLocation;
+              return (
+                <Button
+                  key={option.value}
+                  size="2"
+                  variant={filters.sortBy === option.value ? "solid" : "outline"}
+                  color="gray"
+                  disabled={disabled}
+                  onClick={() =>
+                    update({
+                      sortBy: option.value as DashboardFilters["sortBy"],
+                    })
+                  }
+                  style={{
+                    cursor: disabled ? "not-allowed" : "pointer",
+                    justifyContent: "flex-start",
+                  }}
+                >
+                  {option.label}
+                </Button>
+              );
+            })}
+          </Flex>
+          {filters.sortBy !== "default" && (
+            <>
+              <Separator size="4" />
+              <Button
+                size="1"
+                variant="ghost"
+                color="gray"
+                onClick={() => update({ sortBy: "default" })}
               >
                 Reset
               </Button>
