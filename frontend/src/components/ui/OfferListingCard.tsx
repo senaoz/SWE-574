@@ -11,8 +11,19 @@ import { useEffect, useState } from "react";
 import { usersApi, ratingsApi } from "@/services/api";
 import { StatusBadge } from "./StatusBadge";
 import { CustomBadge, getHighestPriorityBadge } from "./BadgeDisplay";
+import { formatRelativeTime, formatDurationShort } from "@/utils/utils";
 
-export function OfferListingCard({ service }: { service: Service }) {
+interface OfferListingCardProps {
+  service: Service;
+  recommendationReason?: string;
+  isRecommended?: boolean;
+}
+
+export function OfferListingCard({
+  service,
+  recommendationReason,
+  isRecommended = false,
+}: OfferListingCardProps) {
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
   const [badgeSummary, setBadgeSummary] = useState<BadgeSummary | null>(null);
@@ -55,74 +66,74 @@ export function OfferListingCard({ service }: { service: Service }) {
     navigate(`/service/${service._id}`);
   };
 
-  const formatDuration = (hours: number) => {
-    return `${hours}h`;
-  };
+  const ownerLabel = user?.full_name || `@${user?.username || ""}`;
 
-  const formatDate = (dateString: string) => {
-    const now = new Date();
-    const commentDate = new Date(dateString);
-    const diffInMs = now.getTime() - commentDate.getTime();
-    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
-    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
-    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-
-    if (diffInMinutes < 1) {
-      return "just now";
-    } else if (diffInMinutes < 60) {
-      return `${diffInMinutes} min ago`;
-    } else if (diffInHours < 24) {
-      return `${diffInHours} hours ago`;
-    } else if (diffInDays < 7) {
-      return `${diffInDays} days ago`;
-    } else {
-      return commentDate.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-      });
-    }
-  };
+  const ownerMeta = (
+    <Flex
+      align="center"
+      gap="1"
+      className={`text-sm opacity-70 ${isRecommended ? "shrink-0 whitespace-nowrap" : ""}`}
+    >
+      {badgeSummary?.last_earned_badge && (
+        <CustomBadge badge={badgeSummary.last_earned_badge} size={14} />
+      )}
+      {averageRating != null && (
+        <Flex align="center" gap="1">
+          <StarFilledIcon className="w-3 h-3 text-yellow-500" />
+          <Text size="1">{averageRating.toFixed(1)}</Text>
+        </Flex>
+      )}
+      <Text
+        size="1"
+        className={isRecommended ? "whitespace-nowrap" : "max-w-[100px] truncate"}
+      >
+        {ownerLabel}
+      </Text>
+    </Flex>
+  );
 
   return (
     <Card
       size="2"
-      className="hover-card flex flex-col h-full gap-2 overflow-hidden"
+      className={`hover-card flex flex-col h-full gap-2 overflow-hidden ${
+        isRecommended ? "recommended-listing-card" : ""
+      }`}
       onClick={handleCardClick}
     >
       {/* Header with status badges (left) and user info (right) */}
-      <div className="flex gap-2 justify-between items-center">
-        <Flex align="center" gap="1">
-          <StatusBadge status={service.status} size="1" variant="soft" />
-          <Badge
-            color={service?.service_type === "offer" ? "orange" : "blue"}
-            variant="soft"
-          >
-            {service?.service_type === "offer" ? "OFFER" : "NEED"}
-          </Badge>
-        </Flex>
-        <Flex align="center" gap="1" className="text-sm opacity-70">
-          {badgeSummary?.last_earned_badge && (
-            <CustomBadge badge={badgeSummary.last_earned_badge} size={14} />
-          )}
-          {averageRating != null && (
-            <Flex align="center" gap="1">
-              <StarFilledIcon className="w-3 h-3 text-yellow-500" />
-              <Text size="1">{averageRating.toFixed(1)}</Text>
-            </Flex>
-          )}
-          <Text size="1" className="max-w-[100px] truncate">
-            {user?.full_name || `@${user?.username || ""}`}
+      <div className={`flex gap-2 ${isRecommended ? "flex-col" : "items-center justify-between"}`}>
+        {isRecommended && (
+          <Text size="1" className="recommended-listing-label">
+            Recommended
           </Text>
-        </Flex>
+        )}
+        <div className="flex items-center justify-between gap-2">
+          <Flex align="center" gap="1" wrap="wrap" className="min-w-0">
+            <StatusBadge status={service.status} size="1" variant="soft" />
+            <Badge
+              color={service?.service_type === "offer" ? "orange" : "blue"}
+              variant="soft"
+            >
+              {service?.service_type === "offer" ? "OFFER" : "NEED"}
+            </Badge>
+          </Flex>
+          {ownerMeta}
+        </div>
       </div>
       <h3 className="capitalize text-xl font-bold leading-tight my-1">
         {service.title}
       </h3>
 
+      {recommendationReason && (
+        <Text size="2" className="recommended-listing-reason">
+          {recommendationReason}
+        </Text>
+      )}
+
       {/* Details row */}
       <Flex align="center" gap="1" className="text-sm">
         <ClockIcon className="w-4 h-4" />
-        <Text>{formatDuration(service.estimated_duration)}</Text>
+        <Text>{formatDurationShort(service.estimated_duration)}</Text>
       </Flex>
       <Flex align="center" gap="1" className="text-sm">
         <Crosshair1Icon className="w-4 h-4 flex-shrink-0" />
@@ -156,8 +167,8 @@ export function OfferListingCard({ service }: { service: Service }) {
       )}
 
       <Text size="1" className="opacity-60">
-        Posted {formatDate(service.created_at)}
-        {service.deadline && ` | Deadline: ${formatDate(service.deadline)}`}
+        Posted {formatRelativeTime(service.created_at)}
+        {service.deadline && ` | Deadline: ${formatRelativeTime(service.deadline)}`}
       </Text>
     </Card>
   );

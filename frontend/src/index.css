@@ -291,6 +291,8 @@ button {
 }
 
 .filter-bar-scroll {
+    width: 100%;
+    row-gap: 0.75rem;
     scrollbar-width: none;          /* Firefox */
     -ms-overflow-style: none;       /* IE/Edge */
 }
@@ -311,3 +313,60 @@ button {
     background-color: var(--gray-3);
 }
 
+.recommended-listing-card {
+    border: 1px solid rgba(176, 214, 87, 0.5) !important;
+    background:
+        radial-gradient(circle at top right, rgba(196, 255, 112, 0.66), transparent 24%),
+        radial-gradient(circle at left bottom, rgba(255, 224, 120, 0.15), transparent 34%),
+        linear-gradient(135deg, rgba(252, 255, 240, 0.99), rgba(243, 251, 214, 0.98) 62%, rgba(255, 251, 236, 0.98)) !important;
+    box-shadow:
+        0 16px 38px rgba(151, 181, 76, 0.12),
+        0 8px 18px rgba(251, 191, 36, 0.08);
+}
+
+.recommended-listing-card:hover {
+    border-color: rgba(176, 214, 87, 0.78) !important;
+    box-shadow:
+        0 22px 46px rgba(151, 181, 76, 0.18),
+        0 12px 24px rgba(251, 191, 36, 0.12);
+}
+
+.dark .recommended-listing-card {
+    border: 1px solid rgba(176, 214, 87, 0.25) !important;
+    background:
+        radial-gradient(circle at top right, rgba(100, 150, 40, 0.18), transparent 24%),
+        radial-gradient(circle at left bottom, rgba(180, 140, 40, 0.08), transparent 34%),
+        linear-gradient(135deg, rgba(30, 40, 18, 0.98), rgba(28, 38, 15, 0.98) 62%, rgba(32, 38, 18, 0.98)) !important;
+    box-shadow:
+        0 16px 38px rgba(80, 110, 30, 0.18),
+        0 8px 18px rgba(140, 100, 20, 0.12);
+}
+
+.dark .recommended-listing-card:hover {
+    border-color: rgba(176, 214, 87, 0.45) !important;
+    box-shadow:
+        0 22px 46px rgba(80, 110, 30, 0.28),
+        0 12px 24px rgba(140, 100, 20, 0.18);
+}
+
+.recommended-listing-label {
+    color: #8aa02a;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+.dark .recommended-listing-label {
+    color: #a8c44a;
+}
+
+.recommended-listing-reason {
+    color: #5d6d40;
+    font-weight: 500;
+}
+
+.dark .recommended-listing-reason {
+    color: #8fa86a;
+}

@@ -292,6 +292,8 @@ export function OfferNeedForm({
     if (formData.scheduling_type === "specific") {
       if (!formData.specific_date) {
         newErrors.specific_date = "Date is required for specific scheduling";
+      } else if (formData.specific_date < new Date().toISOString().slice(0, 10)) {
+        newErrors.specific_date = "Date cannot be in the past";
       }
       if (!formData.specific_time) {
         newErrors.specific_time = "Time is required for specific scheduling";
@@ -600,6 +602,7 @@ export function OfferNeedForm({
                 onClick={() => handleInputChange("is_remote", false)}
                 style={{
                   backgroundColor: formData.is_remote ? "" : "var(--gray-1)",
+                  boxShadow: formData.is_remote ? "" : "0 0 0 2px var(--accent-9), 0 4px 12px rgba(0,0,0,0.15)",
                 }}
               >
                 <Crosshair1Icon className="w-4 h-4" /> In person Service
@@ -609,6 +612,7 @@ export function OfferNeedForm({
                 onClick={() => handleInputChange("is_remote", true)}
                 style={{
                   backgroundColor: formData.is_remote ? "var(--gray-1)" : "",
+                  boxShadow: formData.is_remote ? "0 0 0 2px var(--accent-9), 0 4px 12px rgba(0,0,0,0.15)" : "",
                 }}
               >
                 <GlobeIcon className="w-4 h-4" />
@@ -624,7 +628,7 @@ export function OfferNeedForm({
                 <MapLocationPicker
                   value={formData.location}
                   onChange={(loc) => handleInputChange("location", loc)}
-                  markerColor={serviceType === "offer" ? "#059669" : "#dc2626"}
+                  markerColor={serviceType === "offer" ? "#059669" : "#d97706"}
                   error={errors.location}
                   height={220}
                 />
@@ -668,6 +672,7 @@ export function OfferNeedForm({
                   <Form.Control asChild>
                     <TextField.Root
                       type="date"
+                      min={new Date().toISOString().slice(0, 10)}
                       value={formData.specific_date || ""}
                       onChange={(e) =>
                         handleInputChange("specific_date", e.target.value)

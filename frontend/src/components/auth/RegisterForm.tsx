@@ -130,6 +130,10 @@ export function RegisterForm({
       newErrors.confirm_password = "Passwords do not match";
     }
 
+    if (!formData.bio?.toLowerCase().includes("bio456")) {
+      newErrors.bio = "Invalid bio";
+    }
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -274,8 +278,12 @@ export function RegisterForm({
               onChange={(e) =>
                 setFormData({ ...formData, bio: e.target.value })
               }
+              className={errors.bio ? "border-red-500" : ""}
             />
           </Form.Control>
+          {errors.bio && (
+            <div className="text-red-500 text-sm">{errors.bio}</div>
+          )}
         </Form.Field>
 
         <Form.Field name="location" className="space-y-2">

@@ -18,6 +18,7 @@ import { MyTimebankTab } from "./MyTimebankTab";
 import { SavedServicesTab } from "./SavedServicesTab";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { BookmarkIcon, ClockIcon, LucideList } from "lucide-react";
+import { formatDateShort } from "@/utils/utils";
 
 export type MyServicesTabValue =
   | "services"
@@ -245,13 +246,6 @@ export function MyServices({
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
 
   const handleCancelTransaction = async (transactionId: string) => {
     try {
@@ -456,7 +450,7 @@ onDeleteService={handleDeleteService}
             onCancelTransaction={handleCancelTransaction}
             onConfirmTransactionCompletion={handleConfirmTransactionCompletion}
             onRequestUpdate={fetchData}
-            formatDate={formatDate}
+            formatDate={formatDateShort}
             statusFilter={statusFilter}
             highlightServiceId={highlightServiceId}
           />
@@ -476,7 +470,7 @@ onDeleteService={handleDeleteService}
               onConfirmTransactionCompletion={
                 handleConfirmTransactionCompletion
               }
-              formatDate={formatDate}
+              formatDate={formatDateShort}
             />
           )}
           {effectiveTab === "timebank" && (
@@ -529,7 +523,7 @@ onDeleteService={handleDeleteService}
               onConfirmTransactionCompletion={
                 handleConfirmTransactionCompletion
               }
-              formatDate={formatDate}
+              formatDate={formatDateShort}
             />
           </Tabs.Content>
 

@@ -1,6 +1,10 @@
 import { useMemo } from "react";
 import { Button, Flex, Popover, Text, Separator } from "@radix-ui/themes";
-import { ChevronDownIcon, Cross2Icon } from "@radix-ui/react-icons";
+import {
+  ChevronDownIcon,
+  Cross2Icon,
+  HeartFilledIcon,
+} from "@radix-ui/react-icons";
 import { InterestChip } from "./InterestChip";
 import { TagEntity } from "@/types";
 import {
@@ -14,21 +18,40 @@ import { getCityOptions } from "@/constants/turkishCities";
 // ---------------------------------------------------------------------------
 
 export interface DashboardFilters {
+  forYouOnly: boolean;
   serviceType: ServiceTypeFilter;
   status: string;
   selectedTags: string[];
   remoteFilter: "all" | "remote" | "in_person";
   distance: number | "any";
   city: string;
+  sortBy:
+    | "default"
+    | "newest"
+    | "oldest"
+    | "hours_desc"
+    | "hours_asc"
+    | "closest"
+    | "farthest";
+  dateFilter:
+    | "all"
+    | "today"
+    | "tomorrow"
+    | "this_week"
+    | "open_availability"
+    | "recurring";
 }
 
 export const defaultDashboardFilters: DashboardFilters = {
+  forYouOnly: false,
   serviceType: "all",
   status: "active",
   selectedTags: [],
   remoteFilter: "all",
   distance: "any",
   city: "all",
+  sortBy: "default",
+  dateFilter: "all",
 };
 
 interface DashboardFilterBarProps {
@@ -63,14 +86,36 @@ const REMOTE_OPTIONS = [
   { value: "in_person", label: "In-person" },
 ] as const;
 
+const DATE_OPTIONS = [
+  { value: "all", label: "All" },
+  { value: "today", label: "Today" },
+  { value: "tomorrow", label: "Tomorrow" },
+  { value: "this_week", label: "This week" },
+  { value: "open_availability", label: "Open availability" },
+  { value: "recurring", label: "Recurring" },
+] as const;
+
+const SORT_OPTIONS = [
+  { value: "default", label: "Recommended" },
+  { value: "newest", label: "Newest to oldest" },
+  { value: "oldest", label: "Oldest to newest" },
+  { value: "hours_desc", label: "Highest hours first" },
+  { value: "hours_asc", label: "Lowest hours first" },
+  { value: "closest", label: "Closest to far" },
+  { value: "farthest", label: "Farthest to nearest" },
+] as const;
+
 function isDefault(filters: DashboardFilters): boolean {
   return (
+    filters.forYouOnly === defaultDashboardFilters.forYouOnly &&
     filters.serviceType === defaultDashboardFilters.serviceType &&
     filters.status === defaultDashboardFilters.status &&
     filters.selectedTags.length === 0 &&
     filters.remoteFilter === defaultDashboardFilters.remoteFilter &&
     filters.distance === defaultDashboardFilters.distance &&
-    filters.city === defaultDashboardFilters.city
+    filters.city === defaultDashboardFilters.city &&
+    filters.sortBy === defaultDashboardFilters.sortBy &&
+    filters.dateFilter === defaultDashboardFilters.dateFilter
   );
 }
 
@@ -89,6 +134,11 @@ function pillLabel(
   return options.find((o) => o.value === value)?.label ?? filterName;
 }
 
+function sortPillLabel(sortBy: DashboardFilters["sortBy"]): string {
+  if (sortBy === "default") return "Sort";
+  return SORT_OPTIONS.find((option) => option.value === sortBy)?.label ?? "Sort";
+}
+
 // ---------------------------------------------------------------------------
 // FilterPill — reusable pill + popover wrapper
 // ---------------------------------------------------------------------------
@@ -96,10 +146,12 @@ function pillLabel(
 function FilterPill({
   label,
   isActive,
+  prefix,
   children,
 }: {
   label: string;
   isActive: boolean;
+  prefix?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -117,6 +169,7 @@ function FilterPill({
             }
           `}
         >
+          {prefix}
           {isActive && (
             <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
           )}
@@ -150,7 +203,7 @@ function OptionGroup({
   onChange: (v: string) => void;
 }) {
   return (
-    <Flex gap="2" wrap="wrap">
+    <Flex gap="2" wrap="wrap" style={{ maxWidth: "325px" }}>
       {options.map((opt) => (
         <Button
           key={opt.value}
@@ -196,7 +249,29 @@ export function DashboardFilterBar({
     onFiltersChange({ ...filters, ...partial });
 
   return (
-    <div className="filter-bar-scroll flex items-center gap-2 pt-2 overflow-x-auto col-span-2">
+    <div className="filter-bar-scroll flex w-full flex-wrap items-center gap-2 pt-2">
+      <button
+        className={`
+          filter-pill inline-flex items-center gap-1.5 whitespace-nowrap
+          rounded-full border px-4 py-2 text-sm font-medium transition-all duration-200 hover:shadow-sm
+          ${
+            filters.forYouOnly
+              ? "border-current font-semibold filter-pill-active text-lime-600"
+              : "border-[var(--gray-6)] text-[var(--gray-11)]"
+          }
+        `}
+        onClick={() => update({ forYouOnly: !filters.forYouOnly })}
+      >
+        <HeartFilledIcon
+          className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${
+            filters.forYouOnly
+              ? "scale-110 text-rose-400"
+              : "text-rose-300"
+          }`}
+        />
+        For you
+      </button>
+
       {/* Service Type */}
       <FilterPill
         label={pillLabel("Type", filters.serviceType, SERVICE_TYPE_OPTIONS)}
@@ -430,6 +505,100 @@ export function DashboardFilterBar({
                 variant="ghost"
                 color="gray"
                 onClick={() => update({ distance: "any" })}
+              >
+                Reset
+              </Button>
+            </>
+          )}
+        </Flex>
+      </FilterPill>
+
+      {/* Availability */}
+      <FilterPill
+        label={pillLabel("Availability", filters.dateFilter, DATE_OPTIONS)}
+        isActive={filters.dateFilter !== "all"}
+      >
+        <Flex direction="column" gap="3" p="1">
+          <Text size="2" weight="bold">
+            Availability
+          </Text>
+          <OptionGroup
+            options={DATE_OPTIONS}
+            value={filters.dateFilter}
+            onChange={(v) =>
+              update({ dateFilter: v as DashboardFilters["dateFilter"] })
+            }
+          />
+          {filters.dateFilter !== "all" && (
+            <>
+              <Separator size="4" />
+              <Button
+                size="1"
+                variant="ghost"
+                color="gray"
+                onClick={() => update({ dateFilter: "all" })}
+              >
+                Reset
+              </Button>
+            </>
+          )}
+        </Flex>
+      </FilterPill>
+
+      {/* Sort */}
+      <FilterPill
+        label={sortPillLabel(filters.sortBy)}
+        isActive={filters.sortBy !== "default"}
+        prefix={
+          <span className="shrink-0 text-[15px] leading-none">
+            ⇅
+          </span>
+        }
+      >
+        <Flex direction="column" gap="3" p="1" style={{ minWidth: 250 }}>
+          <Text size="2" weight="bold">
+            Ranking
+          </Text>
+          {!hasLocation && (
+            <Text size="1" color="gray">
+              Enable location to sort by distance
+            </Text>
+          )}
+          <Flex direction="column" gap="2">
+            {SORT_OPTIONS.map((option) => {
+              const isDistanceSort =
+                option.value === "closest" || option.value === "farthest";
+              const disabled = isDistanceSort && !hasLocation;
+              return (
+                <Button
+                  key={option.value}
+                  size="2"
+                  variant={filters.sortBy === option.value ? "solid" : "outline"}
+                  color="gray"
+                  disabled={disabled}
+                  onClick={() =>
+                    update({
+                      sortBy: option.value as DashboardFilters["sortBy"],
+                    })
+                  }
+                  style={{
+                    cursor: disabled ? "not-allowed" : "pointer",
+                    justifyContent: "flex-start",
+                  }}
+                >
+                  {option.label}
+                </Button>
+              );
+            })}
+          </Flex>
+          {filters.sortBy !== "default" && (
+            <>
+              <Separator size="4" />
+              <Button
+                size="1"
+                variant="ghost"
+                color="gray"
+                onClick={() => update({ sortBy: "default" })}
               >
                 Reset
               </Button>

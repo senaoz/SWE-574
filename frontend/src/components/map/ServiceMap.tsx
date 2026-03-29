@@ -9,6 +9,7 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import { Service, TagEntity, ForumEvent } from "@/types";
+import { calculateDistance } from "@/utils/utils";
 import {
   Badge,
   Button,
@@ -20,24 +21,6 @@ import {
 } from "@radix-ui/themes";
 import { useNavigate } from "react-router-dom";
 
-/** Distance in km between two lat/lng points (Haversine) */
-function distanceKm(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number,
-): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
 
 const ISTANBUL_CENTER: [number, number] = [41.0082, 28.9784];
 const DEFAULT_ZOOM = 10;
@@ -55,19 +38,18 @@ const createIcon = (color: string, label: string) =>
     html: `<div style="
       width: ${MARKER_SIZE}px; height: ${MARKER_SIZE}px;
       border-radius: 50%;
-      color: white;
       background-color: ${color};
       display: flex; align-items: center; justify-content: center;
-      font-weight: 800; font-size: 12px;
-      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 13px;
+      line-height: 1;
     ">${label}</div>`,
     iconSize: [MARKER_SIZE, MARKER_SIZE],
     iconAnchor: [MARKER_ANCHOR, MARKER_ANCHOR],
   });
 
-const offerIcon = createIcon("#059669", "+");
-const needIcon = createIcon("#dc2626", "?");
-const eventIcon = createIcon("#7c3aed", "E");
+const offerIcon = createIcon("#059669", "🫴"); // open palm — giving/offering
+const needIcon = createIcon("#d97706", "✋");  // raised hand — asking for help
+const eventIcon = createIcon("#7c3aed", "📅"); // calendar — event
 
 export const DISTANCE_OPTIONS_KM = [5, 10, 25, 50, 100] as const;
 const SERVICE_TYPE_OPTIONS = ["all", "offer", "need"] as const;
@@ -112,7 +94,7 @@ export function applyMapFilters(
     const [uLat, uLng] = userPosition;
     const radiusKm = filters.distance;
     list = list.filter((s) => {
-      const d = distanceKm(
+      const d = calculateDistance(
         uLat,
         uLng,
         s.location.latitude,
@@ -224,7 +206,7 @@ export function ServiceMap({
       const [uLat, uLng] = userPosition;
       list = list.filter(
         (e) =>
-          distanceKm(uLat, uLng, e.latitude!, e.longitude!) <=
+          calculateDistance(uLat, uLng, e.latitude!, e.longitude!) <=
           (filters.distance as number),
       );
     }
@@ -275,7 +257,7 @@ export function ServiceMap({
 
   return (
     <div
-      className={`relative overflow-hidden ${sticky ? "sticky top-20 z-10" : "z-0"}`}
+      className={`relative overflow-hidden ${sticky ? "sticky top-40 z-10" : "z-0"}`}
       style={{
         borderRadius: "1em",
         boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
@@ -364,9 +346,9 @@ export function ServiceMap({
                   radius={APPROXIMATE_LOCATION_RADIUS_M}
                   pathOptions={{
                     color:
-                      service.service_type === "offer" ? "#10B981" : "#EF4444",
+                      service.service_type === "offer" ? "#10B981" : "#F59E0B",
                     fillColor:
-                      service.service_type === "offer" ? "#10B981" : "#EF4444",
+                      service.service_type === "offer" ? "#10B981" : "#F59E0B",
                     fillOpacity: 0.12,
                     weight: 1.5,
                   }}
@@ -440,7 +422,7 @@ export function ServiceMap({
                   width: 14,
                   height: 14,
                   borderRadius: "50%",
-                  backgroundColor: "#dc2626",
+                  backgroundColor: "#d97706",
                 }}
               />
               <Text size="1">Need</Text>

@@ -1,5 +1,5 @@
 import axios, { AxiosResponse } from 'axios';
-import { AuthResponse, User, Service, ServiceListResponse, PotentialMatchListResponse, TimeBankResponse, TimeBankTransaction, LoginForm, RegisterForm, ServiceForm, Comment, CommentListResponse, CommentForm, JoinRequest, JoinRequestListResponse, JoinRequestForm, Transaction, TransactionListResponse, TransactionForm, ChatRoom, ChatRoomListResponse, ChatRoomForm, Message, MessageListResponse, MessageForm, UserSettings, PasswordChangeForm, AccountDeletionForm, BadgeSummary, Rating, RatingListResponse, RatingDetailedListResponse, RatingForm, ForumDiscussion, ForumDiscussionListResponse, ForumDiscussionForm, ForumEvent, ForumEventListResponse, ForumEventForm, ForumComment, ForumCommentListResponse } from '@/types';
+import { AuthResponse, User, Service, ServiceListResponse, PotentialMatchListResponse, RecommendedServiceListResponse, TimeBankResponse, TimeBankTransaction, LoginForm, RegisterForm, ServiceForm, Comment, CommentListResponse, CommentForm, JoinRequest, JoinRequestListResponse, JoinRequestForm, Transaction, TransactionListResponse, TransactionForm, ChatRoom, ChatRoomListResponse, ChatRoomForm, Message, MessageListResponse, MessageForm, UserSettings, PasswordChangeForm, AccountDeletionForm, BadgeSummary, Rating, RatingListResponse, RatingDetailedListResponse, RatingForm, ForumDiscussion, ForumDiscussionListResponse, ForumDiscussionForm, ForumEvent, ForumEventListResponse, ForumEventForm, ForumComment, ForumCommentListResponse } from '@/types';
 
 // Use relative URL /api to leverage nginx proxy, or absolute URL if provided via env var
 // This ensures requests go through the same HTTPS domain as the frontend
@@ -210,6 +210,23 @@ export const servicesApi = {
   getSavedServiceIds: (): Promise<AxiosResponse<{ service_ids: string[] }>> =>
     api.get('/services/saved/ids'),
 
+  getRecommendedServices: (params?: {
+    page?: number;
+    limit?: number;
+    q?: string;
+    service_type?: string;
+    category?: string;
+    tags?: string;
+    status?: string;
+    city?: string;
+    latitude?: number;
+    longitude?: number;
+    radius?: number;
+    is_remote?: boolean;
+    date_filter?: string;
+  }): Promise<AxiosResponse<RecommendedServiceListResponse>> =>
+    api.get('/services/recommendations', { params }),
+
   getPotentialMatches: (id: string, limit = 4): Promise<AxiosResponse<PotentialMatchListResponse>> =>
     api.get(`/services/${id}/potential-matches`, { params: { limit } }),
 };
@@ -403,6 +420,24 @@ export const reportsApi = {
 
   updateReport: (id: string, data: { status: string; resolution_notes?: string }) =>
     api.put(`/reports/admin/${id}`, data),
+};
+
+// Notifications API
+export const notificationsApi = {
+  getUnreadCount: (): Promise<AxiosResponse<{ count: number }>> =>
+    api.get('/notifications/unread-count'),
+
+  getNotifications: (page?: number, limit?: number): Promise<AxiosResponse<import('../types').NotificationListResponse>> =>
+    api.get('/notifications/', { params: { page, limit } }),
+
+  markAsRead: (notificationId: string): Promise<AxiosResponse<import('../types').Notification>> =>
+    api.put(`/notifications/${notificationId}/read`),
+
+  markAllAsRead: (): Promise<AxiosResponse<{ marked_read: number }>> =>
+    api.put('/notifications/read-all'),
+
+  deleteNotification: (notificationId: string): Promise<AxiosResponse<{ deleted: boolean }>> =>
+    api.delete(`/notifications/${notificationId}`),
 };
 
 export default api;
