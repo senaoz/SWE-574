@@ -35,10 +35,34 @@ class JoinRequestService:
             if str(service["user_id"]) == user_id:
                 raise ValueError("Cannot request to join your own service")
             
-            # When joining an offer, block if the provider must create a Need (cannot give help yet)
+            from .user_service import UserService
+            user_service = UserService(self.db)
+            service_hours = float(service.get("estimated_duration", 0.0))
+
+            if service.get("service_type") == "need":
+                # User is applying to fulfill a need → they will EARN hours (provider role)
+                # Block if this would push their effective max balance over 10 hours
+                effective_max = await user_service.get_effective_max_balance(user_id)
+                projected = effective_max + service_hours
+                if projected > 10.0:
+                    raise ValueError(
+                        f"You cannot apply to this need. Your projected maximum balance would reach "
+                        f"{projected:.1f} hrs, exceeding the 10-hour limit. "
+                        f"Wait for your active offers or applications to complete or be cancelled."
+                    )
+
             if service.get("service_type") == "offer":
-                from .user_service import UserService
-                user_service = UserService(self.db)
+                # User is applying to receive an offer → they will SPEND hours (requester role)
+                # Block if this would push their effective min balance below 0
+                effective_min = await user_service.get_effective_min_balance(user_id)
+                projected = effective_min - service_hours
+                if projected < 0:
+                    raise ValueError(
+                        f"You cannot apply to this offer. Your projected minimum balance would drop to "
+                        f"{projected:.1f} hrs. "
+                        f"Wait for your active needs or applications to complete or be cancelled."
+                    )
+                # Also block if the provider has reached their surplus limit
                 provider_id = str(service["user_id"])
                 if await user_service.requires_need_creation(provider_id):
                     raise ValueError(
@@ -169,15 +193,26 @@ class JoinRequestService:
             if str(service["user_id"]) != admin_user_id:
                 raise ValueError("Only the service owner can approve/reject requests")
             
-            # When approving an offer, provider cannot give help if they must create a Need first
-            if update_data.status == JoinRequestStatus.APPROVED and service.get("service_type") == "offer":
+            if update_data.status == JoinRequestStatus.APPROVED:
                 from .user_service import UserService
                 user_service = UserService(self.db)
-                if await user_service.requires_need_creation(admin_user_id):
-                    raise ValueError(
-                        "You must create a Need before you can give help. "
-                        "You've reached the 10-hour surplus limit."
-                    )
+
+                if service.get("service_type") == "offer":
+                    # Service owner is the provider — check their effective max balance
+                    if await user_service.requires_need_creation(admin_user_id):
+                        raise ValueError(
+                            "You must create a Need before you can give help. "
+                            "You've reached the 10-hour surplus limit."
+                        )
+
+                if service.get("service_type") == "need":
+                    # The applicant is the provider — check their effective max balance
+                    applicant_id = str(request_doc["user_id"])
+                    if await user_service.requires_need_creation(applicant_id):
+                        raise ValueError(
+                            "This applicant cannot take on more work. "
+                            "They've reached the 10-hour surplus limit."
+                        )
             
             print(f"Update data: {update_data}")
             print(f"matched_user_ids before: {service.get('matched_user_ids', [])}")

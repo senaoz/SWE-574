@@ -900,14 +900,30 @@ class ServiceService:
             _ensure_non_offensive(service_dict.get("title"), "Title")
             _ensure_non_offensive(service_dict.get("description"), "Description")
             _ensure_non_offensive(service_dict.get("open_availability"), "Open availability")
-            # User cannot create offers (give help) when they must create a Need first
+            from .user_service import UserService
+            user_service = UserService(self.db)
+            estimated_duration = float(service_dict.get("estimated_duration", 0.0))
+
             if service_dict.get("service_type") == "offer":
-                from .user_service import UserService
-                user_service = UserService(self.db)
-                if await user_service.requires_need_creation(user_id):
+                # Block if adding this offer would push effective max balance over 10 hours
+                effective_max = await user_service.get_effective_max_balance(user_id)
+                projected = effective_max + estimated_duration
+                if projected > 10.0:
                     raise ValueError(
-                        "You must create a Need before you can give help. "
-                        "You've reached the 10-hour surplus limit."
+                        f"You cannot create this offer. Your projected maximum balance would reach "
+                        f"{projected:.1f} hrs, exceeding the 10-hour limit. "
+                        f"Wait for your active offers or applications to complete or be cancelled."
+                    )
+
+            if service_dict.get("service_type") == "need":
+                # Block if adding this need would push effective min balance below 0
+                effective_min = await user_service.get_effective_min_balance(user_id)
+                projected = effective_min - estimated_duration
+                if projected < 0:
+                    raise ValueError(
+                        f"You cannot create this need. Your projected minimum balance would drop to "
+                        f"{projected:.1f} hrs. "
+                        f"Wait for your active needs or applications to complete or be cancelled."
                     )
             # Normalize tags to entity format
             if "tags" in service_dict:
