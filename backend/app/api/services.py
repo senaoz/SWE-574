@@ -151,7 +151,7 @@ async def get_saved_service_ids(
 @router.get("/recommendations", response_model=RecommendedServiceListResponse)
 async def get_recommended_services(
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(10, ge=1, le=100),
     q: Optional[str] = None,
     service_type: Optional[str] = None,
     category: Optional[str] = None,
