@@ -256,7 +256,7 @@ export function DashboardFilterBar({
           rounded-full border px-4 py-2 text-sm font-medium transition-all duration-200 hover:shadow-sm
           ${
             filters.forYouOnly
-              ? "border-current font-semibold filter-pill-active text-[var(--teal-11)]"
+              ? "border-current font-semibold filter-pill-active text-lime-600"
               : "border-[var(--gray-6)] text-[var(--gray-11)]"
           }
         `}

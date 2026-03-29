@@ -25,7 +25,7 @@ router = APIRouter(prefix="/services", tags=["services"])
 @router.get("/", response_model=ServiceListResponse)
 async def get_services(
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(100, ge=1, le=1000),
     q: Optional[str] = None,
     service_type: Optional[str] = None,
     category: Optional[str] = None,

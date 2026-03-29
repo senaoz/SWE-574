@@ -25,6 +25,7 @@ import {
   GlobeIcon,
 } from "@radix-ui/react-icons";
 import { MessageCircleIcon } from "lucide-react";
+import { NotificationBell } from "@/components/ui/NotificationBell";
 
 export const useScroll = (threshold: number) => {
   const [scrolled, setScrolled] = useState(false);
@@ -138,6 +139,7 @@ export function Header() {
                     <MessageCircleIcon className="w-4 h-4" />
                   </IconButton>
                 </Tooltip>
+                <NotificationBell />
                 {(user.role === "admin" || user.role === "moderator") && (
                   <Tooltip content="Admin Panel">
                     <IconButton

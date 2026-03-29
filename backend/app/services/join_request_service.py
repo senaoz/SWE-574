@@ -3,6 +3,7 @@ from datetime import datetime
 from bson import ObjectId
 
 from ..models.join_request import JoinRequestCreate, JoinRequestUpdate, JoinRequestResponse, JoinRequestStatus
+from ..models.notification import NotificationType, NotificationRelatedType
 from ..core.database import get_database
 
 
@@ -56,7 +57,24 @@ class JoinRequestService:
             
             result = await self.join_requests_collection.insert_one(request_doc)
             request_doc["_id"] = result.inserted_id
-            
+
+            # Notify service owner about the new application
+            try:
+                from .notification_service import NotificationService
+                notif_service = NotificationService(self.db)
+                applicant = await self.users_collection.find_one({"_id": ObjectId(user_id)})
+                applicant_name = (applicant.get("full_name") or applicant.get("username", "Someone")) if applicant else "Someone"
+                await notif_service.create_notification(
+                    user_id=str(service["user_id"]),
+                    notification_type=NotificationType.JOIN_REQUEST_RECEIVED,
+                    title="New application on your service",
+                    body=f"{applicant_name} applied to '{service.get('title', 'your service')}'",
+                    related_id=str(result.inserted_id),
+                    related_type=NotificationRelatedType.JOIN_REQUEST,
+                )
+            except Exception as e:
+                print(f"Warning: Failed to send join request notification: {e}")
+
             # Get user info for the response
             user = await self.users_collection.find_one({"_id": ObjectId(user_id)})
             if user:
@@ -197,7 +215,34 @@ class JoinRequestService:
             
             if result.modified_count == 0:
                 raise ValueError("Failed to update join request")
-            
+
+            # Notify the applicant of the decision
+            try:
+                from .notification_service import NotificationService
+                notif_service = NotificationService(self.db)
+                applicant_id = str(request_doc["user_id"])
+                service_title = service.get("title", "the service")
+                if update_data.status == JoinRequestStatus.APPROVED:
+                    await notif_service.create_notification(
+                        user_id=applicant_id,
+                        notification_type=NotificationType.JOIN_REQUEST_APPROVED,
+                        title="Your application was approved",
+                        body=f"You've been approved for '{service_title}'",
+                        related_id=str(request_doc["service_id"]),
+                        related_type=NotificationRelatedType.SERVICE,
+                    )
+                elif update_data.status == JoinRequestStatus.REJECTED:
+                    await notif_service.create_notification(
+                        user_id=applicant_id,
+                        notification_type=NotificationType.JOIN_REQUEST_REJECTED,
+                        title="Your application was not accepted",
+                        body=f"Your application for '{service_title}' was declined",
+                        related_id=str(request_doc["service_id"]),
+                        related_type=NotificationRelatedType.SERVICE,
+                    )
+            except Exception as e:
+                print(f"Warning: Failed to send approval/rejection notification: {e}")
+
             # If approved, update the service to match with the user and create a transaction
             if update_data.status == JoinRequestStatus.APPROVED:
                 
