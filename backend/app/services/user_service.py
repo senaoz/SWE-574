@@ -86,17 +86,18 @@ class UserService:
             async for transaction in transactions_cursor:
                 transactions.append(TimeBankTransaction(**transaction))
             
-            # Check if user can earn more
-            can_earn = user.timebank_balance < 10.0
-            
-            # Require Need creation when user has 10-hour surplus and no needs
+            # Check if user can earn more (based on effective max balance)
+            effective_max = await self.get_effective_max_balance(user_id)
+            can_earn = effective_max < 10.0
+
+            # Require Need creation when effective max balance hits 10 hours and user has no needs
             need_count = 0
-            if user.timebank_balance >= 10.0:
+            if effective_max >= 10.0:
                 need_count = await self.db.services.count_documents({
                     "user_id": ObjectId(user_id),
                     "service_type": "need",
                 })
-            requires_need_creation = user.timebank_balance >= 10.0 and need_count == 0
+            requires_need_creation = effective_max >= 10.0 and need_count == 0
             
             return TimeBankResponse(
                 balance=user.timebank_balance,
@@ -234,11 +235,135 @@ class UserService:
         except Exception:
             return False
 
-    async def requires_need_creation(self, user_id: str) -> bool:
-        """True when user has 10+ hour surplus and no Need services (cannot give help until they create a Need)."""
+    async def get_effective_max_balance(self, user_id: str) -> float:
+        """
+        Returns the worst-case maximum balance if all pending incoming activities complete.
+
+        Counts:
+        1. User's own ACTIVE offers — provider earns once per offer regardless of participants.
+           Transactions from these are sub-steps of the same activity; the offer's active status
+           already covers them, so no separate transaction lookup is needed.
+        2. User's PENDING join requests on NEED services — handshakes not yet accepted.
+        3. Provider transactions from NEED applications (service.user_id != user) — covers the
+           window after a need-application JR is approved but before the transaction completes.
+
+        Used to enforce the 10-hour cap before allowing new earning activities.
+        """
         try:
             user = await self.get_user_by_id(user_id)
-            if not user or user.timebank_balance < 10.0:
+            if not user:
+                return 0.0
+
+            # 1. User's own ACTIVE offers
+            active_offers = await self.db.services.find({
+                "user_id": ObjectId(user_id),
+                "service_type": "offer",
+                "status": "active"
+            }).to_list(None)
+            active_offer_hours = sum(
+                float(offer.get("estimated_duration", 0.0)) for offer in active_offers
+            )
+
+            # 2. PENDING join requests sent by user on NEED services
+            pending_jrs = await self.db.join_requests.find({
+                "user_id": ObjectId(user_id),
+                "status": "pending"
+            }).to_list(None)
+            pending_jr_hours = 0.0
+            for jr in pending_jrs:
+                service = await self.db.services.find_one({"_id": jr["service_id"]})
+                if service and service.get("service_type") == "need":
+                    pending_jr_hours += float(service.get("estimated_duration", 0.0))
+
+            # 3. Approved need-application transactions (service not owned by user)
+            pipeline = [
+                {"$match": {
+                    "provider_id": ObjectId(user_id),
+                    "status": {"$in": ["pending", "in_progress"]}
+                }},
+                {"$lookup": {
+                    "from": "services",
+                    "localField": "service_id",
+                    "foreignField": "_id",
+                    "as": "service"
+                }},
+                {"$unwind": "$service"},
+                {"$match": {"service.user_id": {"$ne": ObjectId(user_id)}}},
+                {"$group": {"_id": None, "total": {"$sum": "$timebank_hours"}}}
+            ]
+            result = await self.db.transactions.aggregate(pipeline).to_list(1)
+            need_application_tx_hours = result[0]["total"] if result else 0.0
+
+            return user.timebank_balance + active_offer_hours + pending_jr_hours + need_application_tx_hours
+        except Exception:
+            return 0.0
+
+    async def get_effective_min_balance(self, user_id: str) -> float:
+        """
+        Returns the worst-case minimum balance if all pending outgoing activities complete.
+
+        Counts:
+        1. User's own ACTIVE needs — requester spends once per need regardless of participants.
+        2. User's PENDING join requests on OFFER services — handshakes not yet accepted.
+        3. Requester transactions from OFFER applications (service.user_id != user) — covers the
+           window after an offer-application JR is approved but before the transaction completes.
+
+        Used to enforce the 0-hour floor before allowing new spending activities.
+        """
+        try:
+            user = await self.get_user_by_id(user_id)
+            if not user:
+                return 0.0
+
+            # 1. User's own ACTIVE needs
+            active_needs = await self.db.services.find({
+                "user_id": ObjectId(user_id),
+                "service_type": "need",
+                "status": "active"
+            }).to_list(None)
+            active_need_hours = sum(
+                float(need.get("estimated_duration", 0.0)) for need in active_needs
+            )
+
+            # 2. PENDING join requests sent by user on OFFER services
+            pending_jrs = await self.db.join_requests.find({
+                "user_id": ObjectId(user_id),
+                "status": "pending"
+            }).to_list(None)
+            pending_jr_hours = 0.0
+            for jr in pending_jrs:
+                service = await self.db.services.find_one({"_id": jr["service_id"]})
+                if service and service.get("service_type") == "offer":
+                    pending_jr_hours += float(service.get("estimated_duration", 0.0))
+
+            # 3. Approved offer-application transactions (service not owned by user)
+            pipeline = [
+                {"$match": {
+                    "requester_id": ObjectId(user_id),
+                    "status": {"$in": ["pending", "in_progress"]}
+                }},
+                {"$lookup": {
+                    "from": "services",
+                    "localField": "service_id",
+                    "foreignField": "_id",
+                    "as": "service"
+                }},
+                {"$unwind": "$service"},
+                {"$match": {"service.user_id": {"$ne": ObjectId(user_id)}}},
+                {"$group": {"_id": None, "total": {"$sum": "$timebank_hours"}}}
+            ]
+            result = await self.db.transactions.aggregate(pipeline).to_list(1)
+            offer_application_tx_hours = result[0]["total"] if result else 0.0
+
+            return user.timebank_balance - active_need_hours - pending_jr_hours - offer_application_tx_hours
+        except Exception:
+            return 0.0
+
+    async def requires_need_creation(self, user_id: str) -> bool:
+        """True when user's effective max balance is at 10+ hours and they have no Need services."""
+        try:
+            effective_max = await self.get_effective_max_balance(user_id)
+            if effective_max < 10.0:
                 return False
             need_count = await self.db.services.count_documents({
                 "user_id": ObjectId(user_id),
