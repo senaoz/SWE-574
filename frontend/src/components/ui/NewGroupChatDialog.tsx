@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   Dialog,
   Button,
@@ -32,28 +32,33 @@ export function NewGroupChatDialog({
   const [searching, setSearching] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   const handleSearch = useCallback(
-    async (query: string) => {
+    (query: string) => {
       setSearchQuery(query);
+      clearTimeout(searchTimerRef.current);
       if (query.length < 2) {
         setSearchResults([]);
         return;
       }
-      setSearching(true);
-      try {
-        const res = await usersApi.searchUsers(query, 10);
-        const filtered = res.data.filter(
-          (u) =>
-            !selectedUsers.some((s) => s._id === u._id) &&
-            u._id !== currentUserId
-        );
-        setSearchResults(filtered);
-      } catch {
-        setSearchResults([]);
-      } finally {
-        setSearching(false);
-      }
+      searchTimerRef.current = setTimeout(async () => {
+        setSearching(true);
+        try {
+          const res = await usersApi.searchUsers(query, 10);
+          const filtered = res.data.filter(
+            (u) =>
+              !selectedUsers.some((s) => s._id === u._id) &&
+              u._id !== currentUserId
+          );
+          setSearchResults(filtered);
+        } catch {
+          setSearchResults([]);
+          setError("Search failed. Please try again.");
+        } finally {
+          setSearching(false);
+        }
+      }, 300);
     },
     [selectedUsers, currentUserId]
   );
@@ -88,8 +93,9 @@ export function NewGroupChatDialog({
       onCreated(res.data);
       resetForm();
       onOpenChange(false);
-    } catch (e: any) {
-      setError(e?.response?.data?.detail || "Failed to create chat room");
+    } catch (e) {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setError(detail || "Failed to create chat room");
     } finally {
       setCreating(false);
     }
