@@ -117,8 +117,9 @@ export function MyServicesTab({
       });
       const res = await ratingsApi.getTransactionRatings(id);
       setTransactionRatings((prev) => ({ ...prev, [id]: res.data }));
-    } catch (error: any) {
-      const message = error.response?.data?.detail ?? "Failed to submit rating";
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { detail?: string } } };
+      const message = err.response?.data?.detail ?? "Failed to submit rating";
       const alreadyRated =
         typeof message === "string" &&
         message.toLowerCase().includes("already rated");

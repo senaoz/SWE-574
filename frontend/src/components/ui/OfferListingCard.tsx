@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { usersApi, ratingsApi } from "@/services/api";
 import { StatusBadge } from "./StatusBadge";
 import { CustomBadge, getHighestPriorityBadge } from "./BadgeDisplay";
+import { formatRelativeTime, formatDurationShort } from "@/utils/utils";
 
 interface OfferListingCardProps {
   service: Service;
@@ -65,35 +66,7 @@ export function OfferListingCard({
     navigate(`/service/${service._id}`);
   };
 
-  const formatDuration = (hours: number) => {
-    return `${hours}h`;
-  };
-
   const ownerLabel = user?.full_name || `@${user?.username || ""}`;
-
-  const formatDate = (dateString: string) => {
-    const now = new Date();
-    const commentDate = new Date(dateString);
-    const diffInMs = now.getTime() - commentDate.getTime();
-    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
-    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
-    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-
-    if (diffInMinutes < 1) {
-      return "just now";
-    } else if (diffInMinutes < 60) {
-      return `${diffInMinutes} min ago`;
-    } else if (diffInHours < 24) {
-      return `${diffInHours} hours ago`;
-    } else if (diffInDays < 7) {
-      return `${diffInDays} days ago`;
-    } else {
-      return commentDate.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-      });
-    }
-  };
 
   const ownerMeta = (
     <Flex
@@ -160,7 +133,7 @@ export function OfferListingCard({
       {/* Details row */}
       <Flex align="center" gap="1" className="text-sm">
         <ClockIcon className="w-4 h-4" />
-        <Text>{formatDuration(service.estimated_duration)}</Text>
+        <Text>{formatDurationShort(service.estimated_duration)}</Text>
       </Flex>
       <Flex align="center" gap="1" className="text-sm">
         <Crosshair1Icon className="w-4 h-4 flex-shrink-0" />
@@ -194,8 +167,8 @@ export function OfferListingCard({
       )}
 
       <Text size="1" className="opacity-60">
-        Posted {formatDate(service.created_at)}
-        {service.deadline && ` | Deadline: ${formatDate(service.deadline)}`}
+        Posted {formatRelativeTime(service.created_at)}
+        {service.deadline && ` | Deadline: ${formatRelativeTime(service.deadline)}`}
       </Text>
     </Card>
   );

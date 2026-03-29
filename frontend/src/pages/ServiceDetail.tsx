@@ -42,6 +42,7 @@ import {
   CalendarRangeIcon,
   MessageCircleIcon,
 } from "lucide-react";
+import { calculateDistance, formatDateLong, formatDurationShort } from "@/utils/utils";
 import { ProviderProfileSummary } from "@/components/ui/ProviderProfileSummary";
 import { ServiceMap } from "@/components/map/ServiceMap";
 import { HandShakeModal } from "@/components/ui/HandShakeModal";
@@ -80,24 +81,6 @@ const jaccardSimilarity = (left: Set<string>, right: Set<string>) => {
   return union.size ? intersectionSize / union.size : 0;
 };
 
-const calculateDistanceKm = (
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-) => {
-  const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
-  const earthRadiusKm = 6371;
-  const dLat = toRadians(lat2 - lat1);
-  const dLon = toRadians(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRadians(lat1)) *
-      Math.cos(toRadians(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-};
 
 const buildLocalPotentialMatches = (
   currentService: Service,
@@ -149,7 +132,7 @@ const buildLocalPotentialMatches = (
       proximityScore = 1;
     } else if (!currentService.is_remote && !candidate.is_remote) {
       proximityScore = Math.exp(
-        -calculateDistanceKm(
+        -calculateDistance(
           currentService.location.latitude,
           currentService.location.longitude,
           candidate.location.latitude,
@@ -417,18 +400,6 @@ export function ServiceDetail() {
       </div>
     );
   }
-  const formatDuration = (hours: number) => {
-    return `${hours}h`;
-  };
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
   const formatTime = (timeString: string) => {
     const [hours, minutes] = timeString.split(":");
     const hour = parseInt(hours, 10);
@@ -586,7 +557,7 @@ export function ServiceDetail() {
                   </Badge>
                 )}
                 <Text size="2" color="gray">
-                  Posted {formatDate(service.created_at)}
+                  Posted {formatDateLong(service.created_at)}
                 </Text>
               </div>
               <h1 className="capitalize text-3xl font-bold">{service.title}</h1>
@@ -630,7 +601,7 @@ export function ServiceDetail() {
               <Text size="3" weight="medium">
                 Duration:
               </Text>
-              <Text size="3">{formatDuration(service.estimated_duration)}</Text>
+              <Text size="3">{formatDurationShort(service.estimated_duration)}</Text>
             </Flex>
             <Flex align="center" gap="2">
               <PersonIcon className="w-5 h-5" color="gray" />
@@ -656,7 +627,7 @@ export function ServiceDetail() {
                 <Text size="3" weight="medium">
                   Deadline:
                 </Text>
-                <Text size="3">{formatDate(service.deadline)}</Text>
+                <Text size="3">{formatDateLong(service.deadline)}</Text>
               </Flex>
             )}
           </div>
@@ -1029,7 +1000,7 @@ export function ServiceDetail() {
                                 {matchLocation}
                               </Text>
                               <Text size="1" color="gray">
-                                {formatDuration(match.estimated_duration)}
+                                {formatDurationShort(match.estimated_duration)}
                               </Text>
                             </Flex>
                           </Flex>

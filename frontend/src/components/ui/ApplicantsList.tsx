@@ -22,6 +22,7 @@ import {
 } from "@radix-ui/react-icons";
 import { useNavigate } from "react-router-dom";
 import { CustomBadge } from "./BadgeDisplay";
+import { formatDate } from "@/utils/utils";
 
 interface ApplicantsListProps {
   serviceId: string;
@@ -193,15 +194,6 @@ export function ApplicantsList({
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
 
   if (isLoading) {
     return (
