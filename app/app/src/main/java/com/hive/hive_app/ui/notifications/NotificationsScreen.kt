@@ -53,6 +53,10 @@ fun NotificationsScreen(
     val state by viewModel.state.collectAsState()
     val listState = rememberLazyListState()
 
+    LaunchedEffect(Unit) {
+        viewModel.load(reset = true)
+    }
+
     val reachedBottom by remember {
         derivedStateOf {
             val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
