@@ -3,16 +3,10 @@ package com.hive.hive_app.navigation
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.activity.compose.BackHandler
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -35,21 +29,19 @@ import com.hive.hive_app.ui.main.SavedServicesScreen
 import com.hive.hive_app.ui.main.UserProfileScreen
 import com.hive.hive_app.ui.notifications.NotificationsScreen
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScaffold(
     onLogout: () -> Unit
 ) {
     val mainViewModel: MainViewModel = hiltViewModel()
     val unreadCount by mainViewModel.unreadCount.collectAsState()
+    val pendingDestination by mainViewModel.pendingDestination.collectAsState()
 
     var currentDestination by rememberSaveable { mutableStateOf(MainDestinations.DISCOVER) }
     var openChatRoomId by remember { mutableStateOf<String?>(null) }
     var overlayUserId by remember { mutableStateOf<String?>(null) }
     var showSavedServices by remember { mutableStateOf(false) }
     var showNotifications by remember { mutableStateOf(false) }
-
-    val pendingDestination by mainViewModel.pendingDestination.collectAsState()
 
     LaunchedEffect(Unit) {
         mainViewModel.refreshUnreadCount()
@@ -138,32 +130,15 @@ fun MainScaffold(
                     },
                     label = { Text(dest.label) },
                     selected = dest == currentDestination,
-                    onClick = { currentDestination = dest }
+                    onClick = { currentDestination = dest },
+                    badge = if (dest == MainDestinations.PROFILE && unreadCount > 0) {
+                        { Badge { Text(unreadCount.toString()) } }
+                    } else null
                 )
             }
         }
     ) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            topBar = {
-                TopAppBar(
-                    title = { Text(currentDestination.label) },
-                    actions = {
-                        BadgedBox(
-                            badge = {
-                                if (unreadCount > 0) {
-                                    Badge { Text(unreadCount.toString()) }
-                                }
-                            }
-                        ) {
-                            IconButton(onClick = { showNotifications = true }) {
-                                Icon(Icons.Default.Notifications, contentDescription = "Notifications")
-                            }
-                        }
-                    }
-                )
-            }
-        ) { innerPadding ->
+        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
             when (currentDestination) {
                 MainDestinations.DISCOVER -> DiscoverScreen(
                     Modifier.padding(innerPadding),
@@ -189,7 +164,8 @@ fun MainScaffold(
                 MainDestinations.PROFILE -> ProfileScreen(
                     onLogout = onLogout,
                     modifier = Modifier.padding(innerPadding),
-                    onOpenSaved = { showSavedServices = true }
+                    onOpenSaved = { showSavedServices = true },
+                    onOpenNotifications = { showNotifications = true }
                 )
             }
         }
