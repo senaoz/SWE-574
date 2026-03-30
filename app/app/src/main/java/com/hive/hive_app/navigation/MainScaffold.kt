@@ -2,6 +2,7 @@ package com.hive.hive_app.navigation
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -30,6 +31,23 @@ fun MainScaffold(
     var openChatRoomId by remember { mutableStateOf<String?>(null) }
     var overlayUserId by remember { mutableStateOf<String?>(null) }
     var showSavedServices by remember { mutableStateOf(false) }
+
+    // Only intercept Back when we need to handle our own "overlay" state or tab switching.
+    // When we're on the root Discover screen, let the system handle Back (which exits the app).
+    BackHandler(
+        enabled = overlayUserId != null ||
+            showSavedServices ||
+            currentDestination != MainDestinations.DISCOVER
+    ) {
+        when {
+            overlayUserId != null -> overlayUserId = null
+            showSavedServices -> showSavedServices = false
+            currentDestination != MainDestinations.DISCOVER -> {
+                currentDestination = MainDestinations.DISCOVER
+                openChatRoomId = null
+            }
+        }
+    }
 
     val onStartChat: (String) -> Unit = { roomId ->
         openChatRoomId = roomId

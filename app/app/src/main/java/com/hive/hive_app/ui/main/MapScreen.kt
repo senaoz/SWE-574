@@ -25,6 +25,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -37,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.hive.hive_app.data.api.dto.ServiceResponse
 import androidx.activity.compose.LocalActivity
+import androidx.activity.compose.BackHandler
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -71,10 +73,99 @@ fun MapScreen(
     onOpenUserProfile: ((String) -> Unit)? = null
 ) {
     var selectedServiceId by remember { mutableStateOf<String?>(null) }
+    var showCreateServiceScreen by remember { mutableStateOf(false) }
+    var editServiceId by remember { mutableStateOf<String?>(null) }
+    var manageRequestsServiceId by remember { mutableStateOf<String?>(null) }
+    var completeServiceRatingArgs by remember { mutableStateOf<CompleteServiceRatingArgs?>(null) }
     val detailViewModel: ServiceDetailViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    val activeItemsVm: ActiveItemsViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val state by viewModel.state.collectAsState()
+
+    BackHandler(
+        enabled = completeServiceRatingArgs != null ||
+            manageRequestsServiceId != null ||
+            showCreateServiceScreen ||
+            selectedServiceId != null
+    ) {
+        when {
+            completeServiceRatingArgs != null -> completeServiceRatingArgs = null
+            manageRequestsServiceId != null -> manageRequestsServiceId = null
+            showCreateServiceScreen -> {
+                showCreateServiceScreen = false
+                editServiceId = null
+            }
+            selectedServiceId != null -> selectedServiceId = null
+        }
+    }
+
+    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        viewModel.setLocationPermissionGranted(granted)
+    }
+
+    completeServiceRatingArgs?.let { args ->
+        key(args.transactionId) {
+            CompleteServiceRatingScreen(
+                args = args,
+                onBack = { completeServiceRatingArgs = null },
+                onSuccess = {
+                    completeServiceRatingArgs = null
+                    viewModel.loadServices()
+                },
+                viewModel = activeItemsVm
+            )
+        }
+        return
+    }
+
+    manageRequestsServiceId?.let { mrId ->
+        key(mrId) {
+            ManageServiceScreen(
+                serviceId = mrId,
+                onBack = { manageRequestsServiceId = null },
+                onOpenUserProfile = onOpenUserProfile,
+                onStartChat = onStartChat,
+                onNavigateToCompleteRating = { args ->
+                    completeServiceRatingArgs = args
+                    manageRequestsServiceId = null
+                },
+                onEditService = { sid ->
+                    manageRequestsServiceId = null
+                    editServiceId = sid
+                    showCreateServiceScreen = true
+                }
+            )
+        }
+        return
+    }
+
+    if (showCreateServiceScreen) {
+        CreateServiceScreen(
+            modifier = modifier.fillMaxSize(),
+            editServiceId = editServiceId,
+            userLat = state.userLat,
+            userLon = state.userLon,
+            locationPermissionGranted = state.locationPermissionGranted,
+            onRequestLocationPermission = {
+                permissionLauncher.launch(android.Manifest.permission.ACCESS_COARSE_LOCATION)
+            },
+            onRefreshLocation = { viewModel.refreshLocation() },
+            onBack = {
+                showCreateServiceScreen = false
+                editServiceId = null
+            },
+            onCreated = { serviceId ->
+                showCreateServiceScreen = false
+                editServiceId = null
+                viewModel.loadServices()
+                selectedServiceId = serviceId
+            }
+        )
+        return
+    }
 
     if (selectedServiceId != null) {
         val id = selectedServiceId!!
@@ -100,15 +191,13 @@ fun MapScreen(
             creatorRating = detailCreatorRating,
             isSaved = detailIsSaved,
             onStartChat = onStartChat,
-            onOpenUserProfile = onOpenUserProfile
+            onOpenUserProfile = onOpenUserProfile,
+            onManageJoinRequests = {
+                manageRequestsServiceId = id
+                selectedServiceId = null
+            }
         )
         return
-    }
-
-    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        viewModel.setLocationPermissionGranted(granted)
     }
 
     LaunchedEffect(Unit) {

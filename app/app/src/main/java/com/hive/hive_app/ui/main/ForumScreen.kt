@@ -408,7 +408,7 @@ private fun ForumDiscussionCard(
                             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                         ) {
                             Text(
-                                text = tag.label ?: tag.name ?: tag.id ?: "",
+                                text = tag.label ?: tag.name ?: tag.entityId ?: tag.id ?: "",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
@@ -529,7 +529,7 @@ private fun ForumEventCard(
                             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                         ) {
                             Text(
-                                text = tag.label ?: tag.name ?: tag.id ?: "",
+                                text = tag.label ?: tag.name ?: tag.entityId ?: tag.id ?: "",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
@@ -695,7 +695,7 @@ private fun ForumEventDetailContent(
                                                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                                             ) {
                                                 Text(
-                                                    text = tag.label ?: tag.name ?: tag.id ?: "",
+                                                    text = tag.label ?: tag.name ?: tag.entityId ?: tag.id ?: "",
                                                     style = MaterialTheme.typography.labelSmall,
                                                     color = MaterialTheme.colorScheme.onSurface,
                                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
@@ -1048,7 +1048,7 @@ private fun ForumDiscussionDetailContent(
                                                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                                             ) {
                                                 Text(
-                                                    text = tag.label ?: tag.name ?: tag.id ?: "",
+                                                    text = tag.label ?: tag.name ?: tag.entityId ?: tag.id ?: "",
                                                     style = MaterialTheme.typography.labelSmall,
                                                     color = MaterialTheme.colorScheme.onSurface,
                                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)

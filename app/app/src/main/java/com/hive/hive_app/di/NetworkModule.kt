@@ -6,6 +6,7 @@ import com.hive.hive_app.data.api.AuthApi
 import com.hive.hive_app.data.api.AuthInterceptor
 import com.hive.hive_app.data.api.UnauthorizedHandler
 import com.hive.hive_app.data.api.UnauthorizedInterceptor
+import com.hive.hive_app.data.api.WikidataApi
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import dagger.Module
@@ -109,4 +110,14 @@ object NetworkModule {
     @Singleton
     fun provideTransactionsApi(retrofit: Retrofit): com.hive.hive_app.data.api.TransactionsApi =
         retrofit.create(com.hive.hive_app.data.api.TransactionsApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideUploadsApi(retrofit: Retrofit): com.hive.hive_app.data.api.UploadsApi =
+        retrofit.create(com.hive.hive_app.data.api.UploadsApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideWikidataApi(retrofit: Retrofit): WikidataApi =
+        retrofit.create(WikidataApi::class.java)
 }
