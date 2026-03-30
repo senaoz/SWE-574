@@ -98,6 +98,7 @@ fun MainScaffold(
         return
     }
     if (showNotifications) {
+        LaunchedEffect(Unit) { mainViewModel.clearUnreadBadge() }
         NotificationsScreen(
             modifier = Modifier.fillMaxSize(),
             onBack = {

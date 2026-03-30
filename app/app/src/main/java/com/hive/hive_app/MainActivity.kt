@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.hive.hive_app.data.api.UnauthorizedHandler
 import com.hive.hive_app.navigation.AppNavGraph
@@ -46,8 +47,8 @@ fun HiveappApp(
     pendingDestination: String? = null
 ) {
     val mainViewModel: MainViewModel = hiltViewModel()
-    if (pendingDestination != null) {
-        mainViewModel.setPendingDestination(pendingDestination)
+    LaunchedEffect(pendingDestination) {
+        if (pendingDestination != null) mainViewModel.setPendingDestination(pendingDestination)
     }
     AppNavGraph(
         mainViewModel = mainViewModel,

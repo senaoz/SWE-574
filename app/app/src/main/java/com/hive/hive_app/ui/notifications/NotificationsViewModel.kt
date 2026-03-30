@@ -51,9 +51,6 @@ class NotificationsViewModel @Inject constructor(
                         page = page + 1,
                         hasMore = (existing.size + response.notifications.size) < response.total
                     )
-                    prefStore.setLastKnownUnreadCount(
-                        _state.value.notifications.count { !it.isRead }.coerceAtLeast(0)
-                    )
                 },
                 onFailure = { e ->
                     _state.value = _state.value.copy(

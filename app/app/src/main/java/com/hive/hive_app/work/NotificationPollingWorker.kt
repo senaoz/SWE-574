@@ -41,14 +41,15 @@ class NotificationPollingWorker @AssistedInject constructor(
 
         val lastCount = notificationPreferencesStore.lastKnownUnreadCount.first()
         if (currentCount > lastCount) {
-            val notifResult = notificationsRepository.getNotifications(page = 1, limit = currentCount - lastCount)
+            val delta = maxOf(currentCount - lastCount, 1)
+            val notifResult = notificationsRepository.getNotifications(page = 1, limit = delta)
             val newNotifs = notifResult.getOrNull()?.notifications
                 ?.filter { !it.isRead }
-                ?.take(currentCount - lastCount)
+                ?.take(delta)
                 ?: emptyList()
 
-            newNotifs.forEachIndexed { index, notif ->
-                postSystemNotification(notif, (System.currentTimeMillis() + index).toInt())
+            newNotifs.forEach { notif ->
+                postSystemNotification(notif, notif.id.hashCode())
             }
 
             notificationPreferencesStore.setLastKnownUnreadCount(currentCount)
@@ -58,7 +59,7 @@ class NotificationPollingWorker @AssistedInject constructor(
 
     private fun postSystemNotification(
         notif: com.hive.hive_app.data.api.dto.NotificationResponse,
-        notificationId: Int
+        notificationId: Int = notif.id.hashCode()
     ) {
         val intent = Intent(appContext, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP

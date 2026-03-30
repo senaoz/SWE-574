@@ -55,7 +55,10 @@ fun NotificationsScreen(
     val reachedBottom by remember {
         derivedStateOf {
             val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            lastVisible >= state.notifications.size - 3 && state.hasMore && !state.isLoading
+            state.notifications.isNotEmpty() &&
+                lastVisible >= state.notifications.size - 3 &&
+                state.hasMore &&
+                !state.isLoading
         }
     }
 
