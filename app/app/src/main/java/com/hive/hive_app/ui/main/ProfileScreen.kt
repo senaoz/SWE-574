@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Star
@@ -248,7 +249,7 @@ fun ProfileScreen(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Filled.Schedule,
+                                    imageVector = Icons.Filled.Notifications,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary
                                 )

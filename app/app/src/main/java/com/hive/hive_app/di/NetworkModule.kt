@@ -6,6 +6,7 @@ import com.hive.hive_app.data.api.AuthApi
 import com.hive.hive_app.data.api.AuthInterceptor
 import com.hive.hive_app.data.api.UnauthorizedHandler
 import com.hive.hive_app.data.api.UnauthorizedInterceptor
+import com.hive.hive_app.data.api.NotificationsApi
 import com.hive.hive_app.data.api.WikidataApi
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
@@ -123,6 +124,6 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideNotificationsApi(retrofit: Retrofit): com.hive.hive_app.data.api.NotificationsApi =
-        retrofit.create(com.hive.hive_app.data.api.NotificationsApi::class.java)
+    fun provideNotificationsApi(retrofit: Retrofit): NotificationsApi =
+        retrofit.create(NotificationsApi::class.java)
 }
