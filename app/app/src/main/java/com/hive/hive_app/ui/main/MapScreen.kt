@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.hive.hive_app.data.api.dto.ServiceResponse
 import androidx.activity.compose.LocalActivity
+import androidx.activity.compose.BackHandler
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -81,6 +82,23 @@ fun MapScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val state by viewModel.state.collectAsState()
+
+    BackHandler(
+        enabled = completeServiceRatingArgs != null ||
+            manageRequestsServiceId != null ||
+            showCreateServiceScreen ||
+            selectedServiceId != null
+    ) {
+        when {
+            completeServiceRatingArgs != null -> completeServiceRatingArgs = null
+            manageRequestsServiceId != null -> manageRequestsServiceId = null
+            showCreateServiceScreen -> {
+                showCreateServiceScreen = false
+                editServiceId = null
+            }
+            selectedServiceId != null -> selectedServiceId = null
+        }
+    }
 
     val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()

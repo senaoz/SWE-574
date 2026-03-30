@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
@@ -45,6 +46,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -60,6 +62,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.focusable
 import androidx.compose.ui.Modifier
@@ -71,11 +74,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import org.osmdroid.config.Configuration
+import org.osmdroid.events.MapListener
+import org.osmdroid.events.ScrollEvent
+import org.osmdroid.events.ZoomEvent
+import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
@@ -93,10 +101,12 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import android.view.MotionEvent
 import java.io.IOException
 import java.util.Locale
+import android.view.View
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.hive.hive_app.data.api.dto.LocationDto
@@ -182,6 +192,9 @@ fun CreateServiceScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
+    var restoreScrollAfterPicker by rememberSaveable { mutableStateOf(false) }
+    var savedScrollY by rememberSaveable { mutableStateOf(0) }
 
     var serviceType by rememberSaveable { mutableStateOf("offer") }
     var isRemote by rememberSaveable { mutableStateOf(false) }
@@ -209,6 +222,8 @@ fun CreateServiceScreen(
     var selectedLon by rememberSaveable { mutableStateOf(userLon ?: FALLBACK_LON) }
 
     var locationNameText by rememberSaveable { mutableStateOf("") }
+    var showLocationPicker by rememberSaveable { mutableStateOf(false) }
+    var hasManualLocationSelection by rememberSaveable { mutableStateOf(false) }
 
     var selectedImageUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var existingServerImageUrls by remember(editServiceId) { mutableStateOf<List<String>>(emptyList()) }
@@ -242,6 +257,27 @@ fun CreateServiceScreen(
         }
     }
 
+    if (showLocationPicker && !isRemote) {
+        LocationPickerScreen(
+            initialLat = selectedLat,
+            initialLon = selectedLon,
+            canUseMyLocation = locationPermissionGranted && userLat != null && userLon != null,
+            myLat = userLat,
+            myLon = userLon,
+            onRequestLocationPermission = onRequestLocationPermission,
+            onBack = { showLocationPicker = false },
+            onSelected = { lat, lon, address ->
+                selectedLat = lat
+                selectedLon = lon
+                locationNameText = address ?: "%.5f, %.5f".format(lat, lon)
+                hasManualLocationSelection = true
+                showLocationPicker = false
+                restoreScrollAfterPicker = true
+            }
+        )
+        return
+    }
+
     // Refresh GPS when opening Create service so Location name can geocode from latest coords.
     LaunchedEffect(Unit) {
         onRefreshLocation()
@@ -251,9 +287,10 @@ fun CreateServiceScreen(
     LaunchedEffect(userLat, userLon, isRemote, editServiceId) {
         if (editServiceId != null) return@LaunchedEffect
         if (userLat == null || userLon == null) return@LaunchedEffect
+        if (hasManualLocationSelection) return@LaunchedEffect
+        if (locationNameText.isNotBlank()) return@LaunchedEffect
         selectedLat = userLat
         selectedLon = userLon
-        if (locationNameText.isNotBlank()) return@LaunchedEffect
         val resolved = withContext(Dispatchers.IO) {
             reverseGeocodeAddress(context, userLat, userLon)
         }
@@ -335,10 +372,17 @@ fun CreateServiceScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
+        LaunchedEffect(showLocationPicker, restoreScrollAfterPicker) {
+            if (!showLocationPicker && restoreScrollAfterPicker) {
+                scrollState.scrollTo(savedScrollY)
+                restoreScrollAfterPicker = false
+            }
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(16.dp)
         ) {
             // Top bar
@@ -755,19 +799,6 @@ fun CreateServiceScreen(
 
                 val canUseMyLocation = locationPermissionGranted && userLat != null && userLon != null
 
-                OutlinedTextField(
-                    value = locationNameText,
-                    onValueChange = { locationNameText = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Location name") },
-                    placeholder = { Text("Tap the map or use my location") },
-                    singleLine = false,
-                    minLines = 1,
-                    shape = RoundedCornerShape(12.dp)
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -782,6 +813,7 @@ fun CreateServiceScreen(
                             }
                             selectedLat = userLat!!
                             selectedLon = userLon!!
+                            hasManualLocationSelection = true
 
                             scope.launch {
                                 val resolved = withContext(Dispatchers.IO) {
@@ -794,86 +826,115 @@ fun CreateServiceScreen(
                     ) {
                         Text("Use my location")
                     }
+                    OutlinedButton(
+                        onClick = {
+                            savedScrollY = scrollState.value
+                            showLocationPicker = true
+                        },
+                        enabled = !isLoading
+                    ) {
+                        Text("Select location")
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                val offerPin = context.getDrawable(com.hive.hive_app.R.drawable.ic_map_pin_offer)
-                val needPin = context.getDrawable(com.hive.hive_app.R.drawable.ic_map_pin_need)
-
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(220.dp),
+                        .aspectRatio(1f)
+                        .clickableNoRipple {
+                            savedScrollY = scrollState.value
+                            showLocationPicker = true
+                        },
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    AndroidView(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .focusable(false),
-                        factory = { ctx ->
-                            Configuration.getInstance().load(ctx, ctx.getSharedPreferences("osmdroid", Context.MODE_PRIVATE))
-                            MapView(ctx).apply {
-                                isFocusable = false
-                                isFocusableInTouchMode = false
-                                setTileSource(
-                                    org.osmdroid.tileprovider.tilesource.XYTileSource(
-                                        "Carto Voyager",
-                                        0,
-                                        18,
-                                        256,
-                                        ".png",
-                                        arrayOf("https://a.basemaps.cartocdn.com/rastertiles/voyager/"),
-                                        "© CARTO"
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        AndroidView(
+                            modifier = Modifier.fillMaxSize(),
+                            factory = { ctx ->
+                                Configuration.getInstance().load(ctx, ctx.getSharedPreferences("osmdroid", Context.MODE_PRIVATE))
+                                MapView(ctx).apply {
+                                    setTileSource(
+                                        XYTileSource(
+                                            "Carto Voyager",
+                                            0,
+                                            18,
+                                            256,
+                                            ".png",
+                                            arrayOf("https://a.basemaps.cartocdn.com/rastertiles/voyager/"),
+                                            "© CARTO"
+                                        )
                                     )
-                                )
-                                setMultiTouchControls(true)
-                                controller.setZoom(14.0)
-                            }.also { map ->
-                                map.setOnTouchListener { _, event ->
-                                    if (event.action == MotionEvent.ACTION_UP) {
-                                        val projected = map.projection
-                                        val geoPoint = projected.fromPixels(event.x.toInt(), event.y.toInt())
-                                        selectedLat = geoPoint.latitude
-                                        selectedLon = geoPoint.longitude
-                                        locationNameText = "%.5f, %.5f".format(selectedLat, selectedLon)
-
-                                        scope.launch {
-                                            val resolved = withContext(Dispatchers.IO) {
-                                                reverseGeocodeAddress(context, selectedLat, selectedLon)
-                                            }
-                                            if (resolved != null) locationNameText = resolved
-                                        }
-
-                                        map.invalidate()
-                                        true
-                                    } else {
-                                        false
-                                    }
+                                    setMultiTouchControls(false)
+                                    controller.setZoom(15.0)
+                                    // Showcase only: swallow gestures so scroll stays smooth.
+                                    setOnTouchListener { _, _ -> true }
                                 }
+                            },
+                            update = { map ->
+                                map.overlays.clear()
+                                map.controller.setCenter(GeoPoint(selectedLat, selectedLon))
+                                map.invalidate()
                             }
-                        },
-                        update = { map ->
-                            val key = "${selectedLat}_${selectedLon}_$serviceType"
-                            if (mapOverlayLastKey.value == key) return@AndroidView
-                            mapOverlayLastKey.value = key
+                        )
 
-                            val markerIcon = if (serviceType == "offer") offerPin else needPin
-                            map.overlays.clear()
+                        // Make the whole preview reliably tappable even though the map swallows touches.
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickableNoRipple {
+                                    savedScrollY = scrollState.value
+                                    showLocationPicker = true
+                                }
+                        )
 
-                            val marker = Marker(map).apply {
-                                position = GeoPoint(selectedLat, selectedLon)
-                                setAnchor(Marker.ANCHOR_BOTTOM, Marker.ANCHOR_CENTER)
-                                if (markerIcon != null) setIcon(markerIcon.mutate())
-                                // No map marker title - location should only be in the textbox.
-                                setTitle("")
+                        // Tap hint + selected address overlay
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(10.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                                .padding(horizontal = 10.dp, vertical = 8.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Filled.LocationOn,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Tap to change",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
                             }
-                            map.overlays.add(marker)
-
-                            map.controller.setCenter(GeoPoint(selectedLat, selectedLon))
-                            map.invalidate()
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = locationNameText.takeIf { it.isNotBlank() }
+                                    ?: "%.5f, %.5f".format(selectedLat, selectedLon),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2
+                            )
                         }
-                    )
+
+                        // Always show a clear center marker for the selected point.
+                        Icon(
+                            imageVector = Icons.Filled.LocationOn,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .size(30.dp)
+                        )
+                    }
                 }
             }
 
@@ -1195,4 +1256,193 @@ private fun reverseGeocodeAddress(context: Context, latitude: Double, longitude:
 // Small helper so we don't need Ripples everywhere.
 private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
     this.clickable(onClick = onClick)
+
+@Composable
+private fun LocationPickerScreen(
+    initialLat: Double,
+    initialLon: Double,
+    canUseMyLocation: Boolean,
+    myLat: Double?,
+    myLon: Double?,
+    onRequestLocationPermission: () -> Unit,
+    onBack: () -> Unit,
+    onSelected: (lat: Double, lon: Double, address: String?) -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var mapRef by remember { mutableStateOf<MapView?>(null) }
+    var didInitialCenter by remember { mutableStateOf(false) }
+    var centerText by remember { mutableStateOf("") }
+    var resolveJob by remember { mutableStateOf<Job?>(null) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding(),
+            color = MaterialTheme.colorScheme.background,
+            tonalElevation = 2.dp,
+            shadowElevation = 2.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                }
+                Text(
+                    text = "Select location",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedButton(
+                    onClick = {
+                        if (!canUseMyLocation) {
+                            onRequestLocationPermission()
+                            return@OutlinedButton
+                        }
+                        val map = mapRef ?: return@OutlinedButton
+                        map.controller.setCenter(GeoPoint(myLat ?: initialLat, myLon ?: initialLon))
+                        map.controller.setZoom(16.0)
+                    },
+                    enabled = true
+                ) {
+                    Text("My location")
+                }
+            }
+        }
+
+        Box(modifier = Modifier.weight(1f)) {
+            AndroidView(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
+                factory = { ctx ->
+                    Configuration.getInstance().load(ctx, ctx.getSharedPreferences("osmdroid", Context.MODE_PRIVATE))
+                    MapView(ctx).apply {
+                        setTileSource(
+                            org.osmdroid.tileprovider.tilesource.XYTileSource(
+                                "Carto Voyager",
+                                0,
+                                18,
+                                256,
+                                ".png",
+                                arrayOf("https://a.basemaps.cartocdn.com/rastertiles/voyager/"),
+                                "© CARTO"
+                            )
+                        )
+                        setMultiTouchControls(true)
+                        controller.setZoom(15.0)
+                        // Prevent OSMDroid surface-like overdraw above Compose controls during pan/zoom.
+                        setLayerType(View.LAYER_TYPE_SOFTWARE, null)
+                    }.also { map ->
+                        mapRef = map
+                    }
+                },
+                update = { map ->
+                    mapRef = map
+                    if (!didInitialCenter) {
+                        map.controller.setCenter(GeoPoint(initialLat, initialLon))
+                        didInitialCenter = true
+                    }
+                }
+            )
+
+            Icon(
+                imageVector = Icons.Filled.LocationOn,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(34.dp)
+            )
+
+        }
+
+        // Selected location textbox above action button (white background for readability).
+        OutlinedTextField(
+            value = centerText,
+            onValueChange = {},
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            enabled = false,
+            readOnly = true,
+            singleLine = false,
+            maxLines = 2,
+            label = { Text("Selected location") },
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                disabledContainerColor = Color.White,
+                disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                disabledBorderColor = MaterialTheme.colorScheme.outline,
+                disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        )
+
+        // Track map center as the user moves around (lightweight: coordinates only).
+        DisposableEffect(mapRef) {
+            val map = mapRef
+            if (map == null) return@DisposableEffect onDispose { }
+            fun updateCenter() {
+                val c = map.mapCenter as? GeoPoint ?: return
+                centerText = "Resolving address…"
+                resolveJob?.cancel()
+                resolveJob = scope.launch {
+                    delay(350)
+                    val resolved = withContext(Dispatchers.IO) {
+                        reverseGeocodeAddress(context, c.latitude, c.longitude)
+                    }
+                    centerText = resolved ?: "Address unavailable"
+                }
+            }
+            updateCenter()
+            val listener = object : MapListener {
+                override fun onScroll(event: ScrollEvent?): Boolean {
+                    updateCenter()
+                    return false
+                }
+
+                override fun onZoom(event: ZoomEvent?): Boolean {
+                    updateCenter()
+                    return false
+                }
+            }
+            map.addMapListener(listener)
+            onDispose {
+                map.removeMapListener(listener)
+                resolveJob?.cancel()
+            }
+        }
+
+        Button(
+            onClick = {
+                val map = mapRef ?: return@Button
+                val center = map.mapCenter as? GeoPoint ?: return@Button
+                val lat = center.latitude
+                val lon = center.longitude
+                scope.launch {
+                    val resolved = withContext(Dispatchers.IO) {
+                        reverseGeocodeAddress(context, lat, lon)
+                    }
+                    onSelected(lat, lon, resolved)
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text("Use this location")
+        }
+    }
+}
 

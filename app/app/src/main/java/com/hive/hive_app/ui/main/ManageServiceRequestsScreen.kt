@@ -472,6 +472,20 @@ fun ManageServiceScreen(
                                     if (canStart) {
                                         Spacer(modifier = Modifier.height(10.dp))
                                     }
+                                    OutlinedButton(
+                                        onClick = { onEditService?.invoke(serviceId) },
+                                        enabled = onEditService != null,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Edit,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Edit", maxLines = 1, style = MaterialTheme.typography.labelLarge)
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -500,19 +514,6 @@ fun ManageServiceScreen(
                                             )
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Text("Cancel", maxLines = 1, style = MaterialTheme.typography.labelLarge)
-                                        }
-                                        OutlinedButton(
-                                            onClick = { onEditService?.invoke(serviceId) },
-                                            enabled = onEditService != null,
-                                            modifier = Modifier.weight(1f)
-                                        ) {
-                                            Icon(
-                                                Icons.Default.Edit,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text("Edit", maxLines = 1, style = MaterialTheme.typography.labelLarge)
                                         }
                                     }
                                 }

@@ -62,6 +62,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import coil.compose.AsyncImage
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.activity.compose.BackHandler
 
 @Composable
 fun DiscoverScreen(
@@ -78,6 +79,23 @@ fun DiscoverScreen(
     val detailViewModel: ServiceDetailViewModel = hiltViewModel()
     val activeItemsVm: ActiveItemsViewModel = hiltViewModel()
     val context = LocalContext.current
+
+    BackHandler(
+        enabled = completeServiceRatingArgs != null ||
+            manageRequestsServiceId != null ||
+            showCreateServiceScreen ||
+            selectedServiceId != null
+    ) {
+        when {
+            completeServiceRatingArgs != null -> completeServiceRatingArgs = null
+            manageRequestsServiceId != null -> manageRequestsServiceId = null
+            showCreateServiceScreen -> {
+                showCreateServiceScreen = false
+                editServiceId = null
+            }
+            selectedServiceId != null -> selectedServiceId = null
+        }
+    }
 
     completeServiceRatingArgs?.let { args ->
         key(args.transactionId) {
