@@ -1314,6 +1314,8 @@ class ServiceService:
             raise ValueError("Service not found")
         if str(service.user_id) != user_id:
             raise ValueError("Only the service owner can mark the service as completed")
+        if service.status == ServiceStatus.COMPLETED:
+            return True
         if service.status not in (ServiceStatus.ACTIVE, ServiceStatus.IN_PROGRESS):
             raise ValueError("Service is not in a state that can be completed")
         # Only owners of OFFER services are constrained by the "must create need"

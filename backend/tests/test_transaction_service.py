@@ -552,11 +552,11 @@ class TestTransactionServiceFinalizeAndLegacy:
         tx = await _insert_transaction(mock_db, str(service.id), str(provider.id), str(requester.id))
 
         svc = TransactionService(mock_db)
-        updated = await svc.complete_transaction(str(tx["_id"]), str(provider.id), completion_notes="done")
+        await svc.confirm_transaction_completion(str(tx["_id"]), str(provider.id))
+        updated = await svc.confirm_transaction_completion(str(tx["_id"]), str(requester.id))
 
         assert updated is not None
         assert updated.status == TransactionStatus.COMPLETED
-        assert updated.completion_notes == "done"
         assert updated.completed_at is not None
 
     @pytest.mark.asyncio
@@ -569,4 +569,4 @@ class TestTransactionServiceFinalizeAndLegacy:
 
         svc = TransactionService(mock_db)
         with pytest.raises(ValueError, match="not authorized"):
-            await svc.complete_transaction(str(tx["_id"]), str(outsider.id))
+            await svc.confirm_transaction_completion(str(tx["_id"]), str(outsider.id))
