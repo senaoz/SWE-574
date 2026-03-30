@@ -430,33 +430,6 @@ export function Profile() {
 
   return (
     <div className="space-y-12">
-      {/* Rejected Requests Notification */}
-      {recentRejectedCount > 0 && (
-        <Card style={{ backgroundColor: "var(--orange-2)" }}>
-          <Flex align="center" justify="between">
-            <Flex align="center" gap="3">
-              <ExclamationTriangleIcon className="w-5 h-5" color="orange" />
-              <div>
-                <Text size="3" weight="bold">
-                  {recentRejectedCount} Request
-                  {recentRejectedCount > 1 ? "s" : ""} Rejected
-                </Text>
-                <Text size="2" color="gray" className="block">
-                  You have {recentRejectedCount} rejected join request
-                  {recentRejectedCount > 1 ? "s" : ""} from the last 7 days
-                </Text>
-              </div>
-            </Flex>
-            <Button
-              variant="soft"
-              onClick={() => setShowRejectedRequestsDialog(true)}
-            >
-              View Details
-            </Button>
-          </Flex>
-        </Card>
-      )}
-
       <Tabs.Root value={profileTab} onValueChange={(v) => setProfileTab(v)}>
         <Tabs.List size="2">
           <Tabs.Trigger value="profile">

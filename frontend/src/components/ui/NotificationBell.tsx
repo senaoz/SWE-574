@@ -1,5 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { IconButton, Popover, Flex, Text, Badge, Tooltip } from "@radix-ui/themes";
+import {
+  IconButton,
+  Popover,
+  Flex,
+  Text,
+  Badge,
+  Tooltip,
+} from "@radix-ui/themes";
 import { BellIcon, XIcon } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { notificationsApi, getApiBaseUrl } from "@/services/api";
@@ -21,7 +28,7 @@ function getNotificationUrl(notification: Notification): string {
   if (notification.related_type === "service") {
     return `/services/${notification.related_id}`;
   }
-  return `/profile?tab=my-services`;
+  return `/profile?tab=services`;
 }
 
 export function NotificationBell() {
@@ -30,7 +37,9 @@ export function NotificationBell() {
   const { user } = useUser();
   const [unreadCount, setUnreadCount] = useState(0);
   const activeRef = useRef(true);
-  const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
+  const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(
+    null,
+  );
 
   // SSE connection — replaces polling
   useEffect(() => {
@@ -108,10 +117,17 @@ export function NotificationBell() {
   const deleteNotification = useMutation({
     mutationFn: (id: string) => notificationsApi.deleteNotification(id),
     onSuccess: (_, id) => {
-      queryClient.setQueryData(["notifications-list"], (old: import("@/types").NotificationListResponse | undefined) => {
-        if (!old) return old;
-        return { ...old, notifications: old.notifications.filter((n) => n._id !== id), total: old.total - 1 };
-      });
+      queryClient.setQueryData(
+        ["notifications-list"],
+        (old: import("@/types").NotificationListResponse | undefined) => {
+          if (!old) return old;
+          return {
+            ...old,
+            notifications: old.notifications.filter((n) => n._id !== id),
+            total: old.total - 1,
+          };
+        },
+      );
     },
   });
 
@@ -158,9 +174,24 @@ export function NotificationBell() {
         </Popover.Trigger>
       </Tooltip>
 
-      <Popover.Content style={{ width: "340px", maxHeight: "420px", overflowY: "auto", padding: 0 }}>
-        <Flex justify="between" align="center" px="3" py="2" style={{ borderBottom: "1px solid var(--gray-4)" }}>
-          <Text size="2" weight="bold">Notifications</Text>
+      <Popover.Content
+        style={{
+          width: "340px",
+          maxHeight: "420px",
+          overflowY: "auto",
+          padding: 0,
+        }}
+      >
+        <Flex
+          justify="between"
+          align="center"
+          px="3"
+          py="2"
+          style={{ borderBottom: "1px solid var(--gray-4)" }}
+        >
+          <Text size="2" weight="bold">
+            Notifications
+          </Text>
           {unreadCount > 0 && (
             <Text
               size="1"
@@ -175,7 +206,9 @@ export function NotificationBell() {
 
         {notifications.length === 0 ? (
           <Flex justify="center" align="center" py="6">
-            <Text size="2" color="gray">No notifications yet</Text>
+            <Text size="2" color="gray">
+              No notifications yet
+            </Text>
           </Flex>
         ) : (
           notifications.map((n) => (
@@ -203,15 +236,32 @@ export function NotificationBell() {
                   }}
                 />
               )}
-              <Flex direction="column" gap="1" style={{ flex: 1, paddingLeft: n.is_read ? "15px" : 0 }}>
-                <Text size="2" weight={n.is_read ? "regular" : "medium"}>{n.title}</Text>
-                <Text size="1" color="gray">{n.body}</Text>
-                <Text size="1" color="gray">{formatRelativeTime(n.created_at)}</Text>
+              <Flex
+                direction="column"
+                gap="1"
+                style={{ flex: 1, paddingLeft: n.is_read ? "15px" : 0 }}
+              >
+                <Text size="2" weight={n.is_read ? "regular" : "medium"}>
+                  {n.title}
+                </Text>
+                <Text size="1" color="gray">
+                  {n.body}
+                </Text>
+                <Text size="1" color="gray">
+                  {formatRelativeTime(n.created_at)}
+                </Text>
               </Flex>
               <XIcon
                 size={14}
-                style={{ flexShrink: 0, color: "var(--gray-8)", marginTop: "2px" }}
-                onClick={(e) => { e.stopPropagation(); deleteNotification.mutate(n._id); }}
+                style={{
+                  flexShrink: 0,
+                  color: "var(--gray-8)",
+                  marginTop: "2px",
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteNotification.mutate(n._id);
+                }}
               />
             </Flex>
           ))
