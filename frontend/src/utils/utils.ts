@@ -4,13 +4,26 @@ export function cn(...inputs: ClassValue[]) {
   return clsx(inputs)
 }
 
+const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 export function formatDate(date: string | Date): string {
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(undefined, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: TZ,
+    hour12: false,
+  }).format(new Date(date))
+}
+
+export function formatTime(date: string | Date): string {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: TZ,
+    hour12: false,
   }).format(new Date(date))
 }
 
@@ -42,20 +55,22 @@ export function calculateDistance(
 }
 
 export function formatDateLong(date: string | Date): string {
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(undefined, {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: TZ,
   }).format(new Date(date));
 }
 
 export function formatDateShort(date: string | Date): string {
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(undefined, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
+    timeZone: TZ,
   }).format(new Date(date));
 }
 
@@ -75,12 +90,13 @@ export function formatRelativeTime(dateString: string): string {
   if (diffInMinutes < 60) return `${diffInMinutes} minute${diffInMinutes === 1 ? "" : "s"} ago`;
   if (diffInHours < 24) return `${diffInHours} hour${diffInHours === 1 ? "" : "s"} ago`;
   if (diffInDays < 7) return `${diffInDays} day${diffInDays === 1 ? "" : "s"} ago`;
-  return date.toLocaleDateString("en-US", {
+  return date.toLocaleString(undefined, {
     year: "numeric",
     month: "short",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: TZ,
   });
 }
 

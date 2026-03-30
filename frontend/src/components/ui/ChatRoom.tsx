@@ -1,10 +1,19 @@
 import { useState, useEffect, useRef } from "react";
-import { Card, Text, Flex, Button, TextField, Badge, Avatar } from "@radix-ui/themes";
+import {
+  Card,
+  Text,
+  Flex,
+  Button,
+  TextField,
+  Badge,
+  Avatar,
+} from "@radix-ui/themes";
 import { ChatRoom, Message } from "@/types";
 import { chatApi, getImageUrl } from "@/services/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PaperPlaneIcon } from "@radix-ui/react-icons";
 import { useNavigate } from "react-router-dom";
+import { formatTime } from "@/utils/utils";
 
 interface ChatRoomProps {
   room: ChatRoom;
@@ -55,13 +64,6 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messagesData?.data.messages]);
-
-  const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
 
   if (messagesLoading) {
     return (
@@ -172,7 +174,9 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
             >
               {message.sender_id !== currentUserId && (
                 <Avatar
-                  src={getImageUrl(message.sender?.profile_picture) ?? undefined}
+                  src={
+                    getImageUrl(message.sender?.profile_picture) ?? undefined
+                  }
                   fallback={
                     message.sender?.full_name?.[0] ||
                     message.sender?.username?.[0] ||
@@ -203,7 +207,8 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
                     weight="bold"
                     className="block mb-1 cursor-pointer hover:underline"
                     onClick={() =>
-                      message.sender?.id && navigate(`/user/${message.sender.id}`)
+                      message.sender?.id &&
+                      navigate(`/user/${message.sender.id}`)
                     }
                   >
                     {message.sender?.full_name ||
@@ -222,7 +227,7 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
                         : "opacity-80"
                     }
                   >
-                    {formatTime(message.created_at)}
+                    {formatTime(message.created_at + "Z")}
                   </Text>
                   {message.is_edited && (
                     <Text
