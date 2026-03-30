@@ -1,5 +1,6 @@
 package com.hive.hive_app
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -10,6 +11,7 @@ import com.hive.hive_app.data.api.UnauthorizedHandler
 import com.hive.hive_app.navigation.AppNavGraph
 import com.hive.hive_app.ui.main.MainViewModel
 import com.hive.hive_app.ui.theme.HiveappTheme
+import com.hive.hive_app.work.NotificationPollingWorker
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -24,17 +26,29 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             HiveappTheme {
-                HiveappApp(unauthorizedHandler = unauthorizedHandler)
+                HiveappApp(
+                    unauthorizedHandler = unauthorizedHandler,
+                    pendingDestination = intent.getStringExtra(NotificationPollingWorker.EXTRA_DESTINATION)
+                )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
     }
 }
 
 @Composable
 fun HiveappApp(
-    unauthorizedHandler: UnauthorizedHandler
+    unauthorizedHandler: UnauthorizedHandler,
+    pendingDestination: String? = null
 ) {
     val mainViewModel: MainViewModel = hiltViewModel()
+    if (pendingDestination != null) {
+        mainViewModel.setPendingDestination(pendingDestination)
+    }
     AppNavGraph(
         mainViewModel = mainViewModel,
         unauthorizedHandler = unauthorizedHandler

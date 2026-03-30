@@ -120,4 +120,9 @@ object NetworkModule {
     @Singleton
     fun provideWikidataApi(retrofit: Retrofit): WikidataApi =
         retrofit.create(WikidataApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideNotificationsApi(retrofit: Retrofit): com.hive.hive_app.data.api.NotificationsApi =
+        retrofit.create(com.hive.hive_app.data.api.NotificationsApi::class.java)
 }
