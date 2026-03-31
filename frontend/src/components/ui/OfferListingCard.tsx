@@ -5,6 +5,8 @@ import { ClickableTag } from "@/components/ui/ClickableTag";
 import {
   ClockIcon,
   Crosshair1Icon,
+  HeartIcon,
+  HeartFilledIcon,
   StarFilledIcon,
 } from "@radix-ui/react-icons";
 import { useEffect, useState } from "react";
@@ -12,6 +14,7 @@ import { usersApi, ratingsApi } from "@/services/api";
 import { StatusBadge } from "./StatusBadge";
 import { CustomBadge, getHighestPriorityBadge } from "./BadgeDisplay";
 import { formatRelativeTime, formatDurationShort } from "@/utils/utils";
+import { useSavedServiceIds } from "@/hooks/useSavedServiceIds";
 
 interface OfferListingCardProps {
   service: Service;
@@ -28,7 +31,17 @@ export function OfferListingCard({
   const [user, setUser] = useState<any>(null);
   const [badgeSummary, setBadgeSummary] = useState<BadgeSummary | null>(null);
   const [averageRating, setAverageRating] = useState<number | null>(null);
-  const [ratingCount, setRatingCount] = useState(0);
+  const {
+    currentUserId,
+    isSaved: isServiceSaved,
+    saveService,
+    unsaveService,
+    isSavingService,
+    isUnsavingService,
+  } = useSavedServiceIds();
+  const isSaved = isServiceSaved(service);
+  const isSaving = isSavingService(service._id);
+  const isUnsaving = isUnsavingService(service._id);
 
   useEffect(() => {
     async function fetchUserData() {
@@ -51,12 +64,10 @@ export function OfferListingCard({
           last_earned_badge: getHighestPriorityBadge(earnedBadges),
         });
         setAverageRating(ratingsRes.data?.average_score ?? null);
-        setRatingCount(ratingsRes.data?.total ?? 0);
       } catch (err) {
         setUser(null);
         setBadgeSummary(null);
         setAverageRating(null);
-        setRatingCount(0);
       }
     }
     fetchUserData();
@@ -64,6 +75,24 @@ export function OfferListingCard({
 
   const handleCardClick = () => {
     navigate(`/service/${service._id}`);
+  };
+
+  const handleSavedBadgeClick = async (
+    event: React.MouseEvent | React.KeyboardEvent,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!currentUserId || isSaving || isUnsaving) return;
+
+    try {
+      if (isSaved) {
+        await unsaveService(service._id);
+      } else {
+        await saveService(service._id);
+      }
+    } catch (error) {
+      console.error("Error toggling saved service:", error);
+    }
   };
 
   const ownerLabel = user?.full_name || `@${user?.username || ""}`;
@@ -116,6 +145,38 @@ export function OfferListingCard({
             >
               {service?.service_type === "offer" ? "OFFER" : "NEED"}
             </Badge>
+            {currentUserId && (
+              <Badge
+                color={isSaved ? "red" : "gray"}
+                variant="soft"
+                className={`inline-flex items-center gap-1 ${
+                  !isSaving && !isUnsaving ? "cursor-pointer" : ""
+                }`}
+                onClick={handleSavedBadgeClick}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    void handleSavedBadgeClick(event);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                title={isSaved ? "Remove from saved items" : "Save this item"}
+                aria-disabled={isSaving || isUnsaving}
+              >
+                {isSaved ? (
+                  <HeartFilledIcon className="h-3 w-3" />
+                ) : (
+                  <HeartIcon className="h-3 w-3" />
+                )}
+                {isSaving
+                  ? "Saving..."
+                  : isUnsaving
+                    ? "Removing..."
+                    : isSaved
+                      ? "Saved"
+                      : "Save"}
+              </Badge>
+            )}
           </Flex>
           {ownerMeta}
         </div>

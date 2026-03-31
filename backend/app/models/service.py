@@ -179,6 +179,7 @@ class ServiceResponse(ServiceBase):
     description: str = Field(..., min_length=0, max_length=5000)
     id: PyObjectId = Field(alias="_id")
     user_id: PyObjectId
+    is_saved: bool = False
     status: ServiceStatus = ServiceStatus.ACTIVE
     created_at: datetime
     updated_at: datetime
