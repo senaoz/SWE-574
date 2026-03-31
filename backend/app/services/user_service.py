@@ -291,7 +291,8 @@ class UserService:
             }).to_list(None)
             pending_jr_hours = 0.0
             for jr in pending_jrs:
-                service = await self.db.services.find_one({"_id": jr["service_id"]})
+                svc_id = jr["service_id"]
+                service = await self.db.services.find_one({"_id": ObjectId(svc_id) if not isinstance(svc_id, ObjectId) else svc_id})
                 if service and service.get("service_type") == "need":
                     pending_jr_hours += float(service.get("estimated_duration", 0.0))
 
@@ -352,7 +353,8 @@ class UserService:
             }).to_list(None)
             pending_jr_hours = 0.0
             for jr in pending_jrs:
-                service = await self.db.services.find_one({"_id": jr["service_id"]})
+                svc_id = jr["service_id"]
+                service = await self.db.services.find_one({"_id": ObjectId(svc_id) if not isinstance(svc_id, ObjectId) else svc_id})
                 if service and service.get("service_type") == "offer":
                     pending_jr_hours += float(service.get("estimated_duration", 0.0))
 
