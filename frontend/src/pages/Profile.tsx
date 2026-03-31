@@ -1425,8 +1425,9 @@ export function Profile() {
         confirmLabel="Log out"
         onConfirm={handleConfirmLogout}
       />
-      {/* Rejected Requests Dialog */}
-      <Dialog.Root
+      {/* Rejected Requests Dialog
+
+       <Dialog.Root
         open={showRejectedRequestsDialog}
         onOpenChange={setShowRejectedRequestsDialog}
       >
@@ -1494,6 +1495,9 @@ export function Profile() {
           </Flex>
         </Dialog.Content>
       </Dialog.Root>
+      
+      
+      */}
     </div>
   );
 }

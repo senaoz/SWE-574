@@ -33,6 +33,7 @@ export function Home() {
   const navigate = useNavigate();
   const [recentOffers, setRecentOffers] = useState<Service[]>([]);
   const [recentNeeds, setRecentNeeds] = useState<Service[]>([]);
+  const [allServices, setAllServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const {
     currentUserId,
@@ -85,10 +86,17 @@ export function Home() {
 
         setRecentOffers(offersResponse.data.services || []);
         setRecentNeeds(needsResponse.data.services || []);
+        setRecentEvents(eventsResponse.data.events.slice(0, 4) || []);
+        setAllServices(
+          (offersResponse.data.services || []).concat(
+            needsResponse.data.services || [],
+          ),
+        );
       } catch (error) {
         console.error("Error fetching services:", error);
         setRecentOffers([]);
         setRecentNeeds([]);
+        setAllServices([]);
       } finally {
         setLoading(false);
       }
@@ -237,7 +245,8 @@ export function Home() {
       </Section>
 
       <ServiceMap
-        services={recentOffers.concat(recentNeeds)}
+        services={allServices}
+        events={recentEvents}
         height="400px"
         sticky={false}
       />

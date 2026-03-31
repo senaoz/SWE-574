@@ -52,7 +52,7 @@ export function NewGroupChatDialog({
           const filtered = res.data.filter(
             (u) =>
               !selectedUsers.some((s) => s._id === u._id) &&
-              u._id !== currentUserId
+              u._id !== currentUserId,
           );
           setSearchResults(filtered);
         } catch {
@@ -63,7 +63,7 @@ export function NewGroupChatDialog({
         }
       }, 300);
     },
-    [selectedUsers, currentUserId]
+    [selectedUsers, currentUserId],
   );
 
   const addUser = (user: User) => {
@@ -97,7 +97,8 @@ export function NewGroupChatDialog({
       resetForm();
       onOpenChange(false);
     } catch (e) {
-      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      const detail = (e as { response?: { data?: { detail?: string } } })
+        ?.response?.data?.detail;
       setError(detail || "Failed to create chat room");
     } finally {
       setCreating(false);
@@ -198,7 +199,7 @@ export function NewGroupChatDialog({
               {searchResults.map((user) => (
                 <div
                   key={user._id}
-                  className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-3 cursor-pointer"
+                  className="px-3 py-2 hover:opacity-60 transition-colors flex items-center gap-3 cursor-pointer"
                 >
                   <Avatar
                     src={getImageUrl(user.profile_picture) ?? undefined}
