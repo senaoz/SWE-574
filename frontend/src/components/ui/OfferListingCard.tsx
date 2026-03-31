@@ -28,7 +28,6 @@ export function OfferListingCard({
   const [user, setUser] = useState<any>(null);
   const [badgeSummary, setBadgeSummary] = useState<BadgeSummary | null>(null);
   const [averageRating, setAverageRating] = useState<number | null>(null);
-  const [ratingCount, setRatingCount] = useState(0);
 
   useEffect(() => {
     async function fetchUserData() {
@@ -51,12 +50,10 @@ export function OfferListingCard({
           last_earned_badge: getHighestPriorityBadge(earnedBadges),
         });
         setAverageRating(ratingsRes.data?.average_score ?? null);
-        setRatingCount(ratingsRes.data?.total ?? 0);
       } catch (err) {
         setUser(null);
         setBadgeSummary(null);
         setAverageRating(null);
-        setRatingCount(0);
       }
     }
     fetchUserData();
