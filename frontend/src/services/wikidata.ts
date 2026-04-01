@@ -29,7 +29,7 @@ interface WikidataSearchResponse {
   count: number;
 }
 
-let searchTimeout: NodeJS.Timeout | null = null;
+let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
 /**
  * Search WikiData entities with debouncing
@@ -45,7 +45,7 @@ export async function searchWikidataEntities(
   limit: number = 10,
   debounceMs: number = 300
 ): Promise<TagEntity[]> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     // Clear previous timeout
     if (searchTimeout) {
       clearTimeout(searchTimeout);
@@ -126,4 +126,3 @@ export async function searchWikidataEntitiesImmediate(
     return [];
   }
 }
-

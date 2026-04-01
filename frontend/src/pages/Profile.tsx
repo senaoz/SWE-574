@@ -113,8 +113,7 @@ export function Profile() {
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const [showRejectedRequestsDialog, setShowRejectedRequestsDialog] =
-    useState(false);
+  const [, setShowRejectedRequestsDialog] = useState(false);
   const [myservicesCounts, setMyservicesCounts] = useState({
     services: 0,
     applications: 0,

@@ -396,7 +396,7 @@ export function ApplicantsList({
           {/* Show other requests (approved/rejected) */}
           {requests
             .filter((r) => r.status !== "pending")
-            .map((request, index) => {
+            .map((request) => {
               const user = request.user?.id
                 ? users[request.user?.id]
                 : request.user;

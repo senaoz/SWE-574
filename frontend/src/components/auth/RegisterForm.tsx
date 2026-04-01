@@ -20,11 +20,9 @@ interface RegisterFormData {
 export function RegisterForm({
   setLoginDialogOpen,
   onSwitchToLogin,
-  embedded,
 }: {
   setLoginDialogOpen?: (open: boolean) => void;
   onSwitchToLogin?: () => void;
-  embedded?: boolean;
 } = {}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
