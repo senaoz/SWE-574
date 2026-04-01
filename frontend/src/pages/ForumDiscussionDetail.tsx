@@ -130,7 +130,7 @@ export function ForumDiscussionDetail() {
             <div className="prose-content">
               <ReactMarkdown
                 components={{
-                  a: ({ node, ...props }) => (
+                  a: ({ node: _node, ...props }) => (
                     <a {...props} target="_blank" rel="noopener noreferrer" />
                   ),
                 }}
@@ -201,7 +201,7 @@ export function ForumDiscussionDetail() {
               <div className="prose-content">
                 <ReactMarkdown
                   components={{
-                    a: ({ node, ...props }) => (
+                    a: ({ node: _node, ...props }) => (
                       <a {...props} target="_blank" rel="noopener noreferrer" />
                     ),
                   }}

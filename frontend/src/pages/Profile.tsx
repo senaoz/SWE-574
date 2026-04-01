@@ -207,7 +207,7 @@ export function Profile() {
   const averageRating = ratingsData?.data?.average_score ?? null;
   const ratingCount = ratingsData?.data?.total ?? 0;
 
-  let rejectedRequests = rejectedRequestsData?.data.requests || [];
+  const rejectedRequests = rejectedRequestsData?.data.requests || [];
   const recentRejectedCount = rejectedRequests.filter((req: JoinRequest) => {
     const rejectedDate = new Date(req.updated_at);
     const daysSinceRejected =

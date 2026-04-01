@@ -40,7 +40,7 @@ export function OfferListingCard({
             data: { total: 0, average_score: null },
           })),
         ]);
-        let earnedBadges = badgesRes.data?.badges.filter((b) => b.earned) ?? [];
+        const earnedBadges = badgesRes.data?.badges.filter((b) => b.earned) ?? [];
         setUser(userRes.data);
         setBadgeSummary({
           badges: badgesRes.data?.badges ?? [],
