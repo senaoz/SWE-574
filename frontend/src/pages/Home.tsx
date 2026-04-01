@@ -291,20 +291,20 @@ export function Home() {
                       <div className="prose-content card-description">
                         <ReactMarkdown
                           components={{
-                            a: ({ node, ...props }) => (
+                            a: ({ node: _node, ...props }) => (
                               <a
                                 {...props}
                                 target="_blank"
                                 rel="noopener noreferrer"
                               />
                             ),
-                            h1: ({ node, ...props }) => (
+                            h1: ({ node: _node, ...props }) => (
                               <h1 className="text-base font-bold" {...props} />
                             ),
-                            h2: ({ node, ...props }) => (
+                            h2: ({ node: _node, ...props }) => (
                               <h2 className="text-sm font-bold" {...props} />
                             ),
-                            h3: ({ node, ...props }) => (
+                            h3: ({ node: _node, ...props }) => (
                               <h3 className="text-xs font-bold" {...props} />
                             ),
                           }}
@@ -338,7 +338,7 @@ export function Home() {
                       <div className="prose-content card-description">
                         <ReactMarkdown
                           components={{
-                            a: ({ node, ...props }) => (
+                            a: ({ node: _node, ...props }) => (
                               <a
                                 {...props}
                                 target="_blank"

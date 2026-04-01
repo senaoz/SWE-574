@@ -324,7 +324,7 @@ export function OfferNeedForm({
       return;
     }
 
-    let imageUrls: string[] = [];
+    const imageUrls: string[] = [];
     if (serviceImageFiles.length > 0) {
       setServiceImageUploading(true);
       try {

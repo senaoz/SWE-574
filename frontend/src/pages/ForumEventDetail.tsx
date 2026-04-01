@@ -187,7 +187,7 @@ export function ForumEventDetail() {
         <div className="prose-content mb-4">
           <ReactMarkdown
             components={{
-              a: ({ node, ...props }) => (
+              a: ({ node: _node, ...props }) => (
                 <a {...props} target="_blank" rel="noopener noreferrer" />
               ),
             }}

@@ -204,7 +204,7 @@ export function Forum() {
                       <div className="mt-1 prose-content card-description">
 	                        <ReactMarkdown
 	                          components={{
-	                            a: ({ node, ...props }) => (
+	                            a: ({ node: _node, ...props }) => (
 	                              <a
 	                                {...props}
 	                                target="_blank"
@@ -286,7 +286,7 @@ export function Forum() {
                   <div className="prose-content card-description">
 	                    <ReactMarkdown
 	                      components={{
-	                        a: ({ node, ...props }) => (
+	                        a: ({ node: _node, ...props }) => (
 	                          <a
 	                            {...props}
 	                            target="_blank"
