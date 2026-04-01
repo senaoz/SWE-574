@@ -74,7 +74,7 @@ export function ApplicantsList({
             data: { total: 0, average_score: null },
           })),
         ]);
-        let earnedBadges = badgesRes.data?.badges.filter((b) => b.earned) ?? [];
+        const earnedBadges = badgesRes.data?.badges.filter((b) => b.earned) ?? [];
         const u = {
           ...userRes.data,
           badges: {
@@ -396,7 +396,7 @@ export function ApplicantsList({
           {/* Show other requests (approved/rejected) */}
           {requests
             .filter((r) => r.status !== "pending")
-            .map((request, index) => {
+            .map((request) => {
               const user = request.user?.id
                 ? users[request.user?.id]
                 : request.user;

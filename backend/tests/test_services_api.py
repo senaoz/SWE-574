@@ -139,6 +139,7 @@ class TestServicesAPI:
 
         matching_need_data = sample_service_data.copy()
         matching_need_data["service_type"] = "need"
+        matching_need_data["estimated_duration"] = 0.5
         matching_need = await service_service.create_service(
             ServiceCreate(**matching_need_data),
             str(second_user.id),
@@ -147,6 +148,7 @@ class TestServicesAPI:
         saved_need_data = sample_service_data.copy()
         saved_need_data["title"] = "Saved need"
         saved_need_data["service_type"] = "need"
+        saved_need_data["estimated_duration"] = 0.5
         saved_need = await service_service.create_service(
             ServiceCreate(**saved_need_data),
             str(second_user.id),

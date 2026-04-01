@@ -113,8 +113,7 @@ export function Profile() {
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const [showRejectedRequestsDialog, setShowRejectedRequestsDialog] =
-    useState(false);
+  const [, setShowRejectedRequestsDialog] = useState(false);
   const [myservicesCounts, setMyservicesCounts] = useState({
     services: 0,
     applications: 0,
@@ -208,7 +207,7 @@ export function Profile() {
   const averageRating = ratingsData?.data?.average_score ?? null;
   const ratingCount = ratingsData?.data?.total ?? 0;
 
-  let rejectedRequests = rejectedRequestsData?.data.requests || [];
+  const rejectedRequests = rejectedRequestsData?.data.requests || [];
   const recentRejectedCount = rejectedRequests.filter((req: JoinRequest) => {
     const rejectedDate = new Date(req.updated_at);
     const daysSinceRejected =

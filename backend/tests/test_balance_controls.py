@@ -92,14 +92,14 @@ class TestEffectiveMaxBalance:
 
     @pytest.mark.asyncio
     async def test_base_case_no_pending_activities(self, mock_db):
-        user = await _make_user(mock_db, "u1", "u1@test.com", balance=3.0)
+        user = await _make_user(mock_db, "usr1", "u1@test.com", balance=3.0)
         svc = UserService(mock_db)
         result = await svc.get_effective_max_balance(str(user.id))
         assert result == 3.0
 
     @pytest.mark.asyncio
     async def test_own_active_offer_adds_to_max(self, mock_db):
-        user = await _make_user(mock_db, "u1", "u1@test.com", balance=3.0)
+        user = await _make_user(mock_db, "usr1", "u1@test.com", balance=3.0)
         # Insert an active offer (4 hours)
         await mock_db.services.insert_one({
             "user_id": ObjectId(str(user.id)),
@@ -115,7 +115,7 @@ class TestEffectiveMaxBalance:
 
     @pytest.mark.asyncio
     async def test_pending_jr_on_need_adds_to_max(self, mock_db):
-        user = await _make_user(mock_db, "u1", "u1@test.com", balance=3.0)
+        user = await _make_user(mock_db, "usr1", "u1@test.com", balance=3.0)
         owner = await _make_user(mock_db, "owner", "owner@test.com", balance=3.0)
 
         # Create a need owned by owner (user will apply → earns hours)
@@ -143,7 +143,7 @@ class TestEffectiveMaxBalance:
     @pytest.mark.asyncio
     async def test_pending_jr_on_offer_does_not_add_to_max(self, mock_db):
         """Applying to an offer costs hours, so it should not increase max."""
-        user = await _make_user(mock_db, "u1", "u1@test.com", balance=3.0)
+        user = await _make_user(mock_db, "usr1", "u1@test.com", balance=3.0)
         owner = await _make_user(mock_db, "owner", "owner@test.com", balance=3.0)
 
         offer_id = (await mock_db.services.insert_one({
@@ -169,7 +169,7 @@ class TestEffectiveMaxBalance:
     @pytest.mark.asyncio
     async def test_approved_need_application_tx_adds_to_max(self, mock_db):
         """An approved (pending tx) need application counts toward effective_max."""
-        user = await _make_user(mock_db, "u1", "u1@test.com", balance=3.0)
+        user = await _make_user(mock_db, "usr1", "u1@test.com", balance=3.0)
         owner = await _make_user(mock_db, "owner", "owner@test.com", balance=3.0)
 
         need_id = (await mock_db.services.insert_one({
@@ -197,7 +197,7 @@ class TestEffectiveMaxBalance:
     @pytest.mark.asyncio
     async def test_completed_transaction_does_not_add_to_max(self, mock_db):
         """Completed transactions don't count — they're already reflected in balance."""
-        user = await _make_user(mock_db, "u1", "u1@test.com", balance=5.0)
+        user = await _make_user(mock_db, "usr1", "u1@test.com", balance=5.0)
         owner = await _make_user(mock_db, "owner", "owner@test.com", balance=3.0)
 
         need_id = (await mock_db.services.insert_one({
@@ -228,14 +228,14 @@ class TestEffectiveMinBalance:
 
     @pytest.mark.asyncio
     async def test_base_case_no_pending_activities(self, mock_db):
-        user = await _make_user(mock_db, "u1", "u1@test.com", balance=3.0)
+        user = await _make_user(mock_db, "usr1", "u1@test.com", balance=3.0)
         svc = UserService(mock_db)
         result = await svc.get_effective_min_balance(str(user.id))
         assert result == 3.0
 
     @pytest.mark.asyncio
     async def test_own_active_need_reduces_min(self, mock_db):
-        user = await _make_user(mock_db, "u1", "u1@test.com", balance=3.0)
+        user = await _make_user(mock_db, "usr1", "u1@test.com", balance=3.0)
         await mock_db.services.insert_one({
             "user_id": ObjectId(str(user.id)),
             "service_type": "need",
@@ -251,7 +251,7 @@ class TestEffectiveMinBalance:
     @pytest.mark.asyncio
     async def test_pending_jr_on_offer_reduces_min(self, mock_db):
         """Applying to an offer costs hours, so it reduces effective_min."""
-        user = await _make_user(mock_db, "u1", "u1@test.com", balance=3.0)
+        user = await _make_user(mock_db, "usr1", "u1@test.com", balance=3.0)
         owner = await _make_user(mock_db, "owner", "owner@test.com", balance=3.0)
 
         offer_id = (await mock_db.services.insert_one({
@@ -277,7 +277,7 @@ class TestEffectiveMinBalance:
     @pytest.mark.asyncio
     async def test_pending_jr_on_need_does_not_reduce_min(self, mock_db):
         """Applying to a need earns hours, so it should not lower the min."""
-        user = await _make_user(mock_db, "u1", "u1@test.com", balance=3.0)
+        user = await _make_user(mock_db, "usr1", "u1@test.com", balance=3.0)
         owner = await _make_user(mock_db, "owner", "owner@test.com", balance=3.0)
 
         need_id = (await mock_db.services.insert_one({
@@ -303,7 +303,7 @@ class TestEffectiveMinBalance:
     @pytest.mark.asyncio
     async def test_approved_offer_application_tx_reduces_min(self, mock_db):
         """An approved offer-application transaction (pending tx) counts toward effective_min."""
-        user = await _make_user(mock_db, "u1", "u1@test.com", balance=5.0)
+        user = await _make_user(mock_db, "usr1", "u1@test.com", balance=5.0)
         owner = await _make_user(mock_db, "owner", "owner@test.com", balance=3.0)
 
         offer_id = (await mock_db.services.insert_one({
@@ -338,7 +338,7 @@ class TestCP1CreateOffer:
     @pytest.mark.asyncio
     async def test_create_offer_allowed_when_max_within_limit(self, mock_db):
         """User with 7h balance can open a 3h offer (7 + 3 == 10, not > 10)."""
-        user = await _make_user(mock_db, "u1", "u1@test.com", balance=7.0)
+        user = await _make_user(mock_db, "usr1", "u1@test.com", balance=7.0)
         svc = ServiceService(mock_db)
         service = await svc.create_service(ServiceCreate(**_offer_data(3.0)), str(user.id))
         assert service is not None
@@ -347,7 +347,7 @@ class TestCP1CreateOffer:
     @pytest.mark.asyncio
     async def test_create_offer_blocked_when_max_would_exceed_limit(self, mock_db):
         """User with 8h balance cannot open a 3h offer (8 + 3 > 10)."""
-        user = await _make_user(mock_db, "u1", "u1@test.com", balance=8.0)
+        user = await _make_user(mock_db, "usr1", "u1@test.com", balance=8.0)
         svc = ServiceService(mock_db)
         with pytest.raises(ValueError, match="10-hour limit"):
             await svc.create_service(ServiceCreate(**_offer_data(3.0)), str(user.id))
@@ -358,7 +358,7 @@ class TestCP1CreateOffer:
         Balance=3h + existing 6h active offer → effective_max=9h.
         New 2h offer would push it to 11h → block.
         """
-        user = await _make_user(mock_db, "u1", "u1@test.com", balance=3.0)
+        user = await _make_user(mock_db, "usr1", "u1@test.com", balance=3.0)
         await mock_db.services.insert_one({
             "user_id": ObjectId(str(user.id)),
             "service_type": "offer",
@@ -377,7 +377,7 @@ class TestCP1CreateOffer:
         Balance=3h + existing 4h active offer → effective_max=7h.
         New 2h offer → projected 9h ≤ 10h → allowed.
         """
-        user = await _make_user(mock_db, "u1", "u1@test.com", balance=3.0)
+        user = await _make_user(mock_db, "usr1", "u1@test.com", balance=3.0)
         await mock_db.services.insert_one({
             "user_id": ObjectId(str(user.id)),
             "service_type": "offer",
@@ -400,7 +400,7 @@ class TestCP2CreateNeed:
     @pytest.mark.asyncio
     async def test_create_need_allowed_when_min_stays_non_negative(self, mock_db):
         """User with 3h balance can open a 3h need (3 - 3 == 0, not < 0)."""
-        user = await _make_user(mock_db, "u1", "u1@test.com", balance=3.0)
+        user = await _make_user(mock_db, "usr1", "u1@test.com", balance=3.0)
         svc = ServiceService(mock_db)
         service = await svc.create_service(ServiceCreate(**_need_data(3.0)), str(user.id))
         assert service is not None
@@ -408,7 +408,7 @@ class TestCP2CreateNeed:
     @pytest.mark.asyncio
     async def test_create_need_blocked_when_min_would_go_negative(self, mock_db):
         """User with 2h balance cannot open a 3h need (2 - 3 < 0)."""
-        user = await _make_user(mock_db, "u1", "u1@test.com", balance=2.0)
+        user = await _make_user(mock_db, "usr1", "u1@test.com", balance=2.0)
         svc = ServiceService(mock_db)
         with pytest.raises(ValueError, match="projected minimum balance"):
             await svc.create_service(ServiceCreate(**_need_data(3.0)), str(user.id))
@@ -419,7 +419,7 @@ class TestCP2CreateNeed:
         Balance=3h + existing 2h active need → effective_min=1h.
         New 2h need → projected -1h < 0 → block.
         """
-        user = await _make_user(mock_db, "u1", "u1@test.com", balance=3.0)
+        user = await _make_user(mock_db, "usr1", "u1@test.com", balance=3.0)
         await mock_db.services.insert_one({
             "user_id": ObjectId(str(user.id)),
             "service_type": "need",
@@ -438,7 +438,7 @@ class TestCP2CreateNeed:
         Balance=5h + existing 2h active need → effective_min=3h.
         New 2h need → projected 1h ≥ 0 → allowed.
         """
-        user = await _make_user(mock_db, "u1", "u1@test.com", balance=5.0)
+        user = await _make_user(mock_db, "usr1", "u1@test.com", balance=5.0)
         await mock_db.services.insert_one({
             "user_id": ObjectId(str(user.id)),
             "service_type": "need",
@@ -461,8 +461,8 @@ class TestCP3JoinRequestToNeed:
     @pytest.mark.asyncio
     async def test_join_need_allowed_when_max_within_limit(self, mock_db):
         """Applicant with 5h balance applies to a 4h need → projected 9h ≤ 10h → OK."""
-        applicant = await _make_user(mock_db, "ap", "ap@test.com", balance=5.0)
-        owner = await _make_user(mock_db, "ow", "ow@test.com", balance=3.0)
+        applicant = await _make_user(mock_db, "app", "ap@test.com", balance=5.0)
+        owner = await _make_user(mock_db, "own", "ow@test.com", balance=5.0)
 
         svc = ServiceService(mock_db)
         need = await svc.create_service(ServiceCreate(**_need_data(4.0, "Help needed")), str(owner.id))
@@ -478,8 +478,8 @@ class TestCP3JoinRequestToNeed:
     @pytest.mark.asyncio
     async def test_join_need_blocked_when_max_would_exceed_limit(self, mock_db):
         """Applicant with 8h balance cannot apply to a 3h need (8 + 3 > 10)."""
-        applicant = await _make_user(mock_db, "ap", "ap@test.com", balance=8.0)
-        owner = await _make_user(mock_db, "ow", "ow@test.com", balance=3.0)
+        applicant = await _make_user(mock_db, "app", "ap@test.com", balance=8.0)
+        owner = await _make_user(mock_db, "own", "ow@test.com", balance=5.0)
 
         svc = ServiceService(mock_db)
         need = await svc.create_service(ServiceCreate(**_need_data(3.0, "Help needed")), str(owner.id))
@@ -497,8 +497,8 @@ class TestCP3JoinRequestToNeed:
         Balance=3h + existing 6h active offer → effective_max=9h.
         Applying to a 2h need → projected 11h > 10 → block.
         """
-        applicant = await _make_user(mock_db, "ap", "ap@test.com", balance=3.0)
-        owner = await _make_user(mock_db, "ow", "ow@test.com", balance=3.0)
+        applicant = await _make_user(mock_db, "app", "ap@test.com", balance=3.0)
+        owner = await _make_user(mock_db, "own", "ow@test.com", balance=5.0)
 
         # Applicant already has a 6h active offer
         await mock_db.services.insert_one({
@@ -523,8 +523,8 @@ class TestCP3JoinRequestToNeed:
     @pytest.mark.asyncio
     async def test_join_need_allowed_when_projected_max_exactly_10(self, mock_db):
         """Projected max == 10 is allowed (not strictly greater)."""
-        applicant = await _make_user(mock_db, "ap", "ap@test.com", balance=6.0)
-        owner = await _make_user(mock_db, "ow", "ow@test.com", balance=3.0)
+        applicant = await _make_user(mock_db, "app", "ap@test.com", balance=6.0)
+        owner = await _make_user(mock_db, "own", "ow@test.com", balance=5.0)
 
         svc = ServiceService(mock_db)
         need = await svc.create_service(ServiceCreate(**_need_data(4.0, "Need help")), str(owner.id))
@@ -546,8 +546,8 @@ class TestCP4JoinRequestToOffer:
     @pytest.mark.asyncio
     async def test_join_offer_allowed_when_min_stays_non_negative(self, mock_db):
         """Applicant with 4h balance applies to a 4h offer → projected 0h ≥ 0 → OK."""
-        applicant = await _make_user(mock_db, "ap", "ap@test.com", balance=4.0)
-        owner = await _make_user(mock_db, "ow", "ow@test.com", balance=3.0)
+        applicant = await _make_user(mock_db, "app", "ap@test.com", balance=4.0)
+        owner = await _make_user(mock_db, "own", "ow@test.com", balance=5.0)
 
         svc = ServiceService(mock_db)
         offer = await svc.create_service(ServiceCreate(**_offer_data(4.0, "I can help")), str(owner.id))
@@ -563,8 +563,8 @@ class TestCP4JoinRequestToOffer:
     @pytest.mark.asyncio
     async def test_join_offer_blocked_when_min_would_go_negative(self, mock_db):
         """Applicant with 2h balance cannot apply to a 3h offer (2 - 3 < 0)."""
-        applicant = await _make_user(mock_db, "ap", "ap@test.com", balance=2.0)
-        owner = await _make_user(mock_db, "ow", "ow@test.com", balance=3.0)
+        applicant = await _make_user(mock_db, "app", "ap@test.com", balance=2.0)
+        owner = await _make_user(mock_db, "own", "ow@test.com", balance=5.0)
 
         svc = ServiceService(mock_db)
         offer = await svc.create_service(ServiceCreate(**_offer_data(3.0, "I can help")), str(owner.id))
@@ -582,8 +582,8 @@ class TestCP4JoinRequestToOffer:
         Balance=3h + existing 2h active need → effective_min=1h.
         Applying to a 2h offer → projected -1h < 0 → block.
         """
-        applicant = await _make_user(mock_db, "ap", "ap@test.com", balance=3.0)
-        owner = await _make_user(mock_db, "ow", "ow@test.com", balance=3.0)
+        applicant = await _make_user(mock_db, "app", "ap@test.com", balance=3.0)
+        owner = await _make_user(mock_db, "own", "ow@test.com", balance=5.0)
 
         # Applicant already has a 2h active need
         await mock_db.services.insert_one({
@@ -611,8 +611,8 @@ class TestCP4JoinRequestToOffer:
         Even when applicant has enough balance, if the provider's effective_max
         is at the limit (and they have no needs), the request is blocked.
         """
-        applicant = await _make_user(mock_db, "ap", "ap@test.com", balance=5.0)
-        owner = await _make_user(mock_db, "ow", "ow@test.com", balance=10.0)  # at the cap
+        applicant = await _make_user(mock_db, "app", "ap@test.com", balance=5.0)
+        owner = await _make_user(mock_db, "own", "ow@test.com", balance=10.0)  # at the cap
 
         svc = ServiceService(mock_db)
         # Owner cannot create a new offer (effective_max already at 10),
@@ -651,7 +651,7 @@ class TestCP5ApproveNeedJoinRequest:
         Returns (owner, applicant, need_id, jr_id).
         """
         owner = await _make_user(mock_db, "owner", "owner@test.com", balance=3.0)
-        applicant = await _make_user(mock_db, "ap", "ap@test.com", balance=applicant_balance)
+        applicant = await _make_user(mock_db, "app", "ap@test.com", balance=applicant_balance)
 
         need_id = (await mock_db.services.insert_one({
             "user_id": ObjectId(str(owner.id)),
@@ -773,7 +773,7 @@ class TestCP5ApproveNeedJoinRequest:
         Applicant here has 10h balance but is the requester (spender), not the earner.
         """
         owner = await _make_user(mock_db, "owner", "owner@test.com", balance=3.0)
-        applicant = await _make_user(mock_db, "ap", "ap@test.com", balance=10.0)
+        applicant = await _make_user(mock_db, "app", "ap@test.com", balance=10.0)
 
         offer_id = (await mock_db.services.insert_one({
             "user_id": ObjectId(str(owner.id)),
