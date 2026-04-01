@@ -92,7 +92,7 @@ export function SavedServicesTab({
             <div className="prose-content card-description">
               <ReactMarkdown
                 components={{
-                  a: ({ node, ...props }) => (
+                  a: ({ node: _node, ...props }) => (
                     <a {...props} target="_blank" rel="noopener noreferrer" />
                   ),
                 }}

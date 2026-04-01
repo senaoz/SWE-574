@@ -162,7 +162,8 @@ class JoinRequestService:
             requests = []
             async for request_doc in cursor:
                 # Get service info for each request
-                service = await self.services_collection.find_one({"_id": request_doc["service_id"]})
+                _svc_id = request_doc["service_id"]
+                service = await self.services_collection.find_one({"_id": ObjectId(_svc_id) if not isinstance(_svc_id, ObjectId) else _svc_id})
                 if service:
                     request_doc["service"] = {
                         "id": str(service["_id"]),
@@ -186,7 +187,8 @@ class JoinRequestService:
                 raise ValueError("Join request not found")
             
             # Get the service to check if user is the owner
-            service = await self.services_collection.find_one({"_id": request_doc["service_id"]})
+            svc_id = request_doc["service_id"]
+            service = await self.services_collection.find_one({"_id": ObjectId(svc_id) if not isinstance(svc_id, ObjectId) else svc_id})
             if not service:
                 raise ValueError("Service not found")
             
@@ -287,16 +289,18 @@ class JoinRequestService:
                 if not isinstance(user_id_to_add, ObjectId):
                     user_id_to_add = ObjectId(user_id_to_add)
                 
+                _svc_id_for_update = request_doc["service_id"]
+                _svc_oid = ObjectId(_svc_id_for_update) if not isinstance(_svc_id_for_update, ObjectId) else _svc_id_for_update
                 update_result = await self.services_collection.update_one(
-                    {"_id": request_doc["service_id"]},
+                    {"_id": _svc_oid},
                     {
                         "$addToSet": {"matched_user_ids": user_id_to_add},
                         "$set": {"updated_at": datetime.utcnow()}
                     }
                 )
-                
+
                 # Fetch updated service to verify the change
-                updated_service = await self.services_collection.find_one({"_id": request_doc["service_id"]})
+                updated_service = await self.services_collection.find_one({"_id": _svc_oid})
                 print(f"matched_user_ids after: {updated_service.get('matched_user_ids', [])}")
                 print(f"Update result - matched: {update_result.matched_count}, modified: {update_result.modified_count}")
                 

@@ -673,7 +673,7 @@ export function ServiceDetail() {
           <div className="mb-6 prose-content space-y-2">
             <ReactMarkdown
               components={{
-                img: ({ node, ...props }) => (
+                img: ({ node: _node, ...props }) => (
                   <img
                     {...props}
                     alt={props.alt || "Service description image"}
@@ -684,7 +684,7 @@ export function ServiceDetail() {
                     }}
                   />
                 ),
-                a: ({ node, ...props }) => (
+                a: ({ node: _node, ...props }) => (
                   <a {...props} target="_blank" rel="noopener noreferrer" />
                 ),
               }}
@@ -1002,7 +1002,7 @@ export function ServiceDetail() {
                           <div className="prose-content card-description">
                             <ReactMarkdown
                               components={{
-                                a: ({ node, ...props }) => (
+                                a: ({ node: _node, ...props }) => (
                                   <a
                                     {...props}
                                     target="_blank"

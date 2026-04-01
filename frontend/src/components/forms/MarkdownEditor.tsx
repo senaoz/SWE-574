@@ -53,7 +53,7 @@ export function MarkdownEditor({
             {value ? (
               <ReactMarkdown
                 components={{
-                  img: ({ node, ...props }) => (
+                  img: ({ node: _node, ...props }) => (
                     <img
                       className="my-4 w-full h-auto rounded-xl mx-auto"
                       {...props}
@@ -67,7 +67,7 @@ export function MarkdownEditor({
                       }}
                     />
                   ),
-                  a: ({ node, ...props }) => (
+                  a: ({ node: _node, ...props }) => (
                     <a
                       {...props}
                       target="_blank"

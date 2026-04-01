@@ -9,7 +9,6 @@ import {
 } from "@radix-ui/themes";
 import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
 import { SearchBar } from "@/components/ui/SearchBar";
-import { CityFilter } from "@/components/ui/CityFilter";
 import { useTheme } from "@/App";
 import { useFilters } from "@/contexts/FilterContext";
 import { useUser } from "@/contexts/UserContext";
@@ -27,24 +26,12 @@ import {
 import { MessageCircleIcon } from "lucide-react";
 import { NotificationBell } from "@/components/ui/NotificationBell";
 
-export const useScroll = (threshold: number) => {
-  const [scrolled, setScrolled] = useState(false);
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > threshold);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [threshold, scrolled]);
-  return scrolled;
-};
-
 export function Header() {
   const navigate = useNavigate();
   const { appearance, toggleAppearance } = useTheme();
-  const { selectedCity, setSelectedCity, setSearchQuery } = useFilters();
+  const { setSearchQuery } = useFilters();
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const { user } = useUser();
-
-  const scrolled = useScroll(25);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -206,7 +193,6 @@ function LoginDialog({
           <RegisterForm
             setLoginDialogOpen={setLoginDialogOpen}
             onSwitchToLogin={() => setMode("login")}
-            embedded
           />
         )}
       </Dialog.Content>

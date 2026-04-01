@@ -24,8 +24,8 @@ import {
   PersonIcon,
 } from "@radix-ui/react-icons";
 import { MessageCircleIcon, CalendarClockIcon } from "lucide-react";
-import { forumApi, servicesApi, getImageUrl } from "@/services/api";
-import { ForumDiscussion, ForumEvent, TagEntity, Service } from "@/types";
+import { forumApi, getImageUrl } from "@/services/api";
+import { ForumDiscussion, ForumEvent, TagEntity } from "@/types";
 import { TagAutocomplete } from "@/components/forms/TagAutocomplete";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import { MarkdownEditor } from "@/components/forms/MarkdownEditor";
@@ -204,7 +204,7 @@ export function Forum() {
                       <div className="mt-1 prose-content card-description">
 	                        <ReactMarkdown
 	                          components={{
-	                            a: ({ node, ...props }) => (
+	                            a: ({ node: _node, ...props }) => (
 	                              <a
 	                                {...props}
 	                                target="_blank"
@@ -286,7 +286,7 @@ export function Forum() {
                   <div className="prose-content card-description">
 	                    <ReactMarkdown
 	                      components={{
-	                        a: ({ node, ...props }) => (
+	                        a: ({ node: _node, ...props }) => (
 	                          <a
 	                            {...props}
 	                            target="_blank"
@@ -493,17 +493,6 @@ function NewEventDialog({
   const [serviceId, setServiceId] = useState("__none__");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [myServices, setMyServices] = useState<Service[]>([]);
-  useEffect(() => {
-    if (open) {
-      servicesApi
-        .getServices({ limit: 100 })
-        .then((r) => {
-          setMyServices(r.data.services || []);
-        })
-        .catch(() => {});
-    }
-  }, [open]);
   const reset = () => {
     setTitle("");
     setDescription("");
