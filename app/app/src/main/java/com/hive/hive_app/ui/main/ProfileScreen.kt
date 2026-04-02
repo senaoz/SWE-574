@@ -17,6 +17,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,6 +38,8 @@ import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Label
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -60,21 +65,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.viewinterop.AndroidView
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import android.location.Geocoder
-import org.osmdroid.config.Configuration
-import org.osmdroid.util.GeoPoint
-import org.osmdroid.views.MapView
-import org.osmdroid.tileprovider.tilesource.XYTileSource
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.compose.material3.Surface
-import androidx.compose.ui.window.Dialog
 import java.util.Locale
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -89,10 +80,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.hive.hive_app.data.api.dto.BadgesResponse
+import com.hive.hive_app.data.api.dto.RatingListResponse
 import com.hive.hive_app.data.api.dto.SocialLinks
 import com.hive.hive_app.data.api.dto.TimeBankResponse
 import com.hive.hive_app.data.api.dto.UserResponse
-import com.hive.hive_app.util.formatApplicationDate
+import com.hive.hive_app.util.formatMemberJoinDate
+import com.hive.hive_app.util.formatMemberSinceDuration
 import androidx.compose.ui.graphics.vector.ImageVector
 
 @Composable
@@ -101,33 +94,29 @@ fun ProfileScreen(
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = hiltViewModel(),
     onOpenSaved: (() -> Unit)? = null,
-    onOpenNotifications: (() -> Unit)? = null
+    onOpenNotifications: (() -> Unit)? = null,
+    onOpenRatings: (userId: String) -> Unit = { },
+    onOpenEditProfile: () -> Unit = {}
 ) {
     val profile by viewModel.profile.collectAsState()
     val timeBank by viewModel.timeBank.collectAsState()
     val badges by viewModel.badges.collectAsState()
+    val ratingsSummary by viewModel.ratingsSummary.collectAsState()
+    val ratingTopTags by viewModel.ratingTopTags.collectAsState()
     val availableInterests by viewModel.availableInterests.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
-    var showEditProfile by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var showChangePassword by remember { mutableStateOf(false) }
     var showDeleteAccount by remember { mutableStateOf(false) }
 
+    val scrollState = rememberScrollState()
+    val coroutineScope = rememberCoroutineScope()
+    val badgesSectionRequester = remember { BringIntoViewRequester() }
+
     LaunchedEffect(Unit) { viewModel.load() }
 
-    if (showEditProfile && profile != null) {
-        EditProfileDialog(
-            profile = profile!!,
-            availableInterests = availableInterests,
-            onDismiss = { showEditProfile = false },
-            onSave = { update ->
-                viewModel.updateProfile(update)
-                showEditProfile = false
-            }
-        )
-    }
     if (showSettings && profile != null) {
         SettingsDialog(
             profile = profile!!,
@@ -183,7 +172,7 @@ fun ProfileScreen(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState)
             ) {
                 profile?.let { user ->
                     Spacer(Modifier.height(12.dp))
@@ -191,9 +180,15 @@ fun ProfileScreen(
                     // 1. Profile header – photo, name, stats
                     ProfileHeaderCard(
                         user = user,
-                        timeBank = timeBank,
+                        ratingsSummary = ratingsSummary,
                         badges = badges,
-                        onEditProfile = { showEditProfile = true }
+                        onEditProfile = onOpenEditProfile,
+                        onOpenRatings = { onOpenRatings(user._id) },
+                        onScrollToBadges = {
+                            coroutineScope.launch {
+                                badgesSectionRequester.bringIntoView()
+                            }
+                        }
                     )
 
                     // Saved services (if callback provided)
@@ -276,11 +271,18 @@ fun ProfileScreen(
                         emptyMessage = "No bio added yet."
                     )
 
+                    Spacer(Modifier.height(12.dp))
+                    ProfileRatingSummaryCard(
+                        ratingsSummary = ratingsSummary,
+                        topTags = ratingTopTags,
+                        onOpenRatings = { onOpenRatings(user._id) }
+                    )
+
                     // 3. Location section – click to see on map when set
                     Spacer(Modifier.height(12.dp))
                     LocationSectionCard(
                         location = user.location?.takeIf { it.isNotBlank() },
-                        onEditProfile = { showEditProfile = true }
+                        onEditProfile = onOpenEditProfile
                     )
 
                     // 4. Interests section – pills with icons and colors
@@ -297,7 +299,9 @@ fun ProfileScreen(
 
                     // 7. Badges card (always show)
                     Spacer(Modifier.height(12.dp))
-                    BadgesCard(badges = badges)
+                    Box(Modifier.bringIntoViewRequester(badgesSectionRequester)) {
+                        BadgesCard(badges = badges)
+                    }
 
                     // 8. Settings – clickable card to open and modify
                     Spacer(Modifier.height(12.dp))
@@ -323,12 +327,17 @@ fun ProfileScreen(
 @Composable
 private fun ProfileHeaderCard(
     user: UserResponse,
-    timeBank: TimeBankResponse?,
+    ratingsSummary: RatingListResponse?,
     badges: BadgesResponse?,
-    onEditProfile: () -> Unit
+    onEditProfile: () -> Unit,
+    onOpenRatings: () -> Unit,
+    onScrollToBadges: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.5.dp, ProfileRatingSummaryLime, RoundedCornerShape(12.dp)),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column(
@@ -436,22 +445,27 @@ private fun ProfileHeaderCard(
 
             Spacer(Modifier.height(12.dp))
 
-            // Stats row – hours, badges, member since
+            // Stats row – rating, badges, member since
+            val totalRates = ratingsSummary?.total ?: 0
+            val avg = ratingsSummary?.averageScore
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 ProfileStat(
-                    label = "Hours",
-                    value = String.format("%.1f", timeBank?.balance ?: user.timebankBalance)
+                    label = if (totalRates > 0) "$totalRates ratings" else "Rating",
+                    value = if (totalRates > 0 && avg != null) String.format("%.1f", avg) else "—",
+                    onClick = onOpenRatings
                 )
                 ProfileStat(
                     label = "Badges",
-                    value = "${badges?.earnedCount ?: 0}/${badges?.totalCount ?: 0}"
+                    value = "${badges?.earnedCount ?: 0}/${badges?.totalCount ?: 0}",
+                    onClick = onScrollToBadges
                 )
                 ProfileStat(
                     label = "Member",
-                    value = formatApplicationDate(user.createdAt)
+                    value = formatMemberJoinDate(user.createdAt).ifBlank { "—" },
+                    onClick = null
                 )
             }
 
@@ -470,8 +484,9 @@ private fun ProfileHeaderCard(
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
+                    val memberDuration = formatMemberSinceDuration(user.createdAt)
                     Text(
-                        text = "Member since ${formatApplicationDate(user.createdAt)}",
+                        text = if (memberDuration.isNotBlank()) "Member for $memberDuration" else "Member",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -483,8 +498,18 @@ private fun ProfileHeaderCard(
 }
 
 @Composable
-private fun ProfileStat(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun ProfileStat(
+    label: String,
+    value: String,
+    onClick: (() -> Unit)? = null
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .then(
+                if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
+            )
+    ) {
         Text(
             text = value,
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -730,6 +755,7 @@ private fun SocialLinksSectionCard(links: SocialLinks?) {
 
 @Composable
 private fun TimeBankCard(timeBank: com.hive.hive_app.data.api.dto.TimeBankResponse?) {
+    var transactionsExpanded by remember { mutableStateOf(false) }
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -742,30 +768,73 @@ private fun TimeBankCard(timeBank: com.hive.hive_app.data.api.dto.TimeBankRespon
             )
             if (timeBank != null) {
                 Text(
-                    text = "Balance: ${timeBank.balance} hours",
+                    text = "Balance: ${String.format("%.1f", timeBank.balance)} h",
                     style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                timeBank.maxBalance?.let { Text(text = "Max: $it hours", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                timeBank.canEarn?.let { Text(text = if (it) "Can earn" else "At cap", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                timeBank.maxBalance?.let {
+                    Text(
+                        text = "Max: ${String.format("%.1f", it)} h",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                timeBank.canEarn?.let {
+                    Text(
+                        text = if (it) "Can earn" else "At cap",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 if (timeBank.transactions.isNotEmpty()) {
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(10.dp))
                     HorizontalDivider()
                     Spacer(Modifier.height(8.dp))
-                    Text(text = "Recent transactions", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    timeBank.transactions.take(10).forEach { tx ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(text = tx.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
-                            Text(
-                                text = "${if (tx.amount >= 0) "+" else ""}${tx.amount}h",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (tx.amount >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                            )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { transactionsExpanded = !transactionsExpanded },
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Recent transactions (${timeBank.transactions.size})",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Icon(
+                            imageVector = if (transactionsExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                            contentDescription = if (transactionsExpanded) "Collapse" else "Expand",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (transactionsExpanded) {
+                        Spacer(Modifier.height(8.dp))
+                        timeBank.transactions.take(10).forEach { tx ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = tx.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = "${if (tx.amount >= 0) "+" else ""}${String.format("%.1f", tx.amount)} h",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (tx.amount >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                    maxLines = 1,
+                                    modifier = Modifier.widthIn(min = 52.dp)
+                                )
+                            }
                         }
-                        Text(text = formatApplicationDate(tx.createdAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             } else {
@@ -819,83 +888,92 @@ private fun BadgesCard(badges: com.hive.hive_app.data.api.dto.BadgesResponse?) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    displayedBadges.forEach { badge ->
-                        val isEarned = badge.earned
-                        val tint = if (isEarned) earnedColor else unearnedColor
-                        Card(
-                            modifier = Modifier
-                                .width(160.dp)
-                                .then(
-                                    if (isEarned) Modifier.border(1.5.dp, earnedColor, RoundedCornerShape(12.dp))
-                                    else Modifier
-                                ),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Column(Modifier.padding(12.dp)) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(CircleShape)
-                                        .background(tint.copy(alpha = 0.2f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = badgeIcon(badge.key),
-                                        contentDescription = null,
-                                        tint = tint,
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                }
-                                Spacer(Modifier.height(8.dp))
-                                Text(
-                                    text = badge.name ?: badge.key ?: "Badge",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = tint
-                                )
-                                Text(
-                                    text = badge.description ?: "",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 2
-                                )
-                                Spacer(Modifier.height(6.dp))
-                                if (isEarned) {
-                                    Text(
-                                        text = "Earned",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = earnedColor
-                                    )
-                                } else {
-                                    badge.progress?.let { p ->
-                                        val target = p.target.toInt().takeIf { it > 0 } ?: 1
-                                        val current = p.current.toInt().coerceIn(0, target)
-                                        Text(
-                                            text = "$current/$target",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                displayedBadges.chunked(2).forEach { rowBadges ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        rowBadges.forEach { badge ->
+                            val isEarned = badge.earned
+                            val tint = if (isEarned) earnedColor else unearnedColor
+                            Card(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .then(
+                                        if (isEarned) Modifier.border(1.5.dp, earnedColor, RoundedCornerShape(12.dp))
+                                        else Modifier
+                                    ),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Column(Modifier.padding(12.dp)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(CircleShape)
+                                            .background(tint.copy(alpha = 0.2f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = badgeIcon(badge.key),
+                                            contentDescription = null,
+                                            tint = tint,
+                                            modifier = Modifier.size(22.dp)
                                         )
-                                        if (target > 0) {
-                                            Spacer(Modifier.height(4.dp))
-                                            LinearProgressIndicator(
-                                                progress = { (current.toFloat() / target).coerceIn(0f, 1f) },
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .height(4.dp)
-                                                    .clip(RoundedCornerShape(2.dp)),
-                                                color = earnedColor,
-                                                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                    }
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        text = badge.name ?: badge.key ?: "Badge",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = tint,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = badge.description ?: "",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Spacer(Modifier.height(6.dp))
+                                    if (isEarned) {
+                                        Text(
+                                            text = "Earned",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = earnedColor
+                                        )
+                                    } else {
+                                        badge.progress?.let { p ->
+                                            val target = p.target.toInt().takeIf { it > 0 } ?: 1
+                                            val current = p.current.toInt().coerceIn(0, target)
+                                            Text(
+                                                text = "$current/$target",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
+                                            if (target > 0) {
+                                                Spacer(Modifier.height(4.dp))
+                                                LinearProgressIndicator(
+                                                    progress = { (current.toFloat() / target).coerceIn(0f, 1f) },
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .height(4.dp)
+                                                        .clip(RoundedCornerShape(2.dp)),
+                                                    color = earnedColor,
+                                                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
+                        if (rowBadges.size == 1) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
                     }
+                    Spacer(Modifier.height(10.dp))
                 }
                 if (badgeList.isNotEmpty()) {
                     Spacer(Modifier.height(12.dp))
@@ -949,119 +1027,6 @@ private fun SettingsClickableCard(user: UserResponse, onClick: () -> Unit) {
             )
         }
     }
-}
-
-@Composable
-private fun EditProfileDialog(
-    profile: UserResponse,
-    availableInterests: List<String>,
-    onDismiss: () -> Unit,
-    onSave: (com.hive.hive_app.data.api.dto.UserUpdate) -> Unit
-) {
-    var username by remember(profile) { mutableStateOf(profile.username) }
-    var fullName by remember(profile) { mutableStateOf(profile.fullName ?: "") }
-    var bio by remember(profile) { mutableStateOf(profile.bio ?: "") }
-    var location by remember(profile) { mutableStateOf(profile.location ?: "") }
-    var showLocationPicker by remember { mutableStateOf(false) }
-    var selectedInterests by remember(profile) { mutableStateOf(profile.interests.orEmpty().toSet()) }
-    var linkedin by remember(profile) { mutableStateOf(profile.socialLinks?.linkedin ?: "") }
-    var github by remember(profile) { mutableStateOf(profile.socialLinks?.github ?: "") }
-    var twitter by remember(profile) { mutableStateOf(profile.socialLinks?.twitter ?: "") }
-    var website by remember(profile) { mutableStateOf(profile.socialLinks?.website ?: "") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Edit profile") },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.verticalScroll(rememberScrollState())
-            ) {
-                OutlinedTextField(value = username, onValueChange = { username = it }, label = { Text("Username") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = fullName, onValueChange = { fullName = it }, label = { Text("Full name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = bio, onValueChange = { bio = it }, label = { Text("Bio") }, minLines = 2, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(
-                    value = location,
-                    onValueChange = { location = it },
-                    label = { Text("Location (City & District)") },
-                    placeholder = { Text("e.g. Istanbul, Kadıköy") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedButton(onClick = { showLocationPicker = true }) {
-                    Icon(Icons.Filled.LocationOn, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Pick on map")
-                }
-                if (showLocationPicker) {
-                    LocationPickerDialog(
-                        onDismiss = { showLocationPicker = false },
-                        onPicked = { cityDistrict -> location = cityDistrict; showLocationPicker = false }
-                    )
-                }
-                Text("Interests", style = MaterialTheme.typography.labelMedium)
-                if (availableInterests.isNotEmpty()) {
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        availableInterests.forEach { interest ->
-                            val selected = interest in selectedInterests
-                            val (icon, tintColor) = interestStyle(interest)
-                            val bgColor = if (selected) tintColor.copy(alpha = 0.25f) else tintColor.copy(alpha = 0.12f)
-                            Row(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(bgColor)
-                                    .clickable {
-                                        selectedInterests = if (selected) selectedInterests - interest else selectedInterests + interest
-                                    }
-                                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Icon(
-                                    imageVector = icon,
-                                    contentDescription = null,
-                                    tint = tintColor,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Text(
-                                    text = if (selected) "✓ $interest" else interest,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = tintColor
-                                )
-                            }
-                        }
-                    }
-                }
-                Text("Social links", style = MaterialTheme.typography.labelMedium)
-                OutlinedTextField(value = linkedin, onValueChange = { linkedin = it }, label = { Text("LinkedIn") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = github, onValueChange = { github = it }, label = { Text("GitHub") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = twitter, onValueChange = { twitter = it }, label = { Text("Twitter") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = website, onValueChange = { website = it }, label = { Text("Website") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            }
-        },
-        confirmButton = {
-            Button(onClick = {
-                onSave(
-                    com.hive.hive_app.data.api.dto.UserUpdate(
-                        username = username,
-                        fullName = fullName.takeIf { it.isNotBlank() },
-                        bio = bio.takeIf { it.isNotBlank() },
-                        location = location.takeIf { it.isNotBlank() },
-                        interests = selectedInterests.toList().takeIf { it.isNotEmpty() },
-                        socialLinks = SocialLinks(
-                            linkedin = linkedin.takeIf { it.isNotBlank() },
-                            github = github.takeIf { it.isNotBlank() },
-                            twitter = twitter.takeIf { it.isNotBlank() },
-                            website = website.takeIf { it.isNotBlank() }
-                        ).takeIf { l -> listOf(l.linkedin, l.github, l.twitter, l.website).any { !it.isNullOrBlank() } }
-                    )
-                )
-            }) { Text("Save") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
-    )
 }
 
 @Composable
@@ -1148,110 +1113,4 @@ private fun DeleteAccountDialog(
         confirmButton = { Button(onClick = { onConfirm(password) }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
-}
-
-@Composable
-private fun LocationPickerDialog(
-    onDismiss: () -> Unit,
-    onPicked: (String) -> Unit
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var mapViewRef by remember { mutableStateOf<MapView?>(null) }
-    val lifecycleOwner = LocalLifecycleOwner.current
-
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(shape = RoundedCornerShape(16.dp)) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Select location (City & District)", style = MaterialTheme.typography.titleMedium)
-                Text("Pan the map so the pin is on your location, then tap Select.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(8.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(280.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                ) {
-                    AndroidView(
-                        factory = {
-                            Configuration.getInstance().load(it, it.getSharedPreferences("osmdroid", android.content.Context.MODE_PRIVATE))
-                            MapView(it).apply {
-                                setTileSource(
-                                    XYTileSource(
-                                        "Carto Voyager",
-                                        0, 18, 256, ".png",
-                                        arrayOf("https://a.basemaps.cartocdn.com/rastertiles/voyager/"),
-                                        "© CARTO"
-                                    )
-                                )
-                                setMultiTouchControls(true)
-                                controller.setZoom(10.0)
-                                controller.setCenter(GeoPoint(41.0082, 28.9784))
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize(),
-                        update = { map ->
-                            mapViewRef = map
-                            map.invalidate()
-                        }
-                    )
-                    Icon(
-                        imageVector = Icons.Filled.LocationOn,
-                        contentDescription = "Selected location",
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .size(48.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-                DisposableEffect(lifecycleOwner) {
-                    val observer = LifecycleEventObserver { _, event ->
-                        when (event) {
-                            Lifecycle.Event.ON_RESUME -> mapViewRef?.onResume()
-                            Lifecycle.Event.ON_PAUSE -> mapViewRef?.onPause()
-                            else -> {}
-                        }
-                    }
-                    lifecycleOwner.lifecycle.addObserver(observer)
-                    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-                }
-                Spacer(Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = onDismiss) { Text("Cancel") }
-                    Spacer(Modifier.width(8.dp))
-                    Button(onClick = {
-                        val center = mapViewRef?.boundingBox?.center ?: return@Button
-                        scope.launch {
-                            val result = withContext(Dispatchers.IO) {
-                                runCatching {
-                                    val geocoder = Geocoder(context, Locale.getDefault())
-                                    @Suppress("DEPRECATION")
-                                    val list = geocoder.getFromLocation(center.latitude, center.longitude, 1)
-                                    list?.firstOrNull()?.let { addr ->
-                                        // Prefer locality (city) first; then district/sublocality
-                                        val city = addr.locality
-                                            ?: addr.subLocality
-                                            ?: addr.adminArea
-                                            ?: ""
-                                        val district = addr.subAdminArea?.takeIf { it != city }
-                                            ?: addr.subLocality?.takeIf { it != city }
-                                            ?: ""
-                                        when {
-                                            city.isNotEmpty() && district.isNotEmpty() -> "$city, $district"
-                                            city.isNotEmpty() -> city
-                                            else -> district.ifEmpty { "Unknown" }
-                                        }
-                                    }
-                                }.getOrNull()
-                            }
-                            result?.let { onPicked(it) }
-                        }
-                    }) { Text("Select this location") }
-                }
-            }
-        }
-    }
 }
