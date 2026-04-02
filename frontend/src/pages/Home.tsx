@@ -1,4 +1,4 @@
-import { servicesApi } from "@/services/api";
+import { servicesApi, forumApi } from "@/services/api";
 import {
   Section,
   Button,
@@ -22,7 +22,7 @@ import { MessageCircleIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ServiceMap } from "@/components/map/ServiceMap";
 import { useState, useEffect } from "react";
-import { Service } from "@/types";
+import { Service, ForumEvent } from "@/types";
 import ReactMarkdown from "react-markdown";
 import { useSavedServiceIds } from "@/hooks/useSavedServiceIds";
 
@@ -34,6 +34,7 @@ export function Home() {
   const [recentOffers, setRecentOffers] = useState<Service[]>([]);
   const [recentNeeds, setRecentNeeds] = useState<Service[]>([]);
   const [allServices, setAllServices] = useState<Service[]>([]);
+  const [recentEvents, setRecentEvents] = useState<ForumEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const {
     currentUserId,
@@ -71,7 +72,7 @@ export function Home() {
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const [offersResponse, needsResponse] = await Promise.all([
+        const [offersResponse, needsResponse, eventsResponse] = await Promise.all([
           servicesApi.getServices({
             service_type: "offer",
             status: "active",
@@ -82,6 +83,7 @@ export function Home() {
             status: "active",
             limit: 4,
           }),
+          forumApi.getEvents({ limit: 4 }),
         ]);
 
         setRecentOffers(offersResponse.data.services || []);
