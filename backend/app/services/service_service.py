@@ -123,8 +123,44 @@ class ServiceService:
         # Normalize tags for backward compatibility
         if "tags" in service_doc:
             service_doc["tags"] = self._normalize_tags(service_doc["tags"])
+
+        if "is_saved" not in service_doc:
+            service_doc["is_saved"] = False
         
         return service_doc
+
+    def _apply_saved_state(
+        self,
+        service_doc: dict,
+        saved_service_ids: Optional[Set[str]] = None,
+    ) -> dict:
+        normalized_doc = self._normalize_service_doc(service_doc)
+        normalized_doc["is_saved"] = str(normalized_doc.get("_id")) in (
+            saved_service_ids or set()
+        )
+        return normalized_doc
+
+    async def _get_saved_service_ids_for_user(
+        self, user_id: Optional[str]
+    ) -> Set[str]:
+        if not user_id:
+            return set()
+        return await self._get_saved_service_ids(str(user_id))
+
+    async def _is_service_saved_by_user(
+        self, user_id: Optional[str], service_id: str
+    ) -> bool:
+        if not user_id or not service_id:
+            return False
+
+        existing = await self.saved_services_collection.find_one(
+            {
+                "user_id": str(user_id),
+                "service_id": str(service_id),
+            },
+            {"_id": 1},
+        )
+        return existing is not None
 
     def _normalize_object_id(self, value):
         if isinstance(value, ObjectId):
@@ -1044,20 +1080,37 @@ class ServiceService:
         except Exception as e:
             raise ValueError(f"Error creating service: {str(e)}")
 
-    async def get_service_by_id(self, service_id: str) -> Optional[ServiceResponse]:
+    async def get_service_by_id(
+        self,
+        service_id: str,
+        current_user_id: Optional[str] = None,
+    ) -> Optional[ServiceResponse]:
         """Get service by ID"""
         try:
             service_doc = await self.services_collection.find_one({"_id": ObjectId(service_id)})
             if service_doc:
                 service_doc = self._normalize_service_doc(service_doc)
+                service_doc["is_saved"] = await self._is_service_saved_by_user(
+                    current_user_id,
+                    service_id,
+                )
                 return ServiceResponse(**service_doc)
             return None
         except Exception:
             return None
-
-    async def get_services(self, filters: ServiceFilters, page: int, limit: int) -> Tuple[List[ServiceResponse], int]:
+    
+    async def get_services(
+        self,
+        filters: ServiceFilters,
+        page: int,
+        limit: int,
+        current_user_id: Optional[str] = None,
+    ) -> Tuple[List[ServiceResponse], int]:
         """Get services with filters and pagination"""
         try:
+            saved_service_ids = await self._get_saved_service_ids_for_user(
+                current_user_id
+            )
             # Build MongoDB query
             query = {}
             
@@ -1160,8 +1213,10 @@ class ServiceService:
                 async for service_doc in services_cursor:
                     # Remove the distance field added by geoNear
                     service_doc.pop("distance", None)
-                    # Normalize service document
-                    service_doc = self._normalize_service_doc(service_doc)
+                    service_doc = self._apply_saved_state(
+                        service_doc,
+                        saved_service_ids,
+                    )
                     services.append(ServiceResponse(**service_doc))
                 
                 # Get total count
@@ -1181,8 +1236,10 @@ class ServiceService:
                 
                 services = []
                 async for service_doc in cursor:
-                    # Normalize service document
-                    service_doc = self._normalize_service_doc(service_doc)
+                    service_doc = self._apply_saved_state(
+                        service_doc,
+                        saved_service_ids,
+                    )
                     services.append(ServiceResponse(**service_doc))
                 
                 return services, total
@@ -1227,7 +1284,7 @@ class ServiceService:
             
             update_data = {k: v for k, v in service_update.dict().items() if v is not None}
             if not update_data:
-                return await self.get_service_by_id(service_id)
+                return await self.get_service_by_id(service_id, user_id)
 
             _ensure_non_offensive(update_data.get("title"), "Title")
             _ensure_non_offensive(update_data.get("description"), "Description")
@@ -1249,7 +1306,7 @@ class ServiceService:
             )
             
             if result.modified_count:
-                updated_service = await self.get_service_by_id(service_id)
+                updated_service = await self.get_service_by_id(service_id, user_id)
                 
                 # Check if deadline has passed after update
                 if updated_service.deadline:

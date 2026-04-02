@@ -54,6 +54,7 @@ import { ClickableTag } from "@/components/ui/ClickableTag";
 import { ReportDialog } from "@/components/ui/ReportDialog";
 import { EditServiceDialog } from "@/components/forms/EditServiceDialog";
 import ReactMarkdown from "react-markdown";
+import { useSavedServiceIds } from "@/hooks/useSavedServiceIds";
 
 const getTagLabels = (service: Service) =>
   new Set(
@@ -208,12 +209,7 @@ export function ServiceDetail() {
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const { currentUserId, user: currentUser } = useUser();
   const queryClient = useQueryClient();
-  const { data: savedIdsData } = useQuery({
-    queryKey: ["saved-service-ids"],
-    queryFn: () => servicesApi.getSavedServiceIds().then((res) => res.data),
-    enabled: !!currentUserId,
-    retry: false,
-  });
+  const { savedServiceIds } = useSavedServiceIds();
 
   const {
     data: potentialMatchesData,
@@ -234,12 +230,11 @@ export function ServiceDetail() {
     retry: false,
   });
 
-  const isSaved = id
-    ? (savedIdsData?.service_ids?.includes(id) ?? false)
-    : false;
+  const isSaved = service?.is_saved ?? (id ? savedServiceIds.includes(id) : false);
   const saveMutation = useMutation({
     mutationFn: (serviceId: string) => servicesApi.saveService(serviceId),
     onSuccess: () => {
+      setService((prev) => (prev ? { ...prev, is_saved: true } : prev));
       queryClient.invalidateQueries({ queryKey: ["saved-service-ids"] });
       queryClient.invalidateQueries({ queryKey: ["saved-services"] });
     },
@@ -247,6 +242,7 @@ export function ServiceDetail() {
   const unsaveMutation = useMutation({
     mutationFn: (serviceId: string) => servicesApi.unsaveService(serviceId),
     onSuccess: () => {
+      setService((prev) => (prev ? { ...prev, is_saved: false } : prev));
       queryClient.invalidateQueries({ queryKey: ["saved-service-ids"] });
       queryClient.invalidateQueries({ queryKey: ["saved-services"] });
     },
@@ -484,7 +480,7 @@ export function ServiceDetail() {
       ? buildLocalPotentialMatches(
           service,
           potentialMatchFallbackServices,
-          savedIdsData?.service_ids ?? [],
+          savedServiceIds,
           4,
         )
       : [];

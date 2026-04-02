@@ -157,6 +157,7 @@ export interface TagEntity {
 export interface Service {
   _id: string;
   user_id: string;
+  is_saved?: boolean;
   title: string;
   description: string;
   category: string;
