@@ -1,4 +1,4 @@
-import { forumApi, servicesApi } from "@/services/api";
+import { servicesApi, forumApi } from "@/services/api";
 import {
   Section,
   Button,
@@ -11,13 +11,20 @@ import {
   Grid,
   Container,
 } from "@radix-ui/themes";
-import { ClockIcon, GlobeIcon, CheckIcon } from "@radix-ui/react-icons";
+import {
+  ClockIcon,
+  GlobeIcon,
+  CheckIcon,
+  HeartIcon,
+  HeartFilledIcon,
+} from "@radix-ui/react-icons";
 import { MessageCircleIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ServiceMap } from "@/components/map/ServiceMap";
 import { useState, useEffect } from "react";
 import { ForumEvent, Service } from "@/types";
 import ReactMarkdown from "react-markdown";
+import { useSavedServiceIds } from "@/hooks/useSavedServiceIds";
 
 // @ts-ignore
 import handshakeIcon from "../assets/handshakeIcon.png";
@@ -26,35 +33,88 @@ export function Home() {
   const navigate = useNavigate();
   const [recentOffers, setRecentOffers] = useState<Service[]>([]);
   const [recentNeeds, setRecentNeeds] = useState<Service[]>([]);
-  const [loading, setLoading] = useState(true);
   const [recentEvents, setRecentEvents] = useState<ForumEvent[]>([]);
+  const [allServices, setAllServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [savedStateOverrides, setSavedStateOverrides] = useState<
+    Record<string, boolean>
+  >({});
+  const {
+    currentUserId,
+    isSaved: isServiceSaved,
+    saveService,
+    unsaveService,
+    isSavingService,
+    isUnsavingService,
+  } = useSavedServiceIds();
+
+  const getResolvedSavedState = (service: Service | string) => {
+    return isServiceSaved(service);
+  };
+
+  const handleSavedBadgeClick =
+    (serviceId: string) =>
+    async (event: React.MouseEvent | React.KeyboardEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (
+        !currentUserId ||
+        isSavingService(serviceId) ||
+        isUnsavingService(serviceId)
+      ) {
+        return;
+      }
+
+      const previousSavedState = getResolvedSavedState(serviceId);
+
+      try {
+        if (previousSavedState) {
+          await unsaveService(serviceId);
+        } else {
+          await saveService(serviceId);
+        }
+      } catch (error) {
+        setSavedStateOverrides((current) => ({
+          ...current,
+          [serviceId]: previousSavedState,
+        }));
+        console.error("Error toggling saved service:", error);
+      }
+    };
+
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const [offersResponse, needsResponse, eventsResponse] =
-          await Promise.all([
-            servicesApi.getServices({
-              service_type: "offer",
-              status: "active",
-              limit: 4,
-            }),
-            servicesApi.getServices({
-              service_type: "need",
-              status: "active",
-              limit: 4,
-            }),
-            forumApi.getEvents({
-              limit: 4,
-            }),
-          ]);
+        const [offersResponse, needsResponse, eventsResponse] = await Promise.all([
+          servicesApi.getServices({
+            service_type: "offer",
+            status: "active",
+            limit: 4,
+          }),
+          servicesApi.getServices({
+            service_type: "need",
+            status: "active",
+            limit: 4,
+          }),
+          forumApi.getEvents({
+            limit: 4,
+            has_location: true,
+          }),
+        ]);
 
         setRecentOffers(offersResponse.data.services || []);
         setRecentNeeds(needsResponse.data.services || []);
         setRecentEvents(eventsResponse.data.events.slice(0, 4) || []);
+        setAllServices(
+          (offersResponse.data.services || []).concat(
+            needsResponse.data.services || [],
+          ),
+        );
       } catch (error) {
         console.error("Error fetching services:", error);
         setRecentOffers([]);
         setRecentNeeds([]);
+        setAllServices([]);
       } finally {
         setLoading(false);
       }
@@ -203,7 +263,8 @@ export function Home() {
       </Section>
 
       <ServiceMap
-        services={recentOffers.concat(recentNeeds)}
+        services={allServices}
+        events={recentEvents}
         height="400px"
         sticky={false}
       />
@@ -279,24 +340,70 @@ export function Home() {
                     className="flex items-center justify-between p-3 rounded-xl hover:cursor-pointer hover:border transition-all duration-200"
                   >
                     <div className="flex flex-col gap-2">
-                      <Text className="font-medium">{service.title}</Text>
+                      <Flex align="center" gap="2" wrap="wrap">
+                        <Text className="font-medium">{service.title}</Text>
+                        {currentUserId && (
+                          <Badge
+                            color={
+                              getResolvedSavedState(service) ? "red" : "gray"
+                            }
+                            variant="soft"
+                            className={`inline-flex items-center gap-1 ${
+                              !isSavingService(service._id) &&
+                              !isUnsavingService(service._id)
+                                ? "cursor-pointer"
+                                : ""
+                            }`}
+                            onClick={handleSavedBadgeClick(service._id)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                void handleSavedBadgeClick(service._id)(event);
+                              }
+                            }}
+                            role="button"
+                            tabIndex={0}
+                            title={
+                              getResolvedSavedState(service)
+                                ? "Remove from saved items"
+                                : "Save this item"
+                            }
+                            aria-disabled={
+                              isSavingService(service._id) ||
+                              isUnsavingService(service._id)
+                            }
+                          >
+                            {getResolvedSavedState(service) ? (
+                              <HeartFilledIcon className="h-3 w-3" />
+                            ) : (
+                              <HeartIcon className="h-3 w-3" />
+                            )}
+                            {isSavingService(service._id)
+                              ? "Saving..."
+                              : isUnsavingService(service._id)
+                                ? "Removing..."
+                                : getResolvedSavedState(service)
+                                  ? "Saved"
+                                  : "Save"}
+                          </Badge>
+                        )}
+                      </Flex>
                       <div className="prose-content card-description">
                         <ReactMarkdown
                           components={{
-                            a: ({ node, ...props }) => (
+                            a: ({ node: _node, ...props }) => (
                               <a
                                 {...props}
                                 target="_blank"
                                 rel="noopener noreferrer"
                               />
                             ),
-                            h1: ({ node, ...props }) => (
+                            h1: ({ node: _node, ...props }) => (
                               <h1 className="text-base font-bold" {...props} />
                             ),
-                            h2: ({ node, ...props }) => (
+                            h2: ({ node: _node, ...props }) => (
                               <h2 className="text-sm font-bold" {...props} />
                             ),
-                            h3: ({ node, ...props }) => (
+                            h3: ({ node: _node, ...props }) => (
                               <h3 className="text-xs font-bold" {...props} />
                             ),
                           }}
@@ -326,11 +433,57 @@ export function Home() {
                     className="flex items-center justify-between p-3 rounded-xl hover:cursor-pointer hover:border transition-all duration-200"
                   >
                     <div className="flex flex-col gap-2">
-                      <Text className="font-medium ">{service.title}</Text>
+                      <Flex align="center" gap="2" wrap="wrap">
+                        <Text className="font-medium">{service.title}</Text>
+                        {currentUserId && (
+                          <Badge
+                            color={
+                              getResolvedSavedState(service) ? "red" : "gray"
+                            }
+                            variant="soft"
+                            className={`inline-flex items-center gap-1 ${
+                              !isSavingService(service._id) &&
+                              !isUnsavingService(service._id)
+                                ? "cursor-pointer"
+                                : ""
+                            }`}
+                            onClick={handleSavedBadgeClick(service._id)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                void handleSavedBadgeClick(service._id)(event);
+                              }
+                            }}
+                            role="button"
+                            tabIndex={0}
+                            title={
+                              getResolvedSavedState(service)
+                                ? "Remove from saved items"
+                                : "Save this item"
+                            }
+                            aria-disabled={
+                              isSavingService(service._id) ||
+                              isUnsavingService(service._id)
+                            }
+                          >
+                            {getResolvedSavedState(service) ? (
+                              <HeartFilledIcon className="h-3 w-3" />
+                            ) : (
+                              <HeartIcon className="h-3 w-3" />
+                            )}
+                            {isSavingService(service._id)
+                              ? "Saving..."
+                              : isUnsavingService(service._id)
+                                ? "Removing..."
+                                : getResolvedSavedState(service)
+                                  ? "Saved"
+                                  : "Save"}
+                          </Badge>
+                        )}
+                      </Flex>
                       <div className="prose-content card-description">
                         <ReactMarkdown
                           components={{
-                            a: ({ node, ...props }) => (
+                            a: ({ node: _node, ...props }) => (
                               <a
                                 {...props}
                                 target="_blank"

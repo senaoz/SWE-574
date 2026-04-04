@@ -36,12 +36,19 @@ import {
   Crosshair1Icon,
   PersonIcon,
   Pencil1Icon,
+  TrashIcon,
 } from "@radix-ui/react-icons";
 import {
   AlertOctagonIcon,
   CalendarRangeIcon,
   MessageCircleIcon,
 } from "lucide-react";
+import {
+  calculateDistance,
+  formatDateLong,
+  formatDurationShort,
+  formatTime,
+} from "@/utils/utils";
 import { ProviderProfileSummary } from "@/components/ui/ProviderProfileSummary";
 import { ServiceMap } from "@/components/map/ServiceMap";
 import { HandShakeModal } from "@/components/ui/HandShakeModal";
@@ -52,6 +59,7 @@ import { ClickableTag } from "@/components/ui/ClickableTag";
 import { ReportDialog } from "@/components/ui/ReportDialog";
 import { EditServiceDialog } from "@/components/forms/EditServiceDialog";
 import ReactMarkdown from "react-markdown";
+import { useSavedServiceIds } from "@/hooks/useSavedServiceIds";
 
 const getTagLabels = (service: Service) =>
   new Set(
@@ -64,11 +72,12 @@ const getTagLabels = (service: Service) =>
 const tokenizeText = (...values: Array<string | undefined>) =>
   new Set(
     values
-      .flatMap((value) =>
-        (value || "")
-          .toLowerCase()
-          .match(/\b[\wçğıöşü]+\b/g)
-          ?.filter((token) => token.length > 2) || [],
+      .flatMap(
+        (value) =>
+          (value || "")
+            .toLowerCase()
+            .match(/\b[\wçğıöşü]+\b/g)
+            ?.filter((token) => token.length > 2) || [],
       )
       .filter(Boolean),
   );
@@ -78,25 +87,6 @@ const jaccardSimilarity = (left: Set<string>, right: Set<string>) => {
   const union = new Set([...left, ...right]);
   const intersectionSize = [...left].filter((value) => right.has(value)).length;
   return union.size ? intersectionSize / union.size : 0;
-};
-
-const calculateDistanceKm = (
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-) => {
-  const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
-  const earthRadiusKm = 6371;
-  const dLat = toRadians(lat2 - lat1);
-  const dLon = toRadians(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRadians(lat1)) *
-      Math.cos(toRadians(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
 const buildLocalPotentialMatches = (
@@ -149,7 +139,7 @@ const buildLocalPotentialMatches = (
       proximityScore = 1;
     } else if (!currentService.is_remote && !candidate.is_remote) {
       proximityScore = Math.exp(
-        -calculateDistanceKm(
+        -calculateDistance(
           currentService.location.latitude,
           currentService.location.longitude,
           candidate.location.latitude,
@@ -191,14 +181,18 @@ const buildLocalPotentialMatches = (
       .filter((item): item is PotentialMatchItem => item !== null)
       .sort((left, right) => right.relevance_score - left.relevance_score);
 
-  const oppositeType = currentService.service_type === "offer" ? "need" : "offer";
+  const oppositeType =
+    currentService.service_type === "offer" ? "need" : "offer";
   const oppositeMatches = prioritize(oppositeType);
   if (oppositeMatches.length >= limit) {
     return oppositeMatches.slice(0, limit);
   }
 
   const sameTypeMatches = prioritize(currentService.service_type).filter(
-    (item) => !oppositeMatches.some((existing) => existing.service._id === item.service._id),
+    (item) =>
+      !oppositeMatches.some(
+        (existing) => existing.service._id === item.service._id,
+      ),
   );
 
   return [...oppositeMatches, ...sameTypeMatches].slice(0, limit);
@@ -224,12 +218,7 @@ export function ServiceDetail() {
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const { currentUserId, user: currentUser } = useUser();
   const queryClient = useQueryClient();
-  const { data: savedIdsData } = useQuery({
-    queryKey: ["saved-service-ids"],
-    queryFn: () => servicesApi.getSavedServiceIds().then((res) => res.data),
-    enabled: !!currentUserId,
-    retry: false,
-  });
+  const { savedServiceIds } = useSavedServiceIds();
 
   const {
     data: potentialMatchesData,
@@ -237,7 +226,8 @@ export function ServiceDetail() {
     isError: potentialMatchesError,
   } = useQuery({
     queryKey: ["potential-matches", id, currentUserId],
-    queryFn: () => servicesApi.getPotentialMatches(id!, 4).then((res) => res.data),
+    queryFn: () =>
+      servicesApi.getPotentialMatches(id!, 4).then((res) => res.data),
     enabled: !!id,
     retry: false,
   });
@@ -250,12 +240,11 @@ export function ServiceDetail() {
     retry: false,
   });
 
-  const isSaved = id
-    ? (savedIdsData?.service_ids?.includes(id) ?? false)
-    : false;
+  const isSaved = service?.is_saved ?? (id ? savedServiceIds.includes(id) : false);
   const saveMutation = useMutation({
     mutationFn: (serviceId: string) => servicesApi.saveService(serviceId),
     onSuccess: () => {
+      setService((prev) => (prev ? { ...prev, is_saved: true } : prev));
       queryClient.invalidateQueries({ queryKey: ["saved-service-ids"] });
       queryClient.invalidateQueries({ queryKey: ["saved-services"] });
     },
@@ -263,6 +252,7 @@ export function ServiceDetail() {
   const unsaveMutation = useMutation({
     mutationFn: (serviceId: string) => servicesApi.unsaveService(serviceId),
     onSuccess: () => {
+      setService((prev) => (prev ? { ...prev, is_saved: false } : prev));
       queryClient.invalidateQueries({ queryKey: ["saved-service-ids"] });
       queryClient.invalidateQueries({ queryKey: ["saved-services"] });
     },
@@ -417,39 +407,28 @@ export function ServiceDetail() {
       </div>
     );
   }
-  const formatDuration = (hours: number) => {
-    return `${hours}h`;
-  };
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-  const formatTime = (timeString: string) => {
+
+  const formatTimeString = (timeString: string) => {
     const [hours, minutes] = timeString.split(":");
-    const hour = parseInt(hours, 10);
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
+    const d = new Date();
+    d.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+    return formatTime(d);
   };
+
   const formatSchedulingInfo = () => {
     if (!service.scheduling_type) return null;
     switch (service.scheduling_type) {
       case "specific":
         if (service.specific_date && service.specific_time) {
           const date = new Date(service.specific_date);
-          const formattedDate = date.toLocaleDateString("en-US", {
+          const formattedDate = date.toLocaleDateString(undefined, {
             year: "numeric",
             month: "long",
             day: "numeric",
           });
           return {
             type: "Specific Date & Time",
-            value: `${formattedDate} at ${formatTime(service.specific_time)}`,
+            value: `${formattedDate} at ${formatTimeString(service.specific_time)}`,
           };
         }
         return null;
@@ -461,7 +440,7 @@ export function ServiceDetail() {
           const days = service.recurring_pattern.days.join(", ");
           return {
             type: "Recurring Pattern",
-            value: `${days} at ${formatTime(service.recurring_pattern.time)}`,
+            value: `${days} at ${formatTimeString(service.recurring_pattern.time)}`,
           };
         }
         return null;
@@ -480,6 +459,16 @@ export function ServiceDetail() {
   const handleCancelParticipation = () => {
     if (canCancel) {
       setIsParticipating(false);
+    }
+  };
+  const handleDelete = async () => {
+    if (!id || !window.confirm("Are you sure you want to delete this service?"))
+      return;
+    try {
+      await servicesApi.deleteService(id);
+      navigate(-1);
+    } catch (error) {
+      console.error("Error deleting service:", error);
     }
   };
   const handleCancelRequest = async () => {
@@ -502,7 +491,7 @@ export function ServiceDetail() {
       ? buildLocalPotentialMatches(
           service,
           potentialMatchFallbackServices,
-          savedIdsData?.service_ids ?? [],
+          savedServiceIds,
           4,
         )
       : [];
@@ -586,7 +575,7 @@ export function ServiceDetail() {
                   </Badge>
                 )}
                 <Text size="2" color="gray">
-                  Posted {formatDate(service.created_at)}
+                  Posted {formatDateLong(service.created_at)}
                 </Text>
               </div>
               <h1 className="capitalize text-3xl font-bold">{service.title}</h1>
@@ -630,7 +619,9 @@ export function ServiceDetail() {
               <Text size="3" weight="medium">
                 Duration:
               </Text>
-              <Text size="3">{formatDuration(service.estimated_duration)}</Text>
+              <Text size="3">
+                {formatDurationShort(service.estimated_duration)}
+              </Text>
             </Flex>
             <Flex align="center" gap="2">
               <PersonIcon className="w-5 h-5" color="gray" />
@@ -656,7 +647,7 @@ export function ServiceDetail() {
                 <Text size="3" weight="medium">
                   Deadline:
                 </Text>
-                <Text size="3">{formatDate(service.deadline)}</Text>
+                <Text size="3">{formatDateLong(service.deadline)}</Text>
               </Flex>
             )}
           </div>
@@ -678,7 +669,7 @@ export function ServiceDetail() {
           <div className="mb-6 prose-content space-y-2">
             <ReactMarkdown
               components={{
-                img: ({ node, ...props }) => (
+                img: ({ node: _node, ...props }) => (
                   <img
                     {...props}
                     alt={props.alt || "Service description image"}
@@ -689,7 +680,7 @@ export function ServiceDetail() {
                     }}
                   />
                 ),
-                a: ({ node, ...props }) => (
+                a: ({ node: _node, ...props }) => (
                   <a {...props} target="_blank" rel="noopener noreferrer" />
                 ),
               }}
@@ -721,7 +712,9 @@ export function ServiceDetail() {
           {/* Action buttons */}
           <div className="flex flex-wrap gap-3">
             {/* Edit button for owner or admin */}
-            {(service.status === "active" && service.user_id === currentUserId) || currentUser?.role === "admin" && (
+            {(service.status === "active" &&
+              service.user_id === currentUserId) ||
+              (currentUser?.role === "admin" && (
                 <Button
                   variant="soft"
                   size="3"
@@ -730,7 +723,19 @@ export function ServiceDetail() {
                   <Pencil1Icon className="w-4 h-4" />
                   Edit
                 </Button>
-              )}
+              ))}
+            {/* Delete button for admins */}
+            {currentUser?.role === "admin" && (
+              <Button
+                variant="soft"
+                color="red"
+                size="3"
+                onClick={handleDelete}
+              >
+                <TrashIcon className="w-4 h-4" />
+                Delete
+              </Button>
+            )}
             {!isParticipating && !isServingUser ? (
               pendingRequest ? (
                 <>
@@ -944,112 +949,113 @@ export function ServiceDetail() {
                   Custom Recommendations for You!
                 </Text>
                 <Text size="2" color="gray">
-                  Matching opposite-type services first, then similar posts if needed.
+                  Matching opposite-type services first, then similar posts if
+                  needed.
                 </Text>
               </div>
               {!potentialMatchesLoading && potentialMatchItems.length > 0 && (
-                  <Badge color="green" variant="soft">
-                    {potentialMatchItems.length} match
-                    {potentialMatchItems.length === 1 ? "" : "es"}
-                  </Badge>
+                <Badge color="green" variant="soft">
+                  {potentialMatchItems.length} match
+                  {potentialMatchItems.length === 1 ? "" : "es"}
+                </Badge>
               )}
             </div>
 
             {potentialMatchItems.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {potentialMatchItems.map((item) => {
-                    const match = item.service;
-                    const matchLocation = match.is_remote
-                        ? "Remote"
-                        : match.location?.address || "Nearby";
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {potentialMatchItems.map((item) => {
+                  const match = item.service;
+                  const matchLocation = match.is_remote
+                    ? "Remote"
+                    : match.location?.address || "Nearby";
 
-                    return (
-                        <Card
-                            id={`recommendation-card-${match?._id || ''}`}
-                            key={match._id}
-                            className="p-4 hover-card"
-                            onClick={() => navigate(`/service/${match._id}`)}
-                        >
-                          <Flex direction="column" gap="3">
-                            <Flex justify="between" align="start" gap="2">
-                              <Badge
-                                  color={
-                                    match.service_type === "offer" ? "purple" : "blue"
-                                  }
-                                  variant="soft"
-                              >
-                                {match.service_type === "offer" ? "OFFER" : "NEED"}
-                              </Badge>
-                              <Badge color="green" variant="soft">
-                                {item.reason_label}
-                              </Badge>
-                            </Flex>
+                  return (
+                    <Card
+                      id={`recommendation-card-${match?._id || ""}`}
+                      key={match._id}
+                      className="p-4 hover-card"
+                      onClick={() => navigate(`/service/${match._id}`)}
+                    >
+                      <Flex direction="column" gap="3">
+                        <Flex justify="between" align="start" gap="2">
+                          <Badge
+                            color={
+                              match.service_type === "offer" ? "purple" : "blue"
+                            }
+                            variant="soft"
+                          >
+                            {match.service_type === "offer" ? "OFFER" : "NEED"}
+                          </Badge>
+                          <Badge color="green" variant="soft">
+                            {item.reason_label}
+                          </Badge>
+                        </Flex>
 
-                            <div>
-                              <Text size="3" weight="bold" className="line-clamp-2">
-                                {match.title}
-                              </Text>
-                              <div className="prose-content card-description">
-                                <ReactMarkdown
-                                    components={{
-                                      a: ({ node, ...props }) => (
-                                          <a
-                                              {...props}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                          >
-                                            {props.children}
-                                          </a>
-                                      ),
-                                    }}
-                                >
-                                  {match.description}
-                                </ReactMarkdown>
-                              </div>
-                            </div>
+                        <div>
+                          <Text size="3" weight="bold" className="line-clamp-2">
+                            {match.title}
+                          </Text>
+                          <div className="prose-content card-description">
+                            <ReactMarkdown
+                              components={{
+                                a: ({ node: _node, ...props }) => (
+                                  <a
+                                    {...props}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    {props.children}
+                                  </a>
+                                ),
+                              }}
+                            >
+                              {match.description}
+                            </ReactMarkdown>
+                          </div>
+                        </div>
 
-                            <div className="flex flex-wrap gap-2">
-                              {match.tags.slice(0, 2).map((tag, index) => (
-                                  <ClickableTag
-                                      key={
-                                        typeof tag === "string"
-                                            ? tag
-                                            : (tag.entityId || tag.label) + index
-                                      }
-                                      tag={tag}
-                                      size="1"
-                                      variant="outline"
-                                      stopPropagation
-                                  />
-                              ))}
-                            </div>
+                        <div className="flex flex-wrap gap-2">
+                          {match.tags.slice(0, 2).map((tag, index) => (
+                            <ClickableTag
+                              key={
+                                typeof tag === "string"
+                                  ? tag
+                                  : (tag.entityId || tag.label) + index
+                              }
+                              tag={tag}
+                              size="1"
+                              variant="outline"
+                              stopPropagation
+                            />
+                          ))}
+                        </div>
 
-                            <Flex justify="between" align="center">
-                              <Text size="1" color="gray">
-                                {matchLocation}
-                              </Text>
-                              <Text size="1" color="gray">
-                                {formatDuration(match.estimated_duration)}
-                              </Text>
-                            </Flex>
-                          </Flex>
-                        </Card>
-                    );
-                  })}
-                </div>
+                        <Flex justify="between" align="center">
+                          <Text size="1" color="gray">
+                            {matchLocation}
+                          </Text>
+                          <Text size="1" color="gray">
+                            {formatDurationShort(match.estimated_duration)}
+                          </Text>
+                        </Flex>
+                      </Flex>
+                    </Card>
+                  );
+                })}
+              </div>
             ) : potentialMatchesLoading ? (
-                <Text size="2" color="gray">
-                  Looking for related services...
-                </Text>
+              <Text size="2" color="gray">
+                Looking for related services...
+              </Text>
             ) : showPotentialMatchesError ? (
-                <Text size="2" color="gray">
-                  Potential matches could not be loaded right now.
-                </Text>
+              <Text size="2" color="gray">
+                Potential matches could not be loaded right now.
+              </Text>
             ) : (
-                <Text size="2" color="gray">
-                  No potential matches yet. Matching offers/needs will appear here when
-                  similar posts are available.
-                </Text>
+              <Text size="2" color="gray">
+                No potential matches yet. Matching offers/needs will appear here
+                when similar posts are available.
+              </Text>
             )}
           </div>
         </div>

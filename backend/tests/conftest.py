@@ -62,6 +62,10 @@ class AsyncMockCollection:
     async def delete_one(self, filter, *args, **kwargs):
         result = self._sync_collection.delete_one(filter, *args, **kwargs)
         return type('Result', (), {'deleted_count': result.deleted_count})()
+
+    async def delete_many(self, filter, *args, **kwargs):
+        result = self._sync_collection.delete_many(filter, *args, **kwargs)
+        return type('Result', (), {'deleted_count': result.deleted_count})()
     
     async def count_documents(self, filter, *args, **kwargs):
         return self._sync_collection.count_documents(filter, *args, **kwargs)

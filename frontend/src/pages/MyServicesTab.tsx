@@ -1,9 +1,17 @@
-import { Card, Text, Flex, Badge, Button, Heading } from "@radix-ui/themes";
+import {
+  Card,
+  Text,
+  Flex,
+  Badge,
+  Button,
+  Heading,
+  Tooltip,
+} from "@radix-ui/themes";
 import { useEffect, useState } from "react";
 import { Service, Transaction, Rating } from "@/types";
 import { ApplicantsList } from "@/components/ui/ApplicantsList";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { RatingForm, RatingStars } from "@/components/ui/RatingStars";
+import { RatingStars } from "@/components/ui/RatingStars";
 import {
   ConfirmCompletionModal,
   tagToLabel,
@@ -69,7 +77,6 @@ export function MyServicesTab({
   const [transactionRatings, setTransactionRatings] = useState<
     Record<string, Rating[]>
   >({});
-  const [ratingLoading, setRatingLoading] = useState<string | null>(null);
   const [confirmModalTransaction, setConfirmModalTransaction] =
     useState<Transaction | null>(null);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
@@ -99,43 +106,6 @@ export function MyServicesTab({
       }
     });
   }, [serviceTransactions, transactionRatings, currentUserId]);
-
-  const handleRatingSubmit = async (
-    transactionId: string,
-    ratedUserId: string,
-    score: number,
-    comment: string,
-  ) => {
-    const id = String(transactionId);
-    setRatingLoading(id);
-    try {
-      await ratingsApi.createRating({
-        transaction_id: id,
-        rated_user_id: ratedUserId,
-        score,
-        comment: comment || undefined,
-      });
-      const res = await ratingsApi.getTransactionRatings(id);
-      setTransactionRatings((prev) => ({ ...prev, [id]: res.data }));
-    } catch (error: any) {
-      const message = error.response?.data?.detail ?? "Failed to submit rating";
-      const alreadyRated =
-        typeof message === "string" &&
-        message.toLowerCase().includes("already rated");
-      if (alreadyRated) {
-        try {
-          const res = await ratingsApi.getTransactionRatings(id);
-          setTransactionRatings((prev) => ({ ...prev, [id]: res.data }));
-        } catch {
-          // ignore refetch error
-        }
-      } else {
-        alert(message);
-      }
-    } finally {
-      setRatingLoading(null);
-    }
-  };
 
   const handleConfirmWithRating = async (data: ConfirmCompletionRatingData) => {
     if (!confirmModalTransaction || !currentUserId) return;
@@ -335,52 +305,69 @@ export function MyServicesTab({
                             <>
                               {/* Set to In Progress button for active services */}
                               {service.status === "active" && (
-                                <Button
-                                  size="2"
-                                  color="blue"
-                                  onClick={() =>
-                                    onSetServiceInProgress(service._id)
-                                  }
-                                  disabled={
+                                <Tooltip
+                                  content={
                                     !service.matched_user_ids ||
                                     service.matched_user_ids.length === 0
+                                      ? "No matched users yet"
+                                      : "Mark service as in progress"
                                   }
                                 >
-                                  <ArrowRightIcon className="w-4 h-4 mr-2" />
-                                  Start Service
-                                </Button>
+                                  <Button
+                                    size="2"
+                                    color="blue"
+                                    onClick={() =>
+                                      onSetServiceInProgress(service._id)
+                                    }
+                                    disabled={
+                                      !service.matched_user_ids ||
+                                      service.matched_user_ids.length === 0
+                                    }
+                                  >
+                                    <ArrowRightIcon className="w-4 h-4 mr-2" />
+                                    Start Service
+                                  </Button>
+                                </Tooltip>
                               )}
 
-                              <Button
-                                disabled={
-                                  service.status === "completed" ||
-                                  service.status === "cancelled" ||
-                                  service.status === "expired"
-                                }
-                                size="2"
-                                variant="soft"
-                                color="orange"
-                                onClick={() => onCancelService(service._id)}
-                              >
-                                <CrossCircledIcon className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                disabled={service.status !== "active"}
-                                size="2"
-                                variant="soft"
-                                color="red"
-                                onClick={() => onDeleteService(service._id)}
-                              >
-                                <TrashIcon className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                disabled={service.status !== "active"}
-                                size="2"
-                                variant="soft"
-                                onClick={() => setEditingServiceId(service._id)}
-                              >
-                                <Pencil1Icon className="w-4 h-4" />
-                              </Button>
+                              <Tooltip content="Cancel service">
+                                <Button
+                                  disabled={
+                                    service.status === "completed" ||
+                                    service.status === "cancelled" ||
+                                    service.status === "expired"
+                                  }
+                                  size="2"
+                                  variant="soft"
+                                  color="orange"
+                                  onClick={() => onCancelService(service._id)}
+                                >
+                                  <CrossCircledIcon className="w-4 h-4" />
+                                </Button>
+                              </Tooltip>
+                              <Tooltip content="Delete service">
+                                <Button
+                                  disabled={service.status !== "active"}
+                                  size="2"
+                                  variant="soft"
+                                  color="red"
+                                  onClick={() => onDeleteService(service._id)}
+                                >
+                                  <TrashIcon className="w-4 h-4" />
+                                </Button>
+                              </Tooltip>
+                              <Tooltip content="Edit service">
+                                <Button
+                                  disabled={service.status !== "active"}
+                                  size="2"
+                                  variant="soft"
+                                  onClick={() =>
+                                    setEditingServiceId(service._id)
+                                  }
+                                >
+                                  <Pencil1Icon className="w-4 h-4" />
+                                </Button>
+                              </Tooltip>
                             </>
                           )}
                         </Flex>
@@ -450,11 +437,6 @@ export function MyServicesTab({
                                         String(currentUserId) ||
                                       (r.rater as any)?.id === currentUserId,
                                   );
-
-                                  const otherUserId =
-                                    transaction.provider_id === currentUserId
-                                      ? transaction.requester_id
-                                      : transaction.provider_id;
 
                                   const transactionStatus =
                                     transaction.provider_confirmed &&
@@ -550,23 +532,6 @@ export function MyServicesTab({
                                           )}
                                         </Flex>
                                       )}
-
-                                      {/* Inline rating form: fallback for old confirmations without rating */}
-                                      {!myRating &&
-                                        transaction.provider_confirmed &&
-                                        transaction.requester_confirmed && (
-                                          <RatingForm
-                                            onSubmit={(score, comment) =>
-                                              handleRatingSubmit(
-                                                txId,
-                                                otherUserId,
-                                                score,
-                                                comment,
-                                              )
-                                            }
-                                            loading={ratingLoading === txId}
-                                          />
-                                        )}
 
                                       {/* Confirm Completion buttons */}
                                       {currentUserId &&

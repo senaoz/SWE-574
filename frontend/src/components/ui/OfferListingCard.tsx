@@ -5,12 +5,16 @@ import { ClickableTag } from "@/components/ui/ClickableTag";
 import {
   ClockIcon,
   Crosshair1Icon,
+  HeartIcon,
+  HeartFilledIcon,
   StarFilledIcon,
 } from "@radix-ui/react-icons";
 import { useEffect, useState } from "react";
 import { usersApi, ratingsApi } from "@/services/api";
 import { StatusBadge } from "./StatusBadge";
 import { CustomBadge, getHighestPriorityBadge } from "./BadgeDisplay";
+import { formatRelativeTime, formatDurationShort } from "@/utils/utils";
+import { useSavedServiceIds } from "@/hooks/useSavedServiceIds";
 
 interface OfferListingCardProps {
   service: Service;
@@ -27,7 +31,21 @@ export function OfferListingCard({
   const [user, setUser] = useState<any>(null);
   const [badgeSummary, setBadgeSummary] = useState<BadgeSummary | null>(null);
   const [averageRating, setAverageRating] = useState<number | null>(null);
-  const [ratingCount, setRatingCount] = useState(0);
+  const [optimisticSavedState, setOptimisticSavedState] = useState<
+    boolean | null
+  >(null);
+  const {
+    currentUserId,
+    isSaved: isServiceSaved,
+    saveService,
+    unsaveService,
+    isSavingService,
+    isUnsavingService,
+  } = useSavedServiceIds();
+  const resolvedSavedState = isServiceSaved(service);
+  const isSaved = optimisticSavedState ?? resolvedSavedState;
+  const isSaving = isSavingService(service._id);
+  const isUnsaving = isUnsavingService(service._id);
 
   useEffect(() => {
     async function fetchUserData() {
@@ -40,7 +58,7 @@ export function OfferListingCard({
             data: { total: 0, average_score: null },
           })),
         ]);
-        let earnedBadges = badgesRes.data?.badges.filter((b) => b.earned) ?? [];
+        const earnedBadges = badgesRes.data?.badges.filter((b) => b.earned) ?? [];
         setUser(userRes.data);
         setBadgeSummary({
           badges: badgesRes.data?.badges ?? [],
@@ -50,50 +68,45 @@ export function OfferListingCard({
           last_earned_badge: getHighestPriorityBadge(earnedBadges),
         });
         setAverageRating(ratingsRes.data?.average_score ?? null);
-        setRatingCount(ratingsRes.data?.total ?? 0);
       } catch (err) {
         setUser(null);
         setBadgeSummary(null);
         setAverageRating(null);
-        setRatingCount(0);
       }
     }
     fetchUserData();
   }, [service.user_id]);
 
+  useEffect(() => {
+    setOptimisticSavedState(null);
+  }, [service._id, resolvedSavedState]);
+
   const handleCardClick = () => {
     navigate(`/service/${service._id}`);
   };
 
-  const formatDuration = (hours: number) => {
-    return `${hours}h`;
+  const handleSavedBadgeClick = async (
+    event: React.MouseEvent | React.KeyboardEvent,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!currentUserId || isSaving || isUnsaving) return;
+
+    const previousSavedState = isSaved;
+
+    try {
+      if (previousSavedState) {
+        await unsaveService(service._id);
+      } else {
+        await saveService(service._id);
+      }
+    } catch (error) {
+      setOptimisticSavedState(previousSavedState);
+      console.error("Error toggling saved service:", error);
+    }
   };
 
   const ownerLabel = user?.full_name || `@${user?.username || ""}`;
-
-  const formatDate = (dateString: string) => {
-    const now = new Date();
-    const commentDate = new Date(dateString);
-    const diffInMs = now.getTime() - commentDate.getTime();
-    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
-    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
-    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-
-    if (diffInMinutes < 1) {
-      return "just now";
-    } else if (diffInMinutes < 60) {
-      return `${diffInMinutes} min ago`;
-    } else if (diffInHours < 24) {
-      return `${diffInHours} hours ago`;
-    } else if (diffInDays < 7) {
-      return `${diffInDays} days ago`;
-    } else {
-      return commentDate.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-      });
-    }
-  };
 
   const ownerMeta = (
     <Flex
@@ -143,6 +156,38 @@ export function OfferListingCard({
             >
               {service?.service_type === "offer" ? "OFFER" : "NEED"}
             </Badge>
+            {currentUserId && (
+              <Badge
+                color={isSaved ? "red" : "gray"}
+                variant="soft"
+                className={`inline-flex items-center gap-1 ${
+                  !isSaving && !isUnsaving ? "cursor-pointer" : ""
+                }`}
+                onClick={handleSavedBadgeClick}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    void handleSavedBadgeClick(event);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                title={isSaved ? "Remove from saved items" : "Save this item"}
+                aria-disabled={isSaving || isUnsaving}
+              >
+                {isSaved ? (
+                  <HeartFilledIcon className="h-3 w-3" />
+                ) : (
+                  <HeartIcon className="h-3 w-3" />
+                )}
+                {isSaving
+                  ? "Saving..."
+                  : isUnsaving
+                    ? "Removing..."
+                    : isSaved
+                      ? "Saved"
+                      : "Save"}
+              </Badge>
+            )}
           </Flex>
           {ownerMeta}
         </div>
@@ -160,7 +205,7 @@ export function OfferListingCard({
       {/* Details row */}
       <Flex align="center" gap="1" className="text-sm">
         <ClockIcon className="w-4 h-4" />
-        <Text>{formatDuration(service.estimated_duration)}</Text>
+        <Text>{formatDurationShort(service.estimated_duration)}</Text>
       </Flex>
       <Flex align="center" gap="1" className="text-sm">
         <Crosshair1Icon className="w-4 h-4 flex-shrink-0" />
@@ -194,8 +239,8 @@ export function OfferListingCard({
       )}
 
       <Text size="1" className="opacity-60">
-        Posted {formatDate(service.created_at)}
-        {service.deadline && ` | Deadline: ${formatDate(service.deadline)}`}
+        Posted {formatRelativeTime(service.created_at)}
+        {service.deadline && ` | Deadline: ${formatRelativeTime(service.deadline)}`}
       </Text>
     </Card>
   );

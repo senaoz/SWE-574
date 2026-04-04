@@ -35,10 +35,34 @@ class JoinRequestService:
             if str(service["user_id"]) == user_id:
                 raise ValueError("Cannot request to join your own service")
             
-            # When joining an offer, block if the provider must create a Need (cannot give help yet)
+            from .user_service import UserService
+            user_service = UserService(self.db)
+            service_hours = float(service.get("estimated_duration", 0.0))
+
+            if service.get("service_type") == "need":
+                # User is applying to fulfill a need → they will EARN hours (provider role)
+                # Block if this would push their effective max balance over 10 hours
+                effective_max = await user_service.get_effective_max_balance(user_id)
+                projected = effective_max + service_hours
+                if projected > 10.0:
+                    raise ValueError(
+                        f"You cannot apply to this need. Your projected maximum balance would reach "
+                        f"{projected:.1f} hrs, exceeding the 10-hour limit. "
+                        f"Wait for your active offers or applications to complete or be cancelled."
+                    )
+
             if service.get("service_type") == "offer":
-                from .user_service import UserService
-                user_service = UserService(self.db)
+                # User is applying to receive an offer → they will SPEND hours (requester role)
+                # Block if this would push their effective min balance below 0
+                effective_min = await user_service.get_effective_min_balance(user_id)
+                projected = effective_min - service_hours
+                if projected < 0:
+                    raise ValueError(
+                        f"You cannot apply to this offer. Your projected minimum balance would drop to "
+                        f"{projected:.1f} hrs. "
+                        f"Wait for your active needs or applications to complete or be cancelled."
+                    )
+                # Also block if the provider has reached their surplus limit
                 provider_id = str(service["user_id"])
                 if await user_service.requires_need_creation(provider_id):
                     raise ValueError(
@@ -138,7 +162,8 @@ class JoinRequestService:
             requests = []
             async for request_doc in cursor:
                 # Get service info for each request
-                service = await self.services_collection.find_one({"_id": request_doc["service_id"]})
+                _svc_id = request_doc["service_id"]
+                service = await self.services_collection.find_one({"_id": ObjectId(_svc_id) if not isinstance(_svc_id, ObjectId) else _svc_id})
                 if service:
                     request_doc["service"] = {
                         "id": str(service["_id"]),
@@ -162,22 +187,34 @@ class JoinRequestService:
                 raise ValueError("Join request not found")
             
             # Get the service to check if user is the owner
-            service = await self.services_collection.find_one({"_id": request_doc["service_id"]})
+            svc_id = request_doc["service_id"]
+            service = await self.services_collection.find_one({"_id": ObjectId(svc_id) if not isinstance(svc_id, ObjectId) else svc_id})
             if not service:
                 raise ValueError("Service not found")
             
             if str(service["user_id"]) != admin_user_id:
                 raise ValueError("Only the service owner can approve/reject requests")
             
-            # When approving an offer, provider cannot give help if they must create a Need first
-            if update_data.status == JoinRequestStatus.APPROVED and service.get("service_type") == "offer":
+            if update_data.status == JoinRequestStatus.APPROVED:
                 from .user_service import UserService
                 user_service = UserService(self.db)
-                if await user_service.requires_need_creation(admin_user_id):
-                    raise ValueError(
-                        "You must create a Need before you can give help. "
-                        "You've reached the 10-hour surplus limit."
-                    )
+
+                if service.get("service_type") == "offer":
+                    # Service owner is the provider — check their effective max balance
+                    if await user_service.requires_need_creation(admin_user_id):
+                        raise ValueError(
+                            "You must create a Need before you can give help. "
+                            "You've reached the 10-hour surplus limit."
+                        )
+
+                if service.get("service_type") == "need":
+                    # The applicant is the provider — check their effective max balance
+                    applicant_id = str(request_doc["user_id"])
+                    if await user_service.requires_need_creation(applicant_id):
+                        raise ValueError(
+                            "This applicant cannot take on more work. "
+                            "They've reached the 10-hour surplus limit."
+                        )
             
             print(f"Update data: {update_data}")
             print(f"matched_user_ids before: {service.get('matched_user_ids', [])}")
@@ -185,8 +222,10 @@ class JoinRequestService:
             # If approving, check max_participants limit BEFORE updating status
             if update_data.status == JoinRequestStatus.APPROVED:
                 # Check max_participants limit (count BEFORE we approve this request)
+                _count_svc_id = request_doc["service_id"]
+                _count_svc_oid = ObjectId(_count_svc_id) if not isinstance(_count_svc_id, ObjectId) else _count_svc_id
                 approved_count = await self.join_requests_collection.count_documents({
-                    "service_id": request_doc["service_id"],
+                    "service_id": _count_svc_oid,
                     "status": JoinRequestStatus.APPROVED
                 })
                 
@@ -252,16 +291,18 @@ class JoinRequestService:
                 if not isinstance(user_id_to_add, ObjectId):
                     user_id_to_add = ObjectId(user_id_to_add)
                 
+                _svc_id_for_update = request_doc["service_id"]
+                _svc_oid = ObjectId(_svc_id_for_update) if not isinstance(_svc_id_for_update, ObjectId) else _svc_id_for_update
                 update_result = await self.services_collection.update_one(
-                    {"_id": request_doc["service_id"]},
+                    {"_id": _svc_oid},
                     {
                         "$addToSet": {"matched_user_ids": user_id_to_add},
                         "$set": {"updated_at": datetime.utcnow()}
                     }
                 )
-                
+
                 # Fetch updated service to verify the change
-                updated_service = await self.services_collection.find_one({"_id": request_doc["service_id"]})
+                updated_service = await self.services_collection.find_one({"_id": _svc_oid})
                 print(f"matched_user_ids after: {updated_service.get('matched_user_ids', [])}")
                 print(f"Update result - matched: {update_result.matched_count}, modified: {update_result.modified_count}")
                 

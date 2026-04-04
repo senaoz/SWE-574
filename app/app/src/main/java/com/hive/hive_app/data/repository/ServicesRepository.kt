@@ -2,6 +2,7 @@ package com.hive.hive_app.data.repository
 
 import com.hive.hive_app.data.api.ServicesApi
 import com.hive.hive_app.data.api.dto.LocationDto
+import com.hive.hive_app.data.api.dto.RecurringPatternDto
 import com.hive.hive_app.data.api.dto.ServiceCreate
 import com.hive.hive_app.data.api.dto.ServiceResponse
 import com.hive.hive_app.data.api.dto.ServiceUpdate
@@ -72,7 +73,17 @@ class ServicesRepository @Inject constructor(
         location: LocationDto,
         serviceType: String,
         maxParticipants: Int = 1,
-        deadline: String? = null
+        deadline: String? = null,
+        isRemote: Boolean = false,
+        imageUrls: List<String> = emptyList(),
+        /** Match web client: often sent as empty string. */
+        city: String = "",
+        /** Optional free text; web sends `open_availability` when set. */
+        openAvailability: String? = null,
+        schedulingType: String = "open",
+        specificDate: String? = null,
+        specificTime: String? = null,
+        recurringPattern: RecurringPatternDto? = null
     ): Result<ServiceResponse> {
         return try {
             val body = ServiceCreate(
@@ -82,9 +93,17 @@ class ServicesRepository @Inject constructor(
                 tags = tags,
                 estimatedDuration = estimatedDuration,
                 location = location,
+                city = city,
                 deadline = deadline,
                 serviceType = serviceType,
-                maxParticipants = maxParticipants
+                maxParticipants = maxParticipants,
+                schedulingType = schedulingType,
+                specificDate = specificDate,
+                specificTime = specificTime,
+                recurringPattern = recurringPattern,
+                openAvailability = openAvailability?.takeIf { it.isNotBlank() },
+                isRemote = isRemote,
+                imageUrls = imageUrls.takeIf { it.isNotEmpty() }
             )
             val response = servicesApi.createService(body)
             if (response.isSuccessful && response.body() != null) {

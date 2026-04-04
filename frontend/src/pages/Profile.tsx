@@ -24,18 +24,15 @@ import {
   CheckIcon,
   Cross2Icon,
   ExitIcon,
-  ExclamationTriangleIcon,
 } from "@radix-ui/react-icons";
 import {
   UserSettings,
   PasswordChangeForm,
   AccountDeletionForm,
-  JoinRequest,
   SocialLinks,
 } from "@/types";
 import {
   usersApi,
-  joinRequestsApi,
   ratingsApi,
   uploadApi,
   getImageUrl,
@@ -113,8 +110,6 @@ export function Profile() {
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const [showRejectedRequestsDialog, setShowRejectedRequestsDialog] =
-    useState(false);
   const [myservicesCounts, setMyservicesCounts] = useState({
     services: 0,
     applications: 0,
@@ -193,13 +188,6 @@ export function Profile() {
     });
   }, [user]);
 
-  // Fetch rejected requests
-  const { data: rejectedRequestsData } = useQuery({
-    queryKey: ["rejected-requests"],
-    queryFn: () => joinRequestsApi.getMyRequests(1, 50, "rejected"),
-    enabled: true,
-  });
-
   const { data: ratingsData } = useQuery({
     queryKey: ["user-ratings", user?._id],
     queryFn: () => ratingsApi.getUserRatings(user!._id, 1, 1),
@@ -207,14 +195,6 @@ export function Profile() {
   });
   const averageRating = ratingsData?.data?.average_score ?? null;
   const ratingCount = ratingsData?.data?.total ?? 0;
-
-  let rejectedRequests = rejectedRequestsData?.data.requests || [];
-  const recentRejectedCount = rejectedRequests.filter((req: JoinRequest) => {
-    const rejectedDate = new Date(req.updated_at);
-    const daysSinceRejected =
-      (Date.now() - rejectedDate.getTime()) / (1000 * 60 * 60 * 24);
-    return daysSinceRejected <= 7; // Show notification for requests rejected in last 7 days
-  }).length;
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -430,33 +410,6 @@ export function Profile() {
 
   return (
     <div className="space-y-12">
-      {/* Rejected Requests Notification */}
-      {recentRejectedCount > 0 && (
-        <Card style={{ backgroundColor: "var(--orange-2)" }}>
-          <Flex align="center" justify="between">
-            <Flex align="center" gap="3">
-              <ExclamationTriangleIcon className="w-5 h-5" color="orange" />
-              <div>
-                <Text size="3" weight="bold">
-                  {recentRejectedCount} Request
-                  {recentRejectedCount > 1 ? "s" : ""} Rejected
-                </Text>
-                <Text size="2" color="gray" className="block">
-                  You have {recentRejectedCount} rejected join request
-                  {recentRejectedCount > 1 ? "s" : ""} from the last 7 days
-                </Text>
-              </div>
-            </Flex>
-            <Button
-              variant="soft"
-              onClick={() => setShowRejectedRequestsDialog(true)}
-            >
-              View Details
-            </Button>
-          </Flex>
-        </Card>
-      )}
-
       <Tabs.Root value={profileTab} onValueChange={(v) => setProfileTab(v)}>
         <Tabs.List size="2">
           <Tabs.Trigger value="profile">
@@ -1425,8 +1378,9 @@ export function Profile() {
         confirmLabel="Log out"
         onConfirm={handleConfirmLogout}
       />
-      {/* Rejected Requests Dialog */}
-      <Dialog.Root
+      {/* Rejected Requests Dialog
+
+       <Dialog.Root
         open={showRejectedRequestsDialog}
         onOpenChange={setShowRejectedRequestsDialog}
       >
@@ -1494,6 +1448,9 @@ export function Profile() {
           </Flex>
         </Dialog.Content>
       </Dialog.Root>
+      
+      
+      */}
     </div>
   );
 }

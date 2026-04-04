@@ -122,7 +122,7 @@ describe("OfferNeedForm — Edit Mode", () => {
   it("shows existing images from initialService", () => {
     renderForm({ initialService: mockService });
     expect(screen.getByText("Existing images")).toBeInTheDocument();
-    const img = screen.getByAlt("Existing 1");
+    const img = screen.getByAltText("Existing 1");
     expect(img).toHaveAttribute(
       "src",
       "http://localhost:8000/uploads/services/img1.jpg",

@@ -1,9 +1,19 @@
 import { useState, useEffect, useRef } from "react";
-import { Card, Text, Flex, Button, TextField, Badge } from "@radix-ui/themes";
+import {
+  Card,
+  Text,
+  Flex,
+  Button,
+  TextField,
+  Badge,
+  Avatar,
+} from "@radix-ui/themes";
 import { ChatRoom, Message } from "@/types";
-import { chatApi } from "@/services/api";
+import { chatApi, getImageUrl } from "@/services/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PaperPlaneIcon } from "@radix-ui/react-icons";
+import { useNavigate } from "react-router-dom";
+import { formatTime } from "@/utils/utils";
 
 interface ChatRoomProps {
   room: ChatRoom;
@@ -13,6 +23,7 @@ interface ChatRoomProps {
 export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const {
@@ -54,13 +65,6 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messagesData?.data.messages]);
 
-  const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
   if (messagesLoading) {
     return (
       <Card className="p-4">
@@ -88,12 +92,32 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
       >
         <div className="flex flex-col gap-1 flex-1">
           <Text size="3" weight="bold">
-            Chat Room with{" "}
-            {room.participants
-              ?.filter((participant) => participant.id !== currentUserId)
-              ?.map((participant) => participant.full_name)
-              .join(", ")}
+            {room.name
+              ? room.name
+              : `Chat with ${room.participants
+                  ?.filter((p) => p.id !== currentUserId)
+                  ?.map((p) => p.full_name || p.username)
+                  .join(", ")}`}
           </Text>
+          {room.participants && room.participants.length > 2 && (
+            <Flex align="center" gap="1" wrap="wrap">
+              {room.participants.map((p) => (
+                <Avatar
+                  key={p.id}
+                  src={getImageUrl(p.profile_picture) ?? undefined}
+                  fallback={p.full_name?.[0] || p.username[0]}
+                  size="1"
+                  radius="full"
+                  title={p.full_name || p.username}
+                  className="cursor-pointer"
+                  onClick={() => navigate(`/user/${p.id}`)}
+                />
+              ))}
+              <Text size="1" color="gray">
+                {room.participants.length} participants
+              </Text>
+            </Flex>
+          )}
           {room.description && (
             <Text size="2" color="gray">
               {room.description}
@@ -142,12 +166,31 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
           messages.map((message: Message, index: number) => (
             <div
               key={message._id}
-              className={`flex ${
+              className={`flex items-end gap-2 ${
                 message.sender_id === currentUserId
                   ? "justify-end"
                   : "justify-start"
               }${index === 0 ? " mt-auto" : ""}`}
             >
+              {message.sender_id !== currentUserId && (
+                <Avatar
+                  src={
+                    getImageUrl(message.sender?.profile_picture) ?? undefined
+                  }
+                  fallback={
+                    message.sender?.full_name?.[0] ||
+                    message.sender?.username?.[0] ||
+                    "?"
+                  }
+                  size="2"
+                  radius="full"
+                  className="cursor-pointer flex-shrink-0"
+                  title={message.sender?.full_name || message.sender?.username}
+                  onClick={() =>
+                    message.sender?.id && navigate(`/user/${message.sender.id}`)
+                  }
+                />
+              )}
               <div
                 className={`max-w-xs rounded-xl lg:max-w-md px-4 py-2 ${
                   message.sender_id === currentUserId
@@ -159,8 +202,19 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
                 }}
               >
                 {message.sender_id !== currentUserId && (
-                  <Text size="1" weight="bold" className="block mb-1">
-                    {message.sender?.username || "Unknown User"}
+                  <Text
+                    size="1"
+                    weight="bold"
+                    className="block mb-1 cursor-pointer hover:underline"
+                    onClick={() =>
+                      message.sender?.id &&
+                      navigate(`/user/${message.sender.id}`)
+                    }
+                  >
+                    {message.sender?.full_name ||
+                      message.sender?.username ||
+                      message.sender?.id ||
+                      "Unknown User"}
                   </Text>
                 )}
                 <Text size="2">{message.content}</Text>
@@ -173,7 +227,7 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
                         : "opacity-80"
                     }
                   >
-                    {formatTime(message.created_at)}
+                    {formatTime(message.created_at + "Z")}
                   </Text>
                   {message.is_edited && (
                     <Text

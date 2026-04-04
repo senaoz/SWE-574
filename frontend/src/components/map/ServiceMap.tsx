@@ -9,6 +9,7 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import { Service, TagEntity, ForumEvent } from "@/types";
+import { calculateDistance } from "@/utils/utils";
 import {
   Badge,
   Button,
@@ -20,24 +21,6 @@ import {
 } from "@radix-ui/themes";
 import { useNavigate } from "react-router-dom";
 
-/** Distance in km between two lat/lng points (Haversine) */
-function distanceKm(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number,
-): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
 
 const ISTANBUL_CENTER: [number, number] = [41.0082, 28.9784];
 const DEFAULT_ZOOM = 10;
@@ -111,7 +94,7 @@ export function applyMapFilters(
     const [uLat, uLng] = userPosition;
     const radiusKm = filters.distance;
     list = list.filter((s) => {
-      const d = distanceKm(
+      const d = calculateDistance(
         uLat,
         uLng,
         s.location.latitude,
@@ -223,7 +206,7 @@ export function ServiceMap({
       const [uLat, uLng] = userPosition;
       list = list.filter(
         (e) =>
-          distanceKm(uLat, uLng, e.latitude!, e.longitude!) <=
+          calculateDistance(uLat, uLng, e.latitude!, e.longitude!) <=
           (filters.distance as number),
       );
     }

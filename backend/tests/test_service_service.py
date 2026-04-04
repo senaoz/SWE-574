@@ -81,6 +81,7 @@ class TestServiceService:
         for i in range(5):
             service_data = sample_service_data.copy()
             service_data["title"] = f"Service {i}"
+            service_data["estimated_duration"] = 1.0
             await service_service.create_service(
                 ServiceCreate(**service_data),
                 str(test_user.id)
@@ -109,6 +110,7 @@ class TestServiceService:
 
         matching_need_data = sample_service_data.copy()
         matching_need_data["service_type"] = "need"
+        matching_need_data["estimated_duration"] = 0.5
         matching_need = await service_service.create_service(
             ServiceCreate(**matching_need_data),
             str(second_user.id),
@@ -117,6 +119,7 @@ class TestServiceService:
         saved_need_data = sample_service_data.copy()
         saved_need_data["title"] = "Saved need"
         saved_need_data["service_type"] = "need"
+        saved_need_data["estimated_duration"] = 0.5
         saved_need = await service_service.create_service(
             ServiceCreate(**saved_need_data),
             str(second_user.id),
@@ -125,6 +128,7 @@ class TestServiceService:
         full_need_data = sample_service_data.copy()
         full_need_data["title"] = "Full need"
         full_need_data["service_type"] = "need"
+        full_need_data["estimated_duration"] = 0.5
         full_need = await service_service.create_service(
             ServiceCreate(**full_need_data),
             str(second_user.id),

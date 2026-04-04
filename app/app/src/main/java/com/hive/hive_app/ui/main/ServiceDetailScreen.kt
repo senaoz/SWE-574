@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -112,7 +113,9 @@ fun ServiceDetailScreen(
     creatorRating: com.hive.hive_app.data.api.dto.RatingListResponse? = null,
     isSaved: Boolean = false,
     onStartChat: ((String) -> Unit)? = null,
-    onOpenUserProfile: ((String) -> Unit)? = null
+    onOpenUserProfile: ((String) -> Unit)? = null,
+    /** Owner: open full-screen manage requests instead of a dialog. */
+    onManageJoinRequests: (() -> Unit)? = null
 ) {
     var expandedImageUrl by remember { mutableStateOf<String?>(null) }
 
@@ -154,7 +157,6 @@ fun ServiceDetailScreen(
                 ?: remember { mutableStateOf("") }
             val focusManager = LocalFocusManager.current
             var showApplyDialog by remember { mutableStateOf(false) }
-            var showManageRequests by remember { mutableStateOf(false) }
             if (showApplyDialog && viewModel != null) {
                 var message by remember { mutableStateOf("") }
                 AlertDialog(
@@ -183,23 +185,16 @@ fun ServiceDetailScreen(
                     dismissButton = { TextButton(onClick = { showApplyDialog = false }) { Text("Cancel") } }
                 )
             }
-            if (showManageRequests && viewModel != null) {
-                ManageRequestsSheet(
-                    requests = joinRequests,
-                    onDismiss = { showManageRequests = false },
-                    onApprove = { req, adminMsg ->
-                        viewModel.updateRequestStatus(req._id, "approved", adminMsg) { showManageRequests = false }
-                    },
-                    onReject = { req, adminMsg ->
-                        viewModel.updateRequestStatus(req._id, "rejected", adminMsg) { showManageRequests = false }
-                    }
-                )
-            }
-            Column(
-                modifier = modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-            ) {
+            val scrollState = rememberScrollState()
+            val showBottomBar = viewModel != null &&
+                service.status in listOf("active", "in_progress")
+            Box(modifier = modifier.fillMaxSize()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(scrollState)
+                        .padding(bottom = if (showBottomBar) 88.dp else 0.dp)
+                ) {
                 // Top bar
                 Row(
                     modifier = Modifier
@@ -483,7 +478,7 @@ fun ServiceDetailScreen(
                                         color = HiveTheme.semanticColors.tag.copy(alpha = 0.4f)
                                     ) {
                                         Text(
-                                            text = tag.label ?: tag.name ?: tag.id ?: "",
+                                            text = tag.label ?: tag.name ?: tag.entityId ?: tag.id ?: "",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurface,
                                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
@@ -502,12 +497,20 @@ fun ServiceDetailScreen(
                             }
                             service.specificDate?.let { LabelValue("Date", it) }
                             service.specificTime?.let { LabelValue("Time", it) }
+                            service.recurringPattern?.let { rp ->
+                                if (rp.days.isNotEmpty()) {
+                                    LabelValue("Recurring days", rp.days.joinToString(", "))
+                                }
+                                if (rp.time.isNotBlank()) {
+                                    LabelValue("Time", rp.time)
+                                }
+                            }
                             service.openAvailability?.let { LabelValue("Availability", it) }
                             service.deadline?.let { LabelValue("Deadline", it) }
                             LabelValue("Duration", formatDurationHours(service.estimatedDuration))
                             if (service.schedulingType == null && service.specificDate == null &&
-                                service.specificTime == null && service.openAvailability == null &&
-                                service.deadline == null
+                                service.specificTime == null && service.recurringPattern == null &&
+                                service.openAvailability == null && service.deadline == null
                             ) {
                                 Text(
                                     text = "No specific schedule set",
@@ -593,61 +596,16 @@ fun ServiceDetailScreen(
                         }
                     }
 
-                    // Apply / Manage requests (FR-5)
-                    if (viewModel != null && service.status in listOf("active", "in_progress")) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        if (!isOwner) {
-                            if (myJoinRequest != null) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    StatusChip(status = myJoinRequest!!.status)
-                                    if (creator != null && onStartChat != null) {
-                                        OutlinedButton(onClick = {
-                                            viewModel.startChat(service._id, creator._id) { result ->
-                                                result.getOrNull()?.let { roomId -> onStartChat(roomId) }
-                                            }
-                                        }) {
-                                            Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
-                                            Spacer(modifier = Modifier.size(8.dp))
-                                            Text("Start Chat")
-                                        }
-                                    }
-                                }
-                            } else {
-                                val buttonLabel = if (service.serviceType == "need") "Offer Help" else "Request Service"
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Button(onClick = { showApplyDialog = true }) { Text(buttonLabel) }
-                                    if (creator != null && onStartChat != null) {
-                                        OutlinedButton(onClick = {
-                                            viewModel.startChat(service._id, creator._id) { result ->
-                                                result.getOrNull()?.let { roomId -> onStartChat(roomId) }
-                                            }
-                                        }) {
-                                            Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
-                                            Spacer(modifier = Modifier.size(8.dp))
-                                            Text("Start Chat")
-                                        }
-                                    }
-                                }
-                                applyMessage?.let { msg ->
-                                    Text(
-                                        text = msg,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(top = 4.dp)
-                                    )
-                                }
-                            }
-                        } else {
-                            Button(onClick = { showManageRequests = true }) {
-                                Text("Manage join requests (${joinRequests.size})")
-                            }
+                    // Apply feedback (after request submit); primary actions are in the floating bar below
+                    if (viewModel != null && !isOwner && service.status in listOf("active", "in_progress")) {
+                        applyMessage?.let { msg ->
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = msg,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
                         }
                     }
 
@@ -685,6 +643,79 @@ fun ServiceDetailScreen(
                                     .height(200.dp)
                                     .clip(RoundedCornerShape(8.dp))
                             )
+                        }
+                    }
+                }
+                }
+                if (showBottomBar) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .navigationBarsPadding(),
+                        tonalElevation = 6.dp,
+                        shadowElevation = 8.dp,
+                        color = MaterialTheme.colorScheme.surface
+                    ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                            if (isOwner && viewModel != null && onManageJoinRequests != null) {
+                                Button(
+                                    onClick = onManageJoinRequests,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Manage service (${joinRequests.size})")
+                                }
+                            } else if (!isOwner) {
+                                if (myJoinRequest != null) {
+                                    StatusChip(status = myJoinRequest!!.status)
+                                    Spacer(modifier = Modifier.weight(1f))
+                                    if (creator != null && onStartChat != null) {
+                                        IconButton(
+                                            onClick = {
+                                                viewModel.startChat(service._id, creator._id) { result ->
+                                                    result.getOrNull()?.let { roomId -> onStartChat(roomId) }
+                                                }
+                                            }
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Chat,
+                                                contentDescription = "Start chat",
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    val buttonLabel =
+                                        if (service.serviceType == "need") "Offer Help" else "Request Service"
+                                    Button(
+                                        onClick = { showApplyDialog = true },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(buttonLabel)
+                                    }
+                                    if (creator != null && onStartChat != null) {
+                                        IconButton(
+                                            onClick = {
+                                                viewModel.startChat(service._id, creator._id) { result ->
+                                                    result.getOrNull()?.let { roomId -> onStartChat(roomId) }
+                                                }
+                                            }
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Chat,
+                                                contentDescription = "Start chat",
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -955,71 +986,3 @@ private fun LabelValue(label: String, value: String) {
     }
 }
 
-@Composable
-private fun ManageRequestsSheet(
-    requests: List<JoinRequestResponse>,
-    onDismiss: () -> Unit,
-    onApprove: (JoinRequestResponse, String?) -> Unit,
-    onReject: (JoinRequestResponse, String?) -> Unit
-) {
-    var pendingAction by remember { mutableStateOf<Pair<JoinRequestResponse, String>?>(null) }
-    if (pendingAction != null) {
-        val (req, action) = pendingAction!!
-        var adminMsg by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { pendingAction = null },
-            title = { Text(if (action == "approved") "Approve request" else "Reject request") },
-            text = {
-                OutlinedTextField(
-                    value = adminMsg,
-                    onValueChange = { adminMsg = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Message to applicant (optional)") },
-                    minLines = 2
-                )
-            },
-            confirmButton = {
-                Button(onClick = {
-                    if (action == "approved") onApprove(req, adminMsg.takeIf { it.isNotBlank() })
-                    else onReject(req, adminMsg.takeIf { it.isNotBlank() })
-                    pendingAction = null
-                }) { Text("Confirm") }
-            },
-            dismissButton = { TextButton(onClick = { pendingAction = null }) { Text("Cancel") } }
-        )
-    }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Join requests") },
-        text = {
-            if (requests.isEmpty()) {
-                Text("No join requests yet.")
-            } else {
-                LazyColumn(
-                    modifier = Modifier.heightIn(max = 400.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(requests, key = { it._id }) { req ->
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Text("Request ${req._id.take(8)}… • ${req.status}", style = MaterialTheme.typography.titleSmall)
-                                req.message?.takeIf { it.isNotBlank() }?.let {
-                                    Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
-                                }
-                                if (req.status == "pending") {
-                                    Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Button(onClick = { pendingAction = req to "approved" }) { Text("Approve") }
-                                        OutlinedButton(onClick = { pendingAction = req to "rejected" }) { Text("Reject") }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = { Button(onClick = onDismiss) { Text("Close") } }
-    )
-}

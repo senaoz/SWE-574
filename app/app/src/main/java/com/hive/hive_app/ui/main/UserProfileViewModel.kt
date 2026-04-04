@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hive.hive_app.data.api.dto.BadgesResponse
 import com.hive.hive_app.data.api.dto.RatingListResponse
+import com.hive.hive_app.data.api.dto.RatingResponse
 import com.hive.hive_app.data.api.dto.UserResponse
 import com.hive.hive_app.data.repository.RatingsRepository
 import com.hive.hive_app.data.repository.UsersRepository
@@ -29,6 +30,9 @@ class UserProfileViewModel @Inject constructor(
     private val _ratings = MutableStateFlow<RatingListResponse?>(null)
     val ratings: StateFlow<RatingListResponse?> = _ratings.asStateFlow()
 
+    private val _ratingTopTags = MutableStateFlow<List<Pair<String, Int>>>(emptyList())
+    val ratingTopTags: StateFlow<List<Pair<String, Int>>> = _ratingTopTags.asStateFlow()
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -44,8 +48,24 @@ class UserProfileViewModel @Inject constructor(
                 onFailure = { _error.value = it.message }
             )
             usersRepository.getUserBadges(userId).onSuccess { _badges.value = it }
-            ratingsRepository.getUserRatings(userId).onSuccess { _ratings.value = it }
+            ratingsRepository.getUserRatings(userId, page = 1, limit = 20).onSuccess { body ->
+                _ratings.value = body
+                _ratingTopTags.value = computeTopTagsFromRatings(body.ratings)
+            }
             _isLoading.value = false
         }
+    }
+
+    private fun computeTopTagsFromRatings(ratings: List<RatingResponse>?): List<Pair<String, Int>> {
+        val counts = mutableMapOf<String, Int>()
+        ratings.orEmpty().forEach { r ->
+            r.tags.orEmpty().forEach { tag ->
+                if (tag.isNotBlank()) counts[tag] = (counts[tag] ?: 0) + 1
+            }
+        }
+        return counts.entries
+            .sortedByDescending { it.value }
+            .take(3)
+            .map { it.key to it.value }
     }
 }

@@ -157,6 +157,7 @@ export interface TagEntity {
 export interface Service {
   _id: string;
   user_id: string;
+  is_saved?: boolean;
   title: string;
   description: string;
   category: string;
@@ -437,6 +438,7 @@ export interface ChatRoom {
     username: string;
     full_name?: string;
     bio?: string;
+    profile_picture?: string;
   }[];
   services?: {
     id: string;
@@ -487,6 +489,7 @@ export interface Message {
     id: string;
     username: string;
     full_name?: string;
+    profile_picture?: string;
   };
   reply_to_message?: {
     id: string;

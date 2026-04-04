@@ -1,5 +1,6 @@
 import pytest
 from fastapi import status
+from datetime import datetime, timezone
 
 
 class TestServicesAPI:
@@ -38,6 +39,29 @@ class TestServicesAPI:
         assert "page" in data
         assert "limit" in data
         assert len(data["services"]) > 0
+
+    @pytest.mark.asyncio
+    async def test_get_services_endpoint_marks_saved_items_for_authenticated_user(
+        self, test_client, mock_db, sample_service, auth_headers
+    ):
+        await mock_db.saved_services.insert_one(
+            {
+                "user_id": str(sample_service.user_id),
+                "service_id": str(sample_service.id),
+                "created_at": datetime.now(timezone.utc),
+            }
+        )
+
+        response = test_client.get("/services/", headers=auth_headers)
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        saved_service = next(
+            service
+            for service in data["services"]
+            if (service.get("id") or service.get("_id")) == str(sample_service.id)
+        )
+        assert saved_service["is_saved"] is True
     
     def test_get_services_endpoint_with_filters(self, test_client, sample_service):
         """Test getting services with filters"""
@@ -70,6 +94,28 @@ class TestServicesAPI:
         service_id = data.get("id") or data.get("_id")
         assert service_id == str(sample_service.id)
         assert data["title"] == sample_service.title
+        assert data["is_saved"] is False
+
+    @pytest.mark.asyncio
+    async def test_get_service_detail_marks_saved_for_authenticated_user(
+        self, test_client, mock_db, sample_service, auth_headers
+    ):
+        await mock_db.saved_services.insert_one(
+            {
+                "user_id": str(sample_service.user_id),
+                "service_id": str(sample_service.id),
+                "created_at": datetime.now(timezone.utc),
+            }
+        )
+
+        response = test_client.get(
+            f"/services/{sample_service.id}",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["is_saved"] is True
     
     def test_get_service_detail_nonexistent(self, test_client):
         """Test getting non-existent service"""
@@ -93,6 +139,7 @@ class TestServicesAPI:
 
         matching_need_data = sample_service_data.copy()
         matching_need_data["service_type"] = "need"
+        matching_need_data["estimated_duration"] = 0.5
         matching_need = await service_service.create_service(
             ServiceCreate(**matching_need_data),
             str(second_user.id),
@@ -101,6 +148,7 @@ class TestServicesAPI:
         saved_need_data = sample_service_data.copy()
         saved_need_data["title"] = "Saved need"
         saved_need_data["service_type"] = "need"
+        saved_need_data["estimated_duration"] = 0.5
         saved_need = await service_service.create_service(
             ServiceCreate(**saved_need_data),
             str(second_user.id),

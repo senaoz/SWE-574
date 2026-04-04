@@ -197,34 +197,35 @@ fun ForumScreen(
                     cursorColor = MaterialTheme.colorScheme.primary
                 )
             )
-            if (listState.isLoading && listState.discussions.isEmpty()) {
-                Box(modifier = Modifier.weight(1f).fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                }
-            } else if (listState.error != null && listState.discussions.isEmpty()) {
-                Box(modifier = Modifier.weight(1f).fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(text = listState.error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-                        TextButton(onClick = { viewModel.loadDiscussions(1) }) { Text("Retry") }
+            Box(modifier = Modifier.weight(1f)) {
+                if (listState.isLoading && listState.discussions.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    }
+                } else if (listState.error != null && listState.discussions.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(text = listState.error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                            TextButton(onClick = { viewModel.loadDiscussions(1) }) { Text("Retry") }
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(items = listState.discussions, key = { it.id }) { discussion ->
+                            ForumDiscussionCard(
+                                discussion = discussion,
+                                onClick = { selectedDiscussionId = discussion.id }
+                            )
+                        }
                     }
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(items = listState.discussions, key = { it.id }) { discussion ->
-                        ForumDiscussionCard(
-                            discussion = discussion,
-                            onClick = { selectedDiscussionId = discussion.id }
-                        )
-                    }
-                }
-            }
-            Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.CenterEnd) {
                 FloatingActionButton(
                     onClick = { showCreate = true },
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ) {
@@ -248,34 +249,35 @@ fun ForumScreen(
                     cursorColor = MaterialTheme.colorScheme.primary
                 )
             )
-            if (eventsListState.isLoading && eventsListState.events.isEmpty()) {
-                Box(modifier = Modifier.weight(1f).fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                }
-            } else if (eventsListState.error != null && eventsListState.events.isEmpty()) {
-                Box(modifier = Modifier.weight(1f).fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(text = eventsListState.error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-                        TextButton(onClick = { viewModel.loadEvents(1) }) { Text("Retry") }
+            Box(modifier = Modifier.weight(1f)) {
+                if (eventsListState.isLoading && eventsListState.events.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    }
+                } else if (eventsListState.error != null && eventsListState.events.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(text = eventsListState.error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                            TextButton(onClick = { viewModel.loadEvents(1) }) { Text("Retry") }
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(items = eventsListState.events, key = { it.id }) { event ->
+                            ForumEventCard(
+                                event = event,
+                                onClick = { selectedEventId = event.id }
+                            )
+                        }
                     }
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(items = eventsListState.events, key = { it.id }) { event ->
-                        ForumEventCard(
-                            event = event,
-                            onClick = { selectedEventId = event.id }
-                        )
-                    }
-                }
-            }
-            Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.CenterEnd) {
                 FloatingActionButton(
                     onClick = { showCreateEvent = true },
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ) {
@@ -408,7 +410,7 @@ private fun ForumDiscussionCard(
                             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                         ) {
                             Text(
-                                text = tag.label ?: tag.name ?: tag.id ?: "",
+                                text = tag.label ?: tag.name ?: tag.entityId ?: tag.id ?: "",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
@@ -529,7 +531,7 @@ private fun ForumEventCard(
                             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                         ) {
                             Text(
-                                text = tag.label ?: tag.name ?: tag.id ?: "",
+                                text = tag.label ?: tag.name ?: tag.entityId ?: tag.id ?: "",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
@@ -695,7 +697,7 @@ private fun ForumEventDetailContent(
                                                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                                             ) {
                                                 Text(
-                                                    text = tag.label ?: tag.name ?: tag.id ?: "",
+                                                    text = tag.label ?: tag.name ?: tag.entityId ?: tag.id ?: "",
                                                     style = MaterialTheme.typography.labelSmall,
                                                     color = MaterialTheme.colorScheme.onSurface,
                                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
@@ -1048,7 +1050,7 @@ private fun ForumDiscussionDetailContent(
                                                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                                             ) {
                                                 Text(
-                                                    text = tag.label ?: tag.name ?: tag.id ?: "",
+                                                    text = tag.label ?: tag.name ?: tag.entityId ?: tag.id ?: "",
                                                     style = MaterialTheme.typography.labelSmall,
                                                     color = MaterialTheme.colorScheme.onSurface,
                                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
