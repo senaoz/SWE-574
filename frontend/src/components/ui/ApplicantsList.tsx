@@ -1,12 +1,5 @@
 import { useState, useEffect } from "react";
-import {
-  Text,
-  Flex,
-  Avatar,
-  Button,
-  Badge,
-  TextArea,
-} from "@radix-ui/themes";
+import { Text, Flex, Avatar, Button, Badge, TextArea } from "@radix-ui/themes";
 import { JoinRequest } from "@/types";
 import {
   getImageUrl,
@@ -23,6 +16,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { CustomBadge } from "./BadgeDisplay";
 import { formatDate } from "@/utils/utils";
+import { AxiosError } from "axios";
 
 interface ApplicantsListProps {
   serviceId: string;
@@ -44,6 +38,8 @@ export function ApplicantsList({
   );
   const navigate = useNavigate();
   const [users, setUsers] = useState<Record<string, any>>({});
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   useEffect(() => {
     fetchRequests();
   }, [serviceId]);
@@ -99,6 +95,7 @@ export function ApplicantsList({
   }, [requests]);
 
   const handleApprove = async (requestId: string) => {
+    setErrorMessage(null);
     setUpdatingRequest(requestId);
     try {
       const response = await joinRequestsApi.updateRequestStatus(requestId, {
@@ -125,6 +122,10 @@ export function ApplicantsList({
       onRequestUpdate?.();
     } catch (error) {
       console.error("Error approving request:", error);
+      setErrorMessage(
+        (error as any)?.response?.data?.detail ??
+          "Unable to approve request. Please try again.",
+      );
       // On error, refresh to get the correct state
       await fetchRequests();
     } finally {
@@ -133,6 +134,7 @@ export function ApplicantsList({
   };
 
   const handleReject = async (requestId: string) => {
+    setErrorMessage(null);
     setUpdatingRequest(requestId);
     try {
       const response = await joinRequestsApi.updateRequestStatus(requestId, {
@@ -159,6 +161,10 @@ export function ApplicantsList({
       onRequestUpdate?.();
     } catch (error) {
       console.error("Error rejecting request:", error);
+      setErrorMessage(
+        (error as AxiosError<{ detail: string }>)?.response?.data?.detail ??
+          null,
+      );
       // On error, refresh to get the correct state
       await fetchRequests();
     } finally {
@@ -193,7 +199,6 @@ export function ApplicantsList({
         return <Badge color="gray">{status}</Badge>;
     }
   };
-
 
   if (isLoading) {
     return (
@@ -334,6 +339,15 @@ export function ApplicantsList({
                       </Text>
                       <Text size="2" className="italic">
                         "{request.admin_message}"
+                      </Text>
+                    </div>
+                  )}
+
+                  {/* Error message */}
+                  {errorMessage && (
+                    <div>
+                      <Text size="2" className="italic text-red-500">
+                        "{errorMessage}"
                       </Text>
                     </div>
                   )}

@@ -80,7 +80,7 @@ export function ChatRoomsList({
   return (
     <div className="lg:col-span-1 h-full max-h-[75vh] overflow-y-auto pr-4">
       {rooms.length === 0 && (
-        <Card className="p-4 mr-4 flex flex-col items-center justify-center">
+        <Card className="p-4 flex flex-col items-center justify-center h-full">
           <div className="text-center">
             <MessageCircleIcon className="w-12 h-12 mx-auto mb-4" />
             <Text size="3" weight="bold" className="block mb-2">
@@ -134,16 +134,22 @@ export function ChatRoomsList({
                 onClick={() => onSelectRoom(room)}
               >
                 <div className="flex-1">
-                  <Text size="3" weight="bold" className="block mb-1 capitalize">
+                  <Text
+                    size="3"
+                    weight="bold"
+                    className="block mb-1 capitalize"
+                  >
                     {room.name
                       ? room.name
                       : room.participants && room.participants.length > 0
                         ? (() => {
                             const others = Array.from(
                               new Map(
-                                room.participants!.map((p) => [p.id, p])
-                              ).values()
-                            ).filter((p) => String(p.id) !== String(currentUserId));
+                                room.participants!.map((p) => [p.id, p]),
+                              ).values(),
+                            ).filter(
+                              (p) => String(p.id) !== String(currentUserId),
+                            );
                             const names = others
                               .map((p) => p.full_name || p.username)
                               .join(", ");

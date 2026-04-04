@@ -208,13 +208,12 @@ class JoinRequestService:
                         )
 
                 if service.get("service_type") == "need":
-                    # The applicant is the provider — block if their effective max would hit the cap
+                    # The applicant is the provider — check their effective max balance
                     applicant_id = str(request_doc["user_id"])
-                    applicant_effective_max = await user_service.get_effective_max_balance(applicant_id)
-                    if applicant_effective_max >= 10.0:
+                    if await user_service.requires_need_creation(applicant_id):
                         raise ValueError(
                             "This applicant cannot take on more work. "
-                            "Their projected maximum balance has already reached the 10-hour limit."
+                            "They've reached the 10-hour surplus limit."
                         )
             
             print(f"Update data: {update_data}")

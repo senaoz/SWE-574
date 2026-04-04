@@ -1,4 +1,12 @@
-import { Card, Text, Flex, Badge, Button, Heading, Tooltip } from "@radix-ui/themes";
+import {
+  Card,
+  Text,
+  Flex,
+  Badge,
+  Button,
+  Heading,
+  Tooltip,
+} from "@radix-ui/themes";
 import { useEffect, useState } from "react";
 import { Service, Transaction, Rating } from "@/types";
 import { ApplicantsList } from "@/components/ui/ApplicantsList";
@@ -568,23 +576,6 @@ export function MyServicesTab({
                                           )}
                                         </Flex>
                                       )}
-
-                                      {/* Inline rating form: fallback for old confirmations without rating */}
-                                      {!myRating &&
-                                        transaction.provider_confirmed &&
-                                        transaction.requester_confirmed && (
-                                          <RatingForm
-                                            onSubmit={(score, comment) =>
-                                              handleRatingSubmit(
-                                                txId,
-                                                otherUserId,
-                                                score,
-                                                comment,
-                                              )
-                                            }
-                                            loading={ratingLoading === txId}
-                                          />
-                                        )}
 
                                       {/* Confirm Completion buttons */}
                                       {currentUserId &&
