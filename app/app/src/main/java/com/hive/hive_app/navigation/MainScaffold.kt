@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -24,10 +25,23 @@ import com.hive.hive_app.ui.main.DiscoverScreen
 import com.hive.hive_app.ui.main.ForumScreen
 import com.hive.hive_app.ui.main.MainViewModel
 import com.hive.hive_app.ui.main.MapScreen
+import com.hive.hive_app.ui.main.EditProfileScreen
 import com.hive.hive_app.ui.main.ProfileScreen
 import com.hive.hive_app.ui.main.SavedServicesScreen
+import com.hive.hive_app.ui.main.ManageServiceScreen
+import com.hive.hive_app.ui.main.ServiceDetailScreen
+import com.hive.hive_app.ui.main.ServiceDetailViewModel
 import com.hive.hive_app.ui.main.UserProfileScreen
+import com.hive.hive_app.ui.main.UserRatingsScreen
 import com.hive.hive_app.ui.notifications.NotificationsScreen
+
+private sealed class OverlayRoute {
+    data class UserProfile(val userId: String) : OverlayRoute()
+    data class UserRatings(val userId: String, val title: String = "Ratings") : OverlayRoute()
+    /** Public service / exchange view (works for any user; Manage is for owners.) */
+    data class ServiceDetail(val serviceId: String) : OverlayRoute()
+    data class ManageService(val serviceId: String) : OverlayRoute()
+}
 
 @Composable
 fun MainScaffold(
@@ -39,9 +53,10 @@ fun MainScaffold(
 
     var currentDestination by rememberSaveable { mutableStateOf(MainDestinations.DISCOVER) }
     var openChatRoomId by remember { mutableStateOf<String?>(null) }
-    var overlayUserId by remember { mutableStateOf<String?>(null) }
+    var overlayStack by remember { mutableStateOf<List<OverlayRoute>>(emptyList()) }
     var showSavedServices by remember { mutableStateOf(false) }
     var showNotifications by remember { mutableStateOf(false) }
+    var showEditProfile by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         mainViewModel.refreshUnreadCount()
@@ -54,19 +69,29 @@ fun MainScaffold(
         }
     }
 
+    fun pushOverlay(route: OverlayRoute) {
+        overlayStack = overlayStack + route
+    }
+
+    fun popOverlay() {
+        if (overlayStack.isNotEmpty()) overlayStack = overlayStack.dropLast(1)
+    }
+
     BackHandler(
-        enabled = overlayUserId != null ||
+        enabled = overlayStack.isNotEmpty() ||
             showSavedServices ||
             showNotifications ||
+            showEditProfile ||
             currentDestination != MainDestinations.DISCOVER
     ) {
         when {
-            overlayUserId != null -> overlayUserId = null
+            overlayStack.isNotEmpty() -> popOverlay()
             showSavedServices -> showSavedServices = false
             showNotifications -> {
                 showNotifications = false
                 mainViewModel.refreshUnreadCount()
             }
+            showEditProfile -> showEditProfile = false
             currentDestination != MainDestinations.DISCOVER -> {
                 currentDestination = MainDestinations.DISCOVER
                 openChatRoomId = null
@@ -79,15 +104,91 @@ fun MainScaffold(
         currentDestination = MainDestinations.CHAT
     }
     val onOpenUserProfile: (String) -> Unit = { userId ->
-        overlayUserId = userId
+        pushOverlay(OverlayRoute.UserProfile(userId))
     }
 
-    if (overlayUserId != null) {
-        UserProfileScreen(
-            userId = overlayUserId!!,
-            onBack = { overlayUserId = null },
-            modifier = Modifier.fillMaxSize()
-        )
+    val onOpenRatings: (String) -> Unit = { userId ->
+        pushOverlay(OverlayRoute.UserRatings(userId))
+    }
+
+    when (val top = overlayStack.lastOrNull()) {
+        is OverlayRoute.ManageService -> {
+            key(top.serviceId) {
+                ManageServiceScreen(
+                    serviceId = top.serviceId,
+                    onBack = { popOverlay() },
+                    onOpenUserProfile = { pushOverlay(OverlayRoute.UserProfile(it)) },
+                    onStartChat = onStartChat,
+                    onNavigateToCompleteRating = null,
+                    onEditService = null
+                )
+            }
+            return
+        }
+        is OverlayRoute.ServiceDetail -> {
+            key(top.serviceId) {
+                val detailViewModel: ServiceDetailViewModel = hiltViewModel()
+                LaunchedEffect(top.serviceId) { detailViewModel.load(top.serviceId) }
+                val detailState by detailViewModel.state.collectAsState()
+                val detailCreator by detailViewModel.creator.collectAsState()
+                val detailAcceptedUsers by detailViewModel.acceptedUsers.collectAsState()
+                val detailLoading by detailViewModel.isLoading.collectAsState()
+                val detailError by detailViewModel.error.collectAsState()
+                val detailCreatorBadges by detailViewModel.creatorBadges.collectAsState()
+                val detailCreatorRating by detailViewModel.creatorRating.collectAsState()
+                val detailIsSaved by detailViewModel.isSaved.collectAsState()
+                ServiceDetailScreen(
+                    service = detailState,
+                    creator = detailCreator,
+                    acceptedUsers = detailAcceptedUsers,
+                    isLoading = detailLoading,
+                    error = detailError,
+                    onBack = { popOverlay() },
+                    viewModel = detailViewModel,
+                    modifier = Modifier.fillMaxSize(),
+                    creatorBadges = detailCreatorBadges,
+                    creatorRating = detailCreatorRating,
+                    isSaved = detailIsSaved,
+                    onStartChat = onStartChat,
+                    onOpenUserProfile = { pushOverlay(OverlayRoute.UserProfile(it)) },
+                    onManageJoinRequests = {
+                        val sid = detailState?._id
+                        if (sid != null) pushOverlay(OverlayRoute.ManageService(sid))
+                    }
+                )
+            }
+            return
+        }
+        is OverlayRoute.UserProfile -> {
+            key(top.userId) {
+                UserProfileScreen(
+                    userId = top.userId,
+                    onBack = { popOverlay() },
+                    modifier = Modifier.fillMaxSize(),
+                    onOpenRatings = { uid ->
+                        pushOverlay(OverlayRoute.UserRatings(uid))
+                    }
+                )
+            }
+            return
+        }
+        is OverlayRoute.UserRatings -> {
+            key(top.userId) {
+                UserRatingsScreen(
+                    userId = top.userId,
+                    title = top.title,
+                    onBack = { popOverlay() },
+                    onOpenRaterProfile = { pushOverlay(OverlayRoute.UserProfile(it)) },
+                    onOpenExchange = { serviceId -> pushOverlay(OverlayRoute.ServiceDetail(serviceId)) },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            return
+        }
+        null -> { }
+    }
+    if (showEditProfile) {
+        EditProfileScreen(onBack = { showEditProfile = false })
         return
     }
     if (showSavedServices) {
@@ -166,7 +267,9 @@ fun MainScaffold(
                     onLogout = onLogout,
                     modifier = Modifier.padding(innerPadding),
                     onOpenSaved = { showSavedServices = true },
-                    onOpenNotifications = { showNotifications = true }
+                    onOpenNotifications = { showNotifications = true },
+                    onOpenRatings = onOpenRatings,
+                    onOpenEditProfile = { showEditProfile = true }
                 )
             }
         }

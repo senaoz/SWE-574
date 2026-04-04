@@ -1,7 +1,6 @@
 package com.hive.hive_app.ui.main
 
 import android.content.Context
-import android.location.Geocoder
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -62,7 +61,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.focusable
 import androidx.compose.ui.Modifier
@@ -74,15 +72,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import org.osmdroid.config.Configuration
-import org.osmdroid.events.MapListener
-import org.osmdroid.events.ScrollEvent
-import org.osmdroid.events.ZoomEvent
 import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
@@ -101,12 +95,8 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.io.IOException
 import java.util.Locale
-import android.view.View
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.hive.hive_app.data.api.dto.LocationDto
@@ -1239,210 +1229,6 @@ fun CreateServiceScreen(
     }
 }
 
-private fun reverseGeocodeAddress(context: Context, latitude: Double, longitude: Double): String? {
-    return try {
-        val geocoder = Geocoder(context, Locale.getDefault())
-        val results = geocoder.getFromLocation(latitude, longitude, 1)
-        val addr = results?.firstOrNull() ?: return null
-        val line = addr.getAddressLine(0)
-        line?.takeIf { it.isNotBlank() }
-    } catch (_: IOException) {
-        null
-    } catch (_: Exception) {
-        null
-    }
-}
-
 // Small helper so we don't need Ripples everywhere.
 private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
     this.clickable(onClick = onClick)
-
-@Composable
-private fun LocationPickerScreen(
-    initialLat: Double,
-    initialLon: Double,
-    canUseMyLocation: Boolean,
-    myLat: Double?,
-    myLon: Double?,
-    onRequestLocationPermission: () -> Unit,
-    onBack: () -> Unit,
-    onSelected: (lat: Double, lon: Double, address: String?) -> Unit
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var mapRef by remember { mutableStateOf<MapView?>(null) }
-    var didInitialCenter by remember { mutableStateOf(false) }
-    var centerText by remember { mutableStateOf("") }
-    var resolveJob by remember { mutableStateOf<Job?>(null) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding(),
-            color = MaterialTheme.colorScheme.background,
-            tonalElevation = 2.dp,
-            shadowElevation = 2.dp
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
-                }
-                Text(
-                    text = "Select location",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f)
-                )
-                OutlinedButton(
-                    onClick = {
-                        if (!canUseMyLocation) {
-                            onRequestLocationPermission()
-                            return@OutlinedButton
-                        }
-                        val map = mapRef ?: return@OutlinedButton
-                        map.controller.setCenter(GeoPoint(myLat ?: initialLat, myLon ?: initialLon))
-                        map.controller.setZoom(16.0)
-                    },
-                    enabled = true
-                ) {
-                    Text("My location")
-                }
-            }
-        }
-
-        Box(modifier = Modifier.weight(1f)) {
-            AndroidView(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background),
-                factory = { ctx ->
-                    Configuration.getInstance().load(ctx, ctx.getSharedPreferences("osmdroid", Context.MODE_PRIVATE))
-                    MapView(ctx).apply {
-                        setTileSource(
-                            org.osmdroid.tileprovider.tilesource.XYTileSource(
-                                "Carto Voyager",
-                                0,
-                                18,
-                                256,
-                                ".png",
-                                arrayOf("https://a.basemaps.cartocdn.com/rastertiles/voyager/"),
-                                "© CARTO"
-                            )
-                        )
-                        setMultiTouchControls(true)
-                        controller.setZoom(15.0)
-                        // Prevent OSMDroid surface-like overdraw above Compose controls during pan/zoom.
-                        setLayerType(View.LAYER_TYPE_SOFTWARE, null)
-                    }.also { map ->
-                        mapRef = map
-                    }
-                },
-                update = { map ->
-                    mapRef = map
-                    if (!didInitialCenter) {
-                        map.controller.setCenter(GeoPoint(initialLat, initialLon))
-                        didInitialCenter = true
-                    }
-                }
-            )
-
-            Icon(
-                imageVector = Icons.Filled.LocationOn,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .size(34.dp)
-            )
-
-        }
-
-        // Selected location textbox above action button (white background for readability).
-        OutlinedTextField(
-            value = centerText,
-            onValueChange = {},
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            enabled = false,
-            readOnly = true,
-            singleLine = false,
-            maxLines = 2,
-            label = { Text("Selected location") },
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                disabledContainerColor = Color.White,
-                disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                disabledBorderColor = MaterialTheme.colorScheme.outline,
-                disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        )
-
-        // Track map center as the user moves around (lightweight: coordinates only).
-        DisposableEffect(mapRef) {
-            val map = mapRef
-            if (map == null) return@DisposableEffect onDispose { }
-            fun updateCenter() {
-                val c = map.mapCenter as? GeoPoint ?: return
-                centerText = "Resolving address…"
-                resolveJob?.cancel()
-                resolveJob = scope.launch {
-                    delay(350)
-                    val resolved = withContext(Dispatchers.IO) {
-                        reverseGeocodeAddress(context, c.latitude, c.longitude)
-                    }
-                    centerText = resolved ?: "Address unavailable"
-                }
-            }
-            updateCenter()
-            val listener = object : MapListener {
-                override fun onScroll(event: ScrollEvent?): Boolean {
-                    updateCenter()
-                    return false
-                }
-
-                override fun onZoom(event: ZoomEvent?): Boolean {
-                    updateCenter()
-                    return false
-                }
-            }
-            map.addMapListener(listener)
-            onDispose {
-                map.removeMapListener(listener)
-                resolveJob?.cancel()
-            }
-        }
-
-        Button(
-            onClick = {
-                val map = mapRef ?: return@Button
-                val center = map.mapCenter as? GeoPoint ?: return@Button
-                val lat = center.latitude
-                val lon = center.longitude
-                scope.launch {
-                    val resolved = withContext(Dispatchers.IO) {
-                        reverseGeocodeAddress(context, lat, lon)
-                    }
-                    onSelected(lat, lon, resolved)
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Text("Use this location")
-        }
-    }
-}
-
