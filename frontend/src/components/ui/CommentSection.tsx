@@ -135,7 +135,12 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
                 />
                 <div className="flex-1">
                   <Flex align="center" gap="2" className="mb-1">
-                    <Text size="2" weight="bold">
+                    <Text
+                      size="2"
+                      weight="bold"
+                      className="cursor-pointer hover:underline"
+                      onClick={() => navigate(`/profile/${user?._id}`)}
+                    >
                       {user?.full_name || user?.username || "Unknown User"}
                     </Text>
                     {isOwner && (
