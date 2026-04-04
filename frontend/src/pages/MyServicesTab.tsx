@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import { Service, Transaction, Rating } from "@/types";
 import { ApplicantsList } from "@/components/ui/ApplicantsList";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { RatingForm, RatingStars } from "@/components/ui/RatingStars";
+import { RatingStars } from "@/components/ui/RatingStars";
 import {
   ConfirmCompletionModal,
   tagToLabel,
@@ -77,7 +77,6 @@ export function MyServicesTab({
   const [transactionRatings, setTransactionRatings] = useState<
     Record<string, Rating[]>
   >({});
-  const [ratingLoading, setRatingLoading] = useState<string | null>(null);
   const [confirmModalTransaction, setConfirmModalTransaction] =
     useState<Transaction | null>(null);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
@@ -107,44 +106,6 @@ export function MyServicesTab({
       }
     });
   }, [serviceTransactions, transactionRatings, currentUserId]);
-
-  const handleRatingSubmit = async (
-    transactionId: string,
-    ratedUserId: string,
-    score: number,
-    comment: string,
-  ) => {
-    const id = String(transactionId);
-    setRatingLoading(id);
-    try {
-      await ratingsApi.createRating({
-        transaction_id: id,
-        rated_user_id: ratedUserId,
-        score,
-        comment: comment || undefined,
-      });
-      const res = await ratingsApi.getTransactionRatings(id);
-      setTransactionRatings((prev) => ({ ...prev, [id]: res.data }));
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { detail?: string } } };
-      const message = err.response?.data?.detail ?? "Failed to submit rating";
-      const alreadyRated =
-        typeof message === "string" &&
-        message.toLowerCase().includes("already rated");
-      if (alreadyRated) {
-        try {
-          const res = await ratingsApi.getTransactionRatings(id);
-          setTransactionRatings((prev) => ({ ...prev, [id]: res.data }));
-        } catch {
-          // ignore refetch error
-        }
-      } else {
-        alert(message);
-      }
-    } finally {
-      setRatingLoading(null);
-    }
-  };
 
   const handleConfirmWithRating = async (data: ConfirmCompletionRatingData) => {
     if (!confirmModalTransaction || !currentUserId) return;
@@ -476,11 +437,6 @@ export function MyServicesTab({
                                         String(currentUserId) ||
                                       (r.rater as any)?.id === currentUserId,
                                   );
-
-                                  const otherUserId =
-                                    transaction.provider_id === currentUserId
-                                      ? transaction.requester_id
-                                      : transaction.provider_id;
 
                                   const transactionStatus =
                                     transaction.provider_confirmed &&

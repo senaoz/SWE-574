@@ -93,8 +93,6 @@ export function OfferListingCard({
     if (!currentUserId || isSaving || isUnsaving) return;
 
     const previousSavedState = isSaved;
-    const nextSavedState = !previousSavedState;
-    setOptimisticSavedState(nextSavedState);
 
     try {
       if (previousSavedState) {
