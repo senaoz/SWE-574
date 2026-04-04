@@ -35,11 +35,7 @@ export function Home() {
   const [recentNeeds, setRecentNeeds] = useState<Service[]>([]);
   const [recentEvents, setRecentEvents] = useState<ForumEvent[]>([]);
   const [allServices, setAllServices] = useState<Service[]>([]);
-  const [recentEvents, setRecentEvents] = useState<ForumEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [savedStateOverrides, setSavedStateOverrides] = useState<
-    Record<string, boolean>
-  >({});
   const {
     currentUserId,
     isSaved: isServiceSaved,
@@ -50,13 +46,8 @@ export function Home() {
   } = useSavedServiceIds();
 
   const getResolvedSavedState = (service: Service | string) => {
-    const serviceId = typeof service === "string" ? service : service._id;
-    return savedStateOverrides[serviceId] ?? isServiceSaved(service);
+    return isServiceSaved(service);
   };
-
-  useEffect(() => {
-    setSavedStateOverrides({});
-  }, [currentUserId]);
 
   const handleSavedBadgeClick =
     (serviceId: string) =>
@@ -72,11 +63,6 @@ export function Home() {
       }
 
       const previousSavedState = getResolvedSavedState(serviceId);
-      const nextSavedState = !previousSavedState;
-      setSavedStateOverrides((current) => ({
-        ...current,
-        [serviceId]: nextSavedState,
-      }));
 
       try {
         if (previousSavedState) {
@@ -85,10 +71,6 @@ export function Home() {
           await saveService(serviceId);
         }
       } catch (error) {
-        setSavedStateOverrides((current) => ({
-          ...current,
-          [serviceId]: previousSavedState,
-        }));
         console.error("Error toggling saved service:", error);
       }
     };

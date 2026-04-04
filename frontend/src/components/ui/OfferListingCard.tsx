@@ -31,9 +31,6 @@ export function OfferListingCard({
   const [user, setUser] = useState<any>(null);
   const [badgeSummary, setBadgeSummary] = useState<BadgeSummary | null>(null);
   const [averageRating, setAverageRating] = useState<number | null>(null);
-  const [optimisticSavedState, setOptimisticSavedState] = useState<
-    boolean | null
-  >(null);
   const {
     currentUserId,
     isSaved: isServiceSaved,
@@ -42,8 +39,7 @@ export function OfferListingCard({
     isSavingService,
     isUnsavingService,
   } = useSavedServiceIds();
-  const resolvedSavedState = isServiceSaved(service);
-  const isSaved = optimisticSavedState ?? resolvedSavedState;
+  const isSaved = isServiceSaved(service);
   const isSaving = isSavingService(service._id);
   const isUnsaving = isUnsavingService(service._id);
 
@@ -77,10 +73,6 @@ export function OfferListingCard({
     fetchUserData();
   }, [service.user_id]);
 
-  useEffect(() => {
-    setOptimisticSavedState(null);
-  }, [service._id, resolvedSavedState]);
-
   const handleCardClick = () => {
     navigate(`/service/${service._id}`);
   };
@@ -93,8 +85,6 @@ export function OfferListingCard({
     if (!currentUserId || isSaving || isUnsaving) return;
 
     const previousSavedState = isSaved;
-    const nextSavedState = !previousSavedState;
-    setOptimisticSavedState(nextSavedState);
 
     try {
       if (previousSavedState) {
@@ -103,7 +93,6 @@ export function OfferListingCard({
         await saveService(service._id);
       }
     } catch (error) {
-      setOptimisticSavedState(previousSavedState);
       console.error("Error toggling saved service:", error);
     }
   };

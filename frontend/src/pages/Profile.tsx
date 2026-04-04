@@ -24,18 +24,15 @@ import {
   CheckIcon,
   Cross2Icon,
   ExitIcon,
-  ExclamationTriangleIcon,
 } from "@radix-ui/react-icons";
 import {
   UserSettings,
   PasswordChangeForm,
   AccountDeletionForm,
-  JoinRequest,
   SocialLinks,
 } from "@/types";
 import {
   usersApi,
-  joinRequestsApi,
   ratingsApi,
   uploadApi,
   getImageUrl,
@@ -113,7 +110,6 @@ export function Profile() {
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const [, setShowRejectedRequestsDialog] = useState(false);
   const [myservicesCounts, setMyservicesCounts] = useState({
     services: 0,
     applications: 0,
@@ -192,13 +188,6 @@ export function Profile() {
     });
   }, [user]);
 
-  // Fetch rejected requests
-  const { data: rejectedRequestsData } = useQuery({
-    queryKey: ["rejected-requests"],
-    queryFn: () => joinRequestsApi.getMyRequests(1, 50, "rejected"),
-    enabled: true,
-  });
-
   const { data: ratingsData } = useQuery({
     queryKey: ["user-ratings", user?._id],
     queryFn: () => ratingsApi.getUserRatings(user!._id, 1, 1),
@@ -206,14 +195,6 @@ export function Profile() {
   });
   const averageRating = ratingsData?.data?.average_score ?? null;
   const ratingCount = ratingsData?.data?.total ?? 0;
-
-  const rejectedRequests = rejectedRequestsData?.data.requests || [];
-  const recentRejectedCount = rejectedRequests.filter((req: JoinRequest) => {
-    const rejectedDate = new Date(req.updated_at);
-    const daysSinceRejected =
-      (Date.now() - rejectedDate.getTime()) / (1000 * 60 * 60 * 24);
-    return daysSinceRejected <= 7; // Show notification for requests rejected in last 7 days
-  }).length;
 
   const handleEdit = () => {
     setIsEditing(true);
