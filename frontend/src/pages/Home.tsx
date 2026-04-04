@@ -36,6 +36,9 @@ export function Home() {
   const [recentEvents, setRecentEvents] = useState<ForumEvent[]>([]);
   const [allServices, setAllServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [savedStateOverrides, setSavedStateOverrides] = useState<
+    Record<string, boolean>
+  >({});
   const {
     currentUserId,
     isSaved: isServiceSaved,
@@ -71,6 +74,10 @@ export function Home() {
           await saveService(serviceId);
         }
       } catch (error) {
+        setSavedStateOverrides((current) => ({
+          ...current,
+          [serviceId]: previousSavedState,
+        }));
         console.error("Error toggling saved service:", error);
       }
     };
