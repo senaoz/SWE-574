@@ -222,8 +222,10 @@ class JoinRequestService:
             # If approving, check max_participants limit BEFORE updating status
             if update_data.status == JoinRequestStatus.APPROVED:
                 # Check max_participants limit (count BEFORE we approve this request)
+                _count_svc_id = request_doc["service_id"]
+                _count_svc_oid = ObjectId(_count_svc_id) if not isinstance(_count_svc_id, ObjectId) else _count_svc_id
                 approved_count = await self.join_requests_collection.count_documents({
-                    "service_id": request_doc["service_id"],
+                    "service_id": _count_svc_oid,
                     "status": JoinRequestStatus.APPROVED
                 })
                 
