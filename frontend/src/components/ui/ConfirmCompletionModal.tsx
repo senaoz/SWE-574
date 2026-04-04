@@ -96,11 +96,15 @@ export function ConfirmCompletionModal({
   // Provider rates the consumer → consumer tags; requester rates the provider → provider tags
   const availableTags = isProvider ? CONSUMER_TAGS : PROVIDER_TAGS;
 
+  const MAX_TAGS = 5;
+
   const toggleTag = (tag: string) => {
     const value = tagToValue(tag);
-    setSelectedTags((prev) =>
-      prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value],
-    );
+    setSelectedTags((prev) => {
+      if (prev.includes(value)) return prev.filter((t) => t !== value);
+      if (prev.length >= MAX_TAGS) return prev;
+      return [...prev, value];
+    });
   };
 
   const canSubmit =
@@ -209,9 +213,14 @@ export function ConfirmCompletionModal({
           </div>
 
           <div>
-            <Text size="2" weight="bold" className="block mb-2">
-              Feedback <span style={{ color: "var(--red-9)" }}>*</span>
-            </Text>
+            <Flex align="baseline" justify="between" className="mb-2">
+              <Text size="2" weight="bold">
+                Feedback <span style={{ color: "var(--red-9)" }}>*</span>
+              </Text>
+              <Text size="1" color={selectedTags.length >= MAX_TAGS ? "red" : "gray"}>
+                {selectedTags.length}/{MAX_TAGS} selected
+              </Text>
+            </Flex>
             <Flex wrap="wrap" gap="2">
               {availableTags.map((tag) => (
                 <InterestChip

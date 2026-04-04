@@ -1,4 +1,4 @@
-import { forumApi, servicesApi } from "@/services/api";
+import { servicesApi, forumApi } from "@/services/api";
 import {
   Section,
   Button,
@@ -35,6 +35,7 @@ export function Home() {
   const [recentNeeds, setRecentNeeds] = useState<Service[]>([]);
   const [recentEvents, setRecentEvents] = useState<ForumEvent[]>([]);
   const [allServices, setAllServices] = useState<Service[]>([]);
+  const [recentEvents, setRecentEvents] = useState<ForumEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [savedStateOverrides, setSavedStateOverrides] = useState<
     Record<string, boolean>

@@ -208,13 +208,12 @@ class JoinRequestService:
                         )
 
                 if service.get("service_type") == "need":
-                    # The applicant is the provider — block if their effective max would hit the cap
+                    # The applicant is the provider — check their effective max balance
                     applicant_id = str(request_doc["user_id"])
-                    applicant_effective_max = await user_service.get_effective_max_balance(applicant_id)
-                    if applicant_effective_max >= 10.0:
+                    if await user_service.requires_need_creation(applicant_id):
                         raise ValueError(
                             "This applicant cannot take on more work. "
-                            "Their projected maximum balance has already reached the 10-hour limit."
+                            "They've reached the 10-hour surplus limit."
                         )
             
             print(f"Update data: {update_data}")
@@ -223,8 +222,10 @@ class JoinRequestService:
             # If approving, check max_participants limit BEFORE updating status
             if update_data.status == JoinRequestStatus.APPROVED:
                 # Check max_participants limit (count BEFORE we approve this request)
+                _count_svc_id = request_doc["service_id"]
+                _count_svc_oid = ObjectId(_count_svc_id) if not isinstance(_count_svc_id, ObjectId) else _count_svc_id
                 approved_count = await self.join_requests_collection.count_documents({
-                    "service_id": request_doc["service_id"],
+                    "service_id": _count_svc_oid,
                     "status": JoinRequestStatus.APPROVED
                 })
                 

@@ -149,3 +149,36 @@ class TestAuthService:
                 test_user_data["email"],
                 test_user_data["password"]
             )
+
+    @pytest.mark.asyncio
+    async def test_create_user_duplicate_username(self, mock_db, test_user_data):
+        """Test that creating a user with duplicate username raises ValueError"""
+        auth_service = AuthService(mock_db)
+        user_create = UserCreate(**test_user_data)
+
+        await auth_service.create_user(user_create)
+
+        different_email_data = {**test_user_data, "email": "other@example.com"}
+        user_create2 = UserCreate(**different_email_data)
+
+        with pytest.raises(ValueError, match="Username already taken"):
+            await auth_service.create_user(user_create2)
+
+    @pytest.mark.asyncio
+    async def test_create_user_initial_balance(self, mock_db, test_user_data):
+        """Test that new users start with the welcome bonus of 3.0 hours"""
+        auth_service = AuthService(mock_db)
+        user_create = UserCreate(**test_user_data)
+
+        user = await auth_service.create_user(user_create)
+
+        assert user.timebank_balance == 3.0
+
+    @pytest.mark.asyncio
+    async def test_get_user_by_username_nonexistent(self, mock_db):
+        """Test that looking up a non-existent username returns None"""
+        auth_service = AuthService(mock_db)
+
+        user = await auth_service.get_user_by_username("doesnotexist")
+
+        assert user is None
