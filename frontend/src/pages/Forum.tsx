@@ -22,6 +22,7 @@ import {
   GlobeIcon,
   Cross2Icon,
   PersonIcon,
+  ChevronUpIcon,
 } from "@radix-ui/react-icons";
 import { MessageCircleIcon, CalendarClockIcon } from "lucide-react";
 import { forumApi, getImageUrl } from "@/services/api";
@@ -57,6 +58,7 @@ export function Forum() {
   const [events, setEvents] = useState<ForumEvent[]>([]);
   const [eventsTotal, setEventsTotal] = useState(0);
   const [eventsLoading, setEventsLoading] = useState(true);
+  const [discussionSort, setDiscussionSort] = useState<"created_at" | "upvote_count">("created_at");
   const [showNewDiscussion, setShowNewDiscussion] = useState(false);
   const [showNewEvent, setShowNewEvent] = useState(false);
   useEffect(() => {
@@ -72,6 +74,7 @@ export function Forum() {
         const res = await forumApi.getDiscussions({
           q: searchQ || undefined,
           tag: tagFilter || undefined,
+          sort_by: discussionSort,
         });
         setDiscussions(res.data.discussions);
         setDiscussionsTotal(res.data.total);
@@ -81,7 +84,7 @@ export function Forum() {
         setDiscussionsLoading(false);
       }
     })();
-  }, [searchQ, tagFilter]);
+  }, [searchQ, tagFilter, discussionSort]);
   useEffect(() => {
     (async () => {
       setEventsLoading(true);
@@ -158,7 +161,24 @@ export function Forum() {
           </Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="discussions" className="pt-4">
-          <Flex justify="end" className="mb-4">
+          <Flex justify="between" align="center" className="mb-4">
+            <Flex gap="2" align="center">
+              <Text size="2" color="gray">Sort:</Text>
+              <Button
+                size="1"
+                variant={discussionSort === "created_at" ? "solid" : "soft"}
+                onClick={() => setDiscussionSort("created_at")}
+              >
+                Latest
+              </Button>
+              <Button
+                size="1"
+                variant={discussionSort === "upvote_count" ? "solid" : "soft"}
+                onClick={() => setDiscussionSort("upvote_count")}
+              >
+                <ChevronUpIcon /> Most Upvoted
+              </Button>
+            </Flex>
             <Button onClick={() => setShowNewDiscussion(true)}>
               <PlusIcon /> New Discussion
             </Button>
@@ -226,6 +246,10 @@ export function Forum() {
                         <Badge size="1" variant="soft" color="gray">
                           <MessageCircleIcon className="w-3 h-3 mr-1" />
                           {d.comment_count}
+                        </Badge>
+                        <Badge size="1" variant="soft" color="orange">
+                          <ChevronUpIcon className="w-3 h-3 mr-1" />
+                          {d.upvote_count ?? 0}
                         </Badge>
                         {(d.tags || []).slice(0, 3).map((tag, i) => (
                           <ClickableTag
@@ -327,6 +351,10 @@ export function Forum() {
                     <Badge size="1" variant="soft" color="gray">
                       <MessageCircleIcon className="w-3 h-3 mr-1" />
                       {ev.comment_count}
+                    </Badge>
+                    <Badge size="1" variant="soft" color="orange">
+                      <ChevronUpIcon className="w-3 h-3 mr-1" />
+                      {ev.upvote_count ?? 0}
                     </Badge>
                     {(ev.tags || []).slice(0, 3).map((tag, i) => (
                       <ClickableTag

@@ -9,9 +9,10 @@ import {
   TextArea,
   Heading,
 } from "@radix-ui/themes";
-import { ArrowLeftIcon, PaperPlaneIcon } from "@radix-ui/react-icons";
+import { ArrowLeftIcon, PaperPlaneIcon, ChevronUpIcon } from "@radix-ui/react-icons";
 import { MessageCircleIcon } from "lucide-react";
 import { forumApi, getImageUrl } from "@/services/api";
+import { useUser } from "@/App";
 import { ForumDiscussion, ForumComment } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import ReactMarkdown from "react-markdown";
@@ -33,11 +34,13 @@ function timeAgo(dateStr: string) {
 export function ForumDiscussionDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { currentUserId } = useUser();
   const [discussion, setDiscussion] = useState<ForumDiscussion | null>(null);
   const [comments, setComments] = useState<ForumComment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [upvotingId, setUpvotingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -57,6 +60,34 @@ export function ForumDiscussionDetail() {
       }
     })();
   }, [id]);
+
+  const handleUpvoteDiscussion = async () => {
+    if (!id || !currentUserId) return;
+    setUpvotingId(id);
+    try {
+      const res = await forumApi.upvoteDiscussion(id);
+      setDiscussion((prev) => prev ? { ...prev, ...res.data } : prev);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setUpvotingId(null);
+    }
+  };
+
+  const handleUpvoteComment = async (commentId: string) => {
+    if (!currentUserId) return;
+    setUpvotingId(commentId);
+    try {
+      const res = await forumApi.upvoteComment(commentId);
+      setComments((prev) =>
+        prev.map((c) => c._id === commentId ? { ...c, ...res.data } : c)
+      );
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setUpvotingId(null);
+    }
+  };
 
   const handlePostComment = async () => {
     if (!newComment.trim() || !id) return;
@@ -145,6 +176,21 @@ export function ForumDiscussionDetail() {
                 ))}
               </Flex>
             )}
+            <Flex align="center" gap="2" className="mt-4">
+              <Button
+                size="1"
+                variant={discussion.user_upvoted ? "solid" : "soft"}
+                color="orange"
+                onClick={handleUpvoteDiscussion}
+                disabled={!currentUserId || upvotingId === id}
+              >
+                <ChevronUpIcon />
+                {discussion.upvote_count ?? 0}
+              </Button>
+              {!currentUserId && (
+                <Text size="1" color="gray">Sign in to upvote</Text>
+              )}
+            </Flex>
           </div>
         </Flex>
       </Card>
@@ -209,6 +255,18 @@ export function ForumDiscussionDetail() {
                   {c.content}
                 </ReactMarkdown>
               </div>
+              <Flex align="center" gap="1" className="mt-1">
+                <Button
+                  size="1"
+                  variant={c.user_upvoted ? "solid" : "ghost"}
+                  color="orange"
+                  onClick={() => handleUpvoteComment(c._id)}
+                  disabled={!currentUserId || upvotingId === c._id}
+                >
+                  <ChevronUpIcon />
+                  {c.upvote_count ?? 0}
+                </Button>
+              </Flex>
             </div>
           </div>
         ))}

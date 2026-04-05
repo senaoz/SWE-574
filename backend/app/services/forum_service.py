@@ -70,8 +70,21 @@ class ForumService:
         doc["comment_count"] = 0
         return ForumDiscussionResponse(**doc)
 
+    def _upvote_fields(self, doc: dict, user_id: Optional[str]) -> dict:
+        """Populate upvote_count and user_upvoted from the upvoted_by array."""
+        upvoted_by = doc.get("upvoted_by") or []
+        doc["upvote_count"] = doc.get("upvote_count") or len(upvoted_by)
+        doc["user_upvoted"] = user_id in [str(uid) for uid in upvoted_by] if user_id else False
+        return doc
+
     async def get_discussions(
-        self, page: int = 1, limit: int = 20, tag: Optional[str] = None, q: Optional[str] = None
+        self,
+        page: int = 1,
+        limit: int = 20,
+        tag: Optional[str] = None,
+        q: Optional[str] = None,
+        sort_by: str = "created_at",
+        user_id: Optional[str] = None,
     ) -> Tuple[List[ForumDiscussionResponse], int]:
         query: dict = {}
         if tag:
@@ -82,23 +95,26 @@ class ForumService:
                 {"body": {"$regex": q, "$options": "i"}},
             ]
 
+        sort_field = "upvote_count" if sort_by == "upvote_count" else "created_at"
         total = await self.discussions.count_documents(query)
         skip = (page - 1) * limit
-        cursor = self.discussions.find(query).sort("created_at", -1).skip(skip).limit(limit)
+        cursor = self.discussions.find(query).sort(sort_field, -1).skip(skip).limit(limit)
 
         results = []
         async for doc in cursor:
             doc = await self._enrich_user(doc)
             doc["comment_count"] = await self._comment_count("discussion", doc["_id"])
+            doc = self._upvote_fields(doc, user_id)
             results.append(ForumDiscussionResponse(**doc))
         return results, total
 
-    async def get_discussion_by_id(self, discussion_id: str) -> Optional[ForumDiscussionResponse]:
+    async def get_discussion_by_id(self, discussion_id: str, user_id: Optional[str] = None) -> Optional[ForumDiscussionResponse]:
         doc = await self.discussions.find_one({"_id": ObjectId(discussion_id)})
         if not doc:
             return None
         doc = await self._enrich_user(doc)
         doc["comment_count"] = await self._comment_count("discussion", doc["_id"])
+        doc = self._upvote_fields(doc, user_id)
         return ForumDiscussionResponse(**doc)
 
     async def update_discussion(
@@ -167,6 +183,7 @@ class ForumService:
         tag: Optional[str] = None,
         q: Optional[str] = None,
         has_location: bool = False,
+        user_id: Optional[str] = None,
     ) -> Tuple[List[ForumEventResponse], int]:
         query: dict = {}
         if tag:
@@ -190,10 +207,11 @@ class ForumService:
             doc = await self._enrich_service(doc)
             doc["comment_count"] = await self._comment_count("event", doc["_id"])
             doc = self._populate_attendee_fields(doc)
+            doc = self._upvote_fields(doc, user_id)
             results.append(ForumEventResponse(**doc))
         return results, total
 
-    async def get_event_by_id(self, event_id: str) -> Optional[ForumEventResponse]:
+    async def get_event_by_id(self, event_id: str, user_id: Optional[str] = None) -> Optional[ForumEventResponse]:
         doc = await self.events.find_one({"_id": ObjectId(event_id)})
         if not doc:
             return None
@@ -201,6 +219,7 @@ class ForumService:
         doc = await self._enrich_service(doc)
         doc["comment_count"] = await self._comment_count("event", doc["_id"])
         doc = self._populate_attendee_fields(doc)
+        doc = self._upvote_fields(doc, user_id)
         return ForumEventResponse(**doc)
 
     async def update_event(
@@ -295,6 +314,48 @@ class ForumService:
                 })
         return attendees
 
+    # ---- Upvotes ----
+
+    async def toggle_upvote(self, target_type: str, target_id: str, user_id: str) -> dict:
+        """Toggle upvote for a discussion, event, or comment. Returns updated counts."""
+        collection_map = {
+            "discussion": self.discussions,
+            "event": self.events,
+            "comment": self.forum_comments,
+        }
+        collection = collection_map.get(target_type)
+        if not collection:
+            raise ValueError(f"Invalid target type: {target_type}")
+
+        oid = ObjectId(target_id)
+        uid = ObjectId(user_id)
+
+        doc = await collection.find_one({"_id": oid})
+        if not doc:
+            raise ValueError(f"{target_type.capitalize()} not found")
+
+        upvoted_by = [str(u) for u in (doc.get("upvoted_by") or [])]
+        if user_id in upvoted_by:
+            # Withdraw upvote
+            await collection.update_one(
+                {"_id": oid},
+                {"$pull": {"upvoted_by": uid}, "$inc": {"upvote_count": -1}},
+            )
+            user_upvoted = False
+        else:
+            # Cast upvote
+            await collection.update_one(
+                {"_id": oid},
+                {"$addToSet": {"upvoted_by": uid}, "$inc": {"upvote_count": 1}},
+            )
+            user_upvoted = True
+
+        updated = await collection.find_one({"_id": oid})
+        return {
+            "upvote_count": updated.get("upvote_count", 0),
+            "user_upvoted": user_upvoted,
+        }
+
     # ---- Comments ----
 
     async def create_comment(self, data: ForumCommentCreate, user_id: str) -> ForumCommentResponse:
@@ -320,7 +381,7 @@ class ForumService:
         return ForumCommentResponse(**doc)
 
     async def get_comments(
-        self, target_type: str, target_id: str, page: int = 1, limit: int = 20
+        self, target_type: str, target_id: str, page: int = 1, limit: int = 20, user_id: Optional[str] = None
     ) -> Tuple[List[ForumCommentResponse], int]:
         oid = ObjectId(target_id)
         query = {
@@ -334,6 +395,7 @@ class ForumService:
         results = []
         async for doc in cursor:
             doc = await self._enrich_user(doc)
+            doc = self._upvote_fields(doc, user_id)
             results.append(ForumCommentResponse(**doc))
         return results, total
 

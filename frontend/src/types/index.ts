@@ -560,6 +560,8 @@ export interface ForumDiscussion {
   updated_at: string;
   user?: ForumAuthor;
   comment_count: number;
+  upvote_count: number;
+  user_upvoted?: boolean;
 }
 
 export interface ForumDiscussionListResponse {
@@ -598,6 +600,8 @@ export interface ForumEvent {
   comment_count: number;
   attendee_ids: string[];
   attendee_count: number;
+  upvote_count: number;
+  user_upvoted?: boolean;
 }
 
 export interface ForumEventListResponse {
@@ -628,6 +632,8 @@ export interface ForumComment {
   created_at: string;
   updated_at: string;
   user?: ForumAuthor;
+  upvote_count: number;
+  user_upvoted?: boolean;
 }
 
 export interface ForumCommentListResponse {
