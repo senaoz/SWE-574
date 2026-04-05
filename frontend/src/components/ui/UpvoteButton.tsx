@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Button, Text, Flex } from "@radix-ui/themes";
+import {Button, Text, Flex, Badge} from "@radix-ui/themes";
 import { ChevronUpIcon } from "@radix-ui/react-icons";
 
 interface UpvoteButtonProps {
@@ -56,19 +56,18 @@ export function UpvoteButton({
 
   return (
     <Flex align="center" gap="1">
-      <Button
+      <Badge
         size={size}
-        variant={"soft"}
-        className={"font-bold"}
+        variant={localUpvoted ? 'solid' : 'soft'}
+        className={`font-bold ${isReadOnly || loading ? "cursor-not-allowed" : "cursor-pointer"}`}
         // localUpvoted ? "solid" : isReadOnly ? "soft" : "ghost"
-        color="orange"
+        color={isReadOnly ? "gray" : "orange"}
         onClick={handleClick}
-        disabled={isReadOnly || loading}
         style={isReadOnly ? { cursor: "default", pointerEvents: "none" } : undefined}
       >
         <ChevronUpIcon />
         {localCount}
-      </Button>
+      </Badge>
       {showLoginHint && (
         <Text size="1" color="gray">Sign in to upvote</Text>
       )}
