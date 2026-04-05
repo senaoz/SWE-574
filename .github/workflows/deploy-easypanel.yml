@@ -54,9 +54,9 @@ jobs:
     steps:
       - name: Trigger Easypanel deployment
         env:
-          DEPLOY_URL: ${{ secrets.EASYPANEL_DEPLOY_URL || 'http://82.25.97.112:3000/api/compose/deploy/76e77b79c86de85ddde70ec4b3ac93fcccc71fdb303a261e' }}
+          DEPLOY_URL: ${{ secrets.EASYPANEL_DEPLOY_URL || 'http://82.25.97.112:3000/api/compose/deploy/ff029a14f79b4b78520188ae12c7631ee7573b792b0528ab' }}
         run: |
-          response=$(curl -s -w "\n%{http_code}" "$DEPLOY_URL")
+          response=$(curl -s -w "\n%{http_code}" --max-time 30 --connect-timeout 10 --retry 3 --retry-delay 5 "$DEPLOY_URL")
           echo "Deploy URL: $DEPLOY_URL"
           http_code=$(echo "$response" | tail -n1)
           body=$(echo "$response" | sed '$d')
