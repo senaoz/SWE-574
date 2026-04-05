@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import {Button, Text, Flex, Badge} from "@radix-ui/themes";
+import { Text, Flex, Badge} from "@radix-ui/themes";
 import { ChevronUpIcon } from "@radix-ui/react-icons";
 
 interface UpvoteButtonProps {
