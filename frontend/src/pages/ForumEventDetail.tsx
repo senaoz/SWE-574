@@ -24,6 +24,7 @@ import { MessageCircleIcon } from "lucide-react";
 import { forumApi, getImageUrl } from "@/services/api";
 import { ForumEvent, ForumComment } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
+import { UpvoteButton } from "@/components/ui/UpvoteButton";
 import { useUser } from "@/App";
 import ReactMarkdown from "react-markdown";
 
@@ -150,7 +151,16 @@ export function ForumEventDetail() {
 
       {/* Event content */}
       <Card className="p-6 mb-6">
-        <Heading size="5">{event.title}</Heading>
+        <div className="flex justify-between">
+          <Heading size="5">{event.title}</Heading>
+          <UpvoteButton
+              count={event.upvote_count ?? 0}
+              upvoted={event.user_upvoted}
+              onUpvote={currentUserId ? () => forumApi.upvoteEvent(id!).then(r => r.data) : undefined}
+              disabled={!currentUserId}
+              showLoginHint={!currentUserId}
+          />
+        </div>
         <Flex gap="2" align="center" className="mt-1 mb-4" wrap="wrap">
           <Text size="2" color="gray">
             by {event.user?.full_name || event.user?.username || "Unknown"}
@@ -319,9 +329,9 @@ export function ForumEventDetail() {
       </div>
 
       {/* Comment list */}
-      <div className="space-y-4">
+      <div className="space-y-2">
         {comments.map((c) => (
-          <div key={c._id} className="flex gap-3">
+          <div key={c._id} className="flex gap-3 pt-2">
             <Avatar
               size="2"
               src={getImageUrl(c.user?.profile_picture)}
@@ -337,6 +347,14 @@ export function ForumEventDetail() {
                 </Text>
               </Flex>
               <div>{c.content}</div>
+            </div>
+            <div className="mt-1">
+              <UpvoteButton
+                  count={c.upvote_count ?? 0}
+                  upvoted={c.user_upvoted}
+                  onUpvote={currentUserId ? () => forumApi.upvoteComment(c._id).then(r => r.data) : undefined}
+                  disabled={!currentUserId}
+              />
             </div>
           </div>
         ))}

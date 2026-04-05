@@ -156,7 +156,7 @@ export function OfferListingCard({
             >
               {service?.service_type === "offer" ? "OFFER" : "NEED"}
             </Badge>
-            {currentUserId && (
+            {currentUserId && isSaved && (
               <Badge
                 color={isSaved ? "red" : "gray"}
                 variant="soft"
