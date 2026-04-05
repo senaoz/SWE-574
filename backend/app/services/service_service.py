@@ -383,6 +383,63 @@ class ServiceService:
             )
         )
 
+    def _get_interest_match_fields(self, service_like: dict) -> List[str]:
+        fields: List[str] = []
+        for value in (
+            service_like.get("title"),
+            service_like.get("description"),
+            service_like.get("category"),
+        ):
+            normalized_value = self._normalize_text_value(value)
+            if normalized_value:
+                fields.append(normalized_value)
+
+        for tag in service_like.get("tags") or []:
+            if isinstance(tag, str):
+                normalized_value = self._normalize_text_value(tag)
+                if normalized_value:
+                    fields.append(normalized_value)
+                continue
+
+            if not isinstance(tag, dict):
+                normalized_value = self._normalize_text_value(tag)
+                if normalized_value:
+                    fields.append(normalized_value)
+                continue
+
+            for value in (tag.get("label"), tag.get("entityId")):
+                normalized_value = self._normalize_text_value(value)
+                if normalized_value:
+                    fields.append(normalized_value)
+
+            aliases = tag.get("aliases")
+            if isinstance(aliases, list):
+                for alias in aliases:
+                    normalized_value = self._normalize_text_value(alias)
+                    if normalized_value:
+                        fields.append(normalized_value)
+
+        return fields
+
+    def _contains_whole_phrase(self, text: Optional[str], phrase: Optional[str]) -> bool:
+        normalized_text = self._normalize_text_value(text)
+        normalized_phrase = self._normalize_text_value(phrase)
+        if not normalized_text or not normalized_phrase:
+            return False
+
+        pattern = rf"(?<!\w){re.escape(normalized_phrase)}(?!\w)"
+        return re.search(pattern, normalized_text) is not None
+
+    def _service_matches_interest(
+        self,
+        service_doc: dict,
+        normalized_interest: str,
+    ) -> bool:
+        return any(
+            self._contains_whole_phrase(field, normalized_interest)
+            for field in self._get_interest_match_fields(service_doc)
+        )
+
     def _build_similarity_profile(self, service_like: dict) -> Tuple[Set[str], Set[str]]:
         tag_labels = self._get_tag_labels(service_like.get("tags"))
         location = service_like.get("location") or {}
@@ -941,8 +998,10 @@ class ServiceService:
             matched_interests = [
                 interest["label"]
                 for interest in normalized_interests
-                if interest["normalized"] in candidate_profile[0]
-                or interest["normalized"] in content_blob
+                if self._service_matches_interest(
+                    service_doc,
+                    interest["normalized"],
+                )
             ]
             saved_similarity = self._max_profile_similarity(
                 candidate_profile,

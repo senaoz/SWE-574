@@ -7,7 +7,6 @@ import {
 import { OfferListingCard } from "@/components/ui/OfferListingCard";
 import {
   DashboardFilterBar,
-  defaultDashboardFilters,
   type DashboardFilters,
 } from "@/components/ui/DashboardFilterBar";
 import { servicesApi, forumApi, usersApi } from "@/services/api";
@@ -39,6 +38,10 @@ import {
   Service,
   TagEntity,
 } from "@/types";
+import {
+  getDashboardFiltersFromSearchParams,
+  setDashboardFiltersInSearchParams,
+} from "@/utils/dashboardFilterSearchParams";
 import { sortDashboardServices } from "@/utils/serviceSort";
 
 const RECOMMENDATION_PAGE_SIZE = 10;
@@ -51,12 +54,17 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
   const { searchQuery, selectedCity, setSelectedCity } = useFilters();
-  const [dashFilters, setDashFilters] = useState<DashboardFilters>(
-    defaultDashboardFilters,
-  );
   const [searchParams, setSearchParams] = useSearchParams();
   const tagParam = searchParams.get("tag");
-  const [mapFilters, setMapFilters] = useState<MapFilters>(defaultMapFilters);
+  const dashFilters = useMemo(
+    () => getDashboardFiltersFromSearchParams(searchParams, selectedCity),
+    [searchParams, selectedCity],
+  );
+  const [mapFilters, setMapFilters] = useState<MapFilters>(() => ({
+    ...defaultMapFilters,
+    serviceType: dashFilters.serviceType,
+    distance: dashFilters.distance,
+  }));
   const [userPosition, setUserPosition] = useState<[number, number] | null>(
     null,
   );
@@ -94,6 +102,29 @@ export function Dashboard() {
       : dashFilters.remoteFilter === "in_person"
         ? false
         : undefined;
+  const activeCity = dashFilters.city;
+
+  useEffect(() => {
+    if (selectedCity === activeCity) return;
+    setSelectedCity(activeCity);
+  }, [activeCity, selectedCity, setSelectedCity]);
+
+  useEffect(() => {
+    setMapFilters((prev) => {
+      if (
+        prev.serviceType === dashFilters.serviceType &&
+        prev.distance === dashFilters.distance
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        serviceType: dashFilters.serviceType,
+        distance: dashFilters.distance,
+      };
+    });
+  }, [dashFilters.distance, dashFilters.serviceType]);
 
   useEffect(() => {
     setRecommendedPage(1);
@@ -102,7 +133,7 @@ export function Dashboard() {
     currentUserId,
     dashFilters.forYouOnly,
     searchQuery,
-    selectedCity,
+    activeCity,
     dashFilters.serviceType,
     dashFilters.status,
     dashFilters.selectedTags,
@@ -120,7 +151,7 @@ export function Dashboard() {
         currentUserId,
         recommendedPage,
         searchQuery,
-        selectedCity,
+        activeCity,
         dashFilters.serviceType,
         dashFilters.status,
         dashFilters.selectedTags,
@@ -146,8 +177,7 @@ export function Dashboard() {
               dashFilters.selectedTags.length > 0
                 ? dashFilters.selectedTags.join(",")
                 : undefined,
-            city:
-              selectedCity && selectedCity !== "all" ? selectedCity : undefined,
+            city: activeCity && activeCity !== "all" ? activeCity : undefined,
             latitude: userPosition?.[0],
             longitude: userPosition?.[1],
             radius:
@@ -183,23 +213,18 @@ export function Dashboard() {
     });
   }, [dashFilters.forYouOnly, recommendedPage, recommendedServicesData]);
 
-  useEffect(() => {
-    setDashFilters((prev) =>
-      prev.city !== selectedCity ? { ...prev, city: selectedCity } : prev,
-    );
-  }, [selectedCity]);
-
   const handleDashFiltersChange = useCallback(
     (next: DashboardFilters) => {
-      setDashFilters(next);
-      setMapFilters((prev) => ({
-        ...prev,
-        serviceType: next.serviceType,
-        distance: next.distance,
-      }));
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev);
+          return setDashboardFiltersInSearchParams(params, next);
+        },
+        { replace: true },
+      );
       setSelectedCity(next.city);
     },
-    [setSelectedCity],
+    [setSearchParams, setSelectedCity],
   );
 
   useEffect(() => {
@@ -301,15 +326,15 @@ export function Dashboard() {
       );
     }
 
-    if (selectedCity && selectedCity !== "all") {
+    if (activeCity && activeCity !== "all") {
       filtered = filtered.filter((service) => {
         const address = service.location.address?.toLowerCase() || "";
-        return address.includes(selectedCity.toLowerCase());
+        return address.includes(activeCity.toLowerCase());
       });
     }
 
     setFilteredServices(filtered);
-  }, [services, selectedCity, tagParam]);
+  }, [services, activeCity, tagParam]);
 
   const eligibleServices = useMemo(() => {
     let list = applyMapFilters(filteredServices, mapFilters, userPosition);
@@ -480,7 +505,7 @@ export function Dashboard() {
                   ? `${displayedServices.length} picks for you`
                   : `${displayedServices.length} services found`}
             {searchQuery && ` for "${searchQuery}"`}
-            {selectedCity && selectedCity !== "all" && ` in ${selectedCity}`}
+            {activeCity && activeCity !== "all" && ` in ${activeCity}`}
             {tagParam && ` with tag "${decodeURIComponent(tagParam)}"`}
           </Text>
           {tagParam && (

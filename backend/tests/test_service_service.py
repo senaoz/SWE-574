@@ -184,6 +184,126 @@ class TestServiceService:
         assert len(items) == 1
         assert items[0].service.id == str(similar_offer.id)
         assert items[0].service.service_type == ServiceType.OFFER
+
+    @pytest.mark.asyncio
+    async def test_get_recommended_services_ignores_interest_substrings_in_words(
+        self, mock_db, test_user, second_user, sample_service_data
+    ):
+        """Interest matches should not be triggered by substrings such as health->healthy."""
+        from bson import ObjectId
+        from app.models.service import ServiceCreate
+
+        service_service = ServiceService(mock_db)
+
+        await mock_db.users.update_one(
+            {"_id": ObjectId(str(test_user.id))},
+            {"$set": {"interests": ["Health"]}},
+        )
+
+        unrelated_service_data = sample_service_data.copy()
+        unrelated_service_data.update(
+            {
+                "title": "Home Cooking / Meal Prep",
+                "description": "Share healthy cooking ideas and easy dinner prep.",
+                "category": "cooking",
+                "tags": ["cooking", "food"],
+            }
+        )
+        await service_service.create_service(
+            ServiceCreate(**unrelated_service_data),
+            str(second_user.id),
+        )
+
+        items, total = await service_service.get_recommended_services(
+            user_id=str(test_user.id),
+            filters=ServiceFilters(),
+            page=1,
+            limit=10,
+        )
+
+        assert total == 0
+        assert items == []
+
+    @pytest.mark.asyncio
+    async def test_get_recommended_services_ignores_short_interest_inside_other_words(
+        self, mock_db, test_user, second_user, sample_service_data
+    ):
+        """Short interests such as AI should only match whole terms, not word fragments."""
+        from bson import ObjectId
+        from app.models.service import ServiceCreate
+
+        service_service = ServiceService(mock_db)
+
+        await mock_db.users.update_one(
+            {"_id": ObjectId(str(test_user.id))},
+            {"$set": {"interests": ["AI"]}},
+        )
+
+        unrelated_service_data = sample_service_data.copy()
+        unrelated_service_data.update(
+            {
+                "title": "Watercolor Portrait Of My Pet",
+                "description": "Bring a painting reference for a birthday portrait workshop.",
+                "category": "art",
+                "tags": ["Watercolor Painting", "Portrait"],
+            }
+        )
+        await service_service.create_service(
+            ServiceCreate(**unrelated_service_data),
+            str(second_user.id),
+        )
+
+        items, total = await service_service.get_recommended_services(
+            user_id=str(test_user.id),
+            filters=ServiceFilters(),
+            page=1,
+            limit=10,
+        )
+
+        assert total == 0
+        assert items == []
+
+    @pytest.mark.asyncio
+    async def test_get_recommended_services_matches_interest_as_whole_term(
+        self, mock_db, test_user, second_user, sample_service_data
+    ):
+        """Whole-word interest matches should still produce recommendations."""
+        from bson import ObjectId
+        from app.models.service import ServiceCreate
+
+        service_service = ServiceService(mock_db)
+
+        await mock_db.users.update_one(
+            {"_id": ObjectId(str(test_user.id))},
+            {"$set": {"interests": ["AI"]}},
+        )
+
+        matching_service_data = sample_service_data.copy()
+        matching_service_data.update(
+            {
+                "title": "AI Interview Practice",
+                "description": "Practice AI interview questions together.",
+                "category": "technology",
+                "tags": ["career", "AI"],
+            }
+        )
+        matching_service = await service_service.create_service(
+            ServiceCreate(**matching_service_data),
+            str(second_user.id),
+        )
+
+        items, total = await service_service.get_recommended_services(
+            user_id=str(test_user.id),
+            filters=ServiceFilters(),
+            page=1,
+            limit=10,
+        )
+
+        assert total == 1
+        assert len(items) == 1
+        assert items[0].service.id == str(matching_service.id)
+        assert items[0].matched_interests == ["AI"]
+        assert items[0].reason == "Because it matches your interest in AI"
     
     @pytest.mark.asyncio
     async def test_update_service(self, mock_db, sample_service):
