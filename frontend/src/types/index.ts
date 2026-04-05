@@ -39,6 +39,7 @@ export interface Rating {
   score: number;
   comment?: string;
   tags?: string[];
+  image_urls?: string[];
   created_at: string;
   rater?: {
     id: string;
@@ -94,6 +95,7 @@ export interface RatingForm {
   score: number;
   comment?: string;
   tags?: string[];
+  image_urls?: string[];
 }
 
 export interface User {
