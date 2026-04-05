@@ -41,6 +41,7 @@ export function useSavedServiceIds() {
       servicesApi.getSavedServiceIds().then((res) => res.data.service_ids),
     enabled: !!currentUserId,
   });
+  
   const { data: savedStateOverrides = {} } = useQuery({
     queryKey: savedServiceOverridesQueryKey,
     queryFn: () =>

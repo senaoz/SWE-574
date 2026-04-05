@@ -324,7 +324,7 @@ class ForumService:
             "comment": self.forum_comments,
         }
         collection = collection_map.get(target_type)
-        if not collection:
+        if collection is None:
             raise ValueError(f"Invalid target type: {target_type}")
 
         oid = ObjectId(target_id)

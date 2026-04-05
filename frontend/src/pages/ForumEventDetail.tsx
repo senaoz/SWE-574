@@ -19,12 +19,12 @@ import {
   Link2Icon,
   PersonIcon,
   CheckCircledIcon,
-  ChevronUpIcon,
 } from "@radix-ui/react-icons";
 import { MessageCircleIcon } from "lucide-react";
 import { forumApi, getImageUrl } from "@/services/api";
 import { ForumEvent, ForumComment } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
+import { UpvoteButton } from "@/components/ui/UpvoteButton";
 import { useUser } from "@/App";
 import ReactMarkdown from "react-markdown";
 
@@ -60,7 +60,6 @@ export function ForumEventDetail() {
   const [loading, setLoading] = useState(true);
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [attendToggling, setAttendToggling] = useState(false);
-  const [upvotingId, setUpvotingId] = useState<string | null>(null);
 
   const isAttending =
     event?.attendee_ids?.includes(currentUserId || "") ?? false;
@@ -103,34 +102,6 @@ export function ForumEventDetail() {
       console.error(e);
     } finally {
       setAttendToggling(false);
-    }
-  };
-
-  const handleUpvoteEvent = async () => {
-    if (!id || !currentUserId) return;
-    setUpvotingId(id);
-    try {
-      const res = await forumApi.upvoteEvent(id);
-      setEvent((prev) => prev ? { ...prev, ...res.data } : prev);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setUpvotingId(null);
-    }
-  };
-
-  const handleUpvoteComment = async (commentId: string) => {
-    if (!currentUserId) return;
-    setUpvotingId(commentId);
-    try {
-      const res = await forumApi.upvoteComment(commentId);
-      setComments((prev) =>
-        prev.map((c) => c._id === commentId ? { ...c, ...res.data } : c)
-      );
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setUpvotingId(null);
     }
   };
 
@@ -180,7 +151,16 @@ export function ForumEventDetail() {
 
       {/* Event content */}
       <Card className="p-6 mb-6">
-        <Heading size="5">{event.title}</Heading>
+        <div className="flex justify-between">
+          <Heading size="5">{event.title}</Heading>
+          <UpvoteButton
+              count={event.upvote_count ?? 0}
+              upvoted={event.user_upvoted}
+              onUpvote={currentUserId ? () => forumApi.upvoteEvent(id!).then(r => r.data) : undefined}
+              disabled={!currentUserId}
+              showLoginHint={!currentUserId}
+          />
+        </div>
         <Flex gap="2" align="center" className="mt-1 mb-4" wrap="wrap">
           <Text size="2" color="gray">
             by {event.user?.full_name || event.user?.username || "Unknown"}
@@ -251,22 +231,6 @@ export function ForumEventDetail() {
             ))}
           </Flex>
         )}
-
-        <Flex align="center" gap="2" className="mt-4">
-          <Button
-            size="1"
-            variant={event.user_upvoted ? "solid" : "soft"}
-            color="orange"
-            onClick={handleUpvoteEvent}
-            disabled={!currentUserId || upvotingId === id}
-          >
-            <ChevronUpIcon />
-            {event.upvote_count ?? 0}
-          </Button>
-          {!currentUserId && (
-            <Text size="1" color="gray">Sign in to upvote</Text>
-          )}
-        </Flex>
 
         {/* Attending section */}
         <div className="mt-8 border-t pt-4">
@@ -365,9 +329,9 @@ export function ForumEventDetail() {
       </div>
 
       {/* Comment list */}
-      <div className="space-y-4">
+      <div className="space-y-2">
         {comments.map((c) => (
-          <div key={c._id} className="flex gap-3">
+          <div key={c._id} className="flex gap-3 pt-2">
             <Avatar
               size="2"
               src={getImageUrl(c.user?.profile_picture)}
@@ -383,18 +347,14 @@ export function ForumEventDetail() {
                 </Text>
               </Flex>
               <div>{c.content}</div>
-              <Flex align="center" gap="1" className="mt-1">
-                <Button
-                  size="1"
-                  variant={c.user_upvoted ? "solid" : "ghost"}
-                  color="orange"
-                  onClick={() => handleUpvoteComment(c._id)}
-                  disabled={!currentUserId || upvotingId === c._id}
-                >
-                  <ChevronUpIcon />
-                  {c.upvote_count ?? 0}
-                </Button>
-              </Flex>
+            </div>
+            <div className="mt-1">
+              <UpvoteButton
+                  count={c.upvote_count ?? 0}
+                  upvoted={c.user_upvoted}
+                  onUpvote={currentUserId ? () => forumApi.upvoteComment(c._id).then(r => r.data) : undefined}
+                  disabled={!currentUserId}
+              />
             </div>
           </div>
         ))}

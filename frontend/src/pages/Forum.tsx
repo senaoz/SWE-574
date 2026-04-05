@@ -24,6 +24,7 @@ import {
   PersonIcon,
   ChevronUpIcon,
 } from "@radix-ui/react-icons";
+import { UpvoteButton } from "@/components/ui/UpvoteButton";
 import { MessageCircleIcon, CalendarClockIcon } from "lucide-react";
 import { forumApi, getImageUrl } from "@/services/api";
 import { ForumDiscussion, ForumEvent, TagEntity } from "@/types";
@@ -247,10 +248,7 @@ export function Forum() {
                           <MessageCircleIcon className="w-3 h-3 mr-1" />
                           {d.comment_count}
                         </Badge>
-                        <Badge size="1" variant="soft" color="orange">
-                          <ChevronUpIcon className="w-3 h-3 mr-1" />
-                          {d.upvote_count ?? 0}
-                        </Badge>
+                        <UpvoteButton count={d.upvote_count ?? 0} upvoted={d.user_upvoted} />
                         {(d.tags || []).slice(0, 3).map((tag, i) => (
                           <ClickableTag
                             key={i}
@@ -352,10 +350,7 @@ export function Forum() {
                       <MessageCircleIcon className="w-3 h-3 mr-1" />
                       {ev.comment_count}
                     </Badge>
-                    <Badge size="1" variant="soft" color="orange">
-                      <ChevronUpIcon className="w-3 h-3 mr-1" />
-                      {ev.upvote_count ?? 0}
-                    </Badge>
+                    <UpvoteButton count={ev.upvote_count ?? 0} upvoted={ev.user_upvoted} />
                     {(ev.tags || []).slice(0, 3).map((tag, i) => (
                       <ClickableTag
                         key={i}
