@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { OfferNeedForm } from "../OfferNeedForm";
 import { Service } from "@/types";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Theme } from "@radix-ui/themes";
 
 // Mock API modules
 const mockCreateService = vi.fn().mockResolvedValue({ data: {} });
@@ -76,9 +77,11 @@ function renderForm(props: Partial<Parameters<typeof OfferNeedForm>[0]> = {}) {
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return render(
-    <QueryClientProvider client={qc}>
-      <OfferNeedForm serviceType="offer" {...props} />
-    </QueryClientProvider>,
+    <Theme>
+      <QueryClientProvider client={qc}>
+        <OfferNeedForm serviceType="offer" {...props} />
+      </QueryClientProvider>
+    </Theme>,
   );
 }
 
@@ -122,7 +125,7 @@ describe("OfferNeedForm — Edit Mode", () => {
   it("shows existing images from initialService", () => {
     renderForm({ initialService: mockService });
     expect(screen.getByText("Existing images")).toBeInTheDocument();
-    const img = screen.getByAlt("Existing 1");
+    const img = screen.getByAltText("Existing 1");
     expect(img).toHaveAttribute(
       "src",
       "http://localhost:8000/uploads/services/img1.jpg",
@@ -240,6 +243,6 @@ describe("OfferNeedForm — Create Mode defaults", () => {
     renderForm();
     await user.click(screen.getByRole("button", { name: "Create" }));
 
-    expect(screen.getByText("Title is required")).toBeInTheDocument();
+    expect(screen.getAllByText("Title is required").length).toBeGreaterThan(0);
   });
 });

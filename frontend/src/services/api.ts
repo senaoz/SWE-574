@@ -96,6 +96,16 @@ export const uploadApi = {
       }],
     });
   },
+  uploadRatingImage: (file: File): Promise<AxiosResponse<{ url: string }>> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/upload/rating-image', formData, {
+      transformRequest: [(data: unknown, headers?: Record<string, string>) => {
+        if (headers) delete headers['Content-Type'];
+        return data;
+      }],
+    });
+  },
 };
 
 // Auth API
@@ -157,6 +167,9 @@ export const usersApi = {
 
   getAvailableInterests: (): Promise<AxiosResponse<string[]>> =>
     api.get('/users/available-interests'),
+
+  searchUsers: (q: string, limit?: number): Promise<AxiosResponse<User[]>> =>
+    api.get('/users/search', { params: { q, limit } }),
 };
 
 // Services API
@@ -347,7 +360,7 @@ export const ratingsApi = {
 // Forum API
 export const forumApi = {
   // Discussions
-  getDiscussions: (params?: { page?: number; limit?: number; tag?: string; q?: string }): Promise<AxiosResponse<ForumDiscussionListResponse>> =>
+  getDiscussions: (params?: { page?: number; limit?: number; tag?: string; q?: string; sort_by?: string }): Promise<AxiosResponse<ForumDiscussionListResponse>> =>
     api.get('/forum/discussions', { params }),
 
   getDiscussion: (id: string): Promise<AxiosResponse<ForumDiscussion>> =>
@@ -403,6 +416,16 @@ export const forumApi = {
 
   deleteComment: (id: string): Promise<AxiosResponse<{ message: string }>> =>
     api.delete(`/forum/comments/${id}`),
+
+  // Upvotes
+  upvoteDiscussion: (id: string): Promise<AxiosResponse<{ upvote_count: number; user_upvoted: boolean }>> =>
+    api.post(`/forum/discussions/${id}/upvote`),
+
+  upvoteEvent: (id: string): Promise<AxiosResponse<{ upvote_count: number; user_upvoted: boolean }>> =>
+    api.post(`/forum/events/${id}/upvote`),
+
+  upvoteComment: (id: string): Promise<AxiosResponse<{ upvote_count: number; user_upvoted: boolean }>> =>
+    api.post(`/forum/comments/${id}/upvote`),
 };
 
 export const reportsApi = {

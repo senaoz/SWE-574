@@ -183,6 +183,6 @@ class RatingService:
             {"$group": {"_id": None, "avg": {"$avg": "$score"}}},
         ]
         result = await self.ratings_collection.aggregate(pipeline).to_list(1)
-        if result:
+        if result and result[0]["avg"] is not None:
             return round(result[0]["avg"], 2)
         return None

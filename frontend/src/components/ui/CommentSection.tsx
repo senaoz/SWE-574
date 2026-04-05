@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import {
-  Card,
   Text,
   Flex,
   Avatar,
@@ -13,6 +12,7 @@ import { PaperPlaneIcon } from "@radix-ui/react-icons";
 import { commentsApi, getImageUrl, servicesApi } from "@/services/api";
 import { useNavigate } from "react-router-dom";
 import { MessageCircleIcon } from "lucide-react";
+import { formatRelativeTime } from "@/utils/utils";
 
 interface CommentSectionProps {
   serviceId: string;
@@ -72,36 +72,6 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const now = new Date();
-    // Parse the UTC timestamp correctly
-    const commentDate = new Date(dateString);
-
-    // Calculate the difference in milliseconds
-    const diffInMs = now.getTime() - commentDate.getTime();
-    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
-    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
-    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-
-    if (diffInMinutes < 1) {
-      return "just now";
-    } else if (diffInMinutes < 60) {
-      return `${diffInMinutes} minute${diffInMinutes === 1 ? "" : "s"} ago`;
-    } else if (diffInHours < 24) {
-      return `${diffInHours} hour${diffInHours === 1 ? "" : "s"} ago`;
-    } else if (diffInDays < 7) {
-      return `${diffInDays} day${diffInDays === 1 ? "" : "s"} ago`;
-    } else {
-      // For older comments, show the actual date
-      return commentDate.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    }
-  };
 
   return (
     <div>
@@ -165,7 +135,12 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
                 />
                 <div className="flex-1">
                   <Flex align="center" gap="2" className="mb-1">
-                    <Text size="2" weight="bold">
+                    <Text
+                      size="2"
+                      weight="bold"
+                      className="cursor-pointer hover:underline"
+                      onClick={() => navigate(`/profile/${user?._id}`)}
+                    >
                       {user?.full_name || user?.username || "Unknown User"}
                     </Text>
                     {isOwner && (
@@ -179,7 +154,7 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
                       </Badge>
                     )}
                     <Text size="1" color="gray">
-                      {formatDate(comment.created_at)}
+                      {formatRelativeTime(comment.created_at)}
                     </Text>
                   </Flex>
                   <Text size="2" className="leading-relaxed">

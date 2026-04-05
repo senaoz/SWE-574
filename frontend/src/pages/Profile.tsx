@@ -24,18 +24,17 @@ import {
   CheckIcon,
   Cross2Icon,
   ExitIcon,
-  ExclamationTriangleIcon,
 } from "@radix-ui/react-icons";
 import {
   UserSettings,
   PasswordChangeForm,
   AccountDeletionForm,
-  JoinRequest,
   SocialLinks,
+  RatingDetailed,
 } from "@/types";
+import { tagToLabel } from "@/components/ui/ConfirmCompletionModal";
 import {
   usersApi,
-  joinRequestsApi,
   ratingsApi,
   uploadApi,
   getImageUrl,
@@ -113,8 +112,6 @@ export function Profile() {
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const [showRejectedRequestsDialog, setShowRejectedRequestsDialog] =
-    useState(false);
   const [myservicesCounts, setMyservicesCounts] = useState({
     services: 0,
     applications: 0,
@@ -198,13 +195,6 @@ export function Profile() {
     });
   }, [user]);
 
-  // Fetch rejected requests
-  const { data: rejectedRequestsData } = useQuery({
-    queryKey: ["rejected-requests"],
-    queryFn: () => joinRequestsApi.getMyRequests(1, 50, "rejected"),
-    enabled: true,
-  });
-
   const { data: ratingsData } = useQuery({
     queryKey: ["user-ratings", user?._id],
     queryFn: () => ratingsApi.getUserRatings(user!._id, 1, 1),
@@ -213,13 +203,14 @@ export function Profile() {
   const averageRating = ratingsData?.data?.average_score ?? null;
   const ratingCount = ratingsData?.data?.total ?? 0;
 
-  let rejectedRequests = rejectedRequestsData?.data.requests || [];
-  const recentRejectedCount = rejectedRequests.filter((req: JoinRequest) => {
-    const rejectedDate = new Date(req.updated_at);
-    const daysSinceRejected =
-      (Date.now() - rejectedDate.getTime()) / (1000 * 60 * 60 * 24);
-    return daysSinceRejected <= 7; // Show notification for requests rejected in last 7 days
-  }).length;
+  const { data: detailedRatingsData, isLoading: detailedRatingsLoading } =
+    useQuery({
+      queryKey: ["user-ratings-detailed", user?._id],
+      queryFn: () => ratingsApi.getUserRatingsDetailed(user!._id, 1, 10),
+      enabled: !!user?._id,
+    });
+  const detailedRatings: RatingDetailed[] =
+    detailedRatingsData?.data?.ratings ?? [];
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -435,33 +426,6 @@ export function Profile() {
 
   return (
     <div className="space-y-12">
-      {/* Rejected Requests Notification */}
-      {recentRejectedCount > 0 && (
-        <Card style={{ backgroundColor: "var(--orange-2)" }}>
-          <Flex align="center" justify="between">
-            <Flex align="center" gap="3">
-              <ExclamationTriangleIcon className="w-5 h-5" color="orange" />
-              <div>
-                <Text size="3" weight="bold">
-                  {recentRejectedCount} Request
-                  {recentRejectedCount > 1 ? "s" : ""} Rejected
-                </Text>
-                <Text size="2" color="gray" className="block">
-                  You have {recentRejectedCount} rejected join request
-                  {recentRejectedCount > 1 ? "s" : ""} from the last 7 days
-                </Text>
-              </div>
-            </Flex>
-            <Button
-              variant="soft"
-              onClick={() => setShowRejectedRequestsDialog(true)}
-            >
-              View Details
-            </Button>
-          </Flex>
-        </Card>
-      )}
-
       <Tabs.Root value={profileTab} onValueChange={(v) => setProfileTab(v)}>
         <Tabs.List size="2">
           <Tabs.Trigger value="profile">
@@ -1233,6 +1197,113 @@ export function Profile() {
                 </Box>
               </Grid>
               <BadgeDisplay />
+
+              {/* Reviews Section */}
+              <div className="space-y-4">
+                <Heading size="5">My Reviews</Heading>
+                {detailedRatingsLoading ? (
+                  <Card className="p-6 text-center">
+                    <Text color="gray">Loading reviews...</Text>
+                  </Card>
+                ) : detailedRatings.length > 0 ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {detailedRatings.map((rating) => {
+                      const raterLabel = rating.rater
+                        ? rating.rater.full_name || `@${rating.rater.username}`
+                        : "Anonymous";
+                      const serviceTitle = rating.service?.title || null;
+                      const serviceId = rating.service?.id;
+                      const dateLabel = new Date(
+                        rating.created_at,
+                      ).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      });
+                      const hours = rating.transaction?.timebank_hours;
+
+                      if (!serviceTitle) {
+                        return null;
+                      }
+
+                      return (
+                        <Card key={rating._id} className="p-4">
+                          <Flex direction="column" gap="3">
+                            <Flex
+                              justify="between"
+                              align="center"
+                              gap="3"
+                              wrap="wrap"
+                            >
+                              <Flex align="center" gap="2">
+                                <RatingStars
+                                  value={rating.score}
+                                  readonly
+                                  size={16}
+                                />
+                                <Text size="1" color="gray">
+                                  {dateLabel}
+                                </Text>
+                              </Flex>
+                              <Text size="1" color="gray">
+                                from {raterLabel}
+                              </Text>
+                            </Flex>
+
+                            <Flex gap="2" align="center" wrap="wrap">
+                              {serviceId ? (
+                                <Button
+                                  className="font-bold"
+                                  variant="ghost"
+                                  size="2"
+                                  onClick={() =>
+                                    navigate(`/service/${serviceId}`)
+                                  }
+                                >
+                                  {serviceTitle}
+                                </Button>
+                              ) : (
+                                <Text size="3" className="font-bold">
+                                  {serviceTitle}
+                                </Text>
+                              )}
+                              {typeof hours === "number" && (
+                                <Badge color="gray" variant="soft" size="1">
+                                  {hours} hour(s)
+                                </Badge>
+                              )}
+                            </Flex>
+
+                            {rating.tags && rating.tags.length > 0 && (
+                              <Flex wrap="wrap" gap="1">
+                                {rating.tags.map((tag) => (
+                                  <InterestChip
+                                    key={tag}
+                                    name={tagToLabel(tag)}
+                                    selected
+                                    size="sm"
+                                    showIcon={false}
+                                  />
+                                ))}
+                              </Flex>
+                            )}
+
+                            {rating.comment && (
+                              <Text size="2" color="gray">
+                                "{rating.comment}"
+                              </Text>
+                            )}
+                          </Flex>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <Card className="p-6 text-center">
+                    <Text color="gray">No reviews yet</Text>
+                  </Card>
+                )}
+              </div>
             </div>
           </Tabs.Content>
 
@@ -1430,8 +1501,9 @@ export function Profile() {
         confirmLabel="Log out"
         onConfirm={handleConfirmLogout}
       />
-      {/* Rejected Requests Dialog */}
-      <Dialog.Root
+      {/* Rejected Requests Dialog
+
+       <Dialog.Root
         open={showRejectedRequestsDialog}
         onOpenChange={setShowRejectedRequestsDialog}
       >
@@ -1499,6 +1571,9 @@ export function Profile() {
           </Flex>
         </Dialog.Content>
       </Dialog.Root>
+      
+      
+      */}
     </div>
   );
 }

@@ -5,9 +5,14 @@ import com.squareup.moshi.JsonClass
 
 @JsonClass(generateAdapter = true)
 data class TagDto(
-    val id: String? = null,
+    /** Backend expects `entityId` (same as web); not `id`. */
+    @Json(name = "entityId") val entityId: String? = null,
+    /** Some responses may still expose Wikidata-style id. */
+    @Json(name = "id") val id: String? = null,
     val label: String? = null,
-    val name: String? = null
+    val name: String? = null,
+    val aliases: List<String>? = null,
+    val description: String? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -15,6 +20,13 @@ data class LocationDto(
     val latitude: Double,
     val longitude: Double,
     val address: String? = null
+)
+
+/** Backend `RecurringPattern`: weekday names + HH:mm time. */
+@JsonClass(generateAdapter = true)
+data class RecurringPatternDto(
+    val days: List<String> = emptyList(),
+    val time: String = ""
 )
 
 @JsonClass(generateAdapter = true)
@@ -25,12 +37,15 @@ data class ServiceCreate(
     val tags: List<TagDto>,
     @Json(name = "estimated_duration") val estimatedDuration: Double,
     val location: LocationDto,
+    /** Web client sends `city` (may be empty string). */
+    val city: String? = "",
     val deadline: String? = null,
     @Json(name = "service_type") val serviceType: String,
     @Json(name = "max_participants") val maxParticipants: Int? = 1,
     @Json(name = "scheduling_type") val schedulingType: String? = "open",
     @Json(name = "specific_date") val specificDate: String? = null,
     @Json(name = "specific_time") val specificTime: String? = null,
+    @Json(name = "recurring_pattern") val recurringPattern: RecurringPatternDto? = null,
     @Json(name = "open_availability") val openAvailability: String? = null,
     @Json(name = "image_urls") val imageUrls: List<String>? = null,
     @Json(name = "is_remote") val isRemote: Boolean = false
@@ -59,6 +74,7 @@ data class ServiceResponse(
     @Json(name = "scheduling_type") val schedulingType: String? = null,
     @Json(name = "specific_date") val specificDate: String? = null,
     @Json(name = "specific_time") val specificTime: String? = null,
+    @Json(name = "recurring_pattern") val recurringPattern: RecurringPatternDto? = null,
     @Json(name = "open_availability") val openAvailability: String? = null,
     @Json(name = "image_urls") val imageUrls: List<String>? = null,
     @Json(name = "is_remote") val isRemote: Boolean = false
@@ -77,6 +93,7 @@ data class ServiceUpdate(
     @Json(name = "scheduling_type") val schedulingType: String? = null,
     @Json(name = "specific_date") val specificDate: String? = null,
     @Json(name = "specific_time") val specificTime: String? = null,
+    @Json(name = "recurring_pattern") val recurringPattern: RecurringPatternDto? = null,
     @Json(name = "open_availability") val openAvailability: String? = null,
     @Json(name = "image_urls") val imageUrls: List<String>? = null,
     @Json(name = "is_remote") val isRemote: Boolean? = null

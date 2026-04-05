@@ -11,8 +11,9 @@ from app.models.user import (
 
 
 async def _make_user(mock_db, username="svcuser", email="svc@test.com", role=UserRole.USER):
+    from bson import ObjectId
     auth = AuthService(mock_db)
-    return await auth.create_user(UserCreate(
+    user = await auth.create_user(UserCreate(
         username=username,
         email=email,
         password="testpassword123",
@@ -28,6 +29,13 @@ async def _make_user(mock_db, username="svcuser", email="svc@test.com", role=Use
         service_matches_notifications=True,
         messages_notifications=True,
     ))
+    if role != UserRole.USER:
+        await mock_db.users.update_one(
+            {"_id": ObjectId(str(user.id))},
+            {"$set": {"role": role}},
+        )
+        user = type(user)(**{**user.dict(), "role": role})
+    return user
 
 
 class TestUserServiceGetters:

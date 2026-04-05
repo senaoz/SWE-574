@@ -14,6 +14,7 @@ import { AxiosError } from "axios";
 // @ts-ignore
 import handshakeIcon from "../../assets/handshakeIcon.png";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
+import { formatDateLong, formatDurationShort } from "@/utils/utils";
 
 interface HandShakeModalProps {
   service: Service;
@@ -38,20 +39,6 @@ export function HandShakeModal({
     "pending" | "accepted" | "rejected" | null
   >(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const formatDuration = (hours: number) => {
-    return `${hours}h`;
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
   const handleJoin = async () => {
     setIsSubmitting(true);
     setErrorMessage(null);
@@ -211,7 +198,7 @@ export function HandShakeModal({
                     Duration:
                   </Text>
                   <Text size="2">
-                    {formatDuration(service.estimated_duration)}
+                    {formatDurationShort(service.estimated_duration)}
                   </Text>
                 </Flex>
 
@@ -220,7 +207,7 @@ export function HandShakeModal({
                     <Text size="2" weight="medium">
                       Deadline:
                     </Text>
-                    <Text size="2">{formatDate(service.deadline)}</Text>
+                    <Text size="2">{formatDateLong(service.deadline)}</Text>
                   </Flex>
                 )}
               </Flex>

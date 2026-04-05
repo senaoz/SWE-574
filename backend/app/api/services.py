@@ -36,6 +36,7 @@ async def get_services(
     radius: Optional[float] = None,
     user_id: Optional[str] = None,
     is_remote: Optional[bool] = None,
+    current_user: Optional[UserResponse] = Depends(get_optional_current_user),
     db=Depends(get_database)
 ):
     """Get services with optional filters"""
@@ -64,7 +65,12 @@ async def get_services(
     )
     
     try:
-        services, total = await service_service.get_services(filters, page, limit)
+        services, total = await service_service.get_services(
+            filters,
+            page,
+            limit,
+            current_user_id=str(current_user.id) if current_user else None,
+        )
         return ServiceListResponse(
             services=services,
             total=total,
@@ -115,7 +121,10 @@ async def get_saved_services(
         services = []
         for doc in saved_docs:
             try:
-                svc = await service_service.get_service_by_id(doc["service_id"])
+                svc = await service_service.get_service_by_id(
+                    doc["service_id"],
+                    str(current_user.id),
+                )
                 if svc:
                     services.append(svc)
             except Exception:
@@ -279,6 +288,7 @@ async def get_potential_matches(
 @router.get("/{service_id}", response_model=ServiceResponse)
 async def get_service(
     service_id: str,
+    current_user: Optional[UserResponse] = Depends(get_optional_current_user),
     db=Depends(get_database)
 ):
     """Get service by ID"""
@@ -292,7 +302,10 @@ async def get_service(
         )
     
     try:
-        service = await service_service.get_service_by_id(service_id)
+        service = await service_service.get_service_by_id(
+            service_id,
+            str(current_user.id) if current_user else None,
+        )
         if not service:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -361,6 +374,7 @@ async def delete_service(
 ):
     """Delete service (only by owner)"""
     service_service = ServiceService(db)
+    user_service = UserService(db)
     
     try:
         # Check if service exists and user owns it
@@ -370,13 +384,16 @@ async def delete_service(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Service not found"
             )
-        
-        if str(existing_service.user_id) != str(current_user.id):
+
+        # Check if user is admin or owner
+        is_owner = str(existing_service.user_id) == str(current_user.id)
+        is_admin = await user_service.is_admin(str(current_user.id))
+        if not (is_owner or is_admin):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to delete this service"
             )
-
+        
         if existing_service.status != ServiceStatus.ACTIVE:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

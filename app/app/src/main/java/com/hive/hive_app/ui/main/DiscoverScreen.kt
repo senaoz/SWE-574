@@ -15,6 +15,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.Star
@@ -25,9 +26,11 @@ import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -58,6 +62,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import coil.compose.AsyncImage
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.activity.compose.BackHandler
 
 @Composable
 fun DiscoverScreen(
@@ -67,8 +72,66 @@ fun DiscoverScreen(
     onOpenUserProfile: ((String) -> Unit)? = null
 ) {
     var selectedServiceId by remember { mutableStateOf<String?>(null) }
+    var manageRequestsServiceId by remember { mutableStateOf<String?>(null) }
+    var completeServiceRatingArgs by remember { mutableStateOf<CompleteServiceRatingArgs?>(null) }
+    var showCreateServiceScreen by remember { mutableStateOf(false) }
+    var editServiceId by remember { mutableStateOf<String?>(null) }
     val detailViewModel: ServiceDetailViewModel = hiltViewModel()
+    val activeItemsVm: ActiveItemsViewModel = hiltViewModel()
     val context = LocalContext.current
+
+    BackHandler(
+        enabled = completeServiceRatingArgs != null ||
+            manageRequestsServiceId != null ||
+            showCreateServiceScreen ||
+            selectedServiceId != null
+    ) {
+        when {
+            completeServiceRatingArgs != null -> completeServiceRatingArgs = null
+            manageRequestsServiceId != null -> manageRequestsServiceId = null
+            showCreateServiceScreen -> {
+                showCreateServiceScreen = false
+                editServiceId = null
+            }
+            selectedServiceId != null -> selectedServiceId = null
+        }
+    }
+
+    completeServiceRatingArgs?.let { args ->
+        key(args.transactionId) {
+            CompleteServiceRatingScreen(
+                args = args,
+                onBack = { completeServiceRatingArgs = null },
+                onSuccess = {
+                    completeServiceRatingArgs = null
+                    viewModel.refresh()
+                },
+                viewModel = activeItemsVm
+            )
+        }
+        return
+    }
+
+    manageRequestsServiceId?.let { mrId ->
+        key(mrId) {
+            ManageServiceScreen(
+                serviceId = mrId,
+                onBack = { manageRequestsServiceId = null },
+                onOpenUserProfile = onOpenUserProfile,
+                onStartChat = onStartChat,
+                onNavigateToCompleteRating = { args ->
+                    completeServiceRatingArgs = args
+                    manageRequestsServiceId = null
+                },
+                onEditService = { sid ->
+                    manageRequestsServiceId = null
+                    editServiceId = sid
+                    showCreateServiceScreen = true
+                }
+            )
+        }
+        return
+    }
 
     if (selectedServiceId != null) {
         val id = selectedServiceId!!
@@ -94,7 +157,11 @@ fun DiscoverScreen(
             creatorRating = detailCreatorRating,
             isSaved = detailIsSaved,
             onStartChat = onStartChat,
-            onOpenUserProfile = onOpenUserProfile
+            onOpenUserProfile = onOpenUserProfile,
+            onManageJoinRequests = {
+                manageRequestsServiceId = id
+                selectedServiceId = null
+            }
         )
         return
     }
@@ -119,33 +186,59 @@ fun DiscoverScreen(
         }
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
-        // Search bar
-        OutlinedTextField(
-            value = state.searchQuery,
-            onValueChange = { viewModel.setSearchQuery(it) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            placeholder = { Text("Search services…") },
-            leadingIcon = {
-                Icon(
-                    Icons.Default.Search,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+    if (showCreateServiceScreen) {
+        CreateServiceScreen(
+            modifier = modifier.fillMaxSize(),
+            editServiceId = editServiceId,
+            userLat = state.userLat,
+            userLon = state.userLon,
+            locationPermissionGranted = state.locationPermissionGranted,
+            onRequestLocationPermission = {
+                permissionLauncher.launch(android.Manifest.permission.ACCESS_COARSE_LOCATION)
             },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { /* filter is live */ }),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                cursorColor = MaterialTheme.colorScheme.primary,
-                focusedLeadingIconColor = MaterialTheme.colorScheme.primary
-            ),
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(percent = 50)
+            onRefreshLocation = { viewModel.refreshLocation() },
+            onBack = {
+                showCreateServiceScreen = false
+                editServiceId = null
+            },
+            onCreated = { serviceId ->
+                showCreateServiceScreen = false
+                editServiceId = null
+                viewModel.loadServices(page = 1)
+                selectedServiceId = serviceId
+            }
         )
+        return
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Search bar
+            OutlinedTextField(
+                value = state.searchQuery,
+                onValueChange = { viewModel.setSearchQuery(it) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                placeholder = { Text("Search services…") },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.Search,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { /* filter is live */ }),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    cursorColor = MaterialTheme.colorScheme.primary,
+                    focusedLeadingIconColor = MaterialTheme.colorScheme.primary
+                ),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(percent = 50)
+            )
 
         // Service type filter
         Column(
@@ -261,6 +354,22 @@ fun DiscoverScreen(
                     )
                 }
             }
+        }
+    }
+
+        FloatingActionButton(
+            onClick = {
+                editServiceId = null
+                showCreateServiceScreen = true
+            },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Create service"
+            )
         }
     }
 }

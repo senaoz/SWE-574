@@ -12,6 +12,7 @@ import com.hive.hive_app.data.repository.RatingsRepository
 import com.hive.hive_app.data.repository.ServicesRepository
 import com.hive.hive_app.data.repository.TransactionsRepository
 import com.hive.hive_app.data.repository.UsersRepository
+import com.hive.hive_app.util.formatServiceSchedulingDisplay
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,19 +23,23 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-private data class Quad(val id: String, val title: String, val status: String, val ownerUserId: String?, val timeSlot: String?)
+/** Duration / capacity for "Applications I submitted" cards (from linked service). */
+data class ApplicationServiceMetrics(
+    val estimatedDurationHours: Double,
+    val maxParticipants: Int,
+    val acceptedCount: Int
+)
 
-private fun formatTimeSlot(service: ServiceResponse): String? {
-    val date = service.specificDate
-    val time = service.specificTime
-    val open = service.openAvailability
-    return when {
-        !date.isNullOrBlank() && !time.isNullOrBlank() -> "$date at $time"
-        !date.isNullOrBlank() -> date
-        !open.isNullOrBlank() -> "Open: $open"
-        else -> null
-    }
-}
+private data class ApplicationServiceFetch(
+    val id: String,
+    val title: String,
+    val status: String,
+    val ownerUserId: String?,
+    val timeSlot: String?,
+    val estimatedDuration: Double,
+    val maxParticipants: Int,
+    val acceptedCount: Int
+)
 
 @HiltViewModel
 class ActiveItemsViewModel @Inject constructor(
@@ -56,8 +61,12 @@ class ActiveItemsViewModel @Inject constructor(
         val applicationServiceStatuses: Map<String, String> = emptyMap(),
         /** User ID -> display name (owner of services) */
         val ownerNamesByUserId: Map<String, String> = emptyMap(),
+        /** Accepted participation: service ID → profile picture URLs for matched users (order matches matchedUserIds). */
+        val matchedUserProfilePicturesByServiceId: Map<String, List<String?>> = emptyMap(),
         /** Service ID -> time slot text for application cards */
         val applicationServiceTimeSlots: Map<String, String> = emptyMap(),
+        /** Service ID -> duration & attendees (from service) for application cards */
+        val applicationServiceMetrics: Map<String, ApplicationServiceMetrics> = emptyMap(),
         /** Service ID -> owner user ID for application cards */
         val applicationServiceOwnerIds: Map<String, String> = emptyMap(),
         val acceptedParticipation: List<ServiceResponse> = emptyList(),
@@ -68,6 +77,8 @@ class ActiveItemsViewModel @Inject constructor(
         val pendingCount: Int = 0,
         val approvedCount: Int = 0,
         val rejectedCount: Int = 0,
+        /** Owner-only: total join requests per active service (for "Manage service (n)"). */
+        val joinRequestCountsByServiceId: Map<String, Int> = emptyMap(),
         val isLoading: Boolean = false,
         val error: String? = null
     )
@@ -115,13 +126,34 @@ class ActiveItemsViewModel @Inject constructor(
             val acceptedServiceTransactions = acceptedServiceIds.associateWith { serviceId ->
                 myTransactions.firstOrNull { it.serviceId == serviceId }
             }.filterValues { it != null }.mapValues { it.value!! }
+            val matchedUserProfilePicturesByServiceId = coroutineScope {
+                acceptedParticipation.map { svc ->
+                    async {
+                        val pics = svc.matchedUserIds.orEmpty().map { uid ->
+                            async {
+                                usersRepository.getUser(uid).getOrNull()?.profilePicture
+                            }
+                        }.awaitAll()
+                        svc._id to pics
+                    }
+                }.awaitAll().toMap()
+            }
             val applicationServiceIds = applicationsSubmitted.map { it.serviceId }.distinct()
             val applicationServiceInfo = coroutineScope {
                 applicationServiceIds.map { id ->
                     async {
                         val service = servicesRepository.getService(id).getOrNull()
-                        val timeSlot = service?.let { formatTimeSlot(it) }
-                        Quad(id, service?.title ?: "", service?.status ?: "", service?.userId, timeSlot)
+                        val timeSlot = service?.let { formatServiceSchedulingDisplay(it) }
+                        ApplicationServiceFetch(
+                            id = id,
+                            title = service?.title ?: "",
+                            status = service?.status ?: "",
+                            ownerUserId = service?.userId,
+                            timeSlot = timeSlot,
+                            estimatedDuration = service?.estimatedDuration ?: 0.0,
+                            maxParticipants = service?.maxParticipants ?: 1,
+                            acceptedCount = service?.matchedUserIds?.size ?: 0
+                        )
                     }
                 }.awaitAll()
             }
@@ -129,6 +161,13 @@ class ActiveItemsViewModel @Inject constructor(
             val applicationServiceStatuses = applicationServiceInfo.associate { it.id to it.status }
             val applicationServiceOwnerIds = applicationServiceInfo.mapNotNull { q -> q.ownerUserId?.let { q.id to it } }.toMap()
             val applicationServiceTimeSlots = applicationServiceInfo.mapNotNull { q -> q.timeSlot?.let { q.id to it } }.toMap()
+            val applicationServiceMetrics = applicationServiceInfo.associate {
+                it.id to ApplicationServiceMetrics(
+                    estimatedDurationHours = it.estimatedDuration,
+                    maxParticipants = it.maxParticipants,
+                    acceptedCount = it.acceptedCount
+                )
+            }
             val allOwnerIds = (myActiveServices.map { it.userId } + acceptedParticipation.map { it.userId } + applicationServiceOwnerIds.values).distinct()
             val ownerNamesByUserId = coroutineScope {
                 allOwnerIds.map { uid ->
@@ -139,6 +178,16 @@ class ActiveItemsViewModel @Inject constructor(
             }
             // Do not show applications whose service is already in_progress (service has started)
             val applicationsFiltered = applicationsSubmitted.filter { applicationServiceStatuses[it.serviceId] != "in_progress" }
+            val joinRequestCountsByServiceId = coroutineScope {
+                myActiveServices.map { svc ->
+                    async {
+                        joinRequestsRepository.getServiceRequests(svc._id, page = 1, limit = 1).fold(
+                            onSuccess = { svc._id to it.total },
+                            onFailure = { svc._id to 0 }
+                        )
+                    }
+                }.awaitAll().toMap()
+            }
             _state.value = _state.value.copy(
                 myActiveServices = myActiveServices,
                 applicationsSubmitted = applicationsFiltered,
@@ -146,13 +195,16 @@ class ActiveItemsViewModel @Inject constructor(
                 applicationServiceStatuses = applicationServiceStatuses,
                 ownerNamesByUserId = ownerNamesByUserId,
                 applicationServiceTimeSlots = applicationServiceTimeSlots,
+                applicationServiceMetrics = applicationServiceMetrics,
                 applicationServiceOwnerIds = applicationServiceOwnerIds,
                 acceptedParticipation = acceptedParticipation,
                 acceptedServiceTransactions = acceptedServiceTransactions,
+                matchedUserProfilePicturesByServiceId = matchedUserProfilePicturesByServiceId,
                 currentUserId = userId,
                 pendingCount = pendingCount,
                 approvedCount = approvedCount,
                 rejectedCount = rejectedCount,
+                joinRequestCountsByServiceId = joinRequestCountsByServiceId,
                 isLoading = false,
                 error = servicesResult.fold({ null }, { it.message })
                     ?: requestsResult.fold({ null }, { it.message })

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Dialog,
   Button,
@@ -7,8 +7,9 @@ import {
   TextArea,
   Checkbox,
 } from "@radix-ui/themes";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ImageIcon, X } from "lucide-react";
 import { Transaction } from "@/types";
+import { uploadApi } from "@/services/api";
 import { RatingStars } from "./RatingStars";
 import { InterestChip } from "./InterestChip";
 
@@ -63,6 +64,7 @@ export interface ConfirmCompletionRatingData {
   score: number;
   tags: string[];
   comment: string;
+  image_urls?: string[];
 }
 
 interface ConfirmCompletionModalProps {
@@ -72,6 +74,9 @@ interface ConfirmCompletionModalProps {
   currentUserId: string;
   onSubmit: (data: ConfirmCompletionRatingData) => Promise<void>;
 }
+
+const MAX_IMAGES = 3;
+const MAX_FILE_SIZE_MB = 5;
 
 export function ConfirmCompletionModal({
   open,
@@ -84,7 +89,11 @@ export function ConfirmCompletionModal({
   const [score, setScore] = useState(0);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [comment, setComment] = useState("");
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isProvider = String(transaction.provider_id) === String(currentUserId);
   const otherUser = isProvider ? transaction.requester : transaction.provider;
@@ -96,11 +105,35 @@ export function ConfirmCompletionModal({
   // Provider rates the consumer → consumer tags; requester rates the provider → provider tags
   const availableTags = isProvider ? CONSUMER_TAGS : PROVIDER_TAGS;
 
+  const MAX_TAGS = 5;
+
   const toggleTag = (tag: string) => {
     const value = tagToValue(tag);
-    setSelectedTags((prev) =>
-      prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value],
-    );
+    setSelectedTags((prev) => {
+      if (prev.includes(value)) return prev.filter((t) => t !== value);
+      if (prev.length >= MAX_TAGS) return prev;
+      return [...prev, value];
+    });
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      setImageError(`File too large. Max ${MAX_FILE_SIZE_MB} MB per image.`);
+      return;
+    }
+    setImageError(null);
+    setImageFiles((prev) => [...prev, file]);
+    setImagePreviews((prev) => [...prev, URL.createObjectURL(file)]);
+  };
+
+  const removeImage = (index: number) => {
+    URL.revokeObjectURL(imagePreviews[index]);
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const canSubmit =
@@ -111,13 +144,22 @@ export function ConfirmCompletionModal({
     setScore(0);
     setSelectedTags([]);
     setComment("");
+    imagePreviews.forEach((url) => URL.revokeObjectURL(url));
+    setImageFiles([]);
+    setImagePreviews([]);
+    setImageError(null);
   };
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setIsSubmitting(true);
     try {
-      await onSubmit({ score, tags: selectedTags, comment });
+      const imageUrls: string[] = [];
+      for (const file of imageFiles) {
+        const res = await uploadApi.uploadRatingImage(file);
+        imageUrls.push(res.data.url);
+      }
+      await onSubmit({ score, tags: selectedTags, comment, image_urls: imageUrls.length > 0 ? imageUrls : undefined });
       resetState();
       onOpenChange(false);
     } finally {
@@ -209,9 +251,14 @@ export function ConfirmCompletionModal({
           </div>
 
           <div>
-            <Text size="2" weight="bold" className="block mb-2">
-              Feedback <span style={{ color: "var(--red-9)" }}>*</span>
-            </Text>
+            <Flex align="baseline" justify="between" className="mb-2">
+              <Text size="2" weight="bold">
+                Feedback <span style={{ color: "var(--red-9)" }}>*</span>
+              </Text>
+              <Text size="1" color={selectedTags.length >= MAX_TAGS ? "red" : "gray"}>
+                {selectedTags.length}/{MAX_TAGS} selected
+              </Text>
+            </Flex>
             <Flex wrap="wrap" gap="2">
               {availableTags.map((tag) => (
                 <InterestChip
@@ -237,6 +284,87 @@ export function ConfirmCompletionModal({
               size="2"
               rows={3}
             />
+          </div>
+
+          {/* Image upload */}
+          <div>
+            <Flex align="center" justify="between" className="mb-2">
+              <Text size="2" color="gray">
+                Photos (Optional, up to {MAX_IMAGES})
+              </Text>
+              <Text size="1" color="gray">
+                {imageFiles.length}/{MAX_IMAGES}
+              </Text>
+            </Flex>
+
+            {imagePreviews.length > 0 && (
+              <Flex gap="2" wrap="wrap" className="mb-2">
+                {imagePreviews.map((src, i) => (
+                  <div key={i} className="relative" style={{ width: 72, height: 72 }}>
+                    <img
+                      src={src}
+                      alt={`Preview ${i + 1}`}
+                      style={{
+                        width: 72,
+                        height: 72,
+                        objectFit: "cover",
+                        borderRadius: "var(--radius-2)",
+                        border: "1px solid var(--gray-6)",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(i)}
+                      style={{
+                        position: "absolute",
+                        top: -6,
+                        right: -6,
+                        background: "var(--gray-12)",
+                        color: "var(--gray-1)",
+                        border: "none",
+                        borderRadius: "50%",
+                        width: 18,
+                        height: 18,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        padding: 0,
+                      }}
+                      aria-label="Remove image"
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
+                ))}
+              </Flex>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              onChange={handleFileChange}
+            />
+
+            <Button
+              type="button"
+              variant="soft"
+              color="gray"
+              size="1"
+              disabled={imageFiles.length >= MAX_IMAGES}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <ImageIcon size={13} />
+              Add Photo
+            </Button>
+
+            {imageError && (
+              <Text size="1" color="red" className="block mt-1">
+                {imageError}
+              </Text>
+            )}
           </div>
         </Flex>
 

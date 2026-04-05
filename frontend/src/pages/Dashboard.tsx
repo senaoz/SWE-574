@@ -7,7 +7,6 @@ import {
 import { OfferListingCard } from "@/components/ui/OfferListingCard";
 import {
   DashboardFilterBar,
-  defaultDashboardFilters,
   type DashboardFilters,
 } from "@/components/ui/DashboardFilterBar";
 import { servicesApi, forumApi, usersApi } from "@/services/api";
@@ -40,113 +39,14 @@ import {
   Service,
   TagEntity,
 } from "@/types";
+import {
+  getDashboardFiltersFromSearchParams,
+  setDashboardFiltersInSearchParams,
+} from "@/utils/dashboardFilterSearchParams";
+import { sortDashboardServices } from "@/utils/serviceSort";
 
 const RECOMMENDATION_PAGE_SIZE = 10;
 const MAX_RECOMMENDATION_POSTS = 30;
-
-function distanceKmBetween(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number,
-): number {
-  const earthRadiusKm = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return earthRadiusKm * c;
-}
-
-function getServiceDistance(
-  service: Service,
-  userPosition: [number, number] | null,
-): number {
-  if (!userPosition) return Number.POSITIVE_INFINITY;
-
-  const latitude = service.location?.latitude;
-  const longitude = service.location?.longitude;
-  if (latitude == null || longitude == null) return Number.POSITIVE_INFINITY;
-
-  return distanceKmBetween(
-    userPosition[0],
-    userPosition[1],
-    latitude,
-    longitude,
-  );
-}
-
-function sortDashboardServices(
-  services: Service[],
-  sortBy: DashboardFilters["sortBy"],
-  userPosition: [number, number] | null,
-): Service[] {
-  const sorted = [...services];
-
-  if (sortBy === "newest") {
-    return sorted.sort(
-      (left, right) =>
-        new Date(right.created_at).getTime() - new Date(left.created_at).getTime(),
-    );
-  }
-
-  if (sortBy === "oldest") {
-    return sorted.sort(
-      (left, right) =>
-        new Date(left.created_at).getTime() - new Date(right.created_at).getTime(),
-    );
-  }
-
-  if (sortBy === "hours_desc") {
-    return sorted.sort((left, right) => {
-      const durationDiff =
-        (right.estimated_duration ?? 0) - (left.estimated_duration ?? 0);
-      if (durationDiff !== 0) return durationDiff;
-      return (
-        new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
-      );
-    });
-  }
-
-  if (sortBy === "hours_asc") {
-    return sorted.sort((left, right) => {
-      const durationDiff =
-        (left.estimated_duration ?? 0) - (right.estimated_duration ?? 0);
-      if (durationDiff !== 0) return durationDiff;
-      return (
-        new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
-      );
-    });
-  }
-
-  if (sortBy === "closest") {
-    return sorted.sort((left, right) => {
-      const leftDistance = getServiceDistance(left, userPosition);
-      const rightDistance = getServiceDistance(right, userPosition);
-      if (leftDistance !== rightDistance) return leftDistance - rightDistance;
-      return (
-        new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
-      );
-    });
-  }
-
-  if (sortBy === "farthest") {
-    return sorted.sort((left, right) => {
-      const leftDistance = getServiceDistance(left, userPosition);
-      const rightDistance = getServiceDistance(right, userPosition);
-      if (leftDistance !== rightDistance) return rightDistance - leftDistance;
-      return (
-        new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
-      );
-    });
-  }
-
-  return sorted;
-}
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -156,12 +56,17 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
   const { searchQuery, selectedCity, setSelectedCity } = useFilters();
-  const [dashFilters, setDashFilters] = useState<DashboardFilters>(
-    defaultDashboardFilters,
-  );
   const [searchParams, setSearchParams] = useSearchParams();
   const tagParam = searchParams.get("tag");
-  const [mapFilters, setMapFilters] = useState<MapFilters>(defaultMapFilters);
+  const dashFilters = useMemo(
+    () => getDashboardFiltersFromSearchParams(searchParams, selectedCity),
+    [searchParams, selectedCity],
+  );
+  const [mapFilters, setMapFilters] = useState<MapFilters>(() => ({
+    ...defaultMapFilters,
+    serviceType: dashFilters.serviceType,
+    distance: dashFilters.distance,
+  }));
   const [userPosition, setUserPosition] = useState<[number, number] | null>(
     null,
   );
@@ -199,6 +104,29 @@ export function Dashboard() {
       : dashFilters.remoteFilter === "in_person"
         ? false
         : undefined;
+  const activeCity = dashFilters.city;
+
+  useEffect(() => {
+    if (selectedCity === activeCity) return;
+    setSelectedCity(activeCity);
+  }, [activeCity, selectedCity, setSelectedCity]);
+
+  useEffect(() => {
+    setMapFilters((prev) => {
+      if (
+        prev.serviceType === dashFilters.serviceType &&
+        prev.distance === dashFilters.distance
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        serviceType: dashFilters.serviceType,
+        distance: dashFilters.distance,
+      };
+    });
+  }, [dashFilters.distance, dashFilters.serviceType]);
 
   useEffect(() => {
     setRecommendedPage(1);
@@ -207,7 +135,7 @@ export function Dashboard() {
     currentUserId,
     dashFilters.forYouOnly,
     searchQuery,
-    selectedCity,
+    activeCity,
     dashFilters.serviceType,
     dashFilters.status,
     dashFilters.selectedTags,
@@ -218,6 +146,7 @@ export function Dashboard() {
     userPosition?.[1],
   ]);
 
+
   const {
     data: recommendedServicesData,
     isFetching: isRecommendationsLoading,
@@ -227,7 +156,7 @@ export function Dashboard() {
       currentUserId,
       recommendedPage,
       searchQuery,
-      selectedCity,
+      activeCity,
       dashFilters.serviceType,
       dashFilters.status,
       dashFilters.selectedTags,
@@ -253,7 +182,7 @@ export function Dashboard() {
               ? dashFilters.selectedTags.join(",")
               : undefined,
           city:
-            selectedCity && selectedCity !== "all" ? selectedCity : undefined,
+            activeCity && activeCity !== "all" ? activeCity : undefined,
           latitude: userPosition?.[0],
           longitude: userPosition?.[1],
           radius:
@@ -289,23 +218,18 @@ export function Dashboard() {
     });
   }, [dashFilters.forYouOnly, recommendedPage, recommendedServicesData]);
 
-  useEffect(() => {
-    setDashFilters((prev) =>
-      prev.city !== selectedCity ? { ...prev, city: selectedCity } : prev,
-    );
-  }, [selectedCity]);
-
   const handleDashFiltersChange = useCallback(
     (next: DashboardFilters) => {
-      setDashFilters(next);
-      setMapFilters((prev) => ({
-        ...prev,
-        serviceType: next.serviceType,
-        distance: next.distance,
-      }));
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev);
+          return setDashboardFiltersInSearchParams(params, next);
+        },
+        { replace: true },
+      );
       setSelectedCity(next.city);
     },
-    [setSelectedCity],
+    [setSearchParams, setSelectedCity],
   );
 
   useEffect(() => {
@@ -407,15 +331,15 @@ export function Dashboard() {
       );
     }
 
-    if (selectedCity && selectedCity !== "all") {
+    if (activeCity && activeCity !== "all") {
       filtered = filtered.filter((service) => {
         const address = service.location.address?.toLowerCase() || "";
-        return address.includes(selectedCity.toLowerCase());
+        return address.includes(activeCity.toLowerCase());
       });
     }
 
     setFilteredServices(filtered);
-  }, [services, selectedCity, tagParam]);
+  }, [services, activeCity, tagParam]);
 
   const eligibleServices = useMemo(() => {
     let list = applyMapFilters(filteredServices, mapFilters, userPosition);
@@ -591,7 +515,7 @@ export function Dashboard() {
                   ? `${displayedServices.length} picks for you`
                   : `${displayedServices.length} services found`}
             {searchQuery && ` for "${searchQuery}"`}
-            {selectedCity && selectedCity !== "all" && ` in ${selectedCity}`}
+            {activeCity && activeCity !== "all" && ` in ${activeCity}`}
             {tagParam && ` with tag "${decodeURIComponent(tagParam)}"`}
           </Text>
           {tagParam && (

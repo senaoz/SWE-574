@@ -22,10 +22,12 @@ import {
   GlobeIcon,
   Cross2Icon,
   PersonIcon,
+  ChevronUpIcon,
 } from "@radix-ui/react-icons";
+import { UpvoteButton } from "@/components/ui/UpvoteButton";
 import { MessageCircleIcon, CalendarClockIcon } from "lucide-react";
-import { forumApi, servicesApi, getImageUrl } from "@/services/api";
-import { ForumDiscussion, ForumEvent, TagEntity, Service } from "@/types";
+import { forumApi, getImageUrl } from "@/services/api";
+import { ForumDiscussion, ForumEvent, TagEntity } from "@/types";
 import { TagAutocomplete } from "@/components/forms/TagAutocomplete";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import { MarkdownEditor } from "@/components/forms/MarkdownEditor";
@@ -57,6 +59,7 @@ export function Forum() {
   const [events, setEvents] = useState<ForumEvent[]>([]);
   const [eventsTotal, setEventsTotal] = useState(0);
   const [eventsLoading, setEventsLoading] = useState(true);
+  const [discussionSort, setDiscussionSort] = useState<"created_at" | "upvote_count">("created_at");
   const [showNewDiscussion, setShowNewDiscussion] = useState(false);
   const [showNewEvent, setShowNewEvent] = useState(false);
   useEffect(() => {
@@ -72,6 +75,7 @@ export function Forum() {
         const res = await forumApi.getDiscussions({
           q: searchQ || undefined,
           tag: tagFilter || undefined,
+          sort_by: discussionSort,
         });
         setDiscussions(res.data.discussions);
         setDiscussionsTotal(res.data.total);
@@ -81,7 +85,7 @@ export function Forum() {
         setDiscussionsLoading(false);
       }
     })();
-  }, [searchQ, tagFilter]);
+  }, [searchQ, tagFilter, discussionSort]);
   useEffect(() => {
     (async () => {
       setEventsLoading(true);
@@ -158,7 +162,24 @@ export function Forum() {
           </Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="discussions" className="pt-4">
-          <Flex justify="end" className="mb-4">
+          <Flex justify="between" align="center" className="mb-4">
+            <Flex gap="2" align="center">
+              <Text size="2" color="gray">Sort:</Text>
+              <Button
+                size="1"
+                variant={discussionSort === "created_at" ? "solid" : "soft"}
+                onClick={() => setDiscussionSort("created_at")}
+              >
+                Latest
+              </Button>
+              <Button
+                size="1"
+                variant={discussionSort === "upvote_count" ? "solid" : "soft"}
+                onClick={() => setDiscussionSort("upvote_count")}
+              >
+                <ChevronUpIcon /> Most Upvoted
+              </Button>
+            </Flex>
             <Button onClick={() => setShowNewDiscussion(true)}>
               <PlusIcon /> New Discussion
             </Button>
@@ -204,7 +225,7 @@ export function Forum() {
                       <div className="mt-1 prose-content card-description">
 	                        <ReactMarkdown
 	                          components={{
-	                            a: ({ node, ...props }) => (
+	                            a: ({ node: _node, ...props }) => (
 	                              <a
 	                                {...props}
 	                                target="_blank"
@@ -227,6 +248,7 @@ export function Forum() {
                           <MessageCircleIcon className="w-3 h-3 mr-1" />
                           {d.comment_count}
                         </Badge>
+                        <UpvoteButton count={d.upvote_count ?? 0} upvoted={d.user_upvoted} />
                         {(d.tags || []).slice(0, 3).map((tag, i) => (
                           <ClickableTag
                             key={i}
@@ -286,7 +308,7 @@ export function Forum() {
                   <div className="prose-content card-description">
 	                    <ReactMarkdown
 	                      components={{
-	                        a: ({ node, ...props }) => (
+	                        a: ({ node: _node, ...props }) => (
 	                          <a
 	                            {...props}
 	                            target="_blank"
@@ -328,6 +350,7 @@ export function Forum() {
                       <MessageCircleIcon className="w-3 h-3 mr-1" />
                       {ev.comment_count}
                     </Badge>
+                    <UpvoteButton count={ev.upvote_count ?? 0} upvoted={ev.user_upvoted} />
                     {(ev.tags || []).slice(0, 3).map((tag, i) => (
                       <ClickableTag
                         key={i}
@@ -493,17 +516,6 @@ function NewEventDialog({
   const [serviceId, setServiceId] = useState("__none__");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [myServices, setMyServices] = useState<Service[]>([]);
-  useEffect(() => {
-    if (open) {
-      servicesApi
-        .getServices({ limit: 100 })
-        .then((r) => {
-          setMyServices(r.data.services || []);
-        })
-        .catch(() => {});
-    }
-  }, [open]);
   const reset = () => {
     setTitle("");
     setDescription("");

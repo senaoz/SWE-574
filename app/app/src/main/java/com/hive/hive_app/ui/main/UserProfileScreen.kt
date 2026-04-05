@@ -16,7 +16,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,6 +53,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,30 +68,37 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
-import androidx.compose.ui.platform.LocalContext
 import com.hive.hive_app.data.api.dto.BadgesResponse
 import com.hive.hive_app.data.api.dto.SocialLinks
 import com.hive.hive_app.data.api.dto.UserResponse
-import com.hive.hive_app.util.formatApplicationDate
+import com.hive.hive_app.util.formatMemberJoinDate
+import com.hive.hive_app.util.formatMemberSinceDuration
 
 @Composable
 fun UserProfileScreen(
     userId: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: UserProfileViewModel = hiltViewModel()
+    viewModel: UserProfileViewModel = hiltViewModel(),
+    onOpenRatings: (ratedUserId: String) -> Unit = { }
 ) {
     val user by viewModel.user.collectAsState()
     val badges by viewModel.badges.collectAsState()
     val ratings by viewModel.ratings.collectAsState()
+    val ratingTopTags by viewModel.ratingTopTags.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
     LaunchedEffect(userId) { viewModel.load(userId) }
 
-    Column(modifier = modifier.fillMaxSize()) {
+    val scrollState = rememberScrollState()
+    val coroutineScope = rememberCoroutineScope()
+    val badgesSectionRequester = remember { BringIntoViewRequester() }
+
+    Column(modifier = modifier.fillMaxSize().systemBarsPadding()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -126,15 +137,31 @@ fun UserProfileScreen(
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .verticalScroll(rememberScrollState())
+                        .verticalScroll(scrollState)
                         .padding(16.dp)
                 ) {
-                    UserProfileHeaderCard(user = u, badges = badges, ratings = ratings)
+                    UserProfileHeaderCard(
+                        user = u,
+                        badges = badges,
+                        ratings = ratings,
+                        onOpenRatings = { onOpenRatings(userId) },
+                        onScrollToBadges = {
+                            coroutineScope.launch {
+                                badgesSectionRequester.bringIntoView()
+                            }
+                        }
+                    )
                     Spacer(Modifier.height(12.dp))
                     UserProfileSectionCard(
                         title = "Bio",
                         content = u.bio?.takeIf { it.isNotBlank() },
                         emptyMessage = "No bio added yet."
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    ProfileRatingSummaryCard(
+                        ratingsSummary = ratings,
+                        topTags = ratingTopTags,
+                        onOpenRatings = { onOpenRatings(userId) }
                     )
                     Spacer(Modifier.height(12.dp))
                     UserProfileLocationCard(location = u.location?.takeIf { it.isNotBlank() })
@@ -145,7 +172,9 @@ fun UserProfileScreen(
                     Spacer(Modifier.height(12.dp))
                     UserProfileTimeBankCard(balance = u.timebankBalance)
                     Spacer(Modifier.height(12.dp))
-                    UserProfileBadgesCard(badges = badges)
+                    Box(Modifier.bringIntoViewRequester(badgesSectionRequester)) {
+                        UserProfileBadgesCard(badges = badges)
+                    }
                 }
             }
         }
@@ -156,10 +185,14 @@ fun UserProfileScreen(
 private fun UserProfileHeaderCard(
     user: UserResponse,
     badges: BadgesResponse?,
-    ratings: com.hive.hive_app.data.api.dto.RatingListResponse?
+    ratings: com.hive.hive_app.data.api.dto.RatingListResponse?,
+    onOpenRatings: () -> Unit,
+    onScrollToBadges: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.5.dp, ProfileRatingSummaryLime, RoundedCornerShape(12.dp)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(12.dp)
     ) {
@@ -169,7 +202,6 @@ private fun UserProfileHeaderCard(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (user.profilePicture?.isNotBlank() == true) {
-                val context = LocalContext.current
                 AsyncImage(
                     model = buildImageRequest(context, user.profilePicture),
                     contentDescription = "Profile photo",
@@ -244,30 +276,33 @@ private fun UserProfileHeaderCard(
                     )
                 }
             }
-            ratings?.averageScore?.let { avg ->
-                Spacer(Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = "%.1f".format(avg),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
             Spacer(Modifier.height(12.dp))
+            val totalRates = ratings?.total ?: 0
+            val avg = ratings?.averageScore
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                UserProfileStat(label = "Hours", value = String.format("%.1f", user.timebankBalance))
-                UserProfileStat(label = "Badges", value = "${badges?.earnedCount ?: 0}/${badges?.totalCount ?: 0}")
-                UserProfileStat(label = "Member", value = formatApplicationDate(user.createdAt))
+                UserProfileStat(
+                    label = if (totalRates > 0) "$totalRates ratings" else "Rating",
+                    value = if (totalRates > 0 && avg != null) String.format("%.1f", avg) else "—",
+                    onClick = onOpenRatings
+                )
+                UserProfileStat(
+                    label = "Badges",
+                    value = "${badges?.earnedCount ?: 0}/${badges?.totalCount ?: 0}",
+                    onClick = onScrollToBadges
+                )
+                UserProfileStat(
+                    label = "Member",
+                    value = formatMemberJoinDate(user.createdAt).ifBlank { "—" },
+                    onClick = null
+                )
             }
             Spacer(Modifier.height(8.dp))
+            val memberDuration = formatMemberSinceDuration(user.createdAt)
             Text(
-                text = "Member since ${formatApplicationDate(user.createdAt)}",
+                text = if (memberDuration.isNotBlank()) "Member for $memberDuration" else "Member",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -276,8 +311,17 @@ private fun UserProfileHeaderCard(
 }
 
 @Composable
-private fun UserProfileStat(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun UserProfileStat(
+    label: String,
+    value: String,
+    onClick: (() -> Unit)? = null
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.then(
+            if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
+        )
+    ) {
         Text(
             text = value,
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -465,7 +509,7 @@ private fun UserProfileTimeBankCard(balance: Double) {
             Text(text = "TimeBank", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "Balance: $balance hours",
+                text = "Balance: ${String.format("%.1f", balance)} h",
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -522,66 +566,78 @@ private fun UserProfileBadgesCard(badges: BadgesResponse?) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    displayedBadges.forEach { badge ->
-                        val isEarned = badge.earned
-                        val tint = if (isEarned) earnedColor else unearnedColor
-                        Card(
-                            modifier = Modifier
-                                .width(160.dp)
-                                .then(if (isEarned) Modifier.border(1.5.dp, earnedColor, RoundedCornerShape(12.dp)) else Modifier),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Column(Modifier.padding(12.dp)) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(CircleShape)
-                                        .background(tint.copy(alpha = 0.2f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = userProfileBadgeIcon(badge.key),
-                                        contentDescription = null,
-                                        tint = tint,
-                                        modifier = Modifier.size(22.dp)
+                displayedBadges.chunked(2).forEach { rowBadges ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        rowBadges.forEach { badge ->
+                            val isEarned = badge.earned
+                            val tint = if (isEarned) earnedColor else unearnedColor
+                            Card(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .then(if (isEarned) Modifier.border(1.5.dp, earnedColor, RoundedCornerShape(12.dp)) else Modifier),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Column(Modifier.padding(12.dp)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(CircleShape)
+                                            .background(tint.copy(alpha = 0.2f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = userProfileBadgeIcon(badge.key),
+                                            contentDescription = null,
+                                            tint = tint,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        text = badge.name ?: badge.key ?: "Badge",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = tint,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
                                     )
-                                }
-                                Spacer(Modifier.height(8.dp))
-                                Text(
-                                    text = badge.name ?: badge.key ?: "Badge",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = tint
-                                )
-                                Text(
-                                    text = badge.description ?: "",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 2
-                                )
-                                Spacer(Modifier.height(6.dp))
-                                if (isEarned) {
-                                    Text(text = "Earned", style = MaterialTheme.typography.labelSmall, color = earnedColor)
-                                } else {
-                                    badge.progress?.let { p ->
-                                        val target = p.target.toInt().takeIf { it > 0 } ?: 1
-                                        val current = p.current.toInt().coerceIn(0, target)
-                                        Text(text = "$current/$target", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        if (target > 0) {
-                                            Spacer(Modifier.height(4.dp))
-                                            LinearProgressIndicator(
-                                                progress = { (current.toFloat() / target).coerceIn(0f, 1f) },
-                                                modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
-                                                color = earnedColor,
-                                                trackColor = MaterialTheme.colorScheme.surfaceVariant
-                                            )
+                                    Text(
+                                        text = badge.description ?: "",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Spacer(Modifier.height(6.dp))
+                                    if (isEarned) {
+                                        Text(text = "Earned", style = MaterialTheme.typography.labelSmall, color = earnedColor)
+                                    } else {
+                                        badge.progress?.let { p ->
+                                            val target = p.target.toInt().takeIf { it > 0 } ?: 1
+                                            val current = p.current.toInt().coerceIn(0, target)
+                                            Text(text = "$current/$target", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            if (target > 0) {
+                                                Spacer(Modifier.height(4.dp))
+                                                LinearProgressIndicator(
+                                                    progress = { (current.toFloat() / target).coerceIn(0f, 1f) },
+                                                    modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                                                    color = earnedColor,
+                                                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
+                        if (rowBadges.size == 1) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
                     }
+                    Spacer(Modifier.height(10.dp))
                 }
                 if (totalCount > 0) {
                     Spacer(Modifier.height(12.dp))

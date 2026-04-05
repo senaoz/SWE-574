@@ -39,6 +39,7 @@ export interface Rating {
   score: number;
   comment?: string;
   tags?: string[];
+  image_urls?: string[];
   created_at: string;
   rater?: {
     id: string;
@@ -94,6 +95,7 @@ export interface RatingForm {
   score: number;
   comment?: string;
   tags?: string[];
+  image_urls?: string[];
 }
 
 export interface User {
@@ -157,6 +159,7 @@ export interface TagEntity {
 export interface Service {
   _id: string;
   user_id: string;
+  is_saved?: boolean;
   title: string;
   description: string;
   category: string;
@@ -439,6 +442,7 @@ export interface ChatRoom {
     username: string;
     full_name?: string;
     bio?: string;
+    profile_picture?: string;
   }[];
   services?: {
     id: string;
@@ -489,6 +493,7 @@ export interface Message {
     id: string;
     username: string;
     full_name?: string;
+    profile_picture?: string;
   };
   reply_to_message?: {
     id: string;
@@ -559,6 +564,8 @@ export interface ForumDiscussion {
   updated_at: string;
   user?: ForumAuthor;
   comment_count: number;
+  upvote_count: number;
+  user_upvoted?: boolean;
 }
 
 export interface ForumDiscussionListResponse {
@@ -597,6 +604,8 @@ export interface ForumEvent {
   comment_count: number;
   attendee_ids: string[];
   attendee_count: number;
+  upvote_count: number;
+  user_upvoted?: boolean;
 }
 
 export interface ForumEventListResponse {
@@ -627,6 +636,8 @@ export interface ForumComment {
   created_at: string;
   updated_at: string;
   user?: ForumAuthor;
+  upvote_count: number;
+  user_upvoted?: boolean;
 }
 
 export interface ForumCommentListResponse {
