@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, BeforeValidator, model_validator
-from typing import Optional, List, Annotated, Union
+from typing import Optional, List, Annotated, Union, Literal
 from datetime import datetime
 from bson import ObjectId
 from enum import Enum
@@ -234,6 +234,8 @@ class RecommendedServiceListResponse(BaseModel):
     total: int
     page: int
     limit: int
+    recommendation_mode: Literal["personalized", "location_fallback", "empty"] = "empty"
+    show_profile_prompt: bool = False
 
     class Config:
         json_encoders = {ObjectId: str}

@@ -534,6 +534,15 @@ class ServiceService:
             return "Because it works well remotely"
         return "Because it's a fresh active post"
 
+    def _resolve_location_fallback_reason(
+        self,
+        distance_value: float,
+        service_doc: dict,
+    ) -> str:
+        if service_doc.get("is_remote"):
+            return "Because it works well remotely"
+        return f"Because it's {self._format_distance_label(distance_value)} away from you"
+
     async def _get_saved_service_ids(self, user_id: str) -> Set[str]:
         cursor = self.saved_services_collection.find({"user_id": user_id})
         saved_docs = await cursor.to_list(length=500)
@@ -847,7 +856,7 @@ class ServiceService:
         date_filter: Optional[str] = None,
         viewer_latitude: Optional[float] = None,
         viewer_longitude: Optional[float] = None,
-    ) -> Tuple[List[RecommendedServiceItem], int]:
+    ) -> Tuple[List[RecommendedServiceItem], int, str, bool]:
         filters = filters or ServiceFilters()
         viewer_position = (
             (viewer_latitude, viewer_longitude)
@@ -917,6 +926,13 @@ class ServiceService:
             if profile[0] or profile[1]:
                 transaction_profiles.append(profile)
 
+        show_profile_prompt = (
+            len(normalized_interests) == 0
+            and len(saved_service_ids) == 0
+            and len(transaction_docs) == 0
+            and len(active_service_docs) == 0
+        )
+
         query = self._build_recommendation_query(
             filters=filters,
             city=city,
@@ -927,6 +943,7 @@ class ServiceService:
         normalized_city = self._normalize_text_value(city)
         search_text = self._normalize_text_value(filters.q)
         recommended_items: List[RecommendedServiceItem] = []
+        nearby_items: List[Tuple[float, RecommendedServiceItem]] = []
 
         async for raw_service_doc in cursor:
             service_doc = self._normalize_service_doc(raw_service_doc)
@@ -996,6 +1013,30 @@ class ServiceService:
             )
 
             if not has_recommendation_signal:
+                if (
+                    viewer_position
+                    and raw_distance_value is not None
+                    and not service_doc.get("is_remote")
+                ):
+                    nearby_score = round(
+                        math.exp(-raw_distance_value / 12)
+                        + self._calculate_recency_score(service_doc) * 0.15,
+                        4,
+                    )
+                    nearby_items.append(
+                        (
+                            raw_distance_value,
+                            RecommendedServiceItem(
+                                service=ServiceResponse(**service_doc),
+                                reason=self._resolve_location_fallback_reason(
+                                    distance_value=raw_distance_value,
+                                    service_doc=service_doc,
+                                ),
+                                score=nearby_score,
+                                matched_interests=[],
+                            ),
+                        )
+                    )
                 continue
 
             score = (
@@ -1031,10 +1072,36 @@ class ServiceService:
             reverse=True,
         )
 
-        total = len(recommended_items)
-        start = max((page - 1) * limit, 0)
-        end = start + limit
-        return recommended_items[start:end], total
+        if recommended_items:
+            total = len(recommended_items)
+            start = max((page - 1) * limit, 0)
+            end = start + limit
+            return (
+                recommended_items[start:end],
+                total,
+                "personalized",
+                show_profile_prompt,
+            )
+
+        if nearby_items:
+            nearby_items.sort(
+                key=lambda item: (
+                    item[0],
+                    -item[1].service.created_at.timestamp(),
+                )
+            )
+            fallback_items = [item for _, item in nearby_items]
+            total = len(fallback_items)
+            start = max((page - 1) * limit, 0)
+            end = start + limit
+            return (
+                fallback_items[start:end],
+                total,
+                "location_fallback",
+                show_profile_prompt,
+            )
+
+        return [], 0, "empty", show_profile_prompt
 
     async def create_service(self, service_data: ServiceCreate, user_id: str) -> ServiceResponse:
         """Create a new service"""

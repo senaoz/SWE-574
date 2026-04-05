@@ -250,6 +250,8 @@ export interface RecommendedServiceListResponse {
   total: number;
   page: number;
   limit: number;
+  recommendation_mode: "personalized" | "location_fallback" | "empty";
+  show_profile_prompt: boolean;
 }
 
 export interface AuthResponse {

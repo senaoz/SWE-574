@@ -202,7 +202,12 @@ async def get_recommended_services(
     )
 
     try:
-        items, total = await service_service.get_recommended_services(
+        (
+            items,
+            total,
+            recommendation_mode,
+            show_profile_prompt,
+        ) = await service_service.get_recommended_services(
             user_id=str(current_user.id),
             filters=filters,
             page=page,
@@ -217,6 +222,8 @@ async def get_recommended_services(
             total=total,
             page=page,
             limit=limit,
+            recommendation_mode=recommendation_mode,
+            show_profile_prompt=show_profile_prompt,
         )
     except ValueError as e:
         raise HTTPException(
