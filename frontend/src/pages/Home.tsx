@@ -36,7 +36,7 @@ export function Home() {
   const [recentEvents, setRecentEvents] = useState<ForumEvent[]>([]);
   const [allServices, setAllServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
-  const [savedStateOverrides, setSavedStateOverrides] = useState<
+  const [_savedStateOverrides, setSavedStateOverrides] = useState<
     Record<string, boolean>
   >({});
   const {
@@ -85,22 +85,23 @@ export function Home() {
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const [offersResponse, needsResponse, eventsResponse] = await Promise.all([
-          servicesApi.getServices({
-            service_type: "offer",
-            status: "active",
-            limit: 4,
-          }),
-          servicesApi.getServices({
-            service_type: "need",
-            status: "active",
-            limit: 4,
-          }),
-          forumApi.getEvents({
-            limit: 4,
-            has_location: true,
-          }),
-        ]);
+        const [offersResponse, needsResponse, eventsResponse] =
+          await Promise.all([
+            servicesApi.getServices({
+              service_type: "offer",
+              status: "active",
+              limit: 4,
+            }),
+            servicesApi.getServices({
+              service_type: "need",
+              status: "active",
+              limit: 4,
+            }),
+            forumApi.getEvents({
+              limit: 4,
+              has_location: true,
+            }),
+          ]);
 
         setRecentOffers(offersResponse.data.services || []);
         setRecentNeeds(needsResponse.data.services || []);
