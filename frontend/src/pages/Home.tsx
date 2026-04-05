@@ -36,9 +36,6 @@ export function Home() {
   const [recentEvents, setRecentEvents] = useState<ForumEvent[]>([]);
   const [allServices, setAllServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
-  const [_savedStateOverrides, setSavedStateOverrides] = useState<
-    Record<string, boolean>
-  >({});
   const {
     currentUserId,
     isSaved: isServiceSaved,
@@ -47,10 +44,6 @@ export function Home() {
     isSavingService,
     isUnsavingService,
   } = useSavedServiceIds();
-
-  const getResolvedSavedState = (service: Service | string) => {
-    return isServiceSaved(service);
-  };
 
   const handleSavedBadgeClick =
     (serviceId: string) =>
@@ -65,19 +58,13 @@ export function Home() {
         return;
       }
 
-      const previousSavedState = getResolvedSavedState(serviceId);
-
       try {
-        if (previousSavedState) {
+        if (isServiceSaved(serviceId)) {
           await unsaveService(serviceId);
         } else {
           await saveService(serviceId);
         }
       } catch (error) {
-        setSavedStateOverrides((current) => ({
-          ...current,
-          [serviceId]: previousSavedState,
-        }));
         console.error("Error toggling saved service:", error);
       }
     };
@@ -346,7 +333,7 @@ export function Home() {
                         {currentUserId && (
                           <Badge
                             color={
-                              getResolvedSavedState(service) ? "red" : "gray"
+                              isServiceSaved(service) ? "red" : "gray"
                             }
                             variant="soft"
                             className={`inline-flex items-center gap-1 ${
@@ -364,7 +351,7 @@ export function Home() {
                             role="button"
                             tabIndex={0}
                             title={
-                              getResolvedSavedState(service)
+                              isServiceSaved(service)
                                 ? "Remove from saved items"
                                 : "Save this item"
                             }
@@ -373,7 +360,7 @@ export function Home() {
                               isUnsavingService(service._id)
                             }
                           >
-                            {getResolvedSavedState(service) ? (
+                            {isServiceSaved(service) ? (
                               <HeartFilledIcon className="h-3 w-3" />
                             ) : (
                               <HeartIcon className="h-3 w-3" />
@@ -382,7 +369,7 @@ export function Home() {
                               ? "Saving..."
                               : isUnsavingService(service._id)
                                 ? "Removing..."
-                                : getResolvedSavedState(service)
+                                : isServiceSaved(service)
                                   ? "Saved"
                                   : "Save"}
                           </Badge>
@@ -439,7 +426,7 @@ export function Home() {
                         {currentUserId && (
                           <Badge
                             color={
-                              getResolvedSavedState(service) ? "red" : "gray"
+                              isServiceSaved(service) ? "red" : "gray"
                             }
                             variant="soft"
                             className={`inline-flex items-center gap-1 ${
@@ -457,7 +444,7 @@ export function Home() {
                             role="button"
                             tabIndex={0}
                             title={
-                              getResolvedSavedState(service)
+                              isServiceSaved(service)
                                 ? "Remove from saved items"
                                 : "Save this item"
                             }
@@ -466,7 +453,7 @@ export function Home() {
                               isUnsavingService(service._id)
                             }
                           >
-                            {getResolvedSavedState(service) ? (
+                            {isServiceSaved(service) ? (
                               <HeartFilledIcon className="h-3 w-3" />
                             ) : (
                               <HeartIcon className="h-3 w-3" />
@@ -475,7 +462,7 @@ export function Home() {
                               ? "Saving..."
                               : isUnsavingService(service._id)
                                 ? "Removing..."
-                                : getResolvedSavedState(service)
+                                : isServiceSaved(service)
                                   ? "Saved"
                                   : "Save"}
                           </Badge>
