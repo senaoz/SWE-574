@@ -590,7 +590,7 @@ export function ServiceDetail() {
                     getImageUrl(service.image_urls[0]) ?? service.image_urls[0]
                   }
                   alt=""
-                  className="w-full max-h-60 object-cover"
+                  className="max-h-80 object-contain rounded-lg"
                 />
               ) : (
                 <div
@@ -605,7 +605,7 @@ export function ServiceDetail() {
                       key={i}
                       src={getImageUrl(url) ?? url}
                       alt=""
-                      className="w-full max-h-60 object-cover"
+                      className="w-full max-h-80 object-contain rounded-lg"
                     />
                   ))}
                 </div>
