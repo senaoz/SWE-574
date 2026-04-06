@@ -1,7 +1,6 @@
 import java.text.SimpleDateFormat
 import java.util.Date
 
-// Tarih formatı fonksiyonu
 fun getBuildDate(): String = SimpleDateFormat("dd.MM.yyyy").format(Date())
 
 plugins {
