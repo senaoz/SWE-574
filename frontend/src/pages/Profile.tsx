@@ -139,7 +139,17 @@ export function Profile() {
     ? profileTabFromUrl
     : "profile";
 
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(
+    () => new Set([profileTab]),
+  );
+
   const setProfileTab = (tab: string) => {
+    setVisitedTabs((prev) => {
+      if (prev.has(tab)) return prev;
+      const next = new Set(prev);
+      next.add(tab);
+      return next;
+    });
     setSearchParams((prev) => {
       const p = new URLSearchParams(prev);
       p.set("tab", tab);
@@ -1309,35 +1319,43 @@ export function Profile() {
 
           {/* ── My Services Tab ── */}
           <Tabs.Content value="services">
-            <MyServices
-              activeTab="services"
-              onDataLoad={setMyservicesCounts}
-              statusFilter={
-                profileTab === "services" ? profileStatusFromUrl : undefined
-              }
-              highlightServiceId={
-                profileTab === "services" ? highlightServiceId : undefined
-              }
-            />
+            {visitedTabs.has("services") && (
+              <MyServices
+                activeTab="services"
+                onDataLoad={setMyservicesCounts}
+                statusFilter={
+                  profileTab === "services" ? profileStatusFromUrl : undefined
+                }
+                highlightServiceId={
+                  profileTab === "services" ? highlightServiceId : undefined
+                }
+              />
+            )}
           </Tabs.Content>
 
           <Tabs.Content value="applications">
-            <MyServices
-              activeTab="applications"
-              onDataLoad={setMyservicesCounts}
-            />
+            {visitedTabs.has("applications") && (
+              <MyServices
+                activeTab="applications"
+                onDataLoad={setMyservicesCounts}
+              />
+            )}
           </Tabs.Content>
 
           <Tabs.Content value="timebank">
-            <MyServices activeTab="timebank" onDataLoad={setMyservicesCounts} />
+            {visitedTabs.has("timebank") && (
+              <MyServices activeTab="timebank" onDataLoad={setMyservicesCounts} />
+            )}
           </Tabs.Content>
 
           <Tabs.Content value="saved">
-            <MyServices activeTab="saved" onDataLoad={setMyservicesCounts} />
+            {visitedTabs.has("saved") && (
+              <MyServices activeTab="saved" onDataLoad={setMyservicesCounts} />
+            )}
           </Tabs.Content>
 
           <Tabs.Content value="chat">
-            <Chat />
+            {visitedTabs.has("chat") && <Chat />}
           </Tabs.Content>
         </Box>
       </Tabs.Root>
