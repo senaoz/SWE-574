@@ -59,7 +59,6 @@ androidComponents {
     }
 }
 
-// Kotlin Derleme Ayarları (CompilerOptions DSL)
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile>().configureEach {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
