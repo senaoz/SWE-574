@@ -230,13 +230,33 @@ class ChatService:
             
             result = await self.messages_collection.insert_one(message_doc)
             message_doc["_id"] = result.inserted_id
-            
+
             # Update room's last_message_at
             await self.chat_rooms_collection.update_one(
                 {"_id": ObjectId(message_data.room_id)},
                 {"$set": {"last_message_at": datetime.utcnow(), "updated_at": datetime.utcnow()}}
             )
-            
+
+            # Notify other participants
+            try:
+                from .notification_service import NotificationService
+                from ..models.notification import NotificationType, NotificationRelatedType
+                notif_service = NotificationService(self.db)
+                sender = await self.users_collection.find_one({"_id": ObjectId(sender_id)})
+                sender_name = sender.get("full_name") or sender.get("username", "Someone") if sender else "Someone"
+                for pid in room.get("participant_ids", []):
+                    if str(pid) != sender_id:
+                        await notif_service.create_notification(
+                            user_id=str(pid),
+                            notification_type=NotificationType.NEW_MESSAGE,
+                            title="New message",
+                            body=f"{sender_name} sent you a message",
+                            related_id=message_data.room_id,
+                            related_type=NotificationRelatedType.CHAT_ROOM,
+                        )
+            except Exception:
+                pass
+
             return MessageResponse(**message_doc)
         except Exception as e:
             raise ValueError(f"Error sending message: {str(e)}")
