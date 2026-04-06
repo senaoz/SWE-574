@@ -79,42 +79,6 @@ private fun canDeleteCancelEdit(service: com.hive.hive_app.data.api.dto.ServiceR
 private val ManageServiceLime = Color(0xFFC6E600)
 private val OnManageServiceLime = Color(0xFF2D3A00)
 
-private fun canConfirmCompletion(
-    service: com.hive.hive_app.data.api.dto.ServiceResponse?,
-    txn: com.hive.hive_app.data.api.dto.TransactionResponse?,
-    userId: String?
-): Boolean {
-    if (service == null || txn == null || userId == null) return false
-    if (service.status?.lowercase() != "in_progress") return false
-    return when (userId) {
-        txn.requesterId -> txn.requesterConfirmed != true
-        txn.providerId -> txn.providerConfirmed != true
-        else -> false
-    }
-}
-
-/** Current user already confirmed; waiting for the other party (see transaction flags in OpenAPI). */
-private fun waitingForOtherToConfirm(
-    service: com.hive.hive_app.data.api.dto.ServiceResponse?,
-    txn: com.hive.hive_app.data.api.dto.TransactionResponse?,
-    userId: String?
-): Boolean {
-    if (service == null || txn == null || userId == null) return false
-    if (service.status?.lowercase() != "in_progress") return false
-    val iConfirmed = when (userId) {
-        txn.requesterId -> txn.requesterConfirmed == true
-        txn.providerId -> txn.providerConfirmed == true
-        else -> return false
-    }
-    if (!iConfirmed) return false
-    val otherConfirmed = when (userId) {
-        txn.requesterId -> txn.providerConfirmed == true
-        txn.providerId -> txn.requesterConfirmed == true
-        else -> false
-    }
-    return !otherConfirmed
-}
-
 /** Same mapping as [ServiceDetailScreen] creator badges. */
 private val ReceiverConfirmedOverlay = Color(0xFF43A047).copy(alpha = 0.38f)
 
@@ -435,6 +399,94 @@ fun ManageServiceScreen(
                             )
                         }
                     }
+                    if (state.service?.status?.lowercase() == "in_progress") {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    val svc = state.service!!
+                                    val matched = svc.matchedUserIds.orEmpty()
+                                    val confirmedCount = svc.receiverConfirmedIds.orEmpty().size
+                                    val totalReceivers =
+                                        if (matched.isNotEmpty()) matched.size else (svc.maxParticipants ?: 1)
+                                    Text(
+                                        text = "Receivers: $confirmedCount/$totalReceivers Confirmed",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    if (state.receiverAvatars.isNotEmpty()) {
+                                        ReceiversAvatarRow(
+                                            avatars = state.receiverAvatars,
+                                            onOpenUserProfile = onOpenUserProfile
+                                        )
+                                    }
+                                    Text(
+                                        text = "Provider: ${if (svc.providerConfirmed == true) "Confirmed" else "Pending"}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    val completionRows = state.completionRows
+                    val showCompletionCard = state.service?.status?.lowercase() == "in_progress" &&
+                        completionRows.isNotEmpty() &&
+                        (completionRows.any { it.waitingForOther } ||
+                            completionRows.any { it.canMarkCompleted && onNavigateToCompleteRating != null })
+                    if (showCompletionCard) {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    val svc = state.service!!
+                                    completionRows.forEachIndexed { index, row ->
+                                        if (index > 0) {
+                                            Spacer(modifier = Modifier.height(12.dp))
+                                        }
+                                        if (row.waitingForOther) {
+                                            Text(
+                                                text = "Waiting for ${row.otherUserName} to confirm completion.",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        } else if (row.canMarkCompleted && onNavigateToCompleteRating != null) {
+                                            Button(
+                                                onClick = {
+                                                    onNavigateToCompleteRating(
+                                                        CompleteServiceRatingArgs(
+                                                            transactionId = row.transactionId,
+                                                            serviceTitle = svc.title,
+                                                            otherName = row.otherUserName,
+                                                            creditsHours = row.creditsHours,
+                                                            ratedUserId = row.ratedUserId
+                                                        )
+                                                    )
+                                                },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = ManageServiceLime,
+                                                    contentColor = OnManageServiceLime
+                                                )
+                                            ) {
+                                                val label = if (completionRows.count { it.canMarkCompleted } > 1) {
+                                                    "Mark as completed — rate ${row.otherUserName}"
+                                                } else {
+                                                    "Mark as completed"
+                                                }
+                                                Text(label)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     item {
                         Text(
                             text = "Manage Service",
@@ -514,97 +566,6 @@ fun ManageServiceScreen(
                                             )
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Text("Cancel", maxLines = 1, style = MaterialTheme.typography.labelLarge)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    if (state.service?.status?.lowercase() == "in_progress") {
-                        item {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                            ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    val svc = state.service!!
-                                    val matched = svc.matchedUserIds.orEmpty()
-                                    val confirmedCount = svc.receiverConfirmedIds.orEmpty().size
-                                    val totalReceivers =
-                                        if (matched.isNotEmpty()) matched.size else (svc.maxParticipants ?: 1)
-                                    Text(
-                                        text = "Receivers: $confirmedCount/$totalReceivers Confirmed",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    if (state.receiverAvatars.isNotEmpty()) {
-                                        ReceiversAvatarRow(
-                                            avatars = state.receiverAvatars,
-                                            onOpenUserProfile = onOpenUserProfile
-                                        )
-                                    }
-                                    Text(
-                                        text = "Provider: ${if (svc.providerConfirmed == true) "Confirmed" else "Pending"}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(top = 4.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    val completionWaiting = waitingForOtherToConfirm(
-                        state.service,
-                        state.transaction,
-                        state.currentUserId
-                    )
-                    val completionCanMark = canConfirmCompletion(
-                        state.service,
-                        state.transaction,
-                        state.currentUserId
-                    )
-                    val completionOtherName = state.completionOtherUserName ?: "the other participant"
-                    val showCompletionCard = state.service?.status?.lowercase() == "in_progress" &&
-                        state.transaction != null &&
-                        (completionWaiting || (completionCanMark && onNavigateToCompleteRating != null))
-                    if (showCompletionCard) {
-                        item {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                            ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    if (completionWaiting) {
-                                        Text(
-                                            text = "Waiting for $completionOtherName to confirm completion.",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    } else if (completionCanMark && onNavigateToCompleteRating != null) {
-                                        val svc = state.service!!
-                                        val txn = state.transaction!!
-                                        val uid = state.currentUserId!!
-                                        val ratedUserId =
-                                            if (uid == txn.providerId) txn.requesterId else txn.providerId
-                                        Button(
-                                            onClick = {
-                                                onNavigateToCompleteRating(
-                                                    CompleteServiceRatingArgs(
-                                                        transactionId = txn.id,
-                                                        serviceTitle = svc.title,
-                                                        otherName = completionOtherName,
-                                                        creditsHours = txn.timebankHours,
-                                                        ratedUserId = ratedUserId
-                                                    )
-                                                )
-                                            },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = ManageServiceLime,
-                                                contentColor = OnManageServiceLime
-                                            )
-                                        ) {
-                                            Text("Mark as completed")
                                         }
                                     }
                                 }

@@ -44,12 +44,24 @@ data class ServiceRequestRow(
     val ratingTotal: Int
 )
 
+/**
+ * One row per [TransactionResponse] for this service where the current user still needs to act
+ * (confirm completion / rate) or is waiting on the other party — see OpenAPI GET /transactions/service/{service_id}.
+ */
+data class ServiceCompletionRow(
+    val transactionId: String,
+    val ratedUserId: String,
+    val otherUserName: String,
+    val creditsHours: Double,
+    val canMarkCompleted: Boolean,
+    val waitingForOther: Boolean
+)
+
 data class ManageRequestsUiState(
     val service: ServiceResponse? = null,
-    val transaction: TransactionResponse? = null,
+    /** All transactions for this service involving the current user (multi-participant = multiple rows). */
+    val completionRows: List<ServiceCompletionRow> = emptyList(),
     val currentUserId: String? = null,
-    /** Display name of the user to rate when completing (the other party). */
-    val completionOtherUserName: String? = null,
     /** Profile pics for [ServiceResponse.matchedUserIds], with [ReceiverAvatarUi.confirmed] from [ServiceResponse.receiverConfirmedIds]. */
     val receiverAvatars: List<ReceiverAvatarUi> = emptyList(),
     val isLoading: Boolean = true,
@@ -83,16 +95,12 @@ class ManageServiceRequestsViewModel @Inject constructor(
                 return@launch
             }
             val userId = authRepository.getCurrentUser().getOrNull()?._id
-            val transactions = transactionsRepository.getMyTransactions(page = 1, limit = 100).getOrNull()?.transactions.orEmpty()
-            val txn = transactions.firstOrNull { it.serviceId == serviceId }
-            val ratedUserId = if (userId != null && txn != null) {
-                if (userId == txn.providerId) txn.requesterId else txn.providerId
-            } else null
-            val completionName = if (ratedUserId != null) {
-                usersRepository.getUser(ratedUserId).getOrNull()?.let { u ->
-                    u.fullName?.takeIf { it.isNotBlank() } ?: u.username
+            val serviceTxnList = transactionsRepository.getServiceTransactions(serviceId, page = 1, limit = 100).getOrNull()?.transactions.orEmpty()
+                .ifEmpty {
+                    transactionsRepository.getMyTransactions(page = 1, limit = 100).getOrNull()?.transactions.orEmpty()
+                        .filter { it.serviceId == serviceId }
                 }
-            } else null
+            val completionRows = buildCompletionRows(service, serviceTxnList, userId, usersRepository)
 
             val receiverAvatars = coroutineScope {
                 val confirmedIds = service.receiverConfirmedIds.orEmpty().toSet()
@@ -148,9 +156,8 @@ class ManageServiceRequestsViewModel @Inject constructor(
                     }
                     _state.value = ManageRequestsUiState(
                         service = service,
-                        transaction = txn,
+                        completionRows = completionRows,
                         currentUserId = userId,
-                        completionOtherUserName = completionName,
                         receiverAvatars = receiverAvatars,
                         isLoading = false,
                         error = null,
@@ -160,9 +167,8 @@ class ManageServiceRequestsViewModel @Inject constructor(
                 onFailure = { e ->
                     _state.value = ManageRequestsUiState(
                         service = service,
-                        transaction = txn,
+                        completionRows = completionRows,
                         currentUserId = userId,
-                        completionOtherUserName = completionName,
                         receiverAvatars = receiverAvatars,
                         isLoading = false,
                         error = e.message ?: "Failed to load requests"
@@ -242,4 +248,74 @@ class ManageServiceRequestsViewModel @Inject constructor(
             )
         }
     }
+}
+
+private suspend fun buildCompletionRows(
+    service: ServiceResponse,
+    transactions: List<TransactionResponse>,
+    userId: String?,
+    usersRepository: UsersRepository
+): List<ServiceCompletionRow> {
+    if (userId == null) return emptyList()
+    val mine = transactions.filter { it.requesterId == userId || it.providerId == userId }
+    val active = mine.filter { tx ->
+        val st = tx.status?.lowercase()
+        st != "completed" && st != "cancelled"
+    }
+    return coroutineScope {
+        active.map { txn ->
+            async {
+                val canMark = canConfirmCompletionForService(service, txn, userId)
+                val waiting = waitingForOtherToConfirmForService(service, txn, userId)
+                if (!canMark && !waiting) return@async null
+                val otherId = if (userId == txn.providerId) txn.requesterId else txn.providerId
+                val name = usersRepository.getUser(otherId).getOrNull()?.let { u ->
+                    u.fullName?.takeIf { it.isNotBlank() } ?: u.username
+                } ?: "Participant"
+                ServiceCompletionRow(
+                    transactionId = txn.id,
+                    ratedUserId = otherId,
+                    otherUserName = name,
+                    creditsHours = txn.timebankHours,
+                    canMarkCompleted = canMark,
+                    waitingForOther = waiting
+                )
+            }
+        }.awaitAll().filterNotNull()
+    }
+}
+
+private fun canConfirmCompletionForService(
+    service: ServiceResponse?,
+    txn: TransactionResponse?,
+    userId: String?
+): Boolean {
+    if (service == null || txn == null || userId == null) return false
+    if (service.status?.lowercase() != "in_progress") return false
+    return when (userId) {
+        txn.requesterId -> txn.requesterConfirmed != true
+        txn.providerId -> txn.providerConfirmed != true
+        else -> false
+    }
+}
+
+private fun waitingForOtherToConfirmForService(
+    service: ServiceResponse?,
+    txn: TransactionResponse?,
+    userId: String?
+): Boolean {
+    if (service == null || txn == null || userId == null) return false
+    if (service.status?.lowercase() != "in_progress") return false
+    val iConfirmed = when (userId) {
+        txn.requesterId -> txn.requesterConfirmed == true
+        txn.providerId -> txn.providerConfirmed == true
+        else -> return false
+    }
+    if (!iConfirmed) return false
+    val otherConfirmed = when (userId) {
+        txn.requesterId -> txn.providerConfirmed == true
+        txn.providerId -> txn.requesterConfirmed == true
+        else -> false
+    }
+    return !otherConfirmed
 }

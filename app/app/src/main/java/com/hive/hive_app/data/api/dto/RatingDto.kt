@@ -9,7 +9,8 @@ data class RatingCreate(
     @Json(name = "rated_user_id") val ratedUserId: String,
     val score: Int,
     val comment: String? = null,
-    val tags: List<String>? = null
+    val tags: List<String>? = null,
+    @Json(name = "image_urls") val imageUrls: List<String>? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -28,5 +29,6 @@ data class RatingResponse(
     val score: Int = 0,
     val comment: String? = null,
     val tags: List<String>? = null,
+    @Json(name = "image_urls") val imageUrls: List<String>? = null,
     @Json(name = "created_at") val createdAt: String? = null
 )
