@@ -71,6 +71,7 @@ class RatingService:
             "score": rating_data.score,
             "comment": rating_data.comment,
             "tags": rating_data.tags or [],
+            "image_urls": rating_data.image_urls or [],
             "created_at": datetime.utcnow(),
         }
 
