@@ -377,6 +377,49 @@ class ChatService:
         except Exception:
             return None
 
+    async def create_room_for_service(self, service_id: str, creator_id: str) -> ChatRoomResponse:
+        """Create a group chat room for an active service (provider only, includes all matched users)"""
+        try:
+            service = await self.services_collection.find_one({"_id": ObjectId(service_id)})
+            if not service:
+                raise ValueError("Service not found")
+
+            if str(service["user_id"]) != creator_id:
+                raise ValueError("Only the service provider can create a group chat")
+
+            matched_user_ids = service.get("matched_user_ids", [])
+            if not matched_user_ids:
+                raise ValueError("No matched users yet — cannot create a group chat")
+
+            participant_ids = [ObjectId(creator_id)] + [ObjectId(uid) for uid in matched_user_ids]
+
+            # Return existing active group chat for this service if one exists
+            existing_room = await self.chat_rooms_collection.find_one({
+                "service_ids": ObjectId(service_id),
+                "is_active": True
+            })
+            if existing_room:
+                return await self._populate_room_response(existing_room)
+
+            room_doc = {
+                "name": service["title"],
+                "description": f"Group chat for service: {service['title']}",
+                "is_active": True,
+                "participant_ids": participant_ids,
+                "service_ids": [ObjectId(service_id)],
+                "transaction_id": None,
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow(),
+                "last_message_at": None,
+            }
+
+            result = await self.chat_rooms_collection.insert_one(room_doc)
+            room_doc["_id"] = result.inserted_id
+
+            return await self._populate_room_response(room_doc)
+        except Exception as e:
+            raise ValueError(f"Error creating service group chat room: {str(e)}")
+
     async def create_room_for_transaction(self, transaction_id: str, creator_id: str) -> ChatRoomResponse:
         """Create a chat room for a specific transaction"""
         try:

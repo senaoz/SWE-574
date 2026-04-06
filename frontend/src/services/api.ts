@@ -324,6 +324,9 @@ export const chatApi = {
   
   createTransactionChatRoom: (transactionId: string): Promise<AxiosResponse<ChatRoom>> =>
     api.post(`/chat/rooms/transaction/${transactionId}`),
+
+  createServiceGroupChatRoom: (serviceId: string): Promise<AxiosResponse<ChatRoom>> =>
+    api.post(`/chat/rooms/service/${serviceId}`),
   
   // Messages
   sendMessage: (data: MessageForm): Promise<AxiosResponse<Message>> =>

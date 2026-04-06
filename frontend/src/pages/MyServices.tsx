@@ -259,6 +259,18 @@ export function MyServices({
     }
   };
 
+  const handleCreateGroupChat = async (serviceId: string) => {
+    try {
+      const { data } = await chatApi.createServiceGroupChatRoom(serviceId);
+      const roomId = data?._id;
+      navigate(
+        roomId ? `/profile?tab=chat&room_id=${roomId}` : "/profile?tab=chat",
+      );
+    } catch (error) {
+      console.error("Error creating group chat:", error);
+    }
+  };
+
   const handleStartChat = async (transactionId: string) => {
     const allTransactions = Object.values(serviceTransactions).flat();
     const transaction = allTransactions.find((t) => t._id === transactionId);
@@ -451,6 +463,7 @@ export function MyServices({
 onDeleteService={handleDeleteService}
             onCancelService={handleCancelService}
             onStartChat={handleStartChat}
+            onCreateGroupChat={handleCreateGroupChat}
             onCancelTransaction={handleCancelTransaction}
             onConfirmTransactionCompletion={handleConfirmTransactionCompletion}
             onRequestUpdate={fetchData}
