@@ -69,7 +69,7 @@ export function RegisterForm({
               queryClient.setQueryData(["currentUser"], loginUser);
             }
             setAuthToken(true);
-    
+
             setLoginDialogOpen?.(false);
             navigate("/dashboard");
             return;
@@ -126,10 +126,6 @@ export function RegisterForm({
       newErrors.confirm_password = "Please confirm your password";
     } else if (formData.password !== formData.confirm_password) {
       newErrors.confirm_password = "Passwords do not match";
-    }
-
-    if (!formData.bio?.toLowerCase().includes("bio456")) {
-      newErrors.bio = "Invalid bio";
     }
 
     if (Object.keys(newErrors).length > 0) {
