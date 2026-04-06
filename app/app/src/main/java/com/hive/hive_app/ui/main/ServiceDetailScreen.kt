@@ -93,6 +93,7 @@ import com.hive.hive_app.ui.theme.HiveTheme
 import com.hive.hive_app.ui.theme.SurfaceVariantLight
 import com.hive.hive_app.util.formatDurationHours
 import com.hive.hive_app.util.formatApplicationDate
+import com.hive.hive_app.util.getHighestPriorityBadge
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.GeoPoint
@@ -375,7 +376,9 @@ fun ServiceDetailScreen(
                                         ?: creator?.username
                                         ?: "User #${service.userId.take(8)}",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                 )
                                 creatorRating?.averageScore?.let { avg ->
                                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -388,22 +391,16 @@ fun ServiceDetailScreen(
                                     }
                                 }
                             }
-                            Spacer(modifier = Modifier.weight(1f))
-                            if (!creatorBadges?.badges.isNullOrEmpty()) {
-                                Row(
-                                    modifier = Modifier.padding(start = 8.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    creatorBadges?.badges?.filter { it.earned }?.take(5)?.forEach { badge ->
-                                        Icon(
-                                            imageVector = creatorBadgeIcon(badge.key),
-                                            contentDescription = badge.name ?: badge.key,
-                                            modifier = Modifier.size(20.dp),
-                                            tint = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                }
+                            val topBadge = getHighestPriorityBadge(creatorBadges?.badges)
+                            if (topBadge != null) {
+                                Icon(
+                                    imageVector = creatorBadgeIcon(topBadge.key),
+                                    contentDescription = topBadge.name ?: topBadge.key,
+                                    modifier = Modifier
+                                        .padding(start = 8.dp)
+                                        .size(20.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
                             }
                         }
                     }
@@ -985,4 +982,3 @@ private fun LabelValue(label: String, value: String) {
         )
     }
 }
-
