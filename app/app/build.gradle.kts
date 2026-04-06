@@ -48,7 +48,6 @@ android {
     }
 }
 
-// KESİN ÇÖZÜM: Unresolved reference 'outputFileName' hatasını bitiren blok
 androidComponents {
     onVariants { variant ->
         val name = "hive-app-v${android.defaultConfig.versionName}-${getBuildDate()}.apk"
