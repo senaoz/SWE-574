@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, Flex, Text, Badge, Button } from "@radix-ui/themes";
+import { Card, Flex, Text, Badge, Button, Dialog } from "@radix-ui/themes";
 import { RatingStars } from "@/components/ui/RatingStars";
 import { InterestChip } from "@/components/ui/InterestChip";
 import { tagToLabel } from "@/components/ui/ConfirmCompletionModal";
+import { getImageUrl } from "@/services/api";
 import type { RatingDetailed } from "@/types";
 
 interface ReviewCardProps {
@@ -11,6 +13,7 @@ interface ReviewCardProps {
 
 export function ReviewCard({ rating }: ReviewCardProps) {
   const navigate = useNavigate();
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   const raterLabel = rating.rater
     ? rating.rater.full_name || `@${rating.rater.username}`
@@ -84,7 +87,36 @@ export function ReviewCard({ rating }: ReviewCardProps) {
             "{rating.comment}"
           </Text>
         )}
+
+        {rating.image_urls && rating.image_urls.length > 0 && (
+          <Flex gap="2" wrap="wrap">
+            {rating.image_urls.map((url, i) => (
+              <img
+                key={i}
+                src={getImageUrl(url)}
+                alt={`Review photo ${i + 1}`}
+                className="w-20 h-20 object-cover rounded cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => setLightboxSrc(getImageUrl(url) ?? null)}
+              />
+            ))}
+          </Flex>
+        )}
       </Flex>
+
+      <Dialog.Root
+        open={lightboxSrc !== null}
+        onOpenChange={(open) => !open && setLightboxSrc(null)}
+      >
+        <Dialog.Content maxWidth="90vw" className="p-2">
+          {lightboxSrc && (
+            <img
+              src={lightboxSrc}
+              alt="Review photo"
+              className="max-h-[80vh] max-w-full mx-auto rounded"
+            />
+          )}
+        </Dialog.Content>
+      </Dialog.Root>
     </Card>
   );
 }

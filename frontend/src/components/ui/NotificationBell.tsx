@@ -26,7 +26,7 @@ function formatRelativeTime(dateStr: string): string {
 
 function getNotificationUrl(notification: Notification): string {
   if (notification.related_type === "service") {
-    return `/services/${notification.related_id}`;
+    return `/service/${notification.related_id}`;
   }
   return `/profile?tab=services`;
 }

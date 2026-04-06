@@ -32,12 +32,7 @@ import {
   SocialLinks,
   RatingDetailed,
 } from "@/types";
-import {
-  usersApi,
-  ratingsApi,
-  uploadApi,
-  getImageUrl,
-} from "@/services/api";
+import { usersApi, ratingsApi, uploadApi, getImageUrl } from "@/services/api";
 import { ReviewCard } from "@/components/ui/ReviewCard";
 import { useUser } from "@/contexts/UserContext";
 import { MyServices } from "./MyServices";
@@ -1200,10 +1195,12 @@ export function Profile() {
 
               {/* Reviews Section */}
               <div className="space-y-4">
-                <Heading size="5">My Reviews</Heading>
+                <Heading size="5">Services which you have reviewed</Heading>
                 {detailedRatingsLoading ? (
                   <Card className="p-6 text-center">
-                    <Text color="gray">Loading reviews...</Text>
+                    <Text color="gray">
+                      Loading services which you have reviewed...
+                    </Text>
                   </Card>
                 ) : detailedRatings.length > 0 ? (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -1213,7 +1210,9 @@ export function Profile() {
                   </div>
                 ) : (
                   <Card className="p-6 text-center">
-                    <Text color="gray">No reviews yet</Text>
+                    <Text color="gray">
+                      No services which you have reviewed yet
+                    </Text>
                   </Card>
                 )}
               </div>

@@ -62,6 +62,7 @@ export interface RatingDetailed {
   score: number;
   comment?: string;
   tags?: string[];
+  image_urls?: string[];
   created_at: string;
   rater?: {
     id: string;
