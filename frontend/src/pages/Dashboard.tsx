@@ -22,6 +22,7 @@ import {
 } from "@radix-ui/themes";
 import {
   Crosshair1Icon,
+  ExclamationTriangleIcon,
   HandIcon,
   PlusIcon,
   SunIcon,
@@ -30,7 +31,7 @@ import { OfferNeedForm } from "@/components/forms/OfferNeedForm";
 import { useFilters } from "@/contexts/FilterContext";
 import { useUser } from "@/contexts/UserContext";
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   ForumEvent,
@@ -48,6 +49,7 @@ const RECOMMENDATION_PAGE_SIZE = 10;
 const MAX_RECOMMENDATION_POSTS = 30;
 
 export function Dashboard() {
+  const navigate = useNavigate();
   const { currentUserId } = useUser();
   const [services, setServices] = useState<Service[]>([]);
   const [filteredServices, setFilteredServices] = useState<Service[]>([]);
@@ -144,56 +146,59 @@ export function Dashboard() {
     userPosition?.[1],
   ]);
 
-  const { data: recommendedServicesData, isFetching: isRecommendationsLoading } =
-    useQuery({
-      queryKey: [
-        "dashboard-recommendations",
-        currentUserId,
-        recommendedPage,
-        searchQuery,
-        activeCity,
-        dashFilters.serviceType,
-        dashFilters.status,
-        dashFilters.selectedTags,
-        dashFilters.remoteFilter,
-        dashFilters.distance,
-        dashFilters.dateFilter,
-        userPosition?.[0],
-        userPosition?.[1],
-      ],
-      queryFn: () =>
-        servicesApi
-          .getRecommendedServices({
-            page: recommendedPage,
-            limit: RECOMMENDATION_PAGE_SIZE,
-            q: searchQuery?.trim() || undefined,
-            service_type:
-              dashFilters.serviceType !== "all"
-                ? dashFilters.serviceType
-                : undefined,
-            status:
-              dashFilters.status !== "all" ? dashFilters.status : undefined,
-            tags:
-              dashFilters.selectedTags.length > 0
-                ? dashFilters.selectedTags.join(",")
-                : undefined,
-            city: activeCity && activeCity !== "all" ? activeCity : undefined,
-            latitude: userPosition?.[0],
-            longitude: userPosition?.[1],
-            radius:
-              typeof dashFilters.distance === "number"
-                ? dashFilters.distance
-                : undefined,
-            is_remote: remoteRecommendationFilter,
-            date_filter:
-              dashFilters.dateFilter !== "all"
-                ? dashFilters.dateFilter
-                : undefined,
-          })
-          .then((res) => res.data),
-      enabled: !!currentUserId && dashFilters.forYouOnly,
-      retry: false,
-    });
+
+  const {
+    data: recommendedServicesData,
+    isFetching: isRecommendationsLoading,
+  } = useQuery({
+    queryKey: [
+      "dashboard-recommendations",
+      currentUserId,
+      recommendedPage,
+      searchQuery,
+      activeCity,
+      dashFilters.serviceType,
+      dashFilters.status,
+      dashFilters.selectedTags,
+      dashFilters.remoteFilter,
+      dashFilters.distance,
+      dashFilters.dateFilter,
+      userPosition?.[0],
+      userPosition?.[1],
+    ],
+    queryFn: () =>
+      servicesApi
+        .getRecommendedServices({
+          page: recommendedPage,
+          limit: RECOMMENDATION_PAGE_SIZE,
+          q: searchQuery?.trim() || undefined,
+          service_type:
+            dashFilters.serviceType !== "all"
+              ? dashFilters.serviceType
+              : undefined,
+          status: dashFilters.status !== "all" ? dashFilters.status : undefined,
+          tags:
+            dashFilters.selectedTags.length > 0
+              ? dashFilters.selectedTags.join(",")
+              : undefined,
+          city:
+            activeCity && activeCity !== "all" ? activeCity : undefined,
+          latitude: userPosition?.[0],
+          longitude: userPosition?.[1],
+          radius:
+            typeof dashFilters.distance === "number"
+              ? dashFilters.distance
+              : undefined,
+          is_remote: remoteRecommendationFilter,
+          date_filter:
+            dashFilters.dateFilter !== "all"
+              ? dashFilters.dateFilter
+              : undefined,
+        })
+        .then((res) => res.data),
+    enabled: !!currentUserId && dashFilters.forYouOnly,
+    retry: false,
+  });
 
   useEffect(() => {
     if (!recommendedServicesData || !dashFilters.forYouOnly) return;
@@ -406,6 +411,11 @@ export function Dashboard() {
   }, [filteredServices, mapFilters, userPosition, dashFilters]);
 
   const recommendedServices: RecommendedServiceItem[] = loadedRecommendedServices;
+  const recommendationMode =
+    recommendedServicesData?.recommendation_mode ?? "empty";
+  const showProfilePrompt =
+    dashFilters.forYouOnly && !!recommendedServicesData?.show_profile_prompt;
+  const isLocationFallbackMode = recommendationMode === "location_fallback";
   const maxVisibleRecommendationCount = Math.min(
     recommendedServicesData?.total ?? recommendedServices.length,
     MAX_RECOMMENDATION_POSTS,
@@ -530,6 +540,37 @@ export function Dashboard() {
           availableTags={availableTags}
           hasLocation={userPosition !== null}
         />
+        {showProfilePrompt && (
+          <Callout.Root size="1" color="lime" variant="soft">
+            <Callout.Icon>
+              <ExclamationTriangleIcon />
+            </Callout.Icon>
+            <Callout.Text>
+              <Flex
+                align={{ initial: "start", sm: "center" }}
+                justify="between"
+                gap="3"
+                wrap="wrap"
+              >
+                <Text size="2">
+                  {isLocationFallbackMode
+                    ? "We couldn't build personalized recommendations yet, so we're showing nearby posts for now. Add Interests in your profile to improve matches. Saved posts and completed exchanges will make this smarter too."
+                    : "Add Interests in your profile to start getting better personalized recommendations. Saved posts and completed exchanges will make this smarter too."}
+                </Text>
+                <Button
+                  size="1"
+                  color="lime"
+                  variant="soft"
+                  onClick={() =>
+                    navigate("/profile?tab=profile&interests=true")
+                  }
+                >
+                  Go to Interests
+                </Button>
+              </Flex>
+            </Callout.Text>
+          </Callout.Root>
+        )}
       </Flex>
 
       <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)]">
@@ -585,12 +626,16 @@ export function Dashboard() {
             <Card className="flex flex-col items-center justify-center">
               <Text size="3" color="gray">
                 {dashFilters.forYouOnly
-                  ? "No personalized recommendations found"
+                  ? isLocationFallbackMode
+                    ? "No nearby recommendations found"
+                    : "No personalized recommendations found"
                   : "No services found matching your criteria"}
               </Text>
               <Text size="2" color="gray" className="mt-2">
                 {dashFilters.forYouOnly
-                  ? "Try broadening your filters to see more matches"
+                  ? isLocationFallbackMode
+                    ? "Try broadening your filters or updating your profile interests"
+                    : "Try broadening your filters to see more matches"
                   : "Try adjusting your search or city filter"}
               </Text>
             </Card>

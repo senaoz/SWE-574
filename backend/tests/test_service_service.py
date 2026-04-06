@@ -214,7 +214,7 @@ class TestServiceService:
             str(second_user.id),
         )
 
-        items, total = await service_service.get_recommended_services(
+        items, total, recommendation_mode, show_profile_prompt = await service_service.get_recommended_services(
             user_id=str(test_user.id),
             filters=ServiceFilters(),
             page=1,
@@ -223,6 +223,8 @@ class TestServiceService:
 
         assert total == 0
         assert items == []
+        assert recommendation_mode == "empty"
+        assert show_profile_prompt is False
 
     @pytest.mark.asyncio
     async def test_get_recommended_services_ignores_short_interest_inside_other_words(
@@ -253,7 +255,7 @@ class TestServiceService:
             str(second_user.id),
         )
 
-        items, total = await service_service.get_recommended_services(
+        items, total, recommendation_mode, show_profile_prompt = await service_service.get_recommended_services(
             user_id=str(test_user.id),
             filters=ServiceFilters(),
             page=1,
@@ -262,6 +264,8 @@ class TestServiceService:
 
         assert total == 0
         assert items == []
+        assert recommendation_mode == "empty"
+        assert show_profile_prompt is False
 
     @pytest.mark.asyncio
     async def test_get_recommended_services_matches_interest_as_whole_term(
@@ -292,7 +296,7 @@ class TestServiceService:
             str(second_user.id),
         )
 
-        items, total = await service_service.get_recommended_services(
+        items, total, recommendation_mode, show_profile_prompt = await service_service.get_recommended_services(
             user_id=str(test_user.id),
             filters=ServiceFilters(),
             page=1,
@@ -304,6 +308,212 @@ class TestServiceService:
         assert items[0].service.id == str(matching_service.id)
         assert items[0].matched_interests == ["AI"]
         assert items[0].reason == "Because it matches your interest in AI"
+        assert recommendation_mode == "personalized"
+        assert show_profile_prompt is False
+
+    @pytest.mark.asyncio
+    async def test_get_recommended_services_falls_back_to_nearby_posts_for_cold_start_user(
+        self, mock_db, test_user, second_user, sample_service_data
+    ):
+        """Cold-start users should see nearby posts when no personalized matches exist."""
+        from app.models.service import ServiceCreate
+
+        service_service = ServiceService(mock_db)
+
+        nearby_service_data = sample_service_data.copy()
+        nearby_service_data.update(
+            {
+                "title": "Nearby Gardening Help",
+                "description": "Help with balcony plants and seasonal care.",
+                "category": "gardening",
+                "tags": ["gardening", "plants"],
+                "location": {
+                    "latitude": 41.0088,
+                    "longitude": 28.979,
+                    "address": "Beyoglu, Istanbul",
+                },
+            }
+        )
+        nearby_service = await service_service.create_service(
+            ServiceCreate(**nearby_service_data),
+            str(second_user.id),
+        )
+
+        farther_service_data = sample_service_data.copy()
+        farther_service_data.update(
+            {
+                "title": "Farther Language Exchange",
+                "description": "Practice English conversation over coffee.",
+                "category": "language",
+                "tags": ["language", "english"],
+                "location": {
+                    "latitude": 41.068,
+                    "longitude": 29.02,
+                    "address": "Sariyer, Istanbul",
+                },
+            }
+        )
+        farther_service = await service_service.create_service(
+            ServiceCreate(**farther_service_data),
+            str(second_user.id),
+        )
+
+        items, total, recommendation_mode, show_profile_prompt = (
+            await service_service.get_recommended_services(
+                user_id=str(test_user.id),
+                filters=ServiceFilters(),
+                page=1,
+                limit=10,
+                viewer_latitude=41.0082,
+                viewer_longitude=28.9784,
+            )
+        )
+
+        assert total == 2
+        assert len(items) == 2
+        assert recommendation_mode == "location_fallback"
+        assert show_profile_prompt is True
+        assert items[0].service.id == str(nearby_service.id)
+        assert items[1].service.id == str(farther_service.id)
+        assert "away from you" in items[0].reason
+
+    @pytest.mark.asyncio
+    async def test_get_recommended_services_keeps_personalized_results_without_location_fallback(
+        self, mock_db, test_user, second_user, sample_service_data
+    ):
+        """Nearby fallback should not be mixed in when personalized recommendations exist."""
+        from bson import ObjectId
+        from app.models.service import ServiceCreate
+
+        service_service = ServiceService(mock_db)
+
+        await mock_db.users.update_one(
+            {"_id": ObjectId(str(test_user.id))},
+            {"$set": {"interests": ["AI"]}},
+        )
+
+        nearby_unrelated_data = sample_service_data.copy()
+        nearby_unrelated_data.update(
+            {
+                "title": "Nearby Dog Walking",
+                "description": "Looking for a walking buddy for my dog.",
+                "category": "pets",
+                "tags": ["pets", "dog"],
+                "location": {
+                    "latitude": 41.0083,
+                    "longitude": 28.9785,
+                    "address": "Besiktas, Istanbul",
+                },
+            }
+        )
+        await service_service.create_service(
+            ServiceCreate(**nearby_unrelated_data),
+            str(second_user.id),
+        )
+
+        matching_service_data = sample_service_data.copy()
+        matching_service_data.update(
+            {
+                "title": "AI Interview Practice",
+                "description": "Practice AI interview questions together.",
+                "category": "technology",
+                "tags": ["career", "AI"],
+                "location": {
+                    "latitude": 41.04,
+                    "longitude": 29.01,
+                    "address": "Kadikoy, Istanbul",
+                },
+            }
+        )
+        matching_service = await service_service.create_service(
+            ServiceCreate(**matching_service_data),
+            str(second_user.id),
+        )
+
+        items, total, recommendation_mode, show_profile_prompt = (
+            await service_service.get_recommended_services(
+                user_id=str(test_user.id),
+                filters=ServiceFilters(),
+                page=1,
+                limit=10,
+                viewer_latitude=41.0082,
+                viewer_longitude=28.9784,
+            )
+        )
+
+        assert total == 1
+        assert len(items) == 1
+        assert items[0].service.id == str(matching_service.id)
+        assert recommendation_mode == "personalized"
+        assert show_profile_prompt is False
+
+    @pytest.mark.asyncio
+    async def test_get_recommended_services_hides_profile_prompt_when_user_has_existing_signals(
+        self, mock_db, test_user, second_user, sample_service_data
+    ):
+        """Fallback can still be used without showing the cold-start profile prompt."""
+        from datetime import datetime, timezone
+        from app.models.service import ServiceCreate
+
+        service_service = ServiceService(mock_db)
+
+        saved_service_data = sample_service_data.copy()
+        saved_service_data.update(
+            {
+                "title": "Saved Cooking Workshop",
+                "description": "Learn practical meal prep for the week.",
+                "category": "cooking",
+                "tags": ["cooking", "meal prep"],
+            }
+        )
+        saved_service = await service_service.create_service(
+            ServiceCreate(**saved_service_data),
+            str(second_user.id),
+        )
+
+        await mock_db.saved_services.insert_one(
+            {
+                "user_id": str(test_user.id),
+                "service_id": str(saved_service.id),
+                "created_at": datetime.now(timezone.utc),
+            }
+        )
+
+        fallback_service_data = sample_service_data.copy()
+        fallback_service_data.update(
+            {
+                "title": "Nearby Bike Repair Help",
+                "description": "Help with basic bike maintenance and chain fixes.",
+                "category": "repair",
+                "tags": ["bike", "repair"],
+                "location": {
+                    "latitude": 41.0084,
+                    "longitude": 28.9787,
+                    "address": "Sisli, Istanbul",
+                },
+            }
+        )
+        fallback_service = await service_service.create_service(
+            ServiceCreate(**fallback_service_data),
+            str(second_user.id),
+        )
+
+        items, total, recommendation_mode, show_profile_prompt = (
+            await service_service.get_recommended_services(
+                user_id=str(test_user.id),
+                filters=ServiceFilters(),
+                page=1,
+                limit=10,
+                viewer_latitude=41.0082,
+                viewer_longitude=28.9784,
+            )
+        )
+
+        assert total == 1
+        assert len(items) == 1
+        assert items[0].service.id == str(fallback_service.id)
+        assert recommendation_mode == "location_fallback"
+        assert show_profile_prompt is False
     
     @pytest.mark.asyncio
     async def test_update_service(self, mock_db, sample_service):

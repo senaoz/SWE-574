@@ -151,8 +151,13 @@ export function Profile() {
   useEffect(() => {
     if (selectInterests && selectInterests === "true") {
       setShowInterestSelector(true);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("interests");
+        return next;
+      });
     }
-  }, [selectInterests]);
+  }, [selectInterests, setSearchParams]);
 
   // Sync edit form and settings when context user loads or updates
   useEffect(() => {
