@@ -37,12 +37,21 @@ function renderForm() {
 
 async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByPlaceholderText("Choose a username"), "alice123");
-  await user.type(screen.getByPlaceholderText("Enter your email"), "alice@example.com");
-  await user.type(screen.getByPlaceholderText("Create a strong password"), "Password1!");
-  await user.type(screen.getByPlaceholderText("Confirm your password"), "Password1!");
+  await user.type(
+    screen.getByPlaceholderText("Enter your email"),
+    "alice@example.com",
+  );
+  await user.type(
+    screen.getByPlaceholderText("Create a strong password"),
+    "Password1!",
+  );
+  await user.type(
+    screen.getByPlaceholderText("Confirm your password"),
+    "Password1!",
+  );
   await user.type(
     screen.getByPlaceholderText("Tell us about yourself (optional)"),
-    "I am here bio456",
+    "I am here",
   );
 }
 
@@ -54,10 +63,16 @@ describe("RegisterForm", () => {
 
   it("renders all required fields", () => {
     renderForm();
-    expect(screen.getByPlaceholderText("Choose a username")).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText("Choose a username"),
+    ).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Enter your email")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Create a strong password")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Confirm your password")).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText("Create a strong password"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText("Confirm your password"),
+    ).toBeInTheDocument();
   });
 
   it("shows username required error on empty submit", async () => {
@@ -74,9 +89,18 @@ describe("RegisterForm", () => {
     renderForm();
     // Fill all required fields so Radix Form allows submission, but use a short username
     await user.type(screen.getByPlaceholderText("Choose a username"), "ab");
-    await user.type(screen.getByPlaceholderText("Enter your email"), "alice@example.com");
-    await user.type(screen.getByPlaceholderText("Create a strong password"), "Password1!");
-    await user.type(screen.getByPlaceholderText("Confirm your password"), "Password1!");
+    await user.type(
+      screen.getByPlaceholderText("Enter your email"),
+      "alice@example.com",
+    );
+    await user.type(
+      screen.getByPlaceholderText("Create a strong password"),
+      "Password1!",
+    );
+    await user.type(
+      screen.getByPlaceholderText("Confirm your password"),
+      "Password1!",
+    );
     // Submit via fireEvent to bypass any native validation quirks
     const btn = screen.getByRole("button", { name: "Create Account" });
     fireEvent.submit(btn.closest("form")!);
@@ -90,7 +114,10 @@ describe("RegisterForm", () => {
   it("shows email required error", async () => {
     const user = userEvent.setup();
     renderForm();
-    await user.type(screen.getByPlaceholderText("Choose a username"), "alice123");
+    await user.type(
+      screen.getByPlaceholderText("Choose a username"),
+      "alice123",
+    );
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     await waitFor(() => {
       expect(screen.getByText("Email is required")).toBeInTheDocument();
@@ -100,10 +127,22 @@ describe("RegisterForm", () => {
   it("shows password mismatch error", async () => {
     const user = userEvent.setup();
     renderForm();
-    await user.type(screen.getByPlaceholderText("Choose a username"), "alice123");
-    await user.type(screen.getByPlaceholderText("Enter your email"), "alice@example.com");
-    await user.type(screen.getByPlaceholderText("Create a strong password"), "Password1!");
-    await user.type(screen.getByPlaceholderText("Confirm your password"), "Different1!");
+    await user.type(
+      screen.getByPlaceholderText("Choose a username"),
+      "alice123",
+    );
+    await user.type(
+      screen.getByPlaceholderText("Enter your email"),
+      "alice@example.com",
+    );
+    await user.type(
+      screen.getByPlaceholderText("Create a strong password"),
+      "Password1!",
+    );
+    await user.type(
+      screen.getByPlaceholderText("Confirm your password"),
+      "Different1!",
+    );
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     await waitFor(() => {
       expect(screen.getByText("Passwords do not match")).toBeInTheDocument();

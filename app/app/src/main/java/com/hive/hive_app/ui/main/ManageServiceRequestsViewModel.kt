@@ -13,6 +13,7 @@ import com.hive.hive_app.data.repository.RatingsRepository
 import com.hive.hive_app.data.repository.ServicesRepository
 import com.hive.hive_app.data.repository.TransactionsRepository
 import com.hive.hive_app.data.repository.UsersRepository
+import com.hive.hive_app.util.getHighestPriorityBadge
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -134,7 +135,8 @@ class ManageServiceRequestsViewModel @Inject constructor(
                                 val earned = badges?.earnedCount
                                     ?: badges?.badges?.count { it.earned }
                                     ?: 0
-                                val primaryEarned = badges?.badges?.firstOrNull { it.earned }
+                                // Use priority-based selection mirroring the web frontend logic.
+                                val primaryEarned = getHighestPriorityBadge(badges?.badges)
                                 val displayName = user?.fullName?.takeIf { it.isNotBlank() }
                                     ?: user?.username
                                     ?: "User ${uid.take(8)}…"
