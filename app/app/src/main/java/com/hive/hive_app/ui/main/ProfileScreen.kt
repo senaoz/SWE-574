@@ -78,6 +78,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.hive.hive_app.util.badgeIcon
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.hive.hive_app.BuildConfig
@@ -531,18 +532,6 @@ private fun ProfileStat(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
-}
-
-private fun badgeIcon(key: String?): ImageVector = when (key) {
-    "newcomer" -> Icons.Filled.Person
-    "profile_complete" -> Icons.Filled.Image
-    "tagged", "well_tagged" -> Icons.Filled.Label
-    "rated" -> Icons.Filled.Star
-    "popular" -> Icons.Filled.TrendingUp
-    "community_favorite" -> Icons.Filled.Favorite
-    "helper", "helper_hero", "master_helper" -> Icons.Filled.School
-    "generous_giver" -> Icons.Filled.Schedule
-    else -> Icons.Filled.Star
 }
 
 private fun interestStyle(name: String): Pair<ImageVector, Color> {

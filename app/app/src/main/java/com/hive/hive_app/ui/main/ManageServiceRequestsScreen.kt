@@ -62,6 +62,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.hive.hive_app.util.badgeIcon
 import com.hive.hive_app.util.formatApplicationDate
 import java.util.Locale
 
@@ -143,18 +144,6 @@ private fun ReceiversAvatarRow(
             }
         }
     }
-}
-
-private fun serviceRequestBadgeIcon(key: String?): ImageVector = when (key) {
-    "newcomer" -> Icons.Default.Person
-    "profile_complete" -> Icons.Default.Person
-    "tagged", "well_tagged" -> Icons.Default.Label
-    "rated" -> Icons.Default.Star
-    "popular" -> Icons.Default.TrendingUp
-    "community_favorite" -> Icons.Default.Favorite
-    "helper", "helper_hero", "master_helper" -> Icons.Default.School
-    "generous_giver" -> Icons.Default.Schedule
-    else -> Icons.Default.Star
 }
 
 @Composable
@@ -747,7 +736,7 @@ private fun ManageRequestCard(
                         modifier = Modifier.padding(start = 4.dp)
                     ) {
                         Icon(
-                            imageVector = serviceRequestBadgeIcon(row.primaryBadgeKey),
+                            imageVector = badgeIcon(row.primaryBadgeKey),
                             contentDescription = row.primaryBadgeName ?: row.primaryBadgeKey,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(28.dp)

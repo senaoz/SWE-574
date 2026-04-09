@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.border
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -33,6 +34,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -54,12 +56,14 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.hive.hive_app.data.api.dto.ServiceResponse
+import com.hive.hive_app.util.badgeIcon
 import com.hive.hive_app.util.formatDurationHours
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import coil.compose.AsyncImage
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.activity.compose.BackHandler
@@ -373,18 +377,56 @@ fun DiscoverScreen(
     }
 }
 
-private fun discoverBadgeIcon(key: String?): ImageVector = when (key) {
-    "newcomer" -> Icons.Filled.Person
-    "profile_complete" -> Icons.Filled.Label
-    "tagged", "well_tagged" -> Icons.Filled.Label
-    "rated" -> Icons.Filled.Star
-    "popular" -> Icons.Filled.TrendingUp
-    "community_favorite" -> Icons.Filled.Favorite
-    "helper", "helper_hero", "master_helper" -> Icons.Filled.School
-    "generous_giver" -> Icons.Filled.Schedule
-    else -> Icons.Filled.Label
+@Composable
+private fun BadgeInfoBox(
+    key: String,
+    name: String?,
+    description: String?,
+    modifier: Modifier = Modifier
+) {
+    val title = name ?: key
+    val desc = description?.takeIf { it.isNotBlank() } ?: "No description available."
+    val lime = Color(0xFFC6E600)
+    Card(
+        modifier = modifier
+            .border(1.5.dp, lime, RoundedCornerShape(12.dp)),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(10.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = badgeIcon(key),
+                    contentDescription = title,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Badge: $title",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = desc,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
 }
-
 
 @Composable
 private fun DiscoverServiceCard(
@@ -394,6 +436,7 @@ private fun DiscoverServiceCard(
     creator: CreatorInfo?,
     onClick: () -> Unit
 ) {
+    var showBadgeInfo by remember { mutableStateOf(false) }
     val accepted = service.matchedUserIds?.size ?: 0
     val max = service.maxParticipants ?: 1
     val capacityText = "$accepted/$max"
@@ -474,16 +517,29 @@ private fun DiscoverServiceCard(
                                 }
                             }
                             if (primaryBadgeKey != null) {
-                                Icon(
-                                    imageVector = discoverBadgeIcon(primaryBadgeKey),
-                                    contentDescription = "Badge",
-                                    modifier = Modifier.size(16.dp),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
+                                IconButton(
+                                    onClick = { showBadgeInfo = !showBadgeInfo },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = badgeIcon(primaryBadgeKey),
+                                        contentDescription = creator?.primaryBadgeName ?: "Badge",
+                                        modifier = Modifier.size(16.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
                             }
                         }
                     }
                 }
+            }
+            if (showBadgeInfo && creator?.primaryBadgeKey != null) {
+                BadgeInfoBox(
+                    key = creator.primaryBadgeKey,
+                    name = creator.primaryBadgeName,
+                    description = creator.primaryBadgeDescription,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
             Text(
                 text = service.title,
@@ -544,4 +600,5 @@ private fun DiscoverServiceCard(
             }
         }
     }
+
 }
