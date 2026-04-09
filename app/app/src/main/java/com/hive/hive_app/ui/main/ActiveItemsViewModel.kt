@@ -1,5 +1,7 @@
 package com.hive.hive_app.ui.main
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hive.hive_app.data.api.dto.JoinRequestResponse
@@ -11,9 +13,11 @@ import com.hive.hive_app.data.repository.JoinRequestsRepository
 import com.hive.hive_app.data.repository.RatingsRepository
 import com.hive.hive_app.data.repository.ServicesRepository
 import com.hive.hive_app.data.repository.TransactionsRepository
+import com.hive.hive_app.data.repository.UploadsRepository
 import com.hive.hive_app.data.repository.UsersRepository
 import com.hive.hive_app.util.formatServiceSchedulingDisplay
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -49,7 +53,9 @@ class ActiveItemsViewModel @Inject constructor(
     private val transactionsRepository: TransactionsRepository,
     private val usersRepository: UsersRepository,
     private val chatRepository: ChatRepository,
-    private val ratingsRepository: RatingsRepository
+    private val ratingsRepository: RatingsRepository,
+    private val uploadsRepository: UploadsRepository,
+    @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
     data class ActiveItemsState(
@@ -241,24 +247,36 @@ class ActiveItemsViewModel @Inject constructor(
         }
     }
 
-    /** Confirm transaction completion and submit rating (score, feedback tags, optional comment). */
+    /** Confirm transaction completion and submit rating (score, feedback tags, optional comment, up to 3 photos). */
     fun confirmAndRate(
         transactionId: String,
         ratedUserId: String,
         score: Int,
         feedbackTags: List<String>,
         comment: String?,
+        ratingImageUris: List<Uri> = emptyList(),
         onResult: (Boolean, String?) -> Unit
     ) {
         viewModelScope.launch {
             transactionsRepository.confirmCompletion(transactionId).fold(
                 onSuccess = {
+                    val imageUrls = mutableListOf<String>()
+                    for (uri in ratingImageUris.take(3)) {
+                        uploadsRepository.uploadRatingImage(appContext, uri).fold(
+                            onSuccess = { imageUrls.add(it) },
+                            onFailure = { e ->
+                                onResult(false, e.message ?: "Image upload failed")
+                                return@launch
+                            }
+                        )
+                    }
                     ratingsRepository.createRating(
                         transactionId = transactionId,
                         ratedUserId = ratedUserId,
                         score = score,
                         comment = comment.takeIf { !it.isNullOrBlank() },
-                        tags = feedbackTags.takeIf { it.isNotEmpty() }
+                        tags = feedbackTags.takeIf { it.isNotEmpty() },
+                        imageUrls = imageUrls.takeIf { it.isNotEmpty() }
                     ).fold(
                         onSuccess = {
                             load()

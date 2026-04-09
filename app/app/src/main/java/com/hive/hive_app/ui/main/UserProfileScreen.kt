@@ -74,6 +74,7 @@ import coil.compose.AsyncImage
 import com.hive.hive_app.data.api.dto.BadgesResponse
 import com.hive.hive_app.data.api.dto.SocialLinks
 import com.hive.hive_app.data.api.dto.UserResponse
+import com.hive.hive_app.util.badgeIcon
 import com.hive.hive_app.util.formatMemberJoinDate
 import com.hive.hive_app.util.formatMemberSinceDuration
 
@@ -517,18 +518,6 @@ private fun UserProfileTimeBankCard(balance: Double) {
     }
 }
 
-private fun userProfileBadgeIcon(key: String?): ImageVector = when (key) {
-    "newcomer" -> Icons.Default.Person
-    "profile_complete" -> Icons.Default.Image
-    "tagged", "well_tagged" -> Icons.Default.Label
-    "rated" -> Icons.Default.Star
-    "popular" -> Icons.Default.TrendingUp
-    "community_favorite" -> Icons.Default.Favorite
-    "helper", "helper_hero", "master_helper" -> Icons.Default.School
-    "generous_giver" -> Icons.Default.Schedule
-    else -> Icons.Default.Star
-}
-
 @Composable
 private fun UserProfileBadgesCard(badges: BadgesResponse?) {
     var showAllBadges by remember { mutableStateOf(false) }
@@ -590,7 +579,7 @@ private fun UserProfileBadgesCard(badges: BadgesResponse?) {
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
-                                            imageVector = userProfileBadgeIcon(badge.key),
+                                            imageVector = badgeIcon(badge.key),
                                             contentDescription = null,
                                             tint = tint,
                                             modifier = Modifier.size(22.dp)

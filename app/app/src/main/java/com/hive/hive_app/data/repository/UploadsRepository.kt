@@ -50,6 +50,34 @@ class UploadsRepository @Inject constructor(
         }
     }
 
+    suspend fun uploadRatingImage(context: Context, uri: Uri): Result<String> {
+        return try {
+            val multipart = withContext(Dispatchers.IO) {
+                val contentResolver = context.contentResolver
+                val mimeType = contentResolver.getType(uri) ?: "image/*"
+                val mediaType = mimeType.toMediaTypeOrNull()
+                val fileName = getDisplayName(context, uri) ?: "rating.jpg"
+                val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    ?: throw IllegalStateException("Unable to read image")
+                val requestBody = bytes.toRequestBody(mediaType)
+                MultipartBody.Part.createFormData("file", fileName, requestBody)
+            }
+            val response = uploadsApi.uploadRatingImage(multipart)
+            val body = response.body()
+            if (!response.isSuccessful || body == null) {
+                return Result.failure(IllegalStateException("Image upload failed"))
+            }
+            val url = extractUrlFromUploadResponse(body)
+            if (url.isNullOrBlank()) {
+                Result.failure(IllegalStateException("Upload succeeded but no URL returned"))
+            } else {
+                Result.success(url)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     private fun getDisplayName(context: Context, uri: Uri): String? {
         return try {
             val cursor: Cursor? = context.contentResolver.query(uri, null, null, null, null)
