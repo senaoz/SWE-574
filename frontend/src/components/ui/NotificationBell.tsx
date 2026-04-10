@@ -28,6 +28,9 @@ function getNotificationUrl(notification: Notification): string {
   if (notification.related_type === "service") {
     return `/service/${notification.related_id}`;
   }
+  if (notification.related_type === "chat_room") {
+    return `/profile?tab=chat&room_id=${notification.related_id}`;
+  }
   return `/profile?tab=services`;
 }
 

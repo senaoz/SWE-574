@@ -1433,7 +1433,26 @@ class ServiceService:
             
             if result.modified_count:
                 updated_service = await self.get_service_by_id(service_id, user_id)
-                
+
+                # Notify participants when owner starts the service
+                if service_update.status == ServiceStatus.IN_PROGRESS:
+                    try:
+                        from .notification_service import NotificationService
+                        from ..models.notification import NotificationType, NotificationRelatedType
+                        notif_service = NotificationService(self.db)
+                        participant_ids = list(current_service.matched_user_ids or [])
+                        for pid in participant_ids:
+                            await notif_service.create_notification(
+                                user_id=str(pid),
+                                notification_type=NotificationType.SERVICE_STARTED,
+                                title="Service started",
+                                body=f"'{current_service.title}' is now in progress",
+                                related_id=service_id,
+                                related_type=NotificationRelatedType.SERVICE,
+                            )
+                    except Exception:
+                        pass
+
                 # Check if deadline has passed after update
                 if updated_service.deadline:
                     if updated_service.deadline < datetime.utcnow():
@@ -1485,8 +1504,34 @@ class ServiceService:
                     }
                 }
             )
-            
-            return result.modified_count > 0
+
+            if result.modified_count > 0:
+                try:
+                    from .notification_service import NotificationService
+                    from ..models.notification import NotificationType, NotificationRelatedType
+                    notif_service = NotificationService(self.db)
+                    # Notify the service owner
+                    await notif_service.create_notification(
+                        user_id=str(service.user_id),
+                        notification_type=NotificationType.SERVICE_STARTED,
+                        title="Service started",
+                        body=f"Your service '{service.title}' is now in progress",
+                        related_id=service_id,
+                        related_type=NotificationRelatedType.SERVICE,
+                    )
+                    # Notify the matched user
+                    await notif_service.create_notification(
+                        user_id=user_id,
+                        notification_type=NotificationType.SERVICE_STARTED,
+                        title="Service started",
+                        body=f"'{service.title}' is now in progress",
+                        related_id=service_id,
+                        related_type=NotificationRelatedType.SERVICE,
+                    )
+                except Exception:
+                    pass
+                return True
+            return False
         except Exception as e:
             raise ValueError(f"Error matching service: {str(e)}")
 
