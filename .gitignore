@@ -401,3 +401,8 @@ backend/venv/
 backend/venv.bak/
 backend/env/
 backend/env.bak/
+
+.claude/
+.cursor/
+AGENTS.md
+CLAUDE.md

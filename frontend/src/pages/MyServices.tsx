@@ -393,6 +393,7 @@ export function MyServices({
       score: number;
       comment?: string;
       tags: string[];
+      image_urls?: string[];
     },
   ) => {
     try {
@@ -413,6 +414,7 @@ export function MyServices({
           score: ratingData.score,
           comment: ratingData.comment,
           tags: ratingData.tags,
+          image_urls: ratingData.image_urls,
         });
       } catch (ratingError: any) {
         console.error("Rating submission failed:", ratingError);
