@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/ConfirmCompletionModal";
 import { InterestChip } from "@/components/ui/InterestChip";
 import { EditServiceDialog } from "@/components/forms/EditServiceDialog";
+import { ServicesSummaryCard } from "@/components/ui/ServicesSummaryCard";
 import { ratingsApi } from "@/services/api";
 import {
   ClockIcon,
@@ -77,6 +78,7 @@ export function MyServicesTab({
   highlightServiceId,
 }: MyServicesTabProps) {
   const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
   const [transactionRatings, setTransactionRatings] = useState<
     Record<string, Rating[]>
   >({});
@@ -172,8 +174,18 @@ export function MyServicesTab({
     );
   }
 
+  const q = searchQuery.toLowerCase();
+  const filteredServices = q
+    ? services.filter(
+        (s) =>
+          s.title.toLowerCase().includes(q) ||
+          s.description?.toLowerCase().includes(q) ||
+          s.tags?.some((t) => (t.label || t.entityId)?.toLowerCase().includes(q)),
+      )
+    : services;
+
   // Group services by status
-  const groupedServices = services.reduce(
+  const groupedServices = filteredServices.reduce(
     (acc, service) => {
       const status = service.status;
       if (!acc[status]) {
@@ -212,7 +224,12 @@ export function MyServicesTab({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      <ServicesSummaryCard
+        services={services}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+      />
       <div className="flex flex-row gap-2">
         <Button
           variant={!statusFilter ? "solid" : "soft"}
@@ -268,6 +285,11 @@ export function MyServicesTab({
           Cancelled
         </Button>
       </div>
+      {filteredServices.length === 0 && (
+        <Text size="2" color="gray" className="block text-center py-4">
+          No services match your search.
+        </Text>
+      )}
       {statusOrder.map((status) => {
         const servicesInStatus = groupedServices[status] || [];
         if (servicesInStatus.length === 0) return null;
