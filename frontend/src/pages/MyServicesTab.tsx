@@ -27,6 +27,7 @@ import {
   TrashIcon,
   CrossCircledIcon,
   Pencil1Icon,
+  ChatBubbleIcon,
 } from "@radix-ui/react-icons";
 import { useNavigate } from "react-router-dom";
 
@@ -39,6 +40,7 @@ interface MyServicesTabProps {
   onDeleteService: (serviceId: string) => Promise<void>;
   onCancelService: (serviceId: string) => Promise<void>;
   onStartChat: (transactionId: string) => Promise<void>;
+  onCreateGroupChat: (serviceId: string) => Promise<void>;
   onCancelTransaction: (transactionId: string) => Promise<void>;
   onConfirmTransactionCompletion: (
     transactionId: string,
@@ -66,6 +68,7 @@ export function MyServicesTab({
   onDeleteService,
   onCancelService,
   onStartChat,
+  onCreateGroupChat,
   onCancelTransaction,
   onConfirmTransactionCompletion,
   onRequestUpdate,
@@ -329,6 +332,25 @@ export function MyServicesTab({
                                   </Button>
                                 </Tooltip>
                               )}
+
+                              {/* Group Chat button for active services with matched users */}
+                              {service.status === "active" &&
+                                service.matched_user_ids &&
+                                service.matched_user_ids.length > 0 && (
+                                  <Tooltip content="Create group chat with matched users">
+                                    <Button
+                                      size="2"
+                                      color="teal"
+                                      variant="soft"
+                                      onClick={() =>
+                                        onCreateGroupChat(service._id)
+                                      }
+                                    >
+                                      <ChatBubbleIcon className="w-4 h-4 mr-2" />
+                                      Group Chat
+                                    </Button>
+                                  </Tooltip>
+                                )}
 
                               <Tooltip content="Cancel service">
                                 <Button
