@@ -596,7 +596,7 @@ private fun ForumEventCard(
 }
 
 @Composable
-private fun ForumEventDetailContent(
+fun ForumEventDetailContent(
     viewModel: ForumViewModel,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
