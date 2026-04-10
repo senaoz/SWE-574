@@ -96,7 +96,6 @@ fun ActiveItemsScreen(
                 onStartChat = onStartChat,
                 onNavigateToCompleteRating = { args ->
                     completeServiceRatingArgs = args
-                    manageRequestsServiceId = null
                 },
                 onEditService = { sid ->
                     manageRequestsServiceId = null

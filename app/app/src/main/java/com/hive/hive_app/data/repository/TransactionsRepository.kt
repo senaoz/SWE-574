@@ -21,6 +21,16 @@ class TransactionsRepository @Inject constructor(
         }
     }
 
+    suspend fun getServiceTransactions(serviceId: String, page: Int = 1, limit: Int = 100): Result<TransactionListResponse> {
+        return try {
+            val response = api.getServiceTransactions(serviceId, page = page, limit = limit)
+            if (response.isSuccessful && response.body() != null) Result.success(response.body()!!)
+            else Result.failure(HttpException(response))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun getTransaction(transactionId: String): Result<TransactionResponse?> {
         return try {
             val response = api.getTransaction(transactionId)
