@@ -3,6 +3,8 @@
     android:id="@+id/bubble_main"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
+    android:clickable="true"
+    android:focusable="true"
     android:background="@drawable/map_info_window_bg"
     android:elevation="0dp"
     android:orientation="vertical"
