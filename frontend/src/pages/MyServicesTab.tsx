@@ -20,7 +20,8 @@ import {
 import { InterestChip } from "@/components/ui/InterestChip";
 import { EditServiceDialog } from "@/components/forms/EditServiceDialog";
 import { ServicesSummaryCard } from "@/components/ui/ServicesSummaryCard";
-import { ratingsApi, getImageUrl } from "@/services/api";
+import { ratingsApi } from "@/services/api";
+import { ImageGallery } from "@/components/ui/ImageGallery";
 import {
   ClockIcon,
   CheckCircledIcon,
@@ -577,16 +578,11 @@ export function MyServicesTab({
                                           )}
                                           {myRating.image_urls &&
                                             myRating.image_urls.length > 0 && (
-                                              <Flex gap="2" wrap="wrap" className="mt-1">
-                                                {myRating.image_urls.map((url, i) => (
-                                                  <img
-                                                    key={i}
-                                                    src={getImageUrl(url)}
-                                                    alt={`Review photo ${i + 1}`}
-                                                    className="w-20 h-20 object-cover rounded"
-                                                  />
-                                                ))}
-                                              </Flex>
+                                              <ImageGallery
+                                                urls={myRating.image_urls}
+                                                alt="Review photo"
+                                                className="mt-1"
+                                              />
                                             )}
                                         </Flex>
                                       )}
