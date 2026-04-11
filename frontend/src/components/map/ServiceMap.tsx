@@ -75,10 +75,10 @@ export function applyMapFilters(
   userPosition: [number, number] | null,
 ): Service[] {
   let list = services;
-  if (filters.serviceType \!== "all") {
+  if (filters.serviceType !== "all") {
     list = list.filter((s) => s.service_type === filters.serviceType);
   }
-  if (filters.tag && filters.tag \!== "all") {
+  if (filters.tag && filters.tag !== "all") {
     const decoded = filters.tag;
     const isEntityId = /^Q\d+$/i.test(decoded);
     list = list.filter((service) =>
@@ -93,7 +93,7 @@ export function applyMapFilters(
     );
   }
   if (
-    filters.distance \!== "any" &&
+    filters.distance !== "any" &&
     userPosition &&
     typeof filters.distance === "number"
   ) {
@@ -127,7 +127,7 @@ function MapLocationHandler({
 }) {
   const map = useMap();
   useEffect(() => {
-    if (\!userPosition) return;
+    if (!userPosition) return;
     map.flyTo(userPosition, USER_LOCATION_ZOOM, { duration: 1 });
   }, [map, userPosition]);
   return null;
@@ -160,22 +160,22 @@ export function ServiceMap({
   const [internalFilters, setInternalFilters] =
     useState<MapFilters>(defaultMapFilters);
 
-  const isControlled = controlledFilters \!= null && onFiltersChange \!= null;
-  const filters = isControlled ? controlledFilters\! : internalFilters;
+  const isControlled = controlledFilters != null && onFiltersChange != null;
+  const filters = isControlled ? controlledFilters! : internalFilters;
   const userPosition = controlledUserPosition ?? internalUserPosition;
 
-  const setFilters = isControlled ? onFiltersChange\! : setInternalFilters;
+  const setFilters = isControlled ? onFiltersChange! : setInternalFilters;
 
   // Get user location via browser API when not provided by parent
   useEffect(() => {
-    if (controlledUserPosition \!== undefined) return;
+    if (controlledUserPosition !== undefined) return;
     const onSuccess = (pos: GeolocationPosition) => {
       setInternalUserPosition([pos.coords.latitude, pos.coords.longitude]);
     };
     const ipFallback = () => {
       fetch("https://ipapi.co/json/")
         .then((r) => {
-          if (\!r.ok) throw new Error("IP lookup failed");
+          if (!r.ok) throw new Error("IP lookup failed");
           return r.json();
         })
         .then((d) => {
@@ -185,7 +185,7 @@ export function ServiceMap({
         })
         .catch(() => setInternalUserPosition([41.0082, 28.9784]));
     };
-    if (\!navigator.geolocation) {
+    if (!navigator.geolocation) {
       ipFallback();
       return;
     }
@@ -203,16 +203,16 @@ export function ServiceMap({
   }, [isControlled, services, filters, userPosition]);
 
   const filteredEvents = useMemo(() => {
-    let list = events.filter((e) => e.latitude \!= null && e.longitude \!= null);
+    let list = events.filter((e) => e.latitude != null && e.longitude != null);
     if (
-      filters.distance \!== "any" &&
+      filters.distance !== "any" &&
       userPosition &&
       typeof filters.distance === "number"
     ) {
       const [uLat, uLng] = userPosition;
       list = list.filter(
         (e) =>
-          calculateDistance(uLat, uLng, e.latitude\!, e.longitude\!) <=
+          calculateDistance(uLat, uLng, e.latitude!, e.longitude!) <=
           (filters.distance as number),
       );
     }
@@ -235,7 +235,7 @@ export function ServiceMap({
 
   const formatDuration = (hours: number) => `${hours}h`;
   const distanceRadiusM =
-    filters.distance \!== "any" && typeof filters.distance === "number"
+    filters.distance !== "any" && typeof filters.distance === "number"
       ? filters.distance * 1000
       : null;
 
@@ -297,7 +297,7 @@ export function ServiceMap({
                   ))}
               </Select.Content>
             </Select.Root>
-            {filters.distance \!== "any" && (
+            {filters.distance !== "any" && (
               <Button
                 size="1"
                 variant="solid"
@@ -327,7 +327,7 @@ export function ServiceMap({
           maxNativeZoom={19}
         />
         <MapLocationHandler userPosition={userPosition} />
-        {userPosition && distanceRadiusM \!== null && (
+        {userPosition && distanceRadiusM !== null && (
           <Circle
             center={userPosition}
             radius={distanceRadiusM}
@@ -383,7 +383,7 @@ export function ServiceMap({
           filteredEvents.map((ev) => (
             <React.Fragment key={`event-${ev._id}`}>
               <Circle
-                center={[ev.latitude\!, ev.longitude\!]}
+                center={[ev.latitude!, ev.longitude!]}
                 radius={APPROXIMATE_LOCATION_RADIUS_M}
                 pathOptions={{
                   color: "#7c3aed",
@@ -392,7 +392,7 @@ export function ServiceMap({
                   weight: 1.5,
                 }}
               />
-              <Marker position={[ev.latitude\!, ev.longitude\!]} icon={eventIcon}>
+              <Marker position={[ev.latitude!, ev.longitude!]} icon={eventIcon}>
                 <Popup closeButton>
                   <EventPopupContent event={ev} />
                 </Popup>
@@ -475,7 +475,7 @@ function ServicePopupContent({
   const [topRatingTag, setTopRatingTag] = useState<string | null>(null);
 
   useEffect(() => {
-    if (\!service.user_id) return;
+    if (!service.user_id) return;
     Promise.all([
       usersApi.getUserById(service.user_id).catch(() => null),
       ratingsApi.getUserRatings(service.user_id, 1, 10).catch(() => null),
@@ -497,7 +497,7 @@ function ServicePopupContent({
   }, [service.user_id]);
 
   const formatDate = (dateStr?: string) => {
-    if (\!dateStr) return null;
+    if (!dateStr) return null;
     return new Date(dateStr).toLocaleDateString(undefined, {
       year: "numeric",
       month: "long",
@@ -536,7 +536,7 @@ function ServicePopupContent({
             >
               {provider.full_name || provider.username}
             </button>
-            {averageRating \!== null && (
+            {averageRating !== null && (
               <div className="flex items-center justify-end gap-0.5 mt-0.5">
                 <span className="text-yellow-500 text-xs">★</span>
                 <span className="text-gray-700">{averageRating.toFixed(1)}</span>
