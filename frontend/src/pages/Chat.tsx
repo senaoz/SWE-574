@@ -14,11 +14,16 @@ export function Chat() {
   const [selectedRoom, setSelectedRoom] = useState<ChatRoom | null>(null);
   const { currentUserId } = useUser();
   const roomIdFromUrl = searchParams.get("room_id");
-  useEffect(() => {
+
+  {
+    /*
+      useEffect(() => {
     if (roomIdFromUrl) {
       setRoomId(roomIdFromUrl);
     }
   }, [roomIdFromUrl]);
+    * */
+  }
   useEffect(() => {
     if (roomId !== selectedRoom?._id && roomId) {
       chatApi.getChatRoom(roomId).then((response) => {
