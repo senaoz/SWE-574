@@ -66,14 +66,18 @@ class MapViewModel @Inject constructor(
     )
 
     data class MapState(
+        /** Full active service list (all types); type filtering is applied in [recomputeVisible] and map overlay helpers. */
         val services: List<ServiceResponse> = emptyList(),
         val events: List<ForumEventResponse> = emptyList(),
         val offerCount: Int = 0,
         val needCount: Int = 0,
         val userLat: Double? = null,
         val userLon: Double? = null,
+        /** `null` = all, `"offer"`, `"need"`, `"event"` = events only for list/map type filter. */
         val filterType: String? = null,
         val filterTag: String? = null,
+        /** Client-side filter on titles, descriptions, and tags (services and events). */
+        val mapSearchQuery: String = "",
         val sortByDistance: Boolean = true,
         val filterTimeOfDay: TimeOfDayFilter = TimeOfDayFilter.ANYTIME,
         val filterDate: DateFilter = DateFilter.ANYTIME,
@@ -161,36 +165,26 @@ class MapViewModel @Inject constructor(
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
             val s = _state.value
-            val useLocation = s.sortByDistance && s.userLat != null && s.userLon != null
-            // Always load all types so we can show correct offer/need counts
-            var result = servicesRepository.getServices(
+            // Do not pass latitude/longitude/radius: forum events load globally, but a 50km service
+            // query left almost no pins when panning/zooming away from the user. Fetch a broad list
+            // and sort by distance client-side when we have a location.
+            val result = servicesRepository.getServices(
                 page = 1,
-                limit = 100,
+                limit = 200,
                 serviceType = null,
                 tags = s.filterTag?.takeIf { it.isNotBlank() },
-                latitude = if (useLocation) s.userLat else null,
-                longitude = if (useLocation) s.userLon else null,
-                radius = if (useLocation) 50.0 else null
+                latitude = null,
+                longitude = null,
+                radius = null
             )
-            if (useLocation && result.isSuccess && result.getOrNull()?.services?.isEmpty() == true) {
-                result = servicesRepository.getServices(
-                    page = 1,
-                    limit = 100,
-                    serviceType = null,
-                    tags = s.filterTag?.takeIf { it.isNotBlank() },
-                    latitude = null,
-                    longitude = null,
-                    radius = null
-                )
-            }
             result.fold(
                 onSuccess = { listResponse ->
                     val excludedStatuses = setOf("completed", "expired")
                     val fullList = listResponse.services
                         .filter { it.location != null && it.status.lowercase() !in excludedStatuses }
-                    val offerCount = fullList.count { it.serviceType == "offer" }
-                    val needCount = fullList.count { it.serviceType == "need" }
-                    var list = if (s.filterType == null) fullList else fullList.filter { it.serviceType == s.filterType }
+                    val offerCount = fullList.count { it.serviceType.equals("offer", ignoreCase = true) }
+                    val needCount = fullList.count { it.serviceType.equals("need", ignoreCase = true) }
+                    var list = fullList
                     if (s.sortByDistance && s.userLat != null && s.userLon != null) {
                         list = list.sortedBy { service ->
                             service.location?.let { loc ->
@@ -242,16 +236,23 @@ class MapViewModel @Inject constructor(
     }
 
     fun setFilterType(type: String?) {
-        _state.value = _state.value.copy(filterType = type)
-        loadServices()
+        _state.update { it.copy(filterType = type) }
+        recomputeVisible()
+    }
+
+    fun setMapSearchQuery(query: String) {
+        _state.update { it.copy(mapSearchQuery = query) }
+        recomputeVisible()
     }
 
     fun setFilterTag(tag: String?) {
         _state.value = _state.value.copy(filterTag = tag)
     }
 
-    fun setFilters(timeOfDay: TimeOfDayFilter, dateFilter: DateFilter) {
-        _state.update { it.copy(filterTimeOfDay = timeOfDay, filterDate = dateFilter) }
+    fun setFilters(timeOfDay: TimeOfDayFilter, dateFilter: DateFilter, filterType: String?) {
+        _state.update {
+            it.copy(filterTimeOfDay = timeOfDay, filterDate = dateFilter, filterType = filterType)
+        }
         recomputeVisible()
     }
 
@@ -273,7 +274,28 @@ class MapViewModel @Inject constructor(
                 }
             } else s.services
             _state.value = _state.value.copy(services = list)
+            recomputeVisible()
         }
+    }
+
+    /** Services to draw on the map (no viewport): type + search only. */
+    fun servicesForMapOverlay(state: MapState): List<ServiceResponse> {
+        val q = state.mapSearchQuery.trim()
+        val byType = when (state.filterType) {
+            null -> state.services
+            "event" -> emptyList()
+            "offer" -> state.services.filter { it.serviceType.equals("offer", ignoreCase = true) }
+            "need" -> state.services.filter { it.serviceType.equals("need", ignoreCase = true) }
+            else -> state.services
+        }
+        return byType.filter { matchesMapSearchService(it, q) }
+    }
+
+    /** Events to draw on the map (no viewport): search + type (hide when Offer/Need only). */
+    fun eventsForMapOverlay(state: MapState): List<ForumEventResponse> {
+        if (!eventMatchesTypeForVisible(state.filterType)) return emptyList()
+        val q = state.mapSearchQuery.trim()
+        return state.events.filter { matchesMapSearchEvent(it, q) }
     }
 
     private fun recomputeVisible() {
@@ -283,10 +305,13 @@ class MapViewModel @Inject constructor(
             _state.update { it.copy(visibleServices = emptyList(), visibleEvents = emptyList()) }
             return
         }
+        val q = s.mapSearchQuery.trim()
 
         val filteredServices = s.services
             .asSequence()
             .filter { it.location != null }
+            .filter { serviceMatchesTypeForVisible(it, s.filterType) }
+            .filter { matchesMapSearchService(it, q) }
             .filter { service ->
                 val loc = service.location ?: return@filter false
                 isInBounds(loc.latitude, loc.longitude, vp)
@@ -303,6 +328,8 @@ class MapViewModel @Inject constructor(
         val filteredEvents = s.events
             .asSequence()
             .filter { it.latitude != null && it.longitude != null }
+            .filter { eventMatchesTypeForVisible(s.filterType) }
+            .filter { matchesMapSearchEvent(it, q) }
             .filter { event ->
                 isInBounds(event.latitude!!, event.longitude!!, vp)
             }
@@ -316,6 +343,45 @@ class MapViewModel @Inject constructor(
             .toList()
 
         _state.update { it.copy(visibleServices = filteredServices, visibleEvents = filteredEvents) }
+    }
+
+    private fun serviceMatchesTypeForVisible(service: ServiceResponse, filterType: String?): Boolean {
+        return when (filterType) {
+            null -> true
+            "event" -> false
+            "offer" -> service.serviceType.equals("offer", ignoreCase = true)
+            "need" -> service.serviceType.equals("need", ignoreCase = true)
+            else -> true
+        }
+    }
+
+    /** When filtering to offer/need only, hide events from the carousel and map markers. */
+    private fun eventMatchesTypeForVisible(filterType: String?): Boolean {
+        return when (filterType) {
+            null, "event" -> true
+            "offer", "need" -> false
+            else -> true
+        }
+    }
+
+    private fun matchesMapSearchService(service: ServiceResponse, rawQuery: String): Boolean {
+        if (rawQuery.isBlank()) return true
+        val needle = rawQuery.lowercase()
+        if (service.title.lowercase().contains(needle)) return true
+        if (service.description.lowercase().contains(needle)) return true
+        return service.tags.any { tag ->
+            (tag.label ?: tag.name ?: tag.entityId ?: tag.id ?: "").lowercase().contains(needle)
+        }
+    }
+
+    private fun matchesMapSearchEvent(event: ForumEventResponse, rawQuery: String): Boolean {
+        if (rawQuery.isBlank()) return true
+        val needle = rawQuery.lowercase()
+        if (event.title.lowercase().contains(needle)) return true
+        if (event.description.lowercase().contains(needle)) return true
+        return event.tags.orEmpty().any { tag ->
+            (tag.label ?: tag.name ?: tag.entityId ?: tag.id ?: "").lowercase().contains(needle)
+        }
     }
 
     private fun isInBounds(lat: Double, lon: Double, vp: ViewportBounds): Boolean {
