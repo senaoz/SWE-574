@@ -87,7 +87,7 @@ export function ApplicantsList({
           ...prev,
           [userId]: u,
         }));
-        console.log(users);
+        // console.log(users);
       } catch {
         // keep fallback
       }

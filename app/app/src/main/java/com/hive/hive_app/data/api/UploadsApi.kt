@@ -13,5 +13,12 @@ interface UploadsApi {
     suspend fun uploadServiceImage(
         @Part file: MultipartBody.Part
     ): Response<ResponseBody>
+
+    /** OpenAPI: Upload an image for a rating/feedback. Returns the URL. */
+    @Multipart
+    @POST("upload/rating-image")
+    suspend fun uploadRatingImage(
+        @Part file: MultipartBody.Part
+    ): Response<ResponseBody>
 }
 

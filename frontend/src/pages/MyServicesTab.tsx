@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import { Service, Transaction, Rating } from "@/types";
 import { ApplicantsList } from "@/components/ui/ApplicantsList";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { RatingForm, RatingStars } from "@/components/ui/RatingStars";
+import { RatingStars } from "@/components/ui/RatingStars";
 import {
   ConfirmCompletionModal,
   tagToLabel,
@@ -19,7 +19,9 @@ import {
 } from "@/components/ui/ConfirmCompletionModal";
 import { InterestChip } from "@/components/ui/InterestChip";
 import { EditServiceDialog } from "@/components/forms/EditServiceDialog";
+import { ServicesSummaryCard } from "@/components/ui/ServicesSummaryCard";
 import { ratingsApi } from "@/services/api";
+import { ImageGallery } from "@/components/ui/ImageGallery";
 import {
   ClockIcon,
   CheckCircledIcon,
@@ -27,6 +29,7 @@ import {
   TrashIcon,
   CrossCircledIcon,
   Pencil1Icon,
+  ChatBubbleIcon,
 } from "@radix-ui/react-icons";
 import { useNavigate } from "react-router-dom";
 
@@ -39,6 +42,7 @@ interface MyServicesTabProps {
   onDeleteService: (serviceId: string) => Promise<void>;
   onCancelService: (serviceId: string) => Promise<void>;
   onStartChat: (transactionId: string) => Promise<void>;
+  onCreateGroupChat: (serviceId: string) => Promise<void>;
   onCancelTransaction: (transactionId: string) => Promise<void>;
   onConfirmTransactionCompletion: (
     transactionId: string,
@@ -47,6 +51,7 @@ interface MyServicesTabProps {
       score: number;
       comment?: string;
       tags: string[];
+      image_urls?: string[];
     },
   ) => Promise<void>;
   onRequestUpdate: () => void;
@@ -66,6 +71,7 @@ export function MyServicesTab({
   onDeleteService,
   onCancelService,
   onStartChat,
+  onCreateGroupChat,
   onCancelTransaction,
   onConfirmTransactionCompletion,
   onRequestUpdate,
@@ -74,10 +80,10 @@ export function MyServicesTab({
   highlightServiceId,
 }: MyServicesTabProps) {
   const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
   const [transactionRatings, setTransactionRatings] = useState<
     Record<string, Rating[]>
   >({});
-  const [ratingLoading, setRatingLoading] = useState<string | null>(null);
   const [confirmModalTransaction, setConfirmModalTransaction] =
     useState<Transaction | null>(null);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
@@ -108,44 +114,6 @@ export function MyServicesTab({
     });
   }, [serviceTransactions, transactionRatings, currentUserId]);
 
-  const handleRatingSubmit = async (
-    transactionId: string,
-    ratedUserId: string,
-    score: number,
-    comment: string,
-  ) => {
-    const id = String(transactionId);
-    setRatingLoading(id);
-    try {
-      await ratingsApi.createRating({
-        transaction_id: id,
-        rated_user_id: ratedUserId,
-        score,
-        comment: comment || undefined,
-      });
-      const res = await ratingsApi.getTransactionRatings(id);
-      setTransactionRatings((prev) => ({ ...prev, [id]: res.data }));
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { detail?: string } } };
-      const message = err.response?.data?.detail ?? "Failed to submit rating";
-      const alreadyRated =
-        typeof message === "string" &&
-        message.toLowerCase().includes("already rated");
-      if (alreadyRated) {
-        try {
-          const res = await ratingsApi.getTransactionRatings(id);
-          setTransactionRatings((prev) => ({ ...prev, [id]: res.data }));
-        } catch {
-          // ignore refetch error
-        }
-      } else {
-        alert(message);
-      }
-    } finally {
-      setRatingLoading(null);
-    }
-  };
-
   const handleConfirmWithRating = async (data: ConfirmCompletionRatingData) => {
     if (!confirmModalTransaction || !currentUserId) return;
     const tx = confirmModalTransaction;
@@ -159,6 +127,7 @@ export function MyServicesTab({
       score: data.score,
       comment: data.comment || undefined,
       tags: data.tags,
+      image_urls: data.image_urls,
     });
 
     try {
@@ -208,8 +177,18 @@ export function MyServicesTab({
     );
   }
 
+  const q = searchQuery.toLowerCase();
+  const filteredServices = q
+    ? services.filter(
+        (s) =>
+          s.title.toLowerCase().includes(q) ||
+          s.description?.toLowerCase().includes(q) ||
+          s.tags?.some((t) => (t.label || t.entityId)?.toLowerCase().includes(q)),
+      )
+    : services;
+
   // Group services by status
-  const groupedServices = services.reduce(
+  const groupedServices = filteredServices.reduce(
     (acc, service) => {
       const status = service.status;
       if (!acc[status]) {
@@ -248,7 +227,12 @@ export function MyServicesTab({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      <ServicesSummaryCard
+        services={services}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+      />
       <div className="flex flex-row gap-2">
         <Button
           variant={!statusFilter ? "solid" : "soft"}
@@ -304,6 +288,11 @@ export function MyServicesTab({
           Cancelled
         </Button>
       </div>
+      {filteredServices.length === 0 && (
+        <Text size="2" color="gray" className="block text-center py-4">
+          No services match your search.
+        </Text>
+      )}
       {statusOrder.map((status) => {
         const servicesInStatus = groupedServices[status] || [];
         if (servicesInStatus.length === 0) return null;
@@ -368,6 +357,25 @@ export function MyServicesTab({
                                   </Button>
                                 </Tooltip>
                               )}
+
+                              {/* Group Chat button for active services with matched users */}
+                              {service.status === "active" &&
+                                service.matched_user_ids &&
+                                service.matched_user_ids.length > 0 && (
+                                  <Tooltip content="Create group chat with matched users">
+                                    <Button
+                                      size="2"
+                                      color="teal"
+                                      variant="soft"
+                                      onClick={() =>
+                                        onCreateGroupChat(service._id)
+                                      }
+                                    >
+                                      <ChatBubbleIcon className="w-4 h-4 mr-2" />
+                                      Group Chat
+                                    </Button>
+                                  </Tooltip>
+                                )}
 
                               <Tooltip content="Cancel service">
                                 <Button
@@ -476,12 +484,6 @@ export function MyServicesTab({
                                         String(currentUserId) ||
                                       (r.rater as any)?.id === currentUserId,
                                   );
-
-                                  const otherUserId =
-                                    transaction.provider_id === currentUserId
-                                      ? transaction.requester_id
-                                      : transaction.provider_id;
-
                                   const transactionStatus =
                                     transaction.provider_confirmed &&
                                     transaction.requester_confirmed
@@ -574,6 +576,14 @@ export function MyServicesTab({
                                               "{myRating.comment}"
                                             </Text>
                                           )}
+                                          {myRating.image_urls &&
+                                            myRating.image_urls.length > 0 && (
+                                              <ImageGallery
+                                                urls={myRating.image_urls}
+                                                alt="Review photo"
+                                                className="mt-1"
+                                              />
+                                            )}
                                         </Flex>
                                       )}
 

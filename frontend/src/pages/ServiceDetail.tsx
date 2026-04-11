@@ -23,8 +23,8 @@ import {
   usersApi,
   joinRequestsApi,
   forumApi,
-  getImageUrl,
 } from "@/services/api";
+import { ImageGallery } from "@/components/ui/ImageGallery";
 import { useUser } from "@/App";
 import {
   ClockIcon,
@@ -584,32 +584,11 @@ export function ServiceDetail() {
           {/* Images */}
           {service.image_urls?.length ? (
             <div className="w-full mb-6 overflow-hidden rounded-lg">
-              {service.image_urls.length === 1 ? (
-                <img
-                  src={
-                    getImageUrl(service.image_urls[0]) ?? service.image_urls[0]
-                  }
-                  alt=""
-                  className="w-full max-h-60 object-cover"
-                />
-              ) : (
-                <div
-                  className={`grid gap-1 w-full ${
-                    service.image_urls.length === 2
-                      ? "grid-cols-2"
-                      : "grid-cols-3"
-                  }`}
-                >
-                  {service.image_urls.map((url, i) => (
-                    <img
-                      key={i}
-                      src={getImageUrl(url) ?? url}
-                      alt=""
-                      className="w-full max-h-60 object-cover"
-                    />
-                  ))}
-                </div>
-              )}
+              <ImageGallery
+                urls={service.image_urls}
+                alt="Service photo"
+                layout="grid"
+              />
             </div>
           ) : null}
           {/* Details */}
@@ -792,7 +771,11 @@ export function ServiceDetail() {
               <Button
                 color="green"
                 size="3"
-                disabled={service.status !== "active"}
+                onClick={() =>
+                  navigate(
+                    `/profile?tab=services&status=${service.status}&highlight=${id}`,
+                  )
+                }
               >
                 You're serving
               </Button>

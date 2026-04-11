@@ -24,22 +24,16 @@ import {
   CheckIcon,
   Cross2Icon,
   ExitIcon,
-  ExclamationTriangleIcon,
 } from "@radix-ui/react-icons";
 import {
   UserSettings,
   PasswordChangeForm,
   AccountDeletionForm,
-  JoinRequest,
   SocialLinks,
+  RatingDetailed,
 } from "@/types";
-import {
-  usersApi,
-  joinRequestsApi,
-  ratingsApi,
-  uploadApi,
-  getImageUrl,
-} from "@/services/api";
+import { usersApi, ratingsApi, uploadApi, getImageUrl } from "@/services/api";
+import { ReviewCard } from "@/components/ui/ReviewCard";
 import { useUser } from "@/contexts/UserContext";
 import { MyServices } from "./MyServices";
 import { BadgeDisplay } from "@/components/ui/BadgeDisplay";
@@ -113,7 +107,6 @@ export function Profile() {
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const [, setShowRejectedRequestsDialog] = useState(false);
   const [myservicesCounts, setMyservicesCounts] = useState({
     services: 0,
     applications: 0,
@@ -141,7 +134,17 @@ export function Profile() {
     ? profileTabFromUrl
     : "profile";
 
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(
+    () => new Set([profileTab]),
+  );
+
   const setProfileTab = (tab: string) => {
+    setVisitedTabs((prev) => {
+      if (prev.has(tab)) return prev;
+      const next = new Set(prev);
+      next.add(tab);
+      return next;
+    });
     setSearchParams((prev) => {
       const p = new URLSearchParams(prev);
       p.set("tab", tab);
@@ -153,8 +156,13 @@ export function Profile() {
   useEffect(() => {
     if (selectInterests && selectInterests === "true") {
       setShowInterestSelector(true);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("interests");
+        return next;
+      });
     }
-  }, [selectInterests]);
+  }, [selectInterests, setSearchParams]);
 
   // Sync edit form and settings when context user loads or updates
   useEffect(() => {
@@ -192,13 +200,6 @@ export function Profile() {
     });
   }, [user]);
 
-  // Fetch rejected requests
-  const { data: rejectedRequestsData } = useQuery({
-    queryKey: ["rejected-requests"],
-    queryFn: () => joinRequestsApi.getMyRequests(1, 50, "rejected"),
-    enabled: true,
-  });
-
   const { data: ratingsData } = useQuery({
     queryKey: ["user-ratings", user?._id],
     queryFn: () => ratingsApi.getUserRatings(user!._id, 1, 1),
@@ -207,13 +208,14 @@ export function Profile() {
   const averageRating = ratingsData?.data?.average_score ?? null;
   const ratingCount = ratingsData?.data?.total ?? 0;
 
-  const rejectedRequests = rejectedRequestsData?.data.requests || [];
-  const recentRejectedCount = rejectedRequests.filter((req: JoinRequest) => {
-    const rejectedDate = new Date(req.updated_at);
-    const daysSinceRejected =
-      (Date.now() - rejectedDate.getTime()) / (1000 * 60 * 60 * 24);
-    return daysSinceRejected <= 7; // Show notification for requests rejected in last 7 days
-  }).length;
+  const { data: detailedRatingsData, isLoading: detailedRatingsLoading } =
+    useQuery({
+      queryKey: ["user-ratings-detailed", user?._id],
+      queryFn: () => ratingsApi.getUserRatingsDetailed(user!._id, 1, 10),
+      enabled: !!user?._id,
+    });
+  const detailedRatings: RatingDetailed[] =
+    detailedRatingsData?.data?.ratings ?? [];
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -1200,40 +1202,72 @@ export function Profile() {
                 </Box>
               </Grid>
               <BadgeDisplay />
+
+              {/* Reviews Section */}
+              <div className="space-y-4">
+                <Heading size="5">Services which you have reviewed</Heading>
+                {detailedRatingsLoading ? (
+                  <Card className="p-6 text-center">
+                    <Text color="gray">
+                      Loading services which you have reviewed...
+                    </Text>
+                  </Card>
+                ) : detailedRatings.length > 0 ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {detailedRatings.map((rating) => (
+                      <ReviewCard key={rating._id} rating={rating} />
+                    ))}
+                  </div>
+                ) : (
+                  <Card className="p-6 text-center">
+                    <Text color="gray">
+                      No services which you have reviewed yet
+                    </Text>
+                  </Card>
+                )}
+              </div>
             </div>
           </Tabs.Content>
 
           {/* ── My Services Tab ── */}
           <Tabs.Content value="services">
-            <MyServices
-              activeTab="services"
-              onDataLoad={setMyservicesCounts}
-              statusFilter={
-                profileTab === "services" ? profileStatusFromUrl : undefined
-              }
-              highlightServiceId={
-                profileTab === "services" ? highlightServiceId : undefined
-              }
-            />
+            {visitedTabs.has("services") && (
+              <MyServices
+                activeTab="services"
+                onDataLoad={setMyservicesCounts}
+                statusFilter={
+                  profileTab === "services" ? profileStatusFromUrl : undefined
+                }
+                highlightServiceId={
+                  profileTab === "services" ? highlightServiceId : undefined
+                }
+              />
+            )}
           </Tabs.Content>
 
           <Tabs.Content value="applications">
-            <MyServices
-              activeTab="applications"
-              onDataLoad={setMyservicesCounts}
-            />
+            {visitedTabs.has("applications") && (
+              <MyServices
+                activeTab="applications"
+                onDataLoad={setMyservicesCounts}
+              />
+            )}
           </Tabs.Content>
 
           <Tabs.Content value="timebank">
-            <MyServices activeTab="timebank" onDataLoad={setMyservicesCounts} />
+            {visitedTabs.has("timebank") && (
+              <MyServices activeTab="timebank" onDataLoad={setMyservicesCounts} />
+            )}
           </Tabs.Content>
 
           <Tabs.Content value="saved">
-            <MyServices activeTab="saved" onDataLoad={setMyservicesCounts} />
+            {visitedTabs.has("saved") && (
+              <MyServices activeTab="saved" onDataLoad={setMyservicesCounts} />
+            )}
           </Tabs.Content>
 
           <Tabs.Content value="chat">
-            <Chat />
+            {visitedTabs.has("chat") && <Chat />}
           </Tabs.Content>
         </Box>
       </Tabs.Root>

@@ -11,6 +11,7 @@ import com.hive.hive_app.data.api.dto.UserResponse
 import com.hive.hive_app.data.repository.RatingsRepository
 import com.hive.hive_app.data.repository.ServicesRepository
 import com.hive.hive_app.data.repository.UsersRepository
+import com.hive.hive_app.util.getHighestPriorityBadge
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,7 +34,13 @@ enum class DiscoverSortOrder(val label: String) {
     DISTANCE("Distance")
 }
 
-data class CreatorInfo(val user: UserResponse?, val rating: Double?, val primaryBadgeKey: String?)
+data class CreatorInfo(
+    val user: UserResponse?,
+    val rating: Double?,
+    val primaryBadgeKey: String?,
+    val primaryBadgeName: String?,
+    val primaryBadgeDescription: String?
+)
 
 @HiltViewModel
 class DiscoverViewModel @Inject constructor(
@@ -195,11 +202,14 @@ class DiscoverViewModel @Inject constructor(
                 val user = usersRepository.getUser(userId).getOrNull()
                 val rating = ratingsRepository.getUserRatings(userId).getOrNull()?.averageScore
                 val badgesResponse = usersRepository.getUserBadges(userId).getOrNull()
-                // Use API order: first earned badge is considered most important.
-                val primaryBadgeKey = badgesResponse?.badges
-                    ?.firstOrNull { it.earned }
-                    ?.key
-                map[userId] = CreatorInfo(user = user, rating = rating, primaryBadgeKey = primaryBadgeKey)
+                val topBadge = getHighestPriorityBadge(badgesResponse?.badges)
+                map[userId] = CreatorInfo(
+                    user = user,
+                    rating = rating,
+                    primaryBadgeKey = topBadge?.key,
+                    primaryBadgeName = topBadge?.name,
+                    primaryBadgeDescription = topBadge?.description
+                )
             }
             _state.update { it.copy(creatorInfo = it.creatorInfo + map) }
         }

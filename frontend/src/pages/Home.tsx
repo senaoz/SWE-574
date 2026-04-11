@@ -22,7 +22,7 @@ import { MessageCircleIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ServiceMap } from "@/components/map/ServiceMap";
 import { useState, useEffect } from "react";
-import { Service, ForumEvent } from "@/types";
+import { ForumEvent, Service } from "@/types";
 import ReactMarkdown from "react-markdown";
 import { useSavedServiceIds } from "@/hooks/useSavedServiceIds";
 
@@ -33,8 +33,8 @@ export function Home() {
   const navigate = useNavigate();
   const [recentOffers, setRecentOffers] = useState<Service[]>([]);
   const [recentNeeds, setRecentNeeds] = useState<Service[]>([]);
-  const [allServices, setAllServices] = useState<Service[]>([]);
   const [recentEvents, setRecentEvents] = useState<ForumEvent[]>([]);
+  const [allServices, setAllServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const {
     currentUserId,
@@ -72,19 +72,23 @@ export function Home() {
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const [offersResponse, needsResponse, eventsResponse] = await Promise.all([
-          servicesApi.getServices({
-            service_type: "offer",
-            status: "active",
-            limit: 4,
-          }),
-          servicesApi.getServices({
-            service_type: "need",
-            status: "active",
-            limit: 4,
-          }),
-          forumApi.getEvents({ limit: 4 }),
-        ]);
+        const [offersResponse, needsResponse, eventsResponse] =
+          await Promise.all([
+            servicesApi.getServices({
+              service_type: "offer",
+              status: "active",
+              limit: 4,
+            }),
+            servicesApi.getServices({
+              service_type: "need",
+              status: "active",
+              limit: 4,
+            }),
+            forumApi.getEvents({
+              limit: 4,
+              has_location: true,
+            }),
+          ]);
 
         setRecentOffers(offersResponse.data.services || []);
         setRecentNeeds(needsResponse.data.services || []);
@@ -328,7 +332,9 @@ export function Home() {
                         <Text className="font-medium">{service.title}</Text>
                         {currentUserId && (
                           <Badge
-                            color={isServiceSaved(service) ? "red" : "gray"}
+                            color={
+                              isServiceSaved(service) ? "red" : "gray"
+                            }
                             variant="soft"
                             className={`inline-flex items-center gap-1 ${
                               !isSavingService(service._id) &&
@@ -419,7 +425,9 @@ export function Home() {
                         <Text className="font-medium">{service.title}</Text>
                         {currentUserId && (
                           <Badge
-                            color={isServiceSaved(service) ? "red" : "gray"}
+                            color={
+                              isServiceSaved(service) ? "red" : "gray"
+                            }
                             variant="soft"
                             className={`inline-flex items-center gap-1 ${
                               !isSavingService(service._id) &&

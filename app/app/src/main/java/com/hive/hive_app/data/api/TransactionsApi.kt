@@ -15,6 +15,14 @@ interface TransactionsApi {
         @Query("limit") limit: Int = 100
     ): Response<TransactionListResponse>
 
+    /** OpenAPI: Get transactions for a specific service (multiple when max_participants > 1). */
+    @GET("transactions/service/{service_id}")
+    suspend fun getServiceTransactions(
+        @Path("service_id") serviceId: String,
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 100
+    ): Response<TransactionListResponse>
+
     @GET("transactions/{transaction_id}")
     suspend fun getTransaction(@Path("transaction_id") transactionId: String): Response<TransactionResponse>
 

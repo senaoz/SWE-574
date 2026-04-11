@@ -3,6 +3,7 @@ package com.hive.hive_app.ui.main
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -57,6 +58,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -93,6 +95,8 @@ import com.hive.hive_app.ui.theme.HiveTheme
 import com.hive.hive_app.ui.theme.SurfaceVariantLight
 import com.hive.hive_app.util.formatDurationHours
 import com.hive.hive_app.util.formatApplicationDate
+import com.hive.hive_app.util.badgeIcon
+import com.hive.hive_app.util.getHighestPriorityBadge
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.GeoPoint
@@ -157,6 +161,7 @@ fun ServiceDetailScreen(
                 ?: remember { mutableStateOf("") }
             val focusManager = LocalFocusManager.current
             var showApplyDialog by remember { mutableStateOf(false) }
+            var showBadgeInfo by remember { mutableStateOf(false) }
             if (showApplyDialog && viewModel != null) {
                 var message by remember { mutableStateOf("") }
                 AlertDialog(
@@ -375,7 +380,9 @@ fun ServiceDetailScreen(
                                         ?: creator?.username
                                         ?: "User #${service.userId.take(8)}",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                 )
                                 creatorRating?.averageScore?.let { avg ->
                                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -388,24 +395,34 @@ fun ServiceDetailScreen(
                                     }
                                 }
                             }
-                            Spacer(modifier = Modifier.weight(1f))
-                            if (!creatorBadges?.badges.isNullOrEmpty()) {
-                                Row(
-                                    modifier = Modifier.padding(start = 8.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                            val topBadge = getHighestPriorityBadge(creatorBadges?.badges)
+                            if (topBadge != null) {
+                                IconButton(
+                                    onClick = {
+                                        showBadgeInfo = !showBadgeInfo
+                                    },
+                                    modifier = Modifier.padding(start = 8.dp)
                                 ) {
-                                    creatorBadges?.badges?.filter { it.earned }?.take(5)?.forEach { badge ->
-                                        Icon(
-                                            imageVector = creatorBadgeIcon(badge.key),
-                                            contentDescription = badge.name ?: badge.key,
-                                            modifier = Modifier.size(20.dp),
-                                            tint = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
+                                    Icon(
+                                        imageVector = badgeIcon(topBadge.key),
+                                        contentDescription = topBadge.name ?: topBadge.key,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
                                 }
                             }
                         }
+                    }
+                    val topBadge = getHighestPriorityBadge(creatorBadges?.badges)
+                    if (showBadgeInfo && topBadge != null && !topBadge.key.isNullOrBlank()) {
+                        BadgeInfoInlineBox(
+                            key = topBadge.key!!,
+                            name = topBadge.name,
+                            description = topBadge.description,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
                     }
 
                     // Description in a box
@@ -725,6 +742,56 @@ fun ServiceDetailScreen(
 }
 
 @Composable
+private fun BadgeInfoInlineBox(
+    key: String,
+    name: String?,
+    description: String?,
+    modifier: Modifier = Modifier
+) {
+    val title = name ?: key
+    val desc = description?.takeIf { it.isNotBlank() } ?: "No description available."
+    val lime = Color(0xFFC6E600)
+    Card(
+        modifier = modifier
+            .border(1.5.dp, lime, RoundedCornerShape(12.dp)),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = badgeIcon(key),
+                    contentDescription = title,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Badge: $title",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = desc,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ServiceCommentItem(comment: CommentResponse) {
     val author = comment.user?.username ?: comment.user?.fullName ?: "Unknown"
     Card(
@@ -858,18 +925,6 @@ private fun StatusChip(status: String) {
     }
 }
 
-private fun creatorBadgeIcon(key: String?): ImageVector = when (key) {
-    "newcomer" -> Icons.Default.Person
-    "profile_complete" -> Icons.Default.Person
-    "tagged", "well_tagged" -> Icons.Default.Label
-    "rated" -> Icons.Default.Star
-    "popular" -> Icons.Default.TrendingUp
-    "community_favorite" -> Icons.Default.Favorite
-    "helper", "helper_hero", "master_helper" -> Icons.Default.School
-    "generous_giver" -> Icons.Default.Schedule
-    else -> Icons.Default.Star
-}
-
 fun simpleMarkdownToAnnotatedString(text: String): androidx.compose.ui.text.AnnotatedString {
     return buildAnnotatedString {
         val lines = text.split('\n')
@@ -985,4 +1040,3 @@ private fun LabelValue(label: String, value: String) {
         )
     }
 }
-

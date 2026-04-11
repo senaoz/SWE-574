@@ -12,6 +12,7 @@ class RatingCreate(BaseModel):
     score: int = Field(..., ge=1, le=5)
     comment: Optional[str] = None
     tags: Optional[List[str]] = None
+    image_urls: Optional[List[str]] = None
 
     class Config:
         json_encoders = {ObjectId: str}
@@ -25,6 +26,7 @@ class RatingResponse(BaseModel):
     score: int
     comment: Optional[str] = None
     tags: Optional[List[str]] = None
+    image_urls: Optional[List[str]] = None
     created_at: datetime
     rater: Optional[dict] = None
     rated_user: Optional[dict] = None
@@ -49,6 +51,7 @@ class RatingDetailedResponse(BaseModel):
     score: int
     comment: Optional[str] = None
     tags: Optional[List[str]] = None
+    image_urls: Optional[List[str]] = None
     created_at: datetime
     rater: Optional[dict] = None
     rated_user: Optional[dict] = None

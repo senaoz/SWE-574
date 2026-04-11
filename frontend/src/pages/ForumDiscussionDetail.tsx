@@ -12,8 +12,10 @@ import {
 import { ArrowLeftIcon, PaperPlaneIcon } from "@radix-ui/react-icons";
 import { MessageCircleIcon } from "lucide-react";
 import { forumApi, getImageUrl } from "@/services/api";
+import { useUser } from "@/App";
 import { ForumDiscussion, ForumComment } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
+import { UpvoteButton } from "@/components/ui/UpvoteButton";
 import ReactMarkdown from "react-markdown";
 
 function timeAgo(dateStr: string) {
@@ -33,6 +35,7 @@ function timeAgo(dateStr: string) {
 export function ForumDiscussionDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { currentUserId } = useUser();
   const [discussion, setDiscussion] = useState<ForumDiscussion | null>(null);
   const [comments, setComments] = useState<ForumComment[]>([]);
   const [newComment, setNewComment] = useState("");
@@ -115,7 +118,16 @@ export function ForumDiscussionDetail() {
             }
           />
           <div className="flex-1">
-            <Heading size="5">{discussion.title}</Heading>
+            <div className="flex justify-between">
+              <Heading size="5">{discussion.title}</Heading>
+              <UpvoteButton
+                  count={discussion.upvote_count ?? 0}
+                  upvoted={discussion.user_upvoted}
+                  onUpvote={currentUserId ? () => forumApi.upvoteDiscussion(id!).then(r => r.data) : undefined}
+                  disabled={!currentUserId}
+                  showLoginHint={!currentUserId}
+              />
+            </div>
             <Flex gap="2" align="center" className="mt-1 mb-4">
               <Text size="2" color="gray">
                 by{" "}
@@ -181,9 +193,9 @@ export function ForumDiscussionDetail() {
       </div>
 
       {/* Comment list */}
-      <div className="space-y-4">
+      <div className="space-y-2">
         {comments.map((c) => (
-          <div key={c._id} className="flex gap-3">
+          <div key={c._id} className="flex gap-3 pt-2">
             <Avatar
               size="2"
               src={getImageUrl(c.user?.profile_picture)}
@@ -209,6 +221,14 @@ export function ForumDiscussionDetail() {
                   {c.content}
                 </ReactMarkdown>
               </div>
+            </div>
+            <div className="mt-1">
+              <UpvoteButton
+                  count={c.upvote_count ?? 0}
+                  upvoted={c.user_upvoted}
+                  onUpvote={currentUserId ? () => forumApi.upvoteComment(c._id).then(r => r.data) : undefined}
+                  disabled={!currentUserId}
+              />
             </div>
           </div>
         ))}

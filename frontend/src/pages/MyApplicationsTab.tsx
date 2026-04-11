@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/ConfirmCompletionModal";
 import { InterestChip } from "@/components/ui/InterestChip";
 import { ratingsApi, usersApi } from "@/services/api";
+import { ImageGallery } from "@/components/ui/ImageGallery";
 import { CheckCircledIcon } from "@radix-ui/react-icons";
 
 interface MyApplicationsTabProps {
@@ -34,6 +35,7 @@ interface MyApplicationsTabProps {
       score: number;
       comment?: string;
       tags: string[];
+      image_urls?: string[];
     },
   ) => Promise<void>;
   formatDate: (dateString: string) => string;
@@ -157,6 +159,7 @@ export function MyApplicationsTab({
       score: data.score,
       comment: data.comment || undefined,
       tags: data.tags,
+      image_urls: data.image_urls,
     });
 
     try {
@@ -446,6 +449,14 @@ export function MyApplicationsTab({
                                                       "{myRating.comment}"
                                                     </Text>
                                                   )}
+                                                  {myRating.image_urls &&
+                                                    myRating.image_urls.length > 0 && (
+                                                      <ImageGallery
+                                                        urls={myRating.image_urls}
+                                                        alt="Review photo"
+                                                        className="mt-1"
+                                                      />
+                                                    )}
                                                 </Flex>
                                               ) : myTransactionAny.provider_confirmed ? (
                                                 <RatingForm

@@ -383,6 +383,63 @@ class ServiceService:
             )
         )
 
+    def _get_interest_match_fields(self, service_like: dict) -> List[str]:
+        fields: List[str] = []
+        for value in (
+            service_like.get("title"),
+            service_like.get("description"),
+            service_like.get("category"),
+        ):
+            normalized_value = self._normalize_text_value(value)
+            if normalized_value:
+                fields.append(normalized_value)
+
+        for tag in service_like.get("tags") or []:
+            if isinstance(tag, str):
+                normalized_value = self._normalize_text_value(tag)
+                if normalized_value:
+                    fields.append(normalized_value)
+                continue
+
+            if not isinstance(tag, dict):
+                normalized_value = self._normalize_text_value(tag)
+                if normalized_value:
+                    fields.append(normalized_value)
+                continue
+
+            for value in (tag.get("label"), tag.get("entityId")):
+                normalized_value = self._normalize_text_value(value)
+                if normalized_value:
+                    fields.append(normalized_value)
+
+            aliases = tag.get("aliases")
+            if isinstance(aliases, list):
+                for alias in aliases:
+                    normalized_value = self._normalize_text_value(alias)
+                    if normalized_value:
+                        fields.append(normalized_value)
+
+        return fields
+
+    def _contains_whole_phrase(self, text: Optional[str], phrase: Optional[str]) -> bool:
+        normalized_text = self._normalize_text_value(text)
+        normalized_phrase = self._normalize_text_value(phrase)
+        if not normalized_text or not normalized_phrase:
+            return False
+
+        pattern = rf"(?<!\w){re.escape(normalized_phrase)}(?!\w)"
+        return re.search(pattern, normalized_text) is not None
+
+    def _service_matches_interest(
+        self,
+        service_doc: dict,
+        normalized_interest: str,
+    ) -> bool:
+        return any(
+            self._contains_whole_phrase(field, normalized_interest)
+            for field in self._get_interest_match_fields(service_doc)
+        )
+
     def _build_similarity_profile(self, service_like: dict) -> Tuple[Set[str], Set[str]]:
         tag_labels = self._get_tag_labels(service_like.get("tags"))
         location = service_like.get("location") or {}
@@ -512,6 +569,15 @@ class ServiceService:
         if service_doc.get("is_remote"):
             return "Because it works well remotely"
         return "Because it's a fresh active post"
+
+    def _resolve_location_fallback_reason(
+        self,
+        distance_value: float,
+        service_doc: dict,
+    ) -> str:
+        if service_doc.get("is_remote"):
+            return "Because it works well remotely"
+        return f"Because it's {self._format_distance_label(distance_value)} away from you"
 
     async def _get_saved_service_ids(self, user_id: str) -> Set[str]:
         cursor = self.saved_services_collection.find({"user_id": user_id})
@@ -826,7 +892,7 @@ class ServiceService:
         date_filter: Optional[str] = None,
         viewer_latitude: Optional[float] = None,
         viewer_longitude: Optional[float] = None,
-    ) -> Tuple[List[RecommendedServiceItem], int]:
+    ) -> Tuple[List[RecommendedServiceItem], int, str, bool]:
         filters = filters or ServiceFilters()
         viewer_position = (
             (viewer_latitude, viewer_longitude)
@@ -896,6 +962,13 @@ class ServiceService:
             if profile[0] or profile[1]:
                 transaction_profiles.append(profile)
 
+        show_profile_prompt = (
+            len(normalized_interests) == 0
+            and len(saved_service_ids) == 0
+            and len(transaction_docs) == 0
+            and len(active_service_docs) == 0
+        )
+
         query = self._build_recommendation_query(
             filters=filters,
             city=city,
@@ -906,6 +979,7 @@ class ServiceService:
         normalized_city = self._normalize_text_value(city)
         search_text = self._normalize_text_value(filters.q)
         recommended_items: List[RecommendedServiceItem] = []
+        nearby_items: List[Tuple[float, RecommendedServiceItem]] = []
 
         async for raw_service_doc in cursor:
             service_doc = self._normalize_service_doc(raw_service_doc)
@@ -941,8 +1015,10 @@ class ServiceService:
             matched_interests = [
                 interest["label"]
                 for interest in normalized_interests
-                if interest["normalized"] in candidate_profile[0]
-                or interest["normalized"] in content_blob
+                if self._service_matches_interest(
+                    service_doc,
+                    interest["normalized"],
+                )
             ]
             saved_similarity = self._max_profile_similarity(
                 candidate_profile,
@@ -973,6 +1049,30 @@ class ServiceService:
             )
 
             if not has_recommendation_signal:
+                if (
+                    viewer_position
+                    and raw_distance_value is not None
+                    and not service_doc.get("is_remote")
+                ):
+                    nearby_score = round(
+                        math.exp(-raw_distance_value / 12)
+                        + self._calculate_recency_score(service_doc) * 0.15,
+                        4,
+                    )
+                    nearby_items.append(
+                        (
+                            raw_distance_value,
+                            RecommendedServiceItem(
+                                service=ServiceResponse(**service_doc),
+                                reason=self._resolve_location_fallback_reason(
+                                    distance_value=raw_distance_value,
+                                    service_doc=service_doc,
+                                ),
+                                score=nearby_score,
+                                matched_interests=[],
+                            ),
+                        )
+                    )
                 continue
 
             score = (
@@ -1008,10 +1108,36 @@ class ServiceService:
             reverse=True,
         )
 
-        total = len(recommended_items)
-        start = max((page - 1) * limit, 0)
-        end = start + limit
-        return recommended_items[start:end], total
+        if recommended_items:
+            total = len(recommended_items)
+            start = max((page - 1) * limit, 0)
+            end = start + limit
+            return (
+                recommended_items[start:end],
+                total,
+                "personalized",
+                show_profile_prompt,
+            )
+
+        if nearby_items:
+            nearby_items.sort(
+                key=lambda item: (
+                    item[0],
+                    -item[1].service.created_at.timestamp(),
+                )
+            )
+            fallback_items = [item for _, item in nearby_items]
+            total = len(fallback_items)
+            start = max((page - 1) * limit, 0)
+            end = start + limit
+            return (
+                fallback_items[start:end],
+                total,
+                "location_fallback",
+                show_profile_prompt,
+            )
+
+        return [], 0, "empty", show_profile_prompt
 
     async def create_service(self, service_data: ServiceCreate, user_id: str) -> ServiceResponse:
         """Create a new service"""
@@ -1307,7 +1433,26 @@ class ServiceService:
             
             if result.modified_count:
                 updated_service = await self.get_service_by_id(service_id, user_id)
-                
+
+                # Notify participants when owner starts the service
+                if service_update.status == ServiceStatus.IN_PROGRESS:
+                    try:
+                        from .notification_service import NotificationService
+                        from ..models.notification import NotificationType, NotificationRelatedType
+                        notif_service = NotificationService(self.db)
+                        participant_ids = list(current_service.matched_user_ids or [])
+                        for pid in participant_ids:
+                            await notif_service.create_notification(
+                                user_id=str(pid),
+                                notification_type=NotificationType.SERVICE_STARTED,
+                                title="Service started",
+                                body=f"'{current_service.title}' is now in progress",
+                                related_id=service_id,
+                                related_type=NotificationRelatedType.SERVICE,
+                            )
+                    except Exception:
+                        pass
+
                 # Check if deadline has passed after update
                 if updated_service.deadline:
                     if updated_service.deadline < datetime.utcnow():
@@ -1359,8 +1504,34 @@ class ServiceService:
                     }
                 }
             )
-            
-            return result.modified_count > 0
+
+            if result.modified_count > 0:
+                try:
+                    from .notification_service import NotificationService
+                    from ..models.notification import NotificationType, NotificationRelatedType
+                    notif_service = NotificationService(self.db)
+                    # Notify the service owner
+                    await notif_service.create_notification(
+                        user_id=str(service.user_id),
+                        notification_type=NotificationType.SERVICE_STARTED,
+                        title="Service started",
+                        body=f"Your service '{service.title}' is now in progress",
+                        related_id=service_id,
+                        related_type=NotificationRelatedType.SERVICE,
+                    )
+                    # Notify the matched user
+                    await notif_service.create_notification(
+                        user_id=user_id,
+                        notification_type=NotificationType.SERVICE_STARTED,
+                        title="Service started",
+                        body=f"'{service.title}' is now in progress",
+                        related_id=service_id,
+                        related_type=NotificationRelatedType.SERVICE,
+                    )
+                except Exception:
+                    pass
+                return True
+            return False
         except Exception as e:
             raise ValueError(f"Error matching service: {str(e)}")
 

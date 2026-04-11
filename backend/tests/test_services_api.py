@@ -175,6 +175,48 @@ class TestServicesAPI:
         assert service_id == str(matching_need.id)
         assert data["items"][0]["service"]["service_type"] == "need"
         assert data["items"][0]["reason_label"]
+
+    @pytest.mark.asyncio
+    async def test_get_recommendations_endpoint_returns_location_fallback_metadata(
+        self, test_client, mock_db, second_user, auth_headers, sample_service_data
+    ):
+        """Recommendation endpoint should report when nearby fallback is being used."""
+        from app.models.service import ServiceCreate
+        from app.services.service_service import ServiceService
+
+        service_service = ServiceService(mock_db)
+
+        nearby_service_data = sample_service_data.copy()
+        nearby_service_data.update(
+            {
+                "title": "Nearby Community Cleanup",
+                "description": "Join a small neighborhood cleanup session.",
+                "category": "community",
+                "tags": ["community", "cleanup"],
+                "location": {
+                    "latitude": 41.0085,
+                    "longitude": 28.9786,
+                    "address": "Fatih, Istanbul",
+                },
+            }
+        )
+        await service_service.create_service(
+            ServiceCreate(**nearby_service_data),
+            str(second_user.id),
+        )
+
+        response = test_client.get(
+            "/services/recommendations",
+            headers=auth_headers,
+            params={"latitude": 41.0082, "longitude": 28.9784},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["recommendation_mode"] == "location_fallback"
+        assert data["show_profile_prompt"] is True
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
     
     def test_update_service_endpoint(self, test_client, sample_service, auth_headers):
         """Test updating a service via API"""

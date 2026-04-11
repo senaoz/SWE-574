@@ -11,7 +11,7 @@ from ..models.forum import (
 )
 from ..models.user import UserResponse
 from ..services.forum_service import ForumService
-from ..api.auth import get_current_user
+from ..api.auth import get_current_user, get_optional_current_user
 from ..core.database import get_database
 
 router = APIRouter(prefix="/forum", tags=["forum"])
@@ -29,10 +29,13 @@ async def list_discussions(
     limit: int = Query(20, ge=1, le=100),
     tag: Optional[str] = None,
     q: Optional[str] = None,
+    sort_by: str = Query("created_at", pattern="^(created_at|upvote_count)$"),
+    current_user: Optional[UserResponse] = Depends(get_optional_current_user),
     db=Depends(get_database),
 ):
     svc = _forum(db)
-    discussions, total = await svc.get_discussions(page, limit, tag, q)
+    user_id = str(current_user.id) if current_user else None
+    discussions, total = await svc.get_discussions(page, limit, tag, q, sort_by, user_id)
     return ForumDiscussionListResponse(discussions=discussions, total=total, page=page, limit=limit)
 
 
@@ -50,9 +53,14 @@ async def create_discussion(
 
 
 @router.get("/discussions/{discussion_id}", response_model=ForumDiscussionResponse)
-async def get_discussion(discussion_id: str, db=Depends(get_database)):
+async def get_discussion(
+    discussion_id: str,
+    current_user: Optional[UserResponse] = Depends(get_optional_current_user),
+    db=Depends(get_database),
+):
     svc = _forum(db)
-    discussion = await svc.get_discussion_by_id(discussion_id)
+    user_id = str(current_user.id) if current_user else None
+    discussion = await svc.get_discussion_by_id(discussion_id, user_id)
     if not discussion:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Discussion not found")
     return discussion
@@ -98,10 +106,12 @@ async def list_events(
     tag: Optional[str] = None,
     q: Optional[str] = None,
     has_location: Optional[bool] = None,
+    current_user: Optional[UserResponse] = Depends(get_optional_current_user),
     db=Depends(get_database),
 ):
     svc = _forum(db)
-    events, total = await svc.get_events(page, limit, tag, q, has_location=bool(has_location))
+    user_id = str(current_user.id) if current_user else None
+    events, total = await svc.get_events(page, limit, tag, q, has_location=bool(has_location), user_id=user_id)
     return ForumEventListResponse(events=events, total=total, page=page, limit=limit)
 
 
@@ -119,9 +129,14 @@ async def create_event(
 
 
 @router.get("/events/{event_id}", response_model=ForumEventResponse)
-async def get_event(event_id: str, db=Depends(get_database)):
+async def get_event(
+    event_id: str,
+    current_user: Optional[UserResponse] = Depends(get_optional_current_user),
+    db=Depends(get_database),
+):
     svc = _forum(db)
-    event = await svc.get_event_by_id(event_id)
+    user_id = str(current_user.id) if current_user else None
+    event = await svc.get_event_by_id(event_id, user_id)
     if not event:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
     return event
@@ -202,14 +217,16 @@ async def get_event_attendees(
 
 @router.get("/comments", response_model=ForumCommentListResponse)
 async def list_comments(
-    target_type: str = Query(..., regex="^(discussion|event)$"),
+    target_type: str = Query(..., pattern="^(discussion|event)$"),
     target_id: str = Query(...),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
+    current_user: Optional[UserResponse] = Depends(get_optional_current_user),
     db=Depends(get_database),
 ):
     svc = _forum(db)
-    comments, total = await svc.get_comments(target_type, target_id, page, limit)
+    user_id = str(current_user.id) if current_user else None
+    comments, total = await svc.get_comments(target_type, target_id, page, limit, user_id)
     return ForumCommentListResponse(comments=comments, total=total, page=page, limit=limit)
 
 
@@ -255,6 +272,47 @@ async def delete_comment(
         return {"message": "Comment deleted"}
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+# ===================== Upvotes =====================
+
+@router.post("/discussions/{discussion_id}/upvote")
+async def upvote_discussion(
+    discussion_id: str,
+    current_user: UserResponse = Depends(get_current_user),
+    db=Depends(get_database),
+):
+    svc = _forum(db)
+    try:
+        return await svc.toggle_upvote("discussion", discussion_id, str(current_user.id))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.post("/events/{event_id}/upvote")
+async def upvote_event(
+    event_id: str,
+    current_user: UserResponse = Depends(get_current_user),
+    db=Depends(get_database),
+):
+    svc = _forum(db)
+    try:
+        return await svc.toggle_upvote("event", event_id, str(current_user.id))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.post("/comments/{comment_id}/upvote")
+async def upvote_comment(
+    comment_id: str,
+    current_user: UserResponse = Depends(get_current_user),
+    db=Depends(get_database),
+):
+    svc = _forum(db)
+    try:
+        return await svc.toggle_upvote("comment", comment_id, str(current_user.id))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 # ===================== Linked Events (for ServiceDetail) =====================

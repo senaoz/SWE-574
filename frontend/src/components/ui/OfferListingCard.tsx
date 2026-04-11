@@ -32,6 +32,9 @@ export function OfferListingCard({
   const [user, setUser] = useState<any>(null);
   const [badgeSummary, setBadgeSummary] = useState<BadgeSummary | null>(null);
   const [averageRating, setAverageRating] = useState<number | null>(null);
+  const [optimisticSavedState, setOptimisticSavedState] = useState<
+    boolean | null
+  >(null);
   const {
     currentUserId,
     isSaved: isServiceSaved,
@@ -40,7 +43,8 @@ export function OfferListingCard({
     isSavingService,
     isUnsavingService,
   } = useSavedServiceIds();
-  const isSaved = isServiceSaved(service);
+  const resolvedSavedState = isServiceSaved(service);
+  const isSaved = optimisticSavedState ?? resolvedSavedState;
   const isSaving = isSavingService(service._id);
   const isUnsaving = isUnsavingService(service._id);
 
@@ -74,6 +78,10 @@ export function OfferListingCard({
     fetchUserData();
   }, [service.user_id]);
 
+  useEffect(() => {
+    setOptimisticSavedState(null);
+  }, [service._id, resolvedSavedState]);
+
   const handleCardClick = () => {
     navigate(`/service/${service._id}`);
   };
@@ -85,13 +93,16 @@ export function OfferListingCard({
     event.stopPropagation();
     if (!currentUserId || isSaving || isUnsaving) return;
 
+    const previousSavedState = isSaved;
+
     try {
-      if (isSaved) {
+      if (previousSavedState) {
         await unsaveService(service._id);
       } else {
         await saveService(service._id);
       }
     } catch (error) {
+      setOptimisticSavedState(previousSavedState);
       console.error("Error toggling saved service:", error);
     }
   };
@@ -143,6 +154,38 @@ export function OfferListingCard({
             >
               {service?.service_type === "offer" ? "OFFER" : "NEED"}
             </Badge>
+            {currentUserId && isSaved && (
+              <Badge
+                color={isSaved ? "red" : "gray"}
+                variant="soft"
+                className={`inline-flex items-center gap-1 ${
+                  !isSaving && !isUnsaving ? "cursor-pointer" : ""
+                }`}
+                onClick={handleSavedBadgeClick}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    void handleSavedBadgeClick(event);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                title={isSaved ? "Remove from saved items" : "Save this item"}
+                aria-disabled={isSaving || isUnsaving}
+              >
+                {isSaved ? (
+                  <HeartFilledIcon className="h-3 w-3" />
+                ) : (
+                  <HeartIcon className="h-3 w-3" />
+                )}
+                {isSaving
+                  ? "Saving..."
+                  : isUnsaving
+                    ? "Removing..."
+                    : isSaved
+                      ? "Saved"
+                      : "Save"}
+              </Badge>
+            )}
           </Flex>
           {ownerMeta}
         </div>

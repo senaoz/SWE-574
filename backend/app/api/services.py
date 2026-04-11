@@ -211,7 +211,12 @@ async def get_recommended_services(
     )
 
     try:
-        items, total = await service_service.get_recommended_services(
+        (
+            items,
+            total,
+            recommendation_mode,
+            show_profile_prompt,
+        ) = await service_service.get_recommended_services(
             user_id=str(current_user.id),
             filters=filters,
             page=page,
@@ -226,6 +231,8 @@ async def get_recommended_services(
             total=total,
             page=page,
             limit=limit,
+            recommendation_mode=recommendation_mode,
+            show_profile_prompt=show_profile_prompt,
         )
     except ValueError as e:
         raise HTTPException(
@@ -367,6 +374,7 @@ async def delete_service(
 ):
     """Delete service (only by owner)"""
     service_service = ServiceService(db)
+    user_service = UserService(db)
     
     try:
         # Check if service exists and user owns it
@@ -376,13 +384,16 @@ async def delete_service(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Service not found"
             )
-        
-        if str(existing_service.user_id) != str(current_user.id):
+
+        # Check if user is admin or owner
+        is_owner = str(existing_service.user_id) == str(current_user.id)
+        is_admin = await user_service.is_admin(str(current_user.id))
+        if not (is_owner or is_admin):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to delete this service"
             )
-
+        
         if existing_service.status != ServiceStatus.ACTIVE:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

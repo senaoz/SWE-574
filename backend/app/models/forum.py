@@ -67,6 +67,8 @@ class ForumDiscussionResponse(BaseModel):
     updated_at: datetime
     user: Optional[dict] = None
     comment_count: int = 0
+    upvote_count: int = 0
+    user_upvoted: bool = False
 
     class Config:
         populate_by_name = True
@@ -150,6 +152,8 @@ class ForumEventResponse(BaseModel):
     comment_count: int = 0
     attendee_ids: List[str] = Field(default_factory=list)
     attendee_count: int = 0
+    upvote_count: int = 0
+    user_upvoted: bool = False
 
     class Config:
         populate_by_name = True
@@ -194,6 +198,8 @@ class ForumCommentResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     user: Optional[dict] = None
+    upvote_count: int = 0
+    user_upvoted: bool = False
 
     class Config:
         populate_by_name = True

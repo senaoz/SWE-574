@@ -25,12 +25,15 @@ class NotificationType(str, Enum):
     JOIN_REQUEST_REJECTED = "join_request_rejected"
     TRANSACTION_COMPLETED = "transaction_completed"
     SERVICE_COMPLETED = "service_completed"
+    NEW_MESSAGE = "new_message"
+    SERVICE_STARTED = "service_started"
 
 
 class NotificationRelatedType(str, Enum):
     SERVICE = "service"
     JOIN_REQUEST = "join_request"
     TRANSACTION = "transaction"
+    CHAT_ROOM = "chat_room"
 
 
 class NotificationResponse(BaseModel):
