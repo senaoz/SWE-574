@@ -21,6 +21,7 @@ import { InterestChip } from "@/components/ui/InterestChip";
 import { EditServiceDialog } from "@/components/forms/EditServiceDialog";
 import { ServicesSummaryCard } from "@/components/ui/ServicesSummaryCard";
 import { ratingsApi } from "@/services/api";
+import { ImageGallery } from "@/components/ui/ImageGallery";
 import {
   ClockIcon,
   CheckCircledIcon,
@@ -50,6 +51,7 @@ interface MyServicesTabProps {
       score: number;
       comment?: string;
       tags: string[];
+      image_urls?: string[];
     },
   ) => Promise<void>;
   onRequestUpdate: () => void;
@@ -125,6 +127,7 @@ export function MyServicesTab({
       score: data.score,
       comment: data.comment || undefined,
       tags: data.tags,
+      image_urls: data.image_urls,
     });
 
     try {
@@ -481,7 +484,6 @@ export function MyServicesTab({
                                         String(currentUserId) ||
                                       (r.rater as any)?.id === currentUserId,
                                   );
-
                                   const transactionStatus =
                                     transaction.provider_confirmed &&
                                     transaction.requester_confirmed
@@ -574,6 +576,14 @@ export function MyServicesTab({
                                               "{myRating.comment}"
                                             </Text>
                                           )}
+                                          {myRating.image_urls &&
+                                            myRating.image_urls.length > 0 && (
+                                              <ImageGallery
+                                                urls={myRating.image_urls}
+                                                alt="Review photo"
+                                                className="mt-1"
+                                              />
+                                            )}
                                         </Flex>
                                       )}
 
