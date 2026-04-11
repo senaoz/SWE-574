@@ -372,7 +372,9 @@ export function MyServicesTab({
                                       }
                                     >
                                       <ChatBubbleIcon className="w-4 h-4 mr-2" />
-                                      Group Chat
+                                      {
+                                        service.matched_user_ids.length > 1 ? "Group Chat" : "Chat"
+                                      }
                                     </Button>
                                   </Tooltip>
                                 )}
