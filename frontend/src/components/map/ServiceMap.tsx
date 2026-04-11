@@ -10,6 +10,9 @@ import {
 import L from "leaflet";
 import { Service, TagEntity, ForumEvent } from "@/types";
 import { calculateDistance } from "@/utils/utils";
+import { usersApi, ratingsApi } from "@/services/api";
+import { getHighestPriorityBadge, CustomBadge } from "@/components/ui/BadgeDisplay";
+import { Badge as BadgeType } from "@/types";
 import {
   Badge,
   Button,
@@ -469,24 +472,99 @@ function ServicePopupContent({
   onClose: () => void;
 }) {
   const navigate = useNavigate();
+  const [provider, setProvider] = useState<{ username: string; full_name?: string } | null>(null);
+  const [topBadge, setTopBadge] = useState<BadgeType | null>(null);
+
+  useEffect(() => {
+    if (!service.user_id) return;
+    Promise.all([
+      usersApi.getUserById(service.user_id).catch(() => null),
+      usersApi.getUserBadges(service.user_id).catch(() => null),
+    ]).then(([userRes, badgesRes]) => {
+      if (userRes) {
+        setProvider({ username: userRes.data.username, full_name: userRes.data.full_name });
+      }
+      if (badgesRes) {
+        setTopBadge(getHighestPriorityBadge(badgesRes.data.badges));
+      }
+    });
+  }, [service.user_id]);
+
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return null;
+    return new Date(dateStr).toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+
+  const displayDate = service.specific_date
+    ? formatDate(service.specific_date)
+    : formatDate(service.created_at);
+  const dateLabel = service.specific_date ? "Date" : "Posted";
+
   return (
-    <div className="max-w-xs text-xs space-y-2 min-w-[300px]">
-      <div className="flex flex-wrap gap-1 mb-2 items-center">
-        <Badge
-          color={service.service_type === "offer" ? "green" : "red"}
-          variant="soft"
-          size="1"
-        >
-          {service.service_type === "offer" ? "Offer" : "Need"}
-        </Badge>
-        <Badge color="gray" variant="soft" size="1">
-          {formatDuration(service.estimated_duration)}
-        </Badge>
+    <div className="text-xs space-y-2 min-w-[280px] max-w-[300px]">
+      {/* Top row: type + duration + tags (left) | provider (right) */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-wrap gap-1 items-center flex-1">
+          <Badge
+            color={service.service_type === "offer" ? "green" : "red"}
+            variant="soft"
+            size="1"
+          >
+            {service.service_type === "offer" ? "Offer" : "Need"}
+          </Badge>
+          <Badge color="gray" variant="soft" size="1">
+            {formatDuration(service.estimated_duration)}
+          </Badge>
+          {service.tags?.slice(0, 3).map((tag) => {
+            const label = typeof tag === "string" ? tag : (tag as TagEntity).label;
+            return (
+              <Badge key={label} color="indigo" variant="soft" size="1">
+                {label}
+              </Badge>
+            );
+          })}
+          {service.tags && service.tags.length > 3 && (
+            <Badge color="gray" variant="soft" size="1">
+              +{service.tags.length - 3}
+            </Badge>
+          )}
+        </div>
+
+        {/* Provider info — top right */}
+        {provider && (
+          <div className="text-right flex-shrink-0 max-w-[110px]">
+            <button
+              className="text-xs font-medium text-blue-600 hover:underline leading-tight truncate block w-full text-right"
+              onClick={() => navigate(`/profile/${service.user_id}`)}
+            >
+              {provider.full_name || provider.username}
+            </button>
+            {topBadge && (
+              <div className="flex justify-end mt-0.5">
+                <CustomBadge badge={topBadge} size={16} />
+              </div>
+            )}
+          </div>
+        )}
       </div>
-      <h3 className="font-semibold text-sm mb-1 line-clamp-2">
-        {service.title}
-      </h3>
-      <div className="flex items-center gap-2 w-full">
+
+      {/* Title */}
+      <h3 className="font-semibold text-sm line-clamp-2">{service.title}</h3>
+
+      {/* Date */}
+      {displayDate && (
+        <div className="flex items-center gap-1 text-gray-500">
+          <span className="font-medium">{dateLabel}:</span>
+          <span>{displayDate}</span>
+        </div>
+      )}
+
+      {/* View Details button */}
+      <div className="flex items-center gap-2 w-full pt-1">
         <Button
           variant="soft"
           className="flex-1"

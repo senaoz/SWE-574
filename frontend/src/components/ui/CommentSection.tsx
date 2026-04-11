@@ -128,9 +128,7 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
                   src={getImageUrl(user?.profile_picture)}
                   fallback={user?.full_name?.[0] || user?.username?.[0] || "?"}
                   size="3"
-                  onClick={() => {
-                    navigate(`/profile/${user?._id}`);
-                  }}
+                  onClick={() => navigate(`/profile/${comment.user_id}`)}
                   className="cursor-pointer"
                 />
                 <div className="flex-1">
@@ -139,7 +137,7 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
                       size="2"
                       weight="bold"
                       className="cursor-pointer hover:underline"
-                      onClick={() => navigate(`/profile/${user?._id}`)}
+                      onClick={() => navigate(`/profile/${comment.user_id}`)}
                     >
                       {user?.full_name || user?.username || "Unknown User"}
                     </Text>
