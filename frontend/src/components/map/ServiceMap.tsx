@@ -10,6 +10,7 @@ import {
 import L from "leaflet";
 import { Service, TagEntity, ForumEvent } from "@/types";
 import { calculateDistance } from "@/utils/utils";
+import { usersApi, ratingsApi } from "@/services/api";
 import {
   Badge,
   Button,
@@ -74,10 +75,10 @@ export function applyMapFilters(
   userPosition: [number, number] | null,
 ): Service[] {
   let list = services;
-  if (filters.serviceType !== "all") {
+  if (filters.serviceType \!== "all") {
     list = list.filter((s) => s.service_type === filters.serviceType);
   }
-  if (filters.tag && filters.tag !== "all") {
+  if (filters.tag && filters.tag \!== "all") {
     const decoded = filters.tag;
     const isEntityId = /^Q\d+$/i.test(decoded);
     list = list.filter((service) =>
@@ -92,7 +93,7 @@ export function applyMapFilters(
     );
   }
   if (
-    filters.distance !== "any" &&
+    filters.distance \!== "any" &&
     userPosition &&
     typeof filters.distance === "number"
   ) {
@@ -126,7 +127,7 @@ function MapLocationHandler({
 }) {
   const map = useMap();
   useEffect(() => {
-    if (!userPosition) return;
+    if (\!userPosition) return;
     map.flyTo(userPosition, USER_LOCATION_ZOOM, { duration: 1 });
   }, [map, userPosition]);
   return null;
@@ -159,22 +160,22 @@ export function ServiceMap({
   const [internalFilters, setInternalFilters] =
     useState<MapFilters>(defaultMapFilters);
 
-  const isControlled = controlledFilters != null && onFiltersChange != null;
-  const filters = isControlled ? controlledFilters! : internalFilters;
+  const isControlled = controlledFilters \!= null && onFiltersChange \!= null;
+  const filters = isControlled ? controlledFilters\! : internalFilters;
   const userPosition = controlledUserPosition ?? internalUserPosition;
 
-  const setFilters = isControlled ? onFiltersChange! : setInternalFilters;
+  const setFilters = isControlled ? onFiltersChange\! : setInternalFilters;
 
   // Get user location via browser API when not provided by parent
   useEffect(() => {
-    if (controlledUserPosition !== undefined) return;
+    if (controlledUserPosition \!== undefined) return;
     const onSuccess = (pos: GeolocationPosition) => {
       setInternalUserPosition([pos.coords.latitude, pos.coords.longitude]);
     };
     const ipFallback = () => {
       fetch("https://ipapi.co/json/")
         .then((r) => {
-          if (!r.ok) throw new Error("IP lookup failed");
+          if (\!r.ok) throw new Error("IP lookup failed");
           return r.json();
         })
         .then((d) => {
@@ -184,7 +185,7 @@ export function ServiceMap({
         })
         .catch(() => setInternalUserPosition([41.0082, 28.9784]));
     };
-    if (!navigator.geolocation) {
+    if (\!navigator.geolocation) {
       ipFallback();
       return;
     }
@@ -202,16 +203,16 @@ export function ServiceMap({
   }, [isControlled, services, filters, userPosition]);
 
   const filteredEvents = useMemo(() => {
-    let list = events.filter((e) => e.latitude != null && e.longitude != null);
+    let list = events.filter((e) => e.latitude \!= null && e.longitude \!= null);
     if (
-      filters.distance !== "any" &&
+      filters.distance \!== "any" &&
       userPosition &&
       typeof filters.distance === "number"
     ) {
       const [uLat, uLng] = userPosition;
       list = list.filter(
         (e) =>
-          calculateDistance(uLat, uLng, e.latitude!, e.longitude!) <=
+          calculateDistance(uLat, uLng, e.latitude\!, e.longitude\!) <=
           (filters.distance as number),
       );
     }
@@ -234,7 +235,7 @@ export function ServiceMap({
 
   const formatDuration = (hours: number) => `${hours}h`;
   const distanceRadiusM =
-    filters.distance !== "any" && typeof filters.distance === "number"
+    filters.distance \!== "any" && typeof filters.distance === "number"
       ? filters.distance * 1000
       : null;
 
@@ -296,7 +297,7 @@ export function ServiceMap({
                   ))}
               </Select.Content>
             </Select.Root>
-            {filters.distance !== "any" && (
+            {filters.distance \!== "any" && (
               <Button
                 size="1"
                 variant="solid"
@@ -326,7 +327,7 @@ export function ServiceMap({
           maxNativeZoom={19}
         />
         <MapLocationHandler userPosition={userPosition} />
-        {userPosition && distanceRadiusM !== null && (
+        {userPosition && distanceRadiusM \!== null && (
           <Circle
             center={userPosition}
             radius={distanceRadiusM}
@@ -382,7 +383,7 @@ export function ServiceMap({
           filteredEvents.map((ev) => (
             <React.Fragment key={`event-${ev._id}`}>
               <Circle
-                center={[ev.latitude!, ev.longitude!]}
+                center={[ev.latitude\!, ev.longitude\!]}
                 radius={APPROXIMATE_LOCATION_RADIUS_M}
                 pathOptions={{
                   color: "#7c3aed",
@@ -391,7 +392,7 @@ export function ServiceMap({
                   weight: 1.5,
                 }}
               />
-              <Marker position={[ev.latitude!, ev.longitude!]} icon={eventIcon}>
+              <Marker position={[ev.latitude\!, ev.longitude\!]} icon={eventIcon}>
                 <Popup closeButton>
                   <EventPopupContent event={ev} />
                 </Popup>
@@ -469,24 +470,121 @@ function ServicePopupContent({
   onClose: () => void;
 }) {
   const navigate = useNavigate();
+  const [provider, setProvider] = useState<{ username: string; full_name?: string } | null>(null);
+  const [averageRating, setAverageRating] = useState<number | null>(null);
+  const [topRatingTag, setTopRatingTag] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (\!service.user_id) return;
+    Promise.all([
+      usersApi.getUserById(service.user_id).catch(() => null),
+      ratingsApi.getUserRatings(service.user_id, 1, 10).catch(() => null),
+    ]).then(([userRes, ratingsRes]) => {
+      if (userRes) {
+        setProvider({ username: userRes.data.username, full_name: userRes.data.full_name });
+      }
+      if (ratingsRes) {
+        setAverageRating(ratingsRes.data.average_score ?? null);
+        const allTags = ratingsRes.data.ratings.flatMap((r) => r.tags || []);
+        if (allTags.length > 0) {
+          const tagCount: Record<string, number> = {};
+          allTags.forEach((t) => { tagCount[t] = (tagCount[t] || 0) + 1; });
+          const sorted = Object.entries(tagCount).sort((a, b) => b[1] - a[1]);
+          setTopRatingTag(sorted[0][0]);
+        }
+      }
+    });
+  }, [service.user_id]);
+
+  const formatDate = (dateStr?: string) => {
+    if (\!dateStr) return null;
+    return new Date(dateStr).toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+
+  const displayDate = service.specific_date
+    ? formatDate(service.specific_date)
+    : formatDate(service.created_at);
+  const dateLabel = service.specific_date ? "Date" : "Posted";
+
   return (
-    <div className="max-w-xs text-xs space-y-2 min-w-[300px]">
-      <div className="flex flex-wrap gap-1 mb-2 items-center">
-        <Badge
-          color={service.service_type === "offer" ? "green" : "red"}
-          variant="soft"
-          size="1"
-        >
-          {service.service_type === "offer" ? "Offer" : "Need"}
-        </Badge>
-        <Badge color="gray" variant="soft" size="1">
-          {formatDuration(service.estimated_duration)}
-        </Badge>
+    <div className="text-xs space-y-2 min-w-[280px] max-w-[300px]">
+      {/* Top row: type/duration badges (left) + provider info (right) */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-wrap gap-1 items-center">
+          <Badge
+            color={service.service_type === "offer" ? "green" : "red"}
+            variant="soft"
+            size="1"
+          >
+            {service.service_type === "offer" ? "Offer" : "Need"}
+          </Badge>
+          <Badge color="gray" variant="soft" size="1">
+            {formatDuration(service.estimated_duration)}
+          </Badge>
+        </div>
+
+        {/* Provider info — top right */}
+        {provider && (
+          <div className="text-right flex-shrink-0 max-w-[130px]">
+            <button
+              className="text-xs font-medium text-blue-600 hover:underline leading-tight truncate block w-full text-right"
+              onClick={() => navigate(`/profile/${service.user_id}`)}
+            >
+              {provider.full_name || provider.username}
+            </button>
+            {averageRating \!== null && (
+              <div className="flex items-center justify-end gap-0.5 mt-0.5">
+                <span className="text-yellow-500 text-xs">★</span>
+                <span className="text-gray-700">{averageRating.toFixed(1)}</span>
+              </div>
+            )}
+            {topRatingTag && (
+              <div className="mt-0.5">
+                <Badge color="blue" variant="soft" size="1">
+                  {topRatingTag}
+                </Badge>
+              </div>
+            )}
+          </div>
+        )}
       </div>
-      <h3 className="font-semibold text-sm mb-1 line-clamp-2">
-        {service.title}
-      </h3>
-      <div className="flex items-center gap-2 w-full">
+
+      {/* Title */}
+      <h3 className="font-semibold text-sm line-clamp-2">{service.title}</h3>
+
+      {/* Date */}
+      {displayDate && (
+        <div className="flex items-center gap-1 text-gray-500">
+          <span className="font-medium">{dateLabel}:</span>
+          <span>{displayDate}</span>
+        </div>
+      )}
+
+      {/* Tags */}
+      {service.tags && service.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {service.tags.slice(0, 4).map((tag) => {
+            const label = typeof tag === "string" ? tag : (tag as TagEntity).label;
+            return (
+              <Badge key={label} color="indigo" variant="soft" size="1">
+                {label}
+              </Badge>
+            );
+          })}
+          {service.tags.length > 4 && (
+            <Badge color="gray" variant="soft" size="1">
+              +{service.tags.length - 4}
+            </Badge>
+          )}
+        </div>
+      )}
+
+      {/* View Details button */}
+      <div className="flex items-center gap-2 w-full pt-1">
         <Button
           variant="soft"
           className="flex-1"
