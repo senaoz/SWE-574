@@ -473,6 +473,7 @@ function ServicePopupContent({
 }) {
   const navigate = useNavigate();
   const [provider, setProvider] = useState<{ username: string; full_name?: string } | null>(null);
+  const [averageRating, setAverageRating] = useState<number | null>(null);
   const [topBadge, setTopBadge] = useState<BadgeType | null>(null);
 
   useEffect(() => {
@@ -480,12 +481,16 @@ function ServicePopupContent({
     Promise.all([
       usersApi.getUserById(service.user_id).catch(() => null),
       usersApi.getUserBadges(service.user_id).catch(() => null),
-    ]).then(([userRes, badgesRes]) => {
+      ratingsApi.getUserRatings(service.user_id, 1, 1).catch(() => null),
+    ]).then(([userRes, badgesRes, ratingsRes]) => {
       if (userRes) {
         setProvider({ username: userRes.data.username, full_name: userRes.data.full_name });
       }
       if (badgesRes) {
         setTopBadge(getHighestPriorityBadge(badgesRes.data.badges));
+      }
+      if (ratingsRes) {
+        setAverageRating(ratingsRes.data.average_score ?? null);
       }
     });
   }, [service.user_id]);
@@ -505,21 +510,54 @@ function ServicePopupContent({
   const dateLabel = service.specific_date ? "Date" : "Posted";
 
   return (
-    <div className="text-xs space-y-2 min-w-[280px] max-w-[300px]">
-      {/* Top row: type + duration + tags (left) | provider (right) */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex flex-wrap gap-1 items-center flex-1">
-          <Badge
-            color={service.service_type === "offer" ? "green" : "red"}
-            variant="soft"
-            size="1"
-          >
-            {service.service_type === "offer" ? "Offer" : "Need"}
-          </Badge>
-          <Badge color="gray" variant="soft" size="1">
-            {formatDuration(service.estimated_duration)}
-          </Badge>
-          {service.tags?.slice(0, 3).map((tag) => {
+    <div className="text-xs space-y-2 min-w-[280px] max-w-[320px]">
+
+      {/* Top row: [Offer/Need] [duration] — flex-1 boşluk — [Name badge] [★rating] [badge icon] */}
+      <div className="flex items-center gap-1 flex-wrap">
+        {/* Sol: tip + süre */}
+        <Badge
+          color={service.service_type === "offer" ? "green" : "red"}
+          variant="soft"
+          size="1"
+        >
+          {service.service_type === "offer" ? "Offer" : "Need"}
+        </Badge>
+        <Badge color="gray" variant="soft" size="1">
+          {formatDuration(service.estimated_duration)}
+        </Badge>
+
+        {/* Ortadaki boşluğu yiyen spacer */}
+        <div className="flex-1" />
+
+        {/* Sağ: kullanıcı adı (badge), rating, badge ikonu */}
+        {provider && (
+          <>
+            <Badge
+              color="blue"
+              variant="soft"
+              size="1"
+              className="cursor-pointer"
+              onClick={() => navigate(`/profile/${service.user_id}`)}
+            >
+              {provider.full_name || provider.username}
+            </Badge>
+            {averageRating !== null && (
+              <span className="text-yellow-500 font-medium">
+                ★{averageRating.toFixed(1)}
+              </span>
+            )}
+            {topBadge && <CustomBadge badge={topBadge} size={14} />}
+          </>
+        )}
+      </div>
+
+      {/* Servis adı */}
+      <h3 className="font-semibold text-sm line-clamp-2">{service.title}</h3>
+
+      {/* Tag'lar */}
+      {service.tags && service.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {service.tags.slice(0, 4).map((tag) => {
             const label = typeof tag === "string" ? tag : (tag as TagEntity).label;
             return (
               <Badge key={label} color="indigo" variant="soft" size="1">
@@ -527,35 +565,15 @@ function ServicePopupContent({
               </Badge>
             );
           })}
-          {service.tags && service.tags.length > 3 && (
+          {service.tags.length > 4 && (
             <Badge color="gray" variant="soft" size="1">
-              +{service.tags.length - 3}
+              +{service.tags.length - 4}
             </Badge>
           )}
         </div>
+      )}
 
-        {/* Provider info — top right */}
-        {provider && (
-          <div className="text-right flex-shrink-0 max-w-[110px]">
-            <button
-              className="text-xs font-medium text-blue-600 hover:underline leading-tight truncate block w-full text-right"
-              onClick={() => navigate(`/profile/${service.user_id}`)}
-            >
-              {provider.full_name || provider.username}
-            </button>
-            {topBadge && (
-              <div className="flex justify-end mt-0.5">
-                <CustomBadge badge={topBadge} size={16} />
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Title */}
-      <h3 className="font-semibold text-sm line-clamp-2">{service.title}</h3>
-
-      {/* Date */}
+      {/* Tarih */}
       {displayDate && (
         <div className="flex items-center gap-1 text-gray-500">
           <span className="font-medium">{dateLabel}:</span>
@@ -563,7 +581,7 @@ function ServicePopupContent({
         </div>
       )}
 
-      {/* View Details button */}
+      {/* View Details */}
       <div className="flex items-center gap-2 w-full pt-1">
         <Button
           variant="soft"
