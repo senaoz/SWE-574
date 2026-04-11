@@ -20,7 +20,7 @@ import {
 import { InterestChip } from "@/components/ui/InterestChip";
 import { EditServiceDialog } from "@/components/forms/EditServiceDialog";
 import { ServicesSummaryCard } from "@/components/ui/ServicesSummaryCard";
-import { ratingsApi } from "@/services/api";
+import { ratingsApi, getImageUrl } from "@/services/api";
 import {
   ClockIcon,
   CheckCircledIcon,
@@ -50,6 +50,7 @@ interface MyServicesTabProps {
       score: number;
       comment?: string;
       tags: string[];
+      image_urls?: string[];
     },
   ) => Promise<void>;
   onRequestUpdate: () => void;
@@ -125,6 +126,7 @@ export function MyServicesTab({
       score: data.score,
       comment: data.comment || undefined,
       tags: data.tags,
+      image_urls: data.image_urls,
     });
 
     try {
@@ -481,7 +483,6 @@ export function MyServicesTab({
                                         String(currentUserId) ||
                                       (r.rater as any)?.id === currentUserId,
                                   );
-
                                   const transactionStatus =
                                     transaction.provider_confirmed &&
                                     transaction.requester_confirmed
@@ -574,6 +575,19 @@ export function MyServicesTab({
                                               "{myRating.comment}"
                                             </Text>
                                           )}
+                                          {myRating.image_urls &&
+                                            myRating.image_urls.length > 0 && (
+                                              <Flex gap="2" wrap="wrap" className="mt-1">
+                                                {myRating.image_urls.map((url, i) => (
+                                                  <img
+                                                    key={i}
+                                                    src={getImageUrl(url)}
+                                                    alt={`Review photo ${i + 1}`}
+                                                    className="w-20 h-20 object-cover rounded"
+                                                  />
+                                                ))}
+                                              </Flex>
+                                            )}
                                         </Flex>
                                       )}
 
