@@ -38,8 +38,8 @@ See [`backend/README.md`](backend/README.md) for local development setup and CI/
 
 ## Milestones
 
-- 9 March 2026: Milestone 1 - [Milestone 1 Deliverables](https://github.com/senaoz/SWE-574/blob/main/reports/m1_group3.md)
-- 13 April 2026: Milestone 2
+- 9 March 2026: Milestone 1 - [Milestone 1 Deliverables](https://github.com/senaoz/SWE-574/blob/main/reports/m1_group3.md) 
+- 13 April 2026: Milestone 2 - [Milestone 2 Deliverables](https://github.com/senaoz/SWE-574/blob/main/reports/m2_group3.md) 
 
 ## Wiki
 
