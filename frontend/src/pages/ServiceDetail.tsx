@@ -790,7 +790,7 @@ export function ServiceDetail() {
               </Button>
             )}
             <StartChatButton
-              disabled={service.status !== "active" || isServingUser}
+              disabled={isServingUser}
               otherUserIds={[service.user_id]}
               service_id={service._id}
               transaction_id={undefined}

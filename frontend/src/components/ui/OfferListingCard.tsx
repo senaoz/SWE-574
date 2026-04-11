@@ -154,38 +154,6 @@ export function OfferListingCard({
             >
               {service?.service_type === "offer" ? "OFFER" : "NEED"}
             </Badge>
-            {currentUserId && isSaved && (
-              <Badge
-                color={isSaved ? "red" : "gray"}
-                variant="soft"
-                className={`inline-flex items-center gap-1 ${
-                  !isSaving && !isUnsaving ? "cursor-pointer" : ""
-                }`}
-                onClick={handleSavedBadgeClick}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    void handleSavedBadgeClick(event);
-                  }
-                }}
-                role="button"
-                tabIndex={0}
-                title={isSaved ? "Remove from saved items" : "Save this item"}
-                aria-disabled={isSaving || isUnsaving}
-              >
-                {isSaved ? (
-                  <HeartFilledIcon className="h-3 w-3" />
-                ) : (
-                  <HeartIcon className="h-3 w-3" />
-                )}
-                {isSaving
-                  ? "Saving..."
-                  : isUnsaving
-                    ? "Removing..."
-                    : isSaved
-                      ? "Saved"
-                      : "Save"}
-              </Badge>
-            )}
           </Flex>
           {ownerMeta}
         </div>
