@@ -34,6 +34,7 @@ interface MyApplicationsTabProps {
       score: number;
       comment?: string;
       tags: string[];
+      image_urls?: string[];
     },
   ) => Promise<void>;
   formatDate: (dateString: string) => string;
@@ -157,6 +158,7 @@ export function MyApplicationsTab({
       score: data.score,
       comment: data.comment || undefined,
       tags: data.tags,
+      image_urls: data.image_urls,
     });
 
     try {

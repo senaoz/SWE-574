@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/ConfirmCompletionModal";
 import { InterestChip } from "@/components/ui/InterestChip";
 import { EditServiceDialog } from "@/components/forms/EditServiceDialog";
+import { ServicesSummaryCard } from "@/components/ui/ServicesSummaryCard";
 import { ratingsApi } from "@/services/api";
 import {
   ClockIcon,
@@ -27,6 +28,7 @@ import {
   TrashIcon,
   CrossCircledIcon,
   Pencil1Icon,
+  ChatBubbleIcon,
 } from "@radix-ui/react-icons";
 import { useNavigate } from "react-router-dom";
 
@@ -39,6 +41,7 @@ interface MyServicesTabProps {
   onDeleteService: (serviceId: string) => Promise<void>;
   onCancelService: (serviceId: string) => Promise<void>;
   onStartChat: (transactionId: string) => Promise<void>;
+  onCreateGroupChat: (serviceId: string) => Promise<void>;
   onCancelTransaction: (transactionId: string) => Promise<void>;
   onConfirmTransactionCompletion: (
     transactionId: string,
@@ -66,6 +69,7 @@ export function MyServicesTab({
   onDeleteService,
   onCancelService,
   onStartChat,
+  onCreateGroupChat,
   onCancelTransaction,
   onConfirmTransactionCompletion,
   onRequestUpdate,
@@ -74,6 +78,7 @@ export function MyServicesTab({
   highlightServiceId,
 }: MyServicesTabProps) {
   const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
   const [transactionRatings, setTransactionRatings] = useState<
     Record<string, Rating[]>
   >({});
@@ -169,8 +174,18 @@ export function MyServicesTab({
     );
   }
 
+  const q = searchQuery.toLowerCase();
+  const filteredServices = q
+    ? services.filter(
+        (s) =>
+          s.title.toLowerCase().includes(q) ||
+          s.description?.toLowerCase().includes(q) ||
+          s.tags?.some((t) => (t.label || t.entityId)?.toLowerCase().includes(q)),
+      )
+    : services;
+
   // Group services by status
-  const groupedServices = services.reduce(
+  const groupedServices = filteredServices.reduce(
     (acc, service) => {
       const status = service.status;
       if (!acc[status]) {
@@ -209,7 +224,12 @@ export function MyServicesTab({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      <ServicesSummaryCard
+        services={services}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+      />
       <div className="flex flex-row gap-2">
         <Button
           variant={!statusFilter ? "solid" : "soft"}
@@ -265,6 +285,11 @@ export function MyServicesTab({
           Cancelled
         </Button>
       </div>
+      {filteredServices.length === 0 && (
+        <Text size="2" color="gray" className="block text-center py-4">
+          No services match your search.
+        </Text>
+      )}
       {statusOrder.map((status) => {
         const servicesInStatus = groupedServices[status] || [];
         if (servicesInStatus.length === 0) return null;
@@ -329,6 +354,25 @@ export function MyServicesTab({
                                   </Button>
                                 </Tooltip>
                               )}
+
+                              {/* Group Chat button for active services with matched users */}
+                              {service.status === "active" &&
+                                service.matched_user_ids &&
+                                service.matched_user_ids.length > 0 && (
+                                  <Tooltip content="Create group chat with matched users">
+                                    <Button
+                                      size="2"
+                                      color="teal"
+                                      variant="soft"
+                                      onClick={() =>
+                                        onCreateGroupChat(service._id)
+                                      }
+                                    >
+                                      <ChatBubbleIcon className="w-4 h-4 mr-2" />
+                                      Group Chat
+                                    </Button>
+                                  </Tooltip>
+                                )}
 
                               <Tooltip content="Cancel service">
                                 <Button

@@ -62,6 +62,7 @@ export interface RatingDetailed {
   score: number;
   comment?: string;
   tags?: string[];
+  image_urls?: string[];
   created_at: string;
   rater?: {
     id: string;
@@ -692,9 +693,11 @@ export type NotificationType =
   | 'join_request_approved'
   | 'join_request_rejected'
   | 'transaction_completed'
-  | 'service_completed';
+  | 'service_completed'
+  | 'new_message'
+  | 'service_started';
 
-export type NotificationRelatedType = 'service' | 'join_request' | 'transaction';
+export type NotificationRelatedType = 'service' | 'join_request' | 'transaction' | 'chat_room';
 
 export interface Notification {
   _id: string;

@@ -32,7 +32,7 @@ const APPROXIMATE_LOCATION_RADIUS_M = 200;
 const MARKER_SIZE = 20;
 const MARKER_ANCHOR = MARKER_SIZE / 2;
 
-const createIcon = (color: string, label: string) =>
+const createIcon = (color: string, svg: string) =>
   L.divIcon({
     className: "custom-marker",
     html: `<div style="
@@ -40,16 +40,21 @@ const createIcon = (color: string, label: string) =>
       border-radius: 50%;
       background-color: ${color};
       display: flex; align-items: center; justify-content: center;
-      font-size: 13px;
-      line-height: 1;
-    ">${label}</div>`,
+    ">${svg}</div>`,
     iconSize: [MARKER_SIZE, MARKER_SIZE],
     iconAnchor: [MARKER_ANCHOR, MARKER_ANCHOR],
   });
 
-const offerIcon = createIcon("#059669", "🫴"); // open palm — giving/offering
-const needIcon = createIcon("#d97706", "✋");  // raised hand — asking for help
-const eventIcon = createIcon("#7c3aed", "📅"); // calendar — event
+// Open/giving hand (🫴) — offer service
+const offerSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M11 12h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 14"/><path d="m7 18 1.6-1.4A2 2 0 0 1 9.9 16H14a2 2 0 0 0 2-2 2 2 0 0 0 2-2 2 2 0 0 0 .3-3.7V5a2 2 0 0 0-4 0v5"/><path d="m3 14 3 3"/></svg>`;
+// Raised hand (✋) — need service
+const needSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>`;
+// Calendar (📅) — forum event
+const eventSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+
+const offerIcon = createIcon("#059669", offerSvg);
+const needIcon  = createIcon("#d97706", needSvg);
+const eventIcon = createIcon("#7c3aed", eventSvg);
 
 export const DISTANCE_OPTIONS_KM = [5, 10, 25, 50, 100] as const;
 const SERVICE_TYPE_OPTIONS = ["all", "offer", "need"] as const;

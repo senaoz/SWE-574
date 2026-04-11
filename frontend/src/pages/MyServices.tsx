@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Tabs, Flex, Spinner } from "@radix-ui/themes";
-import { Service, JoinRequest, Transaction, TimeBankResponse } from "@/types";
+import { Service, Transaction, TimeBankResponse } from "@/types";
 import {
   servicesApi,
   joinRequestsApi,
@@ -51,37 +51,111 @@ export function MyServices({
 }: MyServicesProps = {}) {
   const navigate = useNavigate();
   const { currentUserId } = useUser();
-  const [services, setServices] = useState<Service[]>([]);
-  const [applicationServices, setApplicationServices] = useState<Service[]>([]); // Services for approved applications
-  const [requests, setRequests] = useState<JoinRequest[]>([]);
-  const [serviceTransactions, setServiceTransactions] = useState<
-    Record<string, Transaction[]>
-  >({});
-  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] =
     useState<MyServicesTabValue>("applications");
   const isManagedByParent = activeTabProp !== undefined;
   const effectiveTab = isManagedByParent ? activeTabProp : activeTab;
-  const [serviceTitles, setServiceTitles] = useState<Record<string, string>>(
-    {},
-  );
-
-  const [timebankData, setTimebankData] = useState<TimeBankResponse | null>(
-    null,
-  );
-  const [timebankLoading, setTimebankLoading] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: savedServicesData } = useQuery({
     queryKey: ["saved-services"],
     queryFn: () => servicesApi.getSavedServices(1, 50).then((res) => res.data),
     enabled: !!currentUserId,
+    staleTime: 2 * 60 * 1000,
   });
 
-  useEffect(() => {
-    fetchData();
-    fetchTimebankData();
-  }, []);
+  const { data: myServicesData, isLoading } = useQuery({
+    queryKey: ["my-services-data", currentUserId],
+    queryFn: async () => {
+      if (!currentUserId) throw new Error("User not authenticated");
+
+      const [servicesResponse, requestsResponse] = await Promise.all([
+        servicesApi.getServices({ user_id: currentUserId, page: 1, limit: 50 }),
+        joinRequestsApi.getMyRequests(1, 50),
+      ]);
+
+      const allServices = servicesResponse.data.services;
+      const allRequests = requestsResponse.data.requests;
+
+      // Fetch services for approved applications
+      const approvedRequests = allRequests.filter(
+        (req) => req.status === "approved",
+      );
+      const applicationServicesList = await Promise.all(
+        approvedRequests.map((req) =>
+          servicesApi.getService(req.service_id).then((r) => r.data).catch(() => null),
+        ),
+      ).then((results) => results.filter(Boolean) as Service[]);
+
+      // Fetch missing service titles
+      const requestsNeedingTitles = allRequests.filter(
+        (req) => !req.service?.title && req.service_id,
+      );
+      const fetchedTitles = await Promise.all(
+        requestsNeedingTitles.map((req) =>
+          servicesApi
+            .getService(req.service_id)
+            .then((r) => ({ serviceId: req.service_id, title: r.data.title }))
+            .catch(() => null),
+        ),
+      );
+      const serviceTitles: Record<string, string> = {};
+      fetchedTitles.forEach((r) => {
+        if (r) serviceTitles[r.serviceId] = r.title;
+      });
+
+      // Fetch transactions for in_progress/completed services
+      const servicesNeedingTransactions = [
+        ...allServices,
+        ...applicationServicesList,
+      ].filter(
+        (s, i, arr) =>
+          arr.findIndex((x) => x._id === s._id) === i &&
+          (s.status === "in_progress" || s.status === "completed"),
+      );
+      const transactionResults = await Promise.all(
+        servicesNeedingTransactions.map((s) =>
+          transactionsApi
+            .getServiceTransactions(s._id, 1, 50)
+            .then((r) => ({ id: s._id, txns: r.data.transactions }))
+            .catch(() => ({ id: s._id, txns: [] as Transaction[] })),
+        ),
+      );
+      const serviceTransactions: Record<string, Transaction[]> = {};
+      transactionResults.forEach(({ id, txns }) => {
+        serviceTransactions[id] = txns;
+      });
+
+      return {
+        services: allServices,
+        requests: allRequests,
+        applicationServices: applicationServicesList,
+        serviceTitles,
+        serviceTransactions,
+      };
+    },
+    enabled: !!currentUserId,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const { data: timebankResponse, isLoading: timebankLoading } = useQuery({
+    queryKey: ["my-timebank"],
+    queryFn: () => usersApi.getTimeBank().then((r) => r.data as TimeBankResponse),
+    enabled: !!currentUserId,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const services = myServicesData?.services ?? [];
+  const requests = myServicesData?.requests ?? [];
+  const applicationServices = myServicesData?.applicationServices ?? [];
+  const serviceTitles = myServicesData?.serviceTitles ?? {};
+  const serviceTransactions = myServicesData?.serviceTransactions ?? {};
+  const timebankData = timebankResponse ?? null;
+
+  const invalidateMyData = () => {
+    queryClient.invalidateQueries({ queryKey: ["my-services-data", currentUserId] });
+    queryClient.invalidateQueries({ queryKey: ["my-timebank"] });
+  };
 
   useEffect(() => {
     if (!onDataLoad || isLoading) return;
@@ -89,7 +163,7 @@ export function MyServices({
       requests: requests.length,
       transactions: 0,
       saved: savedServicesData?.services?.length ?? 0,
-      services: services?.length ?? 0,
+      services: services.length,
       timebank: timebankData?.transactions?.length ?? 0,
       applications: applicationServices.length,
     });
@@ -98,153 +172,10 @@ export function MyServices({
     isLoading,
     requests.length,
     savedServicesData?.services?.length,
-    services?.length,
+    services.length,
     applicationServices.length,
     timebankData?.transactions?.length,
   ]);
-
-  const fetchTimebankData = async () => {
-    try {
-      setTimebankLoading(true);
-      const response = await usersApi.getTimeBank();
-      setTimebankData(response.data);
-    } catch (error) {
-      console.error("Error fetching TimeBank data:", error);
-    } finally {
-      setTimebankLoading(false);
-    }
-  };
-
-  const fetchData = async () => {
-    try {
-      setIsLoading(true);
-
-      if (!currentUserId) {
-        throw new Error("User not authenticated");
-      }
-
-      // Fetch user's services
-      const servicesResponse = await servicesApi.getServices({
-        user_id: currentUserId,
-        page: 1,
-        limit: 50,
-      });
-      setServices(servicesResponse.data.services);
-
-      // Fetch user's join requests
-      const requestsResponse = await joinRequestsApi.getMyRequests(1, 50);
-      setRequests(requestsResponse.data.requests);
-
-      // Fetch services for approved applications
-      const approvedRequests = requestsResponse.data.requests.filter(
-        (req) => req.status === "approved",
-      );
-      const applicationServicesList: Service[] = [];
-      for (const request of approvedRequests) {
-        try {
-          const serviceResponse = await servicesApi.getService(
-            request.service_id,
-          );
-          applicationServicesList.push(serviceResponse.data);
-        } catch (error) {
-          console.error(
-            `Error fetching service ${request.service_id} for application:`,
-            error,
-          );
-        }
-      }
-      setApplicationServices(applicationServicesList);
-
-      // Fetch missing service titles
-      const requestsNeedingTitles = requestsResponse.data.requests.filter(
-        (request) =>
-          !request.service?.title &&
-          request.service_id &&
-          !serviceTitles[request.service_id],
-      );
-
-      const fetchPromises = requestsNeedingTitles.map(async (request) => {
-        try {
-          const serviceResponse = await servicesApi.getService(
-            request.service_id,
-          );
-          return {
-            serviceId: request.service_id,
-            title: serviceResponse.data.title,
-          };
-        } catch (error) {
-          console.error(`Error fetching service ${request.service_id}:`, error);
-          return null;
-        }
-      });
-
-      const fetchedTitles = await Promise.all(fetchPromises);
-      const missingTitles: Record<string, string> = {};
-      fetchedTitles.forEach((result) => {
-        if (result) {
-          missingTitles[result.serviceId] = result.title;
-        }
-      });
-
-      if (Object.keys(missingTitles).length > 0) {
-        setServiceTitles((prev) => ({ ...prev, ...missingTitles }));
-      }
-
-      // Fetch transactions for each service (user's own services)
-      const serviceTransactionsMap: Record<string, Transaction[]> = {};
-      for (const service of servicesResponse.data.services) {
-        if (
-          service.status === "in_progress" ||
-          service.status === "completed"
-        ) {
-          try {
-            const serviceTransactionsResponse =
-              await transactionsApi.getServiceTransactions(service._id, 1, 50);
-            serviceTransactionsMap[service._id] =
-              serviceTransactionsResponse.data.transactions;
-          } catch (error) {
-            console.error(
-              `Error fetching transactions for service ${service._id}:`,
-              error,
-            );
-            serviceTransactionsMap[service._id] = [];
-          }
-        }
-      }
-      // Fetch transactions for application services (approved applications)
-      for (const service of applicationServicesList) {
-        if (
-          (service.status === "in_progress" ||
-            service.status === "completed") &&
-          !serviceTransactionsMap[service._id]
-        ) {
-          try {
-            const serviceTransactionsResponse =
-              await transactionsApi.getServiceTransactions(service._id, 1, 50);
-            serviceTransactionsMap[service._id] =
-              serviceTransactionsResponse.data.transactions;
-          } catch (error) {
-            console.error(
-              `Error fetching transactions for application service ${service._id}:`,
-              error,
-            );
-            serviceTransactionsMap[service._id] = [];
-          }
-        }
-      }
-      setServiceTransactions(serviceTransactionsMap);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      if (
-        error instanceof Error &&
-        error.message === "User not authenticated"
-      ) {
-        window.location.href = "/?login=true";
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
 
   const handleCancelTransaction = async (transactionId: string) => {
@@ -252,10 +183,21 @@ export function MyServices({
       await transactionsApi.updateTransaction(transactionId, {
         status: "cancelled",
       });
-      // Refresh data
-      await fetchData();
+      invalidateMyData();
     } catch (error) {
       console.error("Error cancelling transaction:", error);
+    }
+  };
+
+  const handleCreateGroupChat = async (serviceId: string) => {
+    try {
+      const { data } = await chatApi.createServiceGroupChatRoom(serviceId);
+      const roomId = data?._id;
+      navigate(
+        roomId ? `/profile?tab=chat&room_id=${roomId}` : "/profile?tab=chat",
+      );
+    } catch (error) {
+      console.error("Error creating group chat:", error);
     }
   };
 
@@ -328,8 +270,7 @@ export function MyServices({
           await servicesApi.updateService(serviceId, {
             status: "in_progress",
           } as any);
-          // alert("Service status updated to 'In Progress'.");
-          await fetchData();
+          invalidateMyData();
         } catch (error: any) {
           console.error("Error setting service to in progress:", error);
           alert(
@@ -351,8 +292,7 @@ export function MyServices({
       onConfirm: async () => {
         try {
           await servicesApi.deleteService(serviceId);
-          // alert("Service deleted successfully.");
-          await fetchData();
+          invalidateMyData();
         } catch (error: any) {
           console.error("Error deleting service:", error);
           alert(
@@ -373,8 +313,7 @@ export function MyServices({
       onConfirm: async () => {
         try {
           await servicesApi.cancelService(serviceId);
-          // alert("Service cancelled successfully.");
-          await fetchData();
+          invalidateMyData();
         } catch (error: any) {
           console.error("Error cancelling service:", error);
           alert(
@@ -393,6 +332,7 @@ export function MyServices({
       score: number;
       comment?: string;
       tags: string[];
+      image_urls?: string[];
     },
   ) => {
     try {
@@ -413,13 +353,14 @@ export function MyServices({
           score: ratingData.score,
           comment: ratingData.comment,
           tags: ratingData.tags,
+          image_urls: ratingData.image_urls,
         });
       } catch (ratingError: any) {
         console.error("Rating submission failed:", ratingError);
       }
     }
 
-    await fetchData();
+    invalidateMyData();
   };
 
   if (isLoading) {
@@ -451,9 +392,10 @@ export function MyServices({
 onDeleteService={handleDeleteService}
             onCancelService={handleCancelService}
             onStartChat={handleStartChat}
+            onCreateGroupChat={handleCreateGroupChat}
             onCancelTransaction={handleCancelTransaction}
             onConfirmTransactionCompletion={handleConfirmTransactionCompletion}
-            onRequestUpdate={fetchData}
+            onRequestUpdate={invalidateMyData}
             formatDate={formatDateShort}
             statusFilter={statusFilter}
             highlightServiceId={highlightServiceId}

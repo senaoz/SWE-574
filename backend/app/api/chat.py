@@ -98,6 +98,23 @@ async def update_chat_room(
             detail=str(e)
         )
 
+@router.post("/rooms/service/{service_id}", response_model=ChatRoomResponse)
+async def create_service_group_chat_room(
+    service_id: str,
+    current_user: UserResponse = Depends(get_current_user),
+    db=Depends(get_database)
+):
+    """Create a group chat room for an active service (provider only)"""
+    chat_service = ChatService(db)
+    try:
+        room = await chat_service.create_room_for_service(service_id, str(current_user.id))
+        return room
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
 @router.post("/rooms/transaction/{transaction_id}", response_model=ChatRoomResponse)
 async def create_transaction_chat_room(
     transaction_id: str,

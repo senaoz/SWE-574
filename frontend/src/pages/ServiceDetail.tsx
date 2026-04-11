@@ -792,7 +792,11 @@ export function ServiceDetail() {
               <Button
                 color="green"
                 size="3"
-                disabled={service.status !== "active"}
+                onClick={() =>
+                  navigate(
+                    `/profile?tab=services&status=${service.status}&highlight=${id}`,
+                  )
+                }
               >
                 You're serving
               </Button>

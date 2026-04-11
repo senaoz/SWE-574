@@ -32,13 +32,8 @@ import {
   SocialLinks,
   RatingDetailed,
 } from "@/types";
-import { tagToLabel } from "@/components/ui/ConfirmCompletionModal";
-import {
-  usersApi,
-  ratingsApi,
-  uploadApi,
-  getImageUrl,
-} from "@/services/api";
+import { usersApi, ratingsApi, uploadApi, getImageUrl } from "@/services/api";
+import { ReviewCard } from "@/components/ui/ReviewCard";
 import { useUser } from "@/contexts/UserContext";
 import { MyServices } from "./MyServices";
 import { BadgeDisplay } from "@/components/ui/BadgeDisplay";
@@ -139,7 +134,17 @@ export function Profile() {
     ? profileTabFromUrl
     : "profile";
 
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(
+    () => new Set([profileTab]),
+  );
+
   const setProfileTab = (tab: string) => {
+    setVisitedTabs((prev) => {
+      if (prev.has(tab)) return prev;
+      const next = new Set(prev);
+      next.add(tab);
+      return next;
+    });
     setSearchParams((prev) => {
       const p = new URLSearchParams(prev);
       p.set("tab", tab);
@@ -1200,107 +1205,24 @@ export function Profile() {
 
               {/* Reviews Section */}
               <div className="space-y-4">
-                <Heading size="5">My Reviews</Heading>
+                <Heading size="5">Services which you have reviewed</Heading>
                 {detailedRatingsLoading ? (
                   <Card className="p-6 text-center">
-                    <Text color="gray">Loading reviews...</Text>
+                    <Text color="gray">
+                      Loading services which you have reviewed...
+                    </Text>
                   </Card>
                 ) : detailedRatings.length > 0 ? (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {detailedRatings.map((rating) => {
-                      const raterLabel = rating.rater
-                        ? rating.rater.full_name || `@${rating.rater.username}`
-                        : "Anonymous";
-                      const serviceTitle = rating.service?.title || null;
-                      const serviceId = rating.service?.id;
-                      const dateLabel = new Date(
-                        rating.created_at,
-                      ).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      });
-                      const hours = rating.transaction?.timebank_hours;
-
-                      if (!serviceTitle) {
-                        return null;
-                      }
-
-                      return (
-                        <Card key={rating._id} className="p-4">
-                          <Flex direction="column" gap="3">
-                            <Flex
-                              justify="between"
-                              align="center"
-                              gap="3"
-                              wrap="wrap"
-                            >
-                              <Flex align="center" gap="2">
-                                <RatingStars
-                                  value={rating.score}
-                                  readonly
-                                  size={16}
-                                />
-                                <Text size="1" color="gray">
-                                  {dateLabel}
-                                </Text>
-                              </Flex>
-                              <Text size="1" color="gray">
-                                from {raterLabel}
-                              </Text>
-                            </Flex>
-
-                            <Flex gap="2" align="center" wrap="wrap">
-                              {serviceId ? (
-                                <Button
-                                  className="font-bold"
-                                  variant="ghost"
-                                  size="2"
-                                  onClick={() =>
-                                    navigate(`/service/${serviceId}`)
-                                  }
-                                >
-                                  {serviceTitle}
-                                </Button>
-                              ) : (
-                                <Text size="3" className="font-bold">
-                                  {serviceTitle}
-                                </Text>
-                              )}
-                              {typeof hours === "number" && (
-                                <Badge color="gray" variant="soft" size="1">
-                                  {hours} hour(s)
-                                </Badge>
-                              )}
-                            </Flex>
-
-                            {rating.tags && rating.tags.length > 0 && (
-                              <Flex wrap="wrap" gap="1">
-                                {rating.tags.map((tag) => (
-                                  <InterestChip
-                                    key={tag}
-                                    name={tagToLabel(tag)}
-                                    selected
-                                    size="sm"
-                                    showIcon={false}
-                                  />
-                                ))}
-                              </Flex>
-                            )}
-
-                            {rating.comment && (
-                              <Text size="2" color="gray">
-                                "{rating.comment}"
-                              </Text>
-                            )}
-                          </Flex>
-                        </Card>
-                      );
-                    })}
+                    {detailedRatings.map((rating) => (
+                      <ReviewCard key={rating._id} rating={rating} />
+                    ))}
                   </div>
                 ) : (
                   <Card className="p-6 text-center">
-                    <Text color="gray">No reviews yet</Text>
+                    <Text color="gray">
+                      No services which you have reviewed yet
+                    </Text>
                   </Card>
                 )}
               </div>
@@ -1309,35 +1231,43 @@ export function Profile() {
 
           {/* ── My Services Tab ── */}
           <Tabs.Content value="services">
-            <MyServices
-              activeTab="services"
-              onDataLoad={setMyservicesCounts}
-              statusFilter={
-                profileTab === "services" ? profileStatusFromUrl : undefined
-              }
-              highlightServiceId={
-                profileTab === "services" ? highlightServiceId : undefined
-              }
-            />
+            {visitedTabs.has("services") && (
+              <MyServices
+                activeTab="services"
+                onDataLoad={setMyservicesCounts}
+                statusFilter={
+                  profileTab === "services" ? profileStatusFromUrl : undefined
+                }
+                highlightServiceId={
+                  profileTab === "services" ? highlightServiceId : undefined
+                }
+              />
+            )}
           </Tabs.Content>
 
           <Tabs.Content value="applications">
-            <MyServices
-              activeTab="applications"
-              onDataLoad={setMyservicesCounts}
-            />
+            {visitedTabs.has("applications") && (
+              <MyServices
+                activeTab="applications"
+                onDataLoad={setMyservicesCounts}
+              />
+            )}
           </Tabs.Content>
 
           <Tabs.Content value="timebank">
-            <MyServices activeTab="timebank" onDataLoad={setMyservicesCounts} />
+            {visitedTabs.has("timebank") && (
+              <MyServices activeTab="timebank" onDataLoad={setMyservicesCounts} />
+            )}
           </Tabs.Content>
 
           <Tabs.Content value="saved">
-            <MyServices activeTab="saved" onDataLoad={setMyservicesCounts} />
+            {visitedTabs.has("saved") && (
+              <MyServices activeTab="saved" onDataLoad={setMyservicesCounts} />
+            )}
           </Tabs.Content>
 
           <Tabs.Content value="chat">
-            <Chat />
+            {visitedTabs.has("chat") && <Chat />}
           </Tabs.Content>
         </Box>
       </Tabs.Root>
