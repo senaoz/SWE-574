@@ -17,7 +17,7 @@
 | Resource | URL |
 |----------|-----|
 | Live Application | https://swe.gnahh5.easypanel.host/ |
-| Pre-Release | https://github.com/senaoz/SWE-574/releases/tag/customer-milestone-1 |
+| Pre-Release | https://github.com/senaoz/SWE-574/releases/tag/customer-milestone-2 |
 | Backend API Docs | https://backend-swe.gnahh5.easypanel.host/docs |
 | GitHub Actions | https://github.com/senaoz/SWE-574/actions |
 
