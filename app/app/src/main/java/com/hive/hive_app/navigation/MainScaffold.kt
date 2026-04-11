@@ -1,5 +1,7 @@
 package com.hive.hive_app.navigation
 
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.activity.compose.BackHandler
@@ -18,6 +20,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.hive.hive_app.ui.main.ActiveItemsScreen
 import com.hive.hive_app.ui.main.ChatScreen
@@ -241,14 +245,23 @@ fun MainScaffold(
         }
     ) {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+            val layoutDirection = LocalLayoutDirection.current
             when (currentDestination) {
                 MainDestinations.DISCOVER -> DiscoverScreen(
                     Modifier.padding(innerPadding),
                     onStartChat = onStartChat,
                     onOpenUserProfile = onOpenUserProfile
                 )
+                // Map draws under the status bar; top inset is handled inside MapScreen (white bar + insets).
                 MainDestinations.MAP -> MapScreen(
-                    Modifier.padding(innerPadding),
+                    Modifier
+                        .fillMaxSize()
+                        .padding(
+                            start = innerPadding.calculateStartPadding(layoutDirection),
+                            end = innerPadding.calculateEndPadding(layoutDirection),
+                            bottom = innerPadding.calculateBottomPadding(),
+                            top = 0.dp
+                        ),
                     onStartChat = onStartChat,
                     onOpenUserProfile = onOpenUserProfile
                 )
