@@ -113,23 +113,20 @@ export function OfferListingCard({
     <Flex
       align="center"
       gap="1"
-      className={`text-sm opacity-70 ${isRecommended ? "shrink-0 whitespace-nowrap" : ""}`}
+      className="text-sm opacity-70 shrink-0 whitespace-nowrap ml-auto"
     >
-      {badgeSummary?.last_earned_badge && (
-        <CustomBadge badge={badgeSummary.last_earned_badge} size={14} />
-      )}
+      <Text size="1" className="whitespace-nowrap max-w-[120px] truncate">
+        {ownerLabel}
+      </Text>
       {averageRating != null && (
         <Flex align="center" gap="1">
           <StarFilledIcon className="w-3 h-3 text-yellow-500" />
           <Text size="1">{averageRating.toFixed(1)}</Text>
         </Flex>
       )}
-      <Text
-        size="1"
-        className={isRecommended ? "whitespace-nowrap" : "max-w-[100px] truncate"}
-      >
-        {ownerLabel}
-      </Text>
+      {badgeSummary?.last_earned_badge && (
+        <CustomBadge badge={badgeSummary.last_earned_badge} size={14} />
+      )}
     </Flex>
   );
 
@@ -148,7 +145,7 @@ export function OfferListingCard({
             Recommended
           </Text>
         )}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 w-full">
           <Flex align="center" gap="1" wrap="wrap" className="min-w-0">
             <StatusBadge status={service.status} size="1" variant="soft" />
             <Badge
@@ -265,10 +262,44 @@ export function OfferListingCard({
         </Flex>
       )}
 
-      <Text size="1" className="opacity-60">
-        Posted {formatRelativeTime(service.created_at)}
-        {service.deadline && ` | Deadline: ${formatRelativeTime(service.deadline)}`}
-      </Text>
+      <div className="flex items-center justify-between">
+        <Text size="1" className="opacity-60">
+          Posted {formatRelativeTime(service.created_at)}
+          {service.deadline && ` | Deadline: ${formatRelativeTime(service.deadline)}`}
+        </Text>
+        {currentUserId && (
+          <Badge
+            color={isSaved ? "red" : "gray"}
+            variant="soft"
+            className={`inline-flex items-center gap-1 ${
+              !isSaving && !isUnsaving ? "cursor-pointer" : ""
+            }`}
+            onClick={handleSavedBadgeClick}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                void handleSavedBadgeClick(event);
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            title={isSaved ? "Remove from saved items" : "Save this item"}
+            aria-disabled={isSaving || isUnsaving}
+          >
+            {isSaved ? (
+              <HeartFilledIcon className="h-3 w-3" />
+            ) : (
+              <HeartIcon className="h-3 w-3" />
+            )}
+            {isSaving
+              ? "Saving..."
+              : isUnsaving
+                ? "Removing..."
+                : isSaved
+                  ? "Saved"
+                  : "Save"}
+          </Badge>
+        )}
+      </div>
     </Card>
   );
 }
