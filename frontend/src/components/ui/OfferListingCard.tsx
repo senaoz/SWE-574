@@ -9,11 +9,12 @@ import {
   HeartFilledIcon,
   StarFilledIcon,
 } from "@radix-ui/react-icons";
+import { CalendarIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { usersApi, ratingsApi } from "@/services/api";
 import { StatusBadge } from "./StatusBadge";
 import { CustomBadge, getHighestPriorityBadge } from "./BadgeDisplay";
-import { formatRelativeTime, formatDurationShort } from "@/utils/utils";
+import { formatRelativeTime, formatDurationShort, formatDateShort } from "@/utils/utils";
 import { useSavedServiceIds } from "@/hooks/useSavedServiceIds";
 
 interface OfferListingCardProps {
@@ -203,9 +204,35 @@ export function OfferListingCard({
       )}
 
       {/* Details row */}
-      <Flex align="center" gap="1" className="text-sm">
-        <ClockIcon className="w-4 h-4" />
-        <Text>{formatDurationShort(service.estimated_duration)}</Text>
+      <Flex align="center" gap="4" className="text-sm">
+        <Flex align="center" gap="1">
+          <ClockIcon className="w-5 h-5 text-gray-500" />
+          <Text>{formatDurationShort(service.estimated_duration)}</Text>
+        </Flex>
+        {service.scheduling_type === "specific" && service.specific_date && (
+          <Flex align="center" gap="1">
+            <CalendarIcon className="w-5 h-5 text-blue-500" />
+            <Text>
+              {formatDateShort(service.specific_date)}
+              {service.specific_time && ` · ${service.specific_time}`}
+            </Text>
+          </Flex>
+        )}
+        {service.scheduling_type === "recurring" && service.recurring_pattern && (
+          <Flex align="center" gap="1">
+            <CalendarIcon className="w-5 h-5 text-blue-500" />
+            <Text>
+              {service.recurring_pattern.days.join(", ")}
+              {service.recurring_pattern.time && ` · ${service.recurring_pattern.time}`}
+            </Text>
+          </Flex>
+        )}
+        {service.scheduling_type === "open" && service.open_availability && (
+          <Flex align="center" gap="1">
+            <CalendarIcon className="w-5 h-5 text-blue-500" />
+            <Text className="truncate max-w-[200px]">{service.open_availability}</Text>
+          </Flex>
+        )}
       </Flex>
       <Flex align="center" gap="1" className="text-sm">
         <Crosshair1Icon className="w-4 h-4 flex-shrink-0" />
