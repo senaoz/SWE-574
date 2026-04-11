@@ -11,6 +11,8 @@ import L from "leaflet";
 import { Service, TagEntity, ForumEvent } from "@/types";
 import { calculateDistance } from "@/utils/utils";
 import { usersApi, ratingsApi } from "@/services/api";
+import { getHighestPriorityBadge, CustomBadge } from "@/components/ui/BadgeDisplay";
+import { Badge as BadgeType } from "@/types";
 import {
   Badge,
   Button,
@@ -471,27 +473,19 @@ function ServicePopupContent({
 }) {
   const navigate = useNavigate();
   const [provider, setProvider] = useState<{ username: string; full_name?: string } | null>(null);
-  const [averageRating, setAverageRating] = useState<number | null>(null);
-  const [topRatingTag, setTopRatingTag] = useState<string | null>(null);
+  const [topBadge, setTopBadge] = useState<BadgeType | null>(null);
 
   useEffect(() => {
     if (!service.user_id) return;
     Promise.all([
       usersApi.getUserById(service.user_id).catch(() => null),
-      ratingsApi.getUserRatings(service.user_id, 1, 10).catch(() => null),
-    ]).then(([userRes, ratingsRes]) => {
+      usersApi.getUserBadges(service.user_id).catch(() => null),
+    ]).then(([userRes, badgesRes]) => {
       if (userRes) {
         setProvider({ username: userRes.data.username, full_name: userRes.data.full_name });
       }
-      if (ratingsRes) {
-        setAverageRating(ratingsRes.data.average_score ?? null);
-        const allTags = ratingsRes.data.ratings.flatMap((r) => r.tags || []);
-        if (allTags.length > 0) {
-          const tagCount: Record<string, number> = {};
-          allTags.forEach((t) => { tagCount[t] = (tagCount[t] || 0) + 1; });
-          const sorted = Object.entries(tagCount).sort((a, b) => b[1] - a[1]);
-          setTopRatingTag(sorted[0][0]);
-        }
+      if (badgesRes) {
+        setTopBadge(getHighestPriorityBadge(badgesRes.data.badges));
       }
     });
   }, [service.user_id]);
@@ -512,9 +506,9 @@ function ServicePopupContent({
 
   return (
     <div className="text-xs space-y-2 min-w-[280px] max-w-[300px]">
-      {/* Top row: type/duration badges (left) + provider info (right) */}
+      {/* Top row: type + duration + tags (left) | provider (right) */}
       <div className="flex items-start justify-between gap-2">
-        <div className="flex flex-wrap gap-1 items-center">
+        <div className="flex flex-wrap gap-1 items-center flex-1">
           <Badge
             color={service.service_type === "offer" ? "green" : "red"}
             variant="soft"
@@ -525,28 +519,33 @@ function ServicePopupContent({
           <Badge color="gray" variant="soft" size="1">
             {formatDuration(service.estimated_duration)}
           </Badge>
+          {service.tags?.slice(0, 3).map((tag) => {
+            const label = typeof tag === "string" ? tag : (tag as TagEntity).label;
+            return (
+              <Badge key={label} color="indigo" variant="soft" size="1">
+                {label}
+              </Badge>
+            );
+          })}
+          {service.tags && service.tags.length > 3 && (
+            <Badge color="gray" variant="soft" size="1">
+              +{service.tags.length - 3}
+            </Badge>
+          )}
         </div>
 
         {/* Provider info — top right */}
         {provider && (
-          <div className="text-right flex-shrink-0 max-w-[130px]">
+          <div className="text-right flex-shrink-0 max-w-[110px]">
             <button
               className="text-xs font-medium text-blue-600 hover:underline leading-tight truncate block w-full text-right"
               onClick={() => navigate(`/profile/${service.user_id}`)}
             >
               {provider.full_name || provider.username}
             </button>
-            {averageRating !== null && (
-              <div className="flex items-center justify-end gap-0.5 mt-0.5">
-                <span className="text-yellow-500 text-xs">★</span>
-                <span className="text-gray-700">{averageRating.toFixed(1)}</span>
-              </div>
-            )}
-            {topRatingTag && (
-              <div className="mt-0.5">
-                <Badge color="blue" variant="soft" size="1">
-                  {topRatingTag}
-                </Badge>
+            {topBadge && (
+              <div className="flex justify-end mt-0.5">
+                <CustomBadge badge={topBadge} size={16} />
               </div>
             )}
           </div>
@@ -561,25 +560,6 @@ function ServicePopupContent({
         <div className="flex items-center gap-1 text-gray-500">
           <span className="font-medium">{dateLabel}:</span>
           <span>{displayDate}</span>
-        </div>
-      )}
-
-      {/* Tags */}
-      {service.tags && service.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {service.tags.slice(0, 4).map((tag) => {
-            const label = typeof tag === "string" ? tag : (tag as TagEntity).label;
-            return (
-              <Badge key={label} color="indigo" variant="soft" size="1">
-                {label}
-              </Badge>
-            );
-          })}
-          {service.tags.length > 4 && (
-            <Badge color="gray" variant="soft" size="1">
-              +{service.tags.length - 4}
-            </Badge>
-          )}
         </div>
       )}
 
