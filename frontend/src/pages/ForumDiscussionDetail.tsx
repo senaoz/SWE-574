@@ -6,7 +6,6 @@ import {
   Flex,
   Avatar,
   Button,
-  TextArea,
   Heading,
   Dialog,
   TextField,
@@ -14,19 +13,18 @@ import {
 import { Form } from "radix-ui";
 import {
   ArrowLeftIcon,
-  PaperPlaneIcon,
   Pencil1Icon,
   TrashIcon,
 } from "@radix-ui/react-icons";
-import { MessageCircleIcon } from "lucide-react";
 import { forumApi, getImageUrl } from "@/services/api";
 import { useUser } from "@/App";
-import { ForumDiscussion, ForumComment, TagEntity } from "@/types";
+import { ForumDiscussion, TagEntity } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import { UpvoteButton } from "@/components/ui/UpvoteButton";
 import { MarkdownEditor } from "@/components/forms/MarkdownEditor";
 import { TagAutocomplete } from "@/components/forms/TagAutocomplete";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { CommentSection } from "@/components/ui/CommentSection";
 import ReactMarkdown from "react-markdown";
 
 function timeAgo(dateStr: string) {
@@ -48,9 +46,6 @@ export function ForumDiscussionDetail() {
   const navigate = useNavigate();
   const { currentUserId } = useUser();
   const [discussion, setDiscussion] = useState<ForumDiscussion | null>(null);
-  const [comments, setComments] = useState<ForumComment[]>([]);
-  const [newComment, setNewComment] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
@@ -62,12 +57,8 @@ export function ForumDiscussionDetail() {
     (async () => {
       setLoading(true);
       try {
-        const [dRes, cRes] = await Promise.all([
-          forumApi.getDiscussion(id),
-          forumApi.getComments("discussion", id),
-        ]);
+        const dRes = await forumApi.getDiscussion(id);
         setDiscussion(dRes.data);
-        setComments(cRes.data.comments);
       } catch {
         setDiscussion(null);
       } finally {
@@ -75,24 +66,6 @@ export function ForumDiscussionDetail() {
       }
     })();
   }, [id]);
-
-  const handlePostComment = async () => {
-    if (!newComment.trim() || !id) return;
-    setSubmitting(true);
-    try {
-      const res = await forumApi.createComment({
-        target_type: "discussion",
-        target_id: id,
-        content: newComment.trim(),
-      });
-      setComments((prev) => [res.data, ...prev]);
-      setNewComment("");
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   const handleDelete = async () => {
     if (!id) return;
@@ -211,87 +184,48 @@ export function ForumDiscussionDetail() {
         </Flex>
       </Card>
 
-      {/* Comments section */}
-      <Flex align="center" gap="2" className="mb-4">
-        <MessageCircleIcon className="w-5 h-5" />
-        <Text size="4" weight="bold">
-          Comments ({comments.length})
-        </Text>
-      </Flex>
-
-      {/* New comment */}
-      <div>
-        <TextArea
-          placeholder="Write a comment..."
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          rows={3}
-          className="mb-2 p-3 rounded-lg"
-          variant="soft"
-          size="2"
-        />
-        <Flex justify="end">
-          <Button
-            onClick={handlePostComment}
-            disabled={!newComment.trim() || submitting}
-            size="2"
-          >
-            <PaperPlaneIcon className="w-4 h-4 mr-1" />
-            {submitting ? "Posting..." : "Post"}
-          </Button>
-        </Flex>
-      </div>
-
-      {/* Comment list */}
-      <div className="space-y-2">
-        {comments.map((c) => (
-          <div key={c._id} className="flex gap-3 pt-2">
-            <Avatar
-              size="2"
-              src={getImageUrl(c.user?.profile_picture)}
-              fallback={c.user?.full_name?.[0] || c.user?.username?.[0] || "?"}
-            />
-            <div className="flex-1">
-              <Flex gap="2" align="center" className="mb-1">
-                <Text size="2" weight="bold">
-                  {c.user?.full_name || c.user?.username || "Unknown"}
-                </Text>
-                <Text size="1" color="gray">
-                  {timeAgo(c.created_at)}
-                </Text>
-              </Flex>
-              <div className="prose-content">
-                <ReactMarkdown
-                  components={{
-                    a: ({ node: _node, ...props }) => (
-                      <a {...props} target="_blank" rel="noopener noreferrer" />
-                    ),
-                  }}
-                >
-                  {c.content}
-                </ReactMarkdown>
-              </div>
-            </div>
-            <div className="mt-1">
-              <UpvoteButton
-                count={c.upvote_count ?? 0}
-                upvoted={c.user_upvoted}
-                onUpvote={
-                  currentUserId
-                    ? () => forumApi.upvoteComment(c._id).then((r) => r.data)
-                    : undefined
-                }
-                disabled={!currentUserId}
-              />
-            </div>
+      <CommentSection
+        fetchComments={() =>
+          forumApi.getComments("discussion", id!).then((r) => r.data.comments)
+        }
+        postComment={(content, imageUrls) =>
+          forumApi
+            .createComment({
+              target_type: "discussion",
+              target_id: id!,
+              content,
+              ...(imageUrls ? { image_urls: imageUrls } : {}),
+            })
+            .then((r) => r.data)
+        }
+        placeholder="Write a comment..."
+        emptyMessage="No comments yet. Be the first!"
+        renderCommentContent={(comment) => (
+          <div className="prose-content">
+            <ReactMarkdown
+              components={{
+                a: ({ node: _node, ...props }) => (
+                  <a {...props} target="_blank" rel="noopener noreferrer" />
+                ),
+              }}
+            >
+              {comment.content}
+            </ReactMarkdown>
           </div>
-        ))}
-        {comments.length === 0 && (
-          <Text size="2" color="gray" className="text-center py-4">
-            No comments yet. Be the first!
-          </Text>
         )}
-      </div>
+        renderCommentActions={(comment) => (
+          <UpvoteButton
+            count={comment.upvote_count ?? 0}
+            upvoted={comment.user_upvoted}
+            onUpvote={
+              currentUserId
+                ? () => forumApi.upvoteComment(comment._id).then((r) => r.data)
+                : undefined
+            }
+            disabled={!currentUserId}
+          />
+        )}
+      />
 
       <EditDiscussionDialog
         open={showEdit}

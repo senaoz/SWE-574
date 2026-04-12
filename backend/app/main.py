@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
     await connect_to_mongo()
     # Ensure upload directories exist
     upload_dir = settings.upload_dir
-    for sub in ("profile", "services"):
+    for sub in ("profile", "services", "comments"):
         path = os.path.join(upload_dir, sub)
         os.makedirs(path, exist_ok=True)
     logger.info("Application startup complete")
@@ -66,7 +66,7 @@ app.include_router(notifications.router)
 # Ensure upload directory exists before mounting (StaticFiles requires it at init)
 upload_dir = settings.upload_dir
 os.makedirs(upload_dir, exist_ok=True)
-for sub in ("profile", "services"):
+for sub in ("profile", "services", "comments"):
     os.makedirs(os.path.join(upload_dir, sub), exist_ok=True)
 
 # Mount static files for uploaded images (must be after routes to avoid shadowing)

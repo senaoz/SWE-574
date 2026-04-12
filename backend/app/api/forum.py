@@ -106,12 +106,13 @@ async def list_events(
     tag: Optional[str] = None,
     q: Optional[str] = None,
     has_location: Optional[bool] = None,
+    sort_by: str = Query("event_at", pattern="^(event_at|upvote_count|created_at)$"),
     current_user: Optional[UserResponse] = Depends(get_optional_current_user),
     db=Depends(get_database),
 ):
     svc = _forum(db)
     user_id = str(current_user.id) if current_user else None
-    events, total = await svc.get_events(page, limit, tag, q, has_location=bool(has_location), user_id=user_id)
+    events, total = await svc.get_events(page, limit, tag, q, has_location=bool(has_location), user_id=user_id, sort_by=sort_by)
     return ForumEventListResponse(events=events, total=total, page=page, limit=limit)
 
 

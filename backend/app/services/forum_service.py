@@ -184,6 +184,7 @@ class ForumService:
         q: Optional[str] = None,
         has_location: bool = False,
         user_id: Optional[str] = None,
+        sort_by: str = "event_at",
     ) -> Tuple[List[ForumEventResponse], int]:
         query: dict = {}
         if tag:
@@ -199,7 +200,8 @@ class ForumService:
 
         total = await self.events.count_documents(query)
         skip = (page - 1) * limit
-        cursor = self.events.find(query).sort("event_at", -1).skip(skip).limit(limit)
+        sort_field = sort_by if sort_by in ("event_at", "upvote_count", "created_at") else "event_at"
+        cursor = self.events.find(query).sort(sort_field, -1).skip(skip).limit(limit)
 
         results = []
         async for doc in cursor:
@@ -372,6 +374,7 @@ class ForumService:
             "target_type": data.target_type,
             "target_id": target_id,
             "content": data.content,
+            "image_urls": data.image_urls or [],
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
         }
@@ -408,9 +411,12 @@ class ForumService:
         if str(existing["user_id"]) != user_id:
             raise ValueError("Not authorized to update this comment")
 
+        update_fields: dict = {"content": data.content, "updated_at": datetime.utcnow()}
+        if data.image_urls is not None:
+            update_fields["image_urls"] = data.image_urls
         await self.forum_comments.update_one(
             {"_id": ObjectId(comment_id)},
-            {"$set": {"content": data.content, "updated_at": datetime.utcnow()}},
+            {"$set": update_fields},
         )
         updated = await self.forum_comments.find_one({"_id": ObjectId(comment_id)})
         updated = await self._enrich_user(updated)

@@ -326,6 +326,7 @@ export interface Comment {
   user_id: string;
   service_id: string;
   content: string;
+  image_urls?: string[];
   created_at: string;
   updated_at: string;
   user?: User;
@@ -341,6 +342,7 @@ export interface CommentListResponse {
 export interface CommentForm {
   content: string;
   service_id: string;
+  image_urls?: string[];
 }
 
 export interface JoinRequest {
@@ -634,6 +636,7 @@ export interface ForumComment {
   target_type: 'discussion' | 'event';
   target_id: string;
   content: string;
+  image_urls?: string[];
   created_at: string;
   updated_at: string;
   user?: ForumAuthor;
