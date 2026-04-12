@@ -106,6 +106,16 @@ export const uploadApi = {
       }],
     });
   },
+  uploadCommentImage: (file: File): Promise<AxiosResponse<{ url: string }>> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/upload/comment-image', formData, {
+      transformRequest: [(data: unknown, headers?: Record<string, string>) => {
+        if (headers) delete headers['Content-Type'];
+        return data;
+      }],
+    });
+  },
 };
 
 // Auth API
@@ -411,10 +421,10 @@ export const forumApi = {
   getComments: (targetType: string, targetId: string, params?: { page?: number; limit?: number }): Promise<AxiosResponse<ForumCommentListResponse>> =>
     api.get('/forum/comments', { params: { target_type: targetType, target_id: targetId, ...params } }),
 
-  createComment: (data: { target_type: string; target_id: string; content: string }): Promise<AxiosResponse<ForumComment>> =>
+  createComment: (data: { target_type: string; target_id: string; content: string; image_urls?: string[] }): Promise<AxiosResponse<ForumComment>> =>
     api.post('/forum/comments', data),
 
-  updateComment: (id: string, data: { content: string }): Promise<AxiosResponse<ForumComment>> =>
+  updateComment: (id: string, data: { content: string; image_urls?: string[] }): Promise<AxiosResponse<ForumComment>> =>
     api.put(`/forum/comments/${id}`, data),
 
   deleteComment: (id: string): Promise<AxiosResponse<{ message: string }>> =>

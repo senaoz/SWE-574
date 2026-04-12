@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Card,
@@ -17,9 +17,10 @@ import {
   PaperPlaneIcon,
   Pencil1Icon,
   TrashIcon,
+  Cross2Icon,
 } from "@radix-ui/react-icons";
-import { MessageCircleIcon } from "lucide-react";
-import { forumApi, getImageUrl } from "@/services/api";
+import { MessageCircleIcon, ImageIcon } from "lucide-react";
+import { forumApi, getImageUrl, uploadApi } from "@/services/api";
 import { useUser } from "@/App";
 import { ForumDiscussion, ForumComment, TagEntity } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
@@ -54,6 +55,10 @@ export function ForumDiscussionDetail() {
   const [loading, setLoading] = useState(true);
   const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const [commentImages, setCommentImages] = useState<File[]>([]);
+  const [commentImagePreviews, setCommentImagePreviews] = useState<string[]>([]);
+  const [commentUploadError, setCommentUploadError] = useState<string | null>(null);
+  const commentFileInputRef = useRef<HTMLInputElement>(null);
 
   const isOwner = !!currentUserId && discussion?.user_id === currentUserId;
 
@@ -76,19 +81,51 @@ export function ForumDiscussionDetail() {
     })();
   }, [id]);
 
+  const handleCommentFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const remaining = 3 - commentImages.length;
+    const toAdd = files.slice(0, remaining);
+    setCommentImages((prev) => [...prev, ...toAdd]);
+    setCommentImagePreviews((prev) => [
+      ...prev,
+      ...toAdd.map((f) => URL.createObjectURL(f)),
+    ]);
+    setCommentUploadError(null);
+    if (commentFileInputRef.current) commentFileInputRef.current.value = "";
+  };
+
+  const handleRemoveCommentImage = (index: number) => {
+    URL.revokeObjectURL(commentImagePreviews[index]);
+    setCommentImages((prev) => prev.filter((_, i) => i !== index));
+    setCommentImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handlePostComment = async () => {
     if (!newComment.trim() || !id) return;
     setSubmitting(true);
+    setCommentUploadError(null);
     try {
+      let image_urls: string[] | undefined;
+      if (commentImages.length > 0) {
+        const uploads = await Promise.all(
+          commentImages.map((file) => uploadApi.uploadCommentImage(file))
+        );
+        image_urls = uploads.map((r) => r.data.url);
+      }
       const res = await forumApi.createComment({
         target_type: "discussion",
         target_id: id,
         content: newComment.trim(),
+        ...(image_urls ? { image_urls } : {}),
       });
       setComments((prev) => [res.data, ...prev]);
       setNewComment("");
+      commentImagePreviews.forEach((u) => URL.revokeObjectURL(u));
+      setCommentImages([]);
+      setCommentImagePreviews([]);
     } catch (e) {
       console.error(e);
+      setCommentUploadError("Failed to post comment. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -230,7 +267,59 @@ export function ForumDiscussionDetail() {
           variant="soft"
           size="2"
         />
-        <Flex justify="end">
+
+        {/* Image previews */}
+        {commentImagePreviews.length > 0 && (
+          <Flex gap="2" wrap="wrap" className="mb-2">
+            {commentImagePreviews.map((url, i) => (
+              <div key={i} className="relative inline-block">
+                <img
+                  src={url}
+                  alt={`preview ${i + 1}`}
+                  className="w-20 h-20 object-cover rounded border border-gray-200"
+                />
+                <button
+                  onClick={() => handleRemoveCommentImage(i)}
+                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs leading-none"
+                  aria-label="Remove image"
+                >
+                  <Cross2Icon width={8} height={8} />
+                </button>
+              </div>
+            ))}
+          </Flex>
+        )}
+
+        {commentUploadError && (
+          <Text size="1" color="red" className="mb-2">
+            {commentUploadError}
+          </Text>
+        )}
+
+        <Flex justify="between" align="center">
+          <Flex align="center" gap="2">
+            <input
+              ref={commentFileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              multiple
+              className="hidden"
+              onChange={handleCommentFileChange}
+            />
+            <Button
+              variant="ghost"
+              size="1"
+              color="gray"
+              onClick={() => commentFileInputRef.current?.click()}
+              disabled={commentImages.length >= 3}
+              title={commentImages.length >= 3 ? "Max 3 images" : "Attach images"}
+            >
+              <ImageIcon className="w-4 h-4" />
+              {commentImages.length > 0 && (
+                <Text size="1" color="gray">{commentImages.length}/3</Text>
+              )}
+            </Button>
+          </Flex>
           <Button
             onClick={handlePostComment}
             disabled={!newComment.trim() || submitting}
@@ -271,6 +360,19 @@ export function ForumDiscussionDetail() {
                   {c.content}
                 </ReactMarkdown>
               </div>
+              {c.image_urls && c.image_urls.length > 0 && (
+                <Flex gap="2" wrap="wrap" className="mt-2">
+                  {c.image_urls.map((url, i) => (
+                    <a key={i} href={getImageUrl(url)} target="_blank" rel="noopener noreferrer">
+                      <img
+                        src={getImageUrl(url)}
+                        alt={`comment image ${i + 1}`}
+                        className="w-24 h-24 object-cover rounded border border-gray-200 hover:opacity-90 transition-opacity"
+                      />
+                    </a>
+                  ))}
+                </Flex>
+              )}
             </div>
             <div className="mt-1">
               <UpvoteButton

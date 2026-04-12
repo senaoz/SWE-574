@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Text,
   Flex,
@@ -8,11 +8,13 @@ import {
   Badge,
 } from "@radix-ui/themes";
 import { Comment, Service } from "@/types";
-import { PaperPlaneIcon } from "@radix-ui/react-icons";
-import { commentsApi, getImageUrl, servicesApi } from "@/services/api";
+import { PaperPlaneIcon, Cross2Icon } from "@radix-ui/react-icons";
+import { commentsApi, getImageUrl, servicesApi, uploadApi } from "@/services/api";
 import { useNavigate } from "react-router-dom";
-import { MessageCircleIcon } from "lucide-react";
+import { MessageCircleIcon, ImageIcon } from "lucide-react";
 import { formatRelativeTime } from "@/utils/utils";
+
+const MAX_IMAGES = 3;
 
 interface CommentSectionProps {
   serviceId: string;
@@ -24,8 +26,12 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [service, setService] = useState<Service | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  // Fetch comments and service on component mount
+
   useEffect(() => {
     fetchComments();
     fetchService();
@@ -52,21 +58,54 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const remaining = MAX_IMAGES - selectedFiles.length;
+    const toAdd = files.slice(0, remaining);
+    setSelectedFiles((prev) => [...prev, ...toAdd]);
+    setPreviewUrls((prev) => [
+      ...prev,
+      ...toAdd.map((f) => URL.createObjectURL(f)),
+    ]);
+    setUploadError(null);
+    // Reset input so same file can be re-selected if removed
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleRemoveImage = (index: number) => {
+    URL.revokeObjectURL(previewUrls[index]);
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setPreviewUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmitComment = async () => {
     if (!newComment.trim()) return;
 
     setIsSubmitting(true);
+    setUploadError(null);
     try {
+      let image_urls: string[] | undefined;
+      if (selectedFiles.length > 0) {
+        const uploads = await Promise.all(
+          selectedFiles.map((file) => uploadApi.uploadCommentImage(file))
+        );
+        image_urls = uploads.map((r) => r.data.url);
+      }
+
       const response = await commentsApi.createComment({
         content: newComment.trim(),
         service_id: serviceId,
+        ...(image_urls ? { image_urls } : {}),
       });
 
-      // Add the new comment to the list
       setComments((prev) => [response.data, ...prev]);
       setNewComment("");
+      previewUrls.forEach((u) => URL.revokeObjectURL(u));
+      setSelectedFiles([]);
+      setPreviewUrls([]);
     } catch (error) {
       console.error("Error creating comment:", error);
+      setUploadError("Failed to post comment. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -88,11 +127,63 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
           placeholder="Add a comment, idea, or share your experience..."
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
-          className="mb-3"
+          className="mb-2"
           rows={3}
           variant="soft"
         />
-        <Flex justify="end">
+
+        {/* Image previews */}
+        {previewUrls.length > 0 && (
+          <Flex gap="2" wrap="wrap" className="mb-2">
+            {previewUrls.map((url, i) => (
+              <div key={i} className="relative inline-block">
+                <img
+                  src={url}
+                  alt={`preview ${i + 1}`}
+                  className="w-20 h-20 object-cover rounded border border-gray-200"
+                />
+                <button
+                  onClick={() => handleRemoveImage(i)}
+                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs leading-none"
+                  aria-label="Remove image"
+                >
+                  <Cross2Icon width={8} height={8} />
+                </button>
+              </div>
+            ))}
+          </Flex>
+        )}
+
+        {uploadError && (
+          <Text size="1" color="red" className="mb-2">
+            {uploadError}
+          </Text>
+        )}
+
+        <Flex justify="between" align="center">
+          <Flex align="center" gap="2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              multiple
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <Button
+              variant="ghost"
+              size="1"
+              color="gray"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={selectedFiles.length >= MAX_IMAGES}
+              title={selectedFiles.length >= MAX_IMAGES ? `Max ${MAX_IMAGES} images` : "Attach images"}
+            >
+              <ImageIcon className="w-4 h-4" />
+              {selectedFiles.length > 0 && (
+                <Text size="1" color="gray">{selectedFiles.length}/{MAX_IMAGES}</Text>
+              )}
+            </Button>
+          </Flex>
           <Button
             onClick={handleSubmitComment}
             disabled={!newComment.trim() || isSubmitting}
@@ -158,6 +249,19 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
                   <Text size="2" className="leading-relaxed">
                     {comment.content}
                   </Text>
+                  {comment.image_urls && comment.image_urls.length > 0 && (
+                    <Flex gap="2" wrap="wrap" className="mt-2">
+                      {comment.image_urls.map((url, i) => (
+                        <a key={i} href={getImageUrl(url)} target="_blank" rel="noopener noreferrer">
+                          <img
+                            src={getImageUrl(url)}
+                            alt={`comment image ${i + 1}`}
+                            className="w-24 h-24 object-cover rounded border border-gray-200 hover:opacity-90 transition-opacity"
+                          />
+                        </a>
+                      ))}
+                    </Flex>
+                  )}
                 </div>
               </div>
             );

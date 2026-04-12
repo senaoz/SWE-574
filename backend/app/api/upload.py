@@ -90,3 +90,15 @@ async def upload_rating_image(
     filename = f"{uuid.uuid4().hex}{ext}"
     url = _save_upload(file, "ratings", filename)
     return {"url": url}
+
+
+@router.post("/comment-image")
+async def upload_comment_image(
+    file: UploadFile = File(...),
+    current_user: UserResponse = Depends(get_current_user),
+):
+    """Upload an image for a comment. Returns the URL."""
+    ext = _validate_image(file)
+    filename = f"{uuid.uuid4().hex}{ext}"
+    url = _save_upload(file, "comments", filename)
+    return {"url": url}

@@ -177,6 +177,7 @@ class ForumCommentCreate(BaseModel):
     target_type: ForumTargetType
     target_id: str
     content: str = Field(..., min_length=1, max_length=2000)
+    image_urls: Optional[List[str]] = None
 
     class Config:
         json_encoders = {ObjectId: str}
@@ -184,6 +185,7 @@ class ForumCommentCreate(BaseModel):
 
 class ForumCommentUpdate(BaseModel):
     content: str = Field(..., min_length=1, max_length=2000)
+    image_urls: Optional[List[str]] = None
 
     class Config:
         json_encoders = {ObjectId: str}
@@ -195,6 +197,7 @@ class ForumCommentResponse(BaseModel):
     target_type: str
     target_id: PyObjectId
     content: str
+    image_urls: Optional[List[str]] = None
     created_at: datetime
     updated_at: datetime
     user: Optional[dict] = None
