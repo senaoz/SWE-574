@@ -125,11 +125,6 @@ data class ForumEventResponse(
 )
 
 @JsonClass(generateAdapter = true)
-data class ForumEventAttendeesResponse(
-    val attendees: List<ForumUserEmbed>? = null
-)
-
-@JsonClass(generateAdapter = true)
 data class ForumEventListResponse(
     val events: List<ForumEventResponse>,
     val total: Int,
@@ -143,5 +138,6 @@ data class ForumEventListResponse(
 data class ForumUserEmbed(
     @Json(name = "_id") val id: String? = null,
     val username: String? = null,
-    @Json(name = "full_name") val fullName: String? = null
+    @Json(name = "full_name") val fullName: String? = null,
+    @Json(name = "profile_picture") val profilePicture: String? = null
 )

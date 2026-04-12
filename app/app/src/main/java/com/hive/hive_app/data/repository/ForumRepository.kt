@@ -133,8 +133,34 @@ class ForumRepository @Inject constructor(
         return try {
             val response = forumApi.getEventAttendees(eventId)
             if (response.isSuccessful && response.body() != null) {
-                val list = response.body()!!.attendees ?: emptyList()
+                val list = response.body()!!
                 Result.success(list)
+            } else {
+                Result.failure(HttpException(response))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun attendEvent(eventId: String): Result<ForumEventResponse> {
+        return try {
+            val response = forumApi.attendEvent(eventId)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(HttpException(response))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun unattendEvent(eventId: String): Result<ForumEventResponse> {
+        return try {
+            val response = forumApi.unattendEvent(eventId)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
             } else {
                 Result.failure(HttpException(response))
             }

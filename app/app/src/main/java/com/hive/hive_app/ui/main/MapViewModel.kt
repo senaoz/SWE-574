@@ -13,7 +13,10 @@ import androidx.lifecycle.viewModelScope
 import com.hive.hive_app.data.api.dto.ForumEventResponse
 import com.hive.hive_app.data.api.dto.ServiceResponse
 import com.hive.hive_app.data.repository.ForumRepository
+import com.hive.hive_app.data.repository.RatingsRepository
 import com.hive.hive_app.data.repository.ServicesRepository
+import com.hive.hive_app.data.repository.UsersRepository
+import com.hive.hive_app.util.getHighestPriorityBadge
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
@@ -38,6 +41,8 @@ import kotlin.math.sqrt
 class MapViewModel @Inject constructor(
     private val servicesRepository: ServicesRepository,
     private val forumRepository: ForumRepository,
+    private val usersRepository: UsersRepository,
+    private val ratingsRepository: RatingsRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -86,7 +91,8 @@ class MapViewModel @Inject constructor(
         val visibleEvents: List<ForumEventResponse> = emptyList(),
         val isLoading: Boolean = false,
         val error: String? = null,
-        val locationPermissionGranted: Boolean = false
+        val locationPermissionGranted: Boolean = false,
+        val creatorInfo: Map<String, CreatorInfo> = emptyMap()
     )
 
     private val _state = MutableStateFlow(MapState())
@@ -175,7 +181,8 @@ class MapViewModel @Inject constructor(
                 tags = s.filterTag?.takeIf { it.isNotBlank() },
                 latitude = null,
                 longitude = null,
-                radius = null
+                radius = null,
+                serviceStatus = "active"
             )
             result.fold(
                 onSuccess = { listResponse ->
@@ -200,6 +207,7 @@ class MapViewModel @Inject constructor(
                         error = null
                     )
                     recomputeVisible()
+                    loadCreatorInfo(list.map { it.userId }.distinct())
                 },
                 onFailure = {
                     _state.value = _state.value.copy(
@@ -208,6 +216,27 @@ class MapViewModel @Inject constructor(
                     )
                 }
             )
+        }
+    }
+
+    private fun loadCreatorInfo(userIds: List<String>) {
+        if (userIds.isEmpty()) return
+        viewModelScope.launch {
+            val map = mutableMapOf<String, CreatorInfo>()
+            userIds.forEach { userId ->
+                val user = usersRepository.getUser(userId).getOrNull()
+                val rating = ratingsRepository.getUserRatings(userId).getOrNull()?.averageScore
+                val badgesResponse = usersRepository.getUserBadges(userId).getOrNull()
+                val topBadge = getHighestPriorityBadge(badgesResponse?.badges)
+                map[userId] = CreatorInfo(
+                    user = user,
+                    rating = rating,
+                    primaryBadgeKey = topBadge?.key,
+                    primaryBadgeName = topBadge?.name,
+                    primaryBadgeDescription = topBadge?.description
+                )
+            }
+            _state.update { it.copy(creatorInfo = it.creatorInfo + map) }
         }
     }
 

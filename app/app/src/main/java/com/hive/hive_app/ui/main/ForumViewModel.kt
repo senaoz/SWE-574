@@ -6,6 +6,7 @@ import com.hive.hive_app.data.api.dto.ForumCommentResponse
 import com.hive.hive_app.data.api.dto.ForumDiscussionResponse
 import com.hive.hive_app.data.api.dto.ForumEventResponse
 import com.hive.hive_app.data.api.dto.ForumUserEmbed
+import com.hive.hive_app.data.repository.AuthRepository
 import com.hive.hive_app.data.repository.ForumRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,7 +20,8 @@ enum class ForumTab { DISCUSSIONS, EVENTS }
 
 @HiltViewModel
 class ForumViewModel @Inject constructor(
-    private val forumRepository: ForumRepository
+    private val forumRepository: ForumRepository,
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     data class ForumListState(
@@ -64,7 +66,9 @@ class ForumViewModel @Inject constructor(
         val attendees: List<ForumUserEmbed> = emptyList(),
         val isLoading: Boolean = false,
         val commentsLoading: Boolean = false,
-        val error: String? = null
+        val error: String? = null,
+        val currentUserId: String? = null,
+        val isAttendingLoading: Boolean = false
     )
 
     data class CreateEventState(
@@ -310,10 +314,16 @@ class ForumViewModel @Inject constructor(
     fun loadEvent(eventId: String) {
         viewModelScope.launch {
             _eventDetailState.update { it.copy(isLoading = true, error = null) }
+            val currentUserId = authRepository.getCurrentUser().getOrNull()?._id
             forumRepository.getEvent(eventId)
                 .onSuccess { event ->
                     _eventDetailState.update {
-                        it.copy(event = event, isLoading = false, error = null)
+                        it.copy(
+                            event = event,
+                            isLoading = false,
+                            error = null,
+                            currentUserId = currentUserId
+                        )
                     }
                     loadCommentsForEvent(eventId)
                     forumRepository.getEventAttendees(eventId).onSuccess { attendees ->
@@ -327,6 +337,30 @@ class ForumViewModel @Inject constructor(
                             error = e.message ?: "Failed to load event"
                         )
                     }
+                }
+        }
+    }
+
+    fun toggleAttend(eventId: String) {
+        val state = _eventDetailState.value
+        val currentUserId = state.currentUserId ?: return
+        val isAttending = state.event?.attendeeIds?.contains(currentUserId) == true
+        viewModelScope.launch {
+            _eventDetailState.update { it.copy(isAttendingLoading = true) }
+            val result = if (isAttending) {
+                forumRepository.unattendEvent(eventId)
+            } else {
+                forumRepository.attendEvent(eventId)
+            }
+            result
+                .onSuccess { updatedEvent ->
+                    _eventDetailState.update { it.copy(event = updatedEvent, isAttendingLoading = false) }
+                    forumRepository.getEventAttendees(eventId).onSuccess { attendees ->
+                        _eventDetailState.update { it.copy(attendees = attendees) }
+                    }
+                }
+                .onFailure {
+                    _eventDetailState.update { it.copy(isAttendingLoading = false) }
                 }
         }
     }

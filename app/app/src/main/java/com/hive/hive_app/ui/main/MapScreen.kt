@@ -115,17 +115,30 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
 
+/** Typed payload stored in [Marker.relatedObject] so the InfoWindow can populate rich fields. */
+private data class MarkerPayload(
+    val navId: String,
+    val service: ServiceResponse? = null,
+    val event: ForumEventResponse? = null,
+    val creator: CreatorInfo? = null
+)
+
 /**
- * Bubble tap opens detail; empty-map tap closes via [MapEventsOverlay] (not MapView touch listener).
+ * Rich web-style popup InfoWindow.
  *
- * [BasicInfoWindow] installs [View.setOnTouchListener] in its constructor to close on ACTION_UP and
- * consume the event, which blocks [View.setOnClickListener]; clear it so bubble taps work.
+ * First tap on a marker opens this window.
+ * Tap "View Details" navigates to the detail screen.
+ * Tap "X" closes the window.
+ *
+ * [BasicInfoWindow] installs [View.setOnTouchListener] in its constructor; we clear it so
+ * the individual button click listeners work properly.
  */
 private class MapBubbleInfoWindow(
     layoutResId: Int,
     mapView: MapView,
-    private val onBubbleTap: (Marker) -> Unit
+    private val onViewDetails: (Marker) -> Unit
 ) : BasicInfoWindow(layoutResId, mapView) {
+
     init {
         mView.setOnTouchListener(null)
     }
@@ -133,7 +146,160 @@ private class MapBubbleInfoWindow(
     override fun onOpen(item: Any?) {
         super.onOpen(item)
         val marker = item as? Marker ?: return
-        mView.setOnClickListener { onBubbleTap(marker) }
+        val payload = marker.relatedObject as? MarkerPayload
+        val ctx = mView.context
+
+        // Force fixed width — osmdroid can override XML layout_width
+        val widthPx = (300 * ctx.resources.displayMetrics.density + 0.5f).toInt()
+        mView.minimumWidth = widthPx
+        mView.layoutParams = mView.layoutParams?.also { it.width = widthPx }
+            ?: android.view.ViewGroup.LayoutParams(widthPx, android.view.ViewGroup.LayoutParams.WRAP_CONTENT)
+        mView.requestLayout()
+
+        mView.findViewById<android.widget.TextView>(com.hive.hive_app.R.id.bubble_close_btn)
+            ?.setOnClickListener { close() }
+
+        mView.findViewById<android.widget.TextView>(com.hive.hive_app.R.id.bubble_view_details)
+            ?.setOnClickListener { onViewDetails(marker) }
+
+        val typeBadge = mView.findViewById<android.widget.TextView>(com.hive.hive_app.R.id.bubble_type_badge)
+        val durationBadge = mView.findViewById<android.widget.TextView>(com.hive.hive_app.R.id.bubble_duration_badge)
+        val tagsScroll = mView.findViewById<android.widget.HorizontalScrollView>(com.hive.hive_app.R.id.bubble_tags_scroll)
+        val tagsRow = mView.findViewById<android.widget.LinearLayout>(com.hive.hive_app.R.id.bubble_tags_row)
+        val dateView = mView.findViewById<android.widget.TextView>(com.hive.hive_app.R.id.bubble_date)
+
+        fun dpToPx(dp: Int): Int = (dp * ctx.resources.displayMetrics.density + 0.5f).toInt()
+
+        fun populateTags(tags: List<com.hive.hive_app.data.api.dto.TagDto>, chipBgRes: Int, chipTextColor: Int) {
+            tagsRow?.removeAllViews()
+            val validTags = tags.take(4).mapNotNull { tag ->
+                (tag.label ?: tag.name ?: tag.entityId ?: tag.id)?.takeIf { it.isNotBlank() }
+            }
+            if (validTags.isEmpty()) {
+                tagsScroll?.visibility = android.view.View.GONE
+                return
+            }
+            validTags.forEach { label ->
+                val chip = android.widget.TextView(ctx).apply {
+                    text = label
+                    textSize = 11f
+                    setTextColor(chipTextColor)
+                    setPadding(dpToPx(8), dpToPx(3), dpToPx(8), dpToPx(3))
+                    setBackgroundResource(chipBgRes)
+                    val lp = android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
+                    lp.marginEnd = dpToPx(6)
+                    layoutParams = lp
+                }
+                tagsRow?.addView(chip)
+            }
+            tagsScroll?.visibility = android.view.View.VISIBLE
+        }
+
+        val usernameView = mView.findViewById<android.widget.TextView>(com.hive.hive_app.R.id.bubble_username)
+        val ratingView = mView.findViewById<android.widget.TextView>(com.hive.hive_app.R.id.bubble_rating)
+
+        val userSection = mView.findViewById<android.widget.LinearLayout>(com.hive.hive_app.R.id.bubble_user_section)
+
+        fun populateCreator(creator: CreatorInfo?) {
+            val name = creator?.user?.username ?: creator?.user?.fullName
+            val avg = creator?.rating
+            if (name != null || avg != null) {
+                userSection?.visibility = android.view.View.VISIBLE
+                if (name != null) {
+                    usernameView?.text = name
+                    usernameView?.visibility = android.view.View.VISIBLE
+                } else {
+                    usernameView?.visibility = android.view.View.GONE
+                }
+                if (avg != null) {
+                    ratingView?.text = "★ ${"%.1f".format(avg)}"
+                    ratingView?.visibility = android.view.View.VISIBLE
+                } else {
+                    ratingView?.visibility = android.view.View.GONE
+                }
+            } else {
+                userSection?.visibility = android.view.View.GONE
+            }
+        }
+
+        fun formatDate(isoString: String, pattern: String): String? =
+            runCatching {
+                Instant.parse(isoString)
+                    .atZone(ZoneId.systemDefault())
+                    .format(DateTimeFormatter.ofPattern(pattern, java.util.Locale.ENGLISH))
+            }.getOrElse {
+                runCatching {
+                    java.time.LocalDate.parse(isoString.take(10))
+                        .atStartOfDay(ZoneId.systemDefault())
+                        .format(DateTimeFormatter.ofPattern(pattern, java.util.Locale.ENGLISH))
+                }.getOrNull()
+            }
+
+        when {
+            payload?.service != null -> {
+                val svc = payload.service
+                val isOffer = svc.serviceType == "offer"
+                typeBadge?.text = if (isOffer) "Offer" else "Need"
+                typeBadge?.setBackgroundResource(
+                    if (isOffer) com.hive.hive_app.R.drawable.map_badge_bg_offer
+                    else com.hive.hive_app.R.drawable.map_badge_bg_need
+                )
+                val dur = svc.estimatedDuration.toInt()
+                durationBadge?.text = "${dur}h"
+                durationBadge?.visibility = android.view.View.VISIBLE
+
+                populateTags(
+                    svc.tags,
+                    com.hive.hive_app.R.drawable.map_tag_chip_bg,
+                    android.graphics.Color.parseColor("#4A148C")
+                )
+
+                val rawDate = svc.specificDate ?: svc.createdAt
+                val dateLabel = if (svc.specificDate != null) "Date" else "Posted"
+                val fmt = formatDate(rawDate, "d MMMM yyyy")
+                if (fmt != null) {
+                    dateView?.text = "$dateLabel: $fmt"
+                    dateView?.visibility = android.view.View.VISIBLE
+                } else {
+                    dateView?.visibility = android.view.View.GONE
+                }
+                populateCreator(payload.creator)
+            }
+
+            payload?.event != null -> {
+                val ev = payload.event
+                typeBadge?.text = "Event"
+                typeBadge?.setBackgroundResource(com.hive.hive_app.R.drawable.map_badge_bg_event)
+
+                val dateBadge = formatDate(ev.eventAt, "MMM d, HH:mm")
+                durationBadge?.text = dateBadge ?: ""
+                durationBadge?.visibility = if (dateBadge != null) android.view.View.VISIBLE else android.view.View.GONE
+
+                populateTags(
+                    ev.tags ?: emptyList(),
+                    com.hive.hive_app.R.drawable.map_tag_chip_bg_event,
+                    android.graphics.Color.parseColor("#5B21B6")
+                )
+
+                val evDate = formatDate(ev.eventAt, "d MMMM yyyy, HH:mm")
+                if (evDate != null) {
+                    dateView?.text = "Date: $evDate"
+                    dateView?.visibility = android.view.View.VISIBLE
+                } else {
+                    dateView?.visibility = android.view.View.GONE
+                }
+                populateCreator(payload.creator)
+            }
+
+            else -> {
+                durationBadge?.visibility = android.view.View.GONE
+                tagsScroll?.visibility = android.view.View.GONE
+                dateView?.visibility = android.view.View.GONE
+            }
+        }
     }
 
     override fun onClose() {
@@ -524,18 +690,14 @@ fun MapScreen(
                     map.overlays.add(privacyRadiusPolygon(lat, lon, density, MapMarkerKind.EVENT))
                 }
                 fun openDetailForServiceOrEventMarker(marker: Marker) {
-                    when (val rel = marker.relatedObject as? String) {
-                        null -> { }
-                        else -> {
-                            when {
-                                rel.startsWith("service:") -> {
-                                    val id = rel.removePrefix("service:")
-                                    if (onServiceSelected != null) onServiceSelected(id) else selectedServiceId = id
-                                }
-                                rel.startsWith("event:") -> {
-                                    selectedForumEventId = rel.removePrefix("event:")
-                                }
-                            }
+                    val payload = marker.relatedObject as? MarkerPayload ?: return
+                    when {
+                        payload.navId.startsWith("service:") -> {
+                            val id = payload.navId.removePrefix("service:")
+                            if (onServiceSelected != null) onServiceSelected(id) else selectedServiceId = id
+                        }
+                        payload.navId.startsWith("event:") -> {
+                            selectedForumEventId = payload.navId.removePrefix("event:")
                         }
                     }
                     InfoWindow.closeAllInfoWindowsOn(map)
@@ -548,14 +710,13 @@ fun MapScreen(
                     service.location ?: return@forEach
                     val markerKind = if (service.serviceType == "offer") MapMarkerKind.OFFER else MapMarkerKind.NEED
                     val icon = markerIcon(markerKind)
-                    val tagsText = service.tags.joinToString(", ") { it.label ?: it.name ?: "" }.takeIf { it.isNotBlank() } ?: ""
                     val marker = Marker(map).apply {
                         position = GeoPoint(service.location.latitude, service.location.longitude)
                         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                         setIcon(icon)
                         title = service.title
-                        snippet = tagsText
-                        relatedObject = "service:${service._id}"
+                        snippet = ""
+                        relatedObject = MarkerPayload("service:${service._id}", service = service, creator = state.creatorInfo[service.userId])
                         setInfoWindow(bubbleWindow)
                         setOnMarkerClickListener { m, _ ->
                             val sameMarkerOpen =
@@ -563,6 +724,8 @@ fun MapScreen(
                             if (sameMarkerOpen) {
                                 openDetailForServiceOrEventMarker(m)
                             } else {
+                                InfoWindow.closeAllInfoWindowsOn(map)
+                                map.controller.animateTo(m.position)
                                 m.showInfoWindow()
                             }
                             true
@@ -573,16 +736,13 @@ fun MapScreen(
                 mapEvents.forEach { event ->
                     val lat = event.latitude ?: return@forEach
                     val lon = event.longitude ?: return@forEach
-                    val tagsText = event.tags?.joinToString(", ") { it.label ?: it.name ?: "" }
-                        ?.takeIf { it.isNotBlank() }
-                        ?: ""
                     val marker = Marker(map).apply {
                         position = GeoPoint(lat, lon)
                         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                         setIcon(markerIcon(MapMarkerKind.EVENT))
                         title = event.title
-                        snippet = tagsText
-                        relatedObject = "event:${event.id}"
+                        snippet = ""
+                        relatedObject = MarkerPayload("event:${event.id}", event = event, creator = event.userId?.let { state.creatorInfo[it] })
                         setInfoWindow(bubbleWindow)
                         setOnMarkerClickListener { m, _ ->
                             val sameMarkerOpen =
@@ -590,6 +750,8 @@ fun MapScreen(
                             if (sameMarkerOpen) {
                                 openDetailForServiceOrEventMarker(m)
                             } else {
+                                InfoWindow.closeAllInfoWindowsOn(map)
+                                map.controller.animateTo(m.position)
                                 m.showInfoWindow()
                             }
                             true

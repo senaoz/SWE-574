@@ -27,10 +27,13 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -73,10 +76,13 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.core.content.ContextCompat
 import android.content.Context
 import androidx.compose.ui.viewinterop.AndroidView
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 
 @Composable
 fun ForumScreen(
     modifier: Modifier = Modifier,
+    onOpenUserProfile: (String) -> Unit = {},
     viewModel: ForumViewModel = hiltViewModel()
 ) {
     var selectedDiscussionId by remember { mutableStateOf<String?>(null) }
@@ -122,6 +128,7 @@ fun ForumScreen(
                 viewModel.clearEventDetail()
                 selectedEventId = null
             },
+            onOpenUserProfile = onOpenUserProfile,
             modifier = modifier
         )
         return
@@ -341,8 +348,10 @@ private fun ForumEventMap(
 }
 
 private fun forumUserInitials(user: ForumUserEmbed?): String {
-    val name = user?.fullName?.takeIf { it.isNotBlank() } ?: user?.username ?: "?"
-    return name.take(2).uppercase()
+    val name = user?.username?.takeIf { it.isNotBlank() }
+        ?: user?.fullName?.takeIf { it.isNotBlank() }
+        ?: "?"
+    return name.trim().firstOrNull()?.uppercase() ?: "?"
 }
 
 @Composable
@@ -599,6 +608,7 @@ private fun ForumEventCard(
 fun ForumEventDetailContent(
     viewModel: ForumViewModel,
     onBack: () -> Unit,
+    onOpenUserProfile: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val eventDetailState by viewModel.eventDetailState.collectAsState()
@@ -720,6 +730,47 @@ fun ForumEventDetailContent(
                         }
                     }
                     item {
+                        val currentUserId = eventDetailState.currentUserId
+                        val isOrganizer = currentUserId != null && event.userId == currentUserId
+                        val isAttending = currentUserId != null &&
+                                event.attendeeIds?.contains(currentUserId) == true
+
+                        if (currentUserId != null && !isOrganizer) {
+                            if (isAttending) {
+                                OutlinedButton(
+                                    onClick = { viewModel.toggleAttend(event.id) },
+                                    enabled = !eventDetailState.isAttendingLoading,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = MaterialTheme.colorScheme.error
+                                    )
+                                ) {
+                                    if (eventDetailState.isAttendingLoading) {
+                                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                    } else {
+                                        Text("Leave")
+                                    }
+                                }
+                            } else {
+                                Button(
+                                    onClick = { viewModel.toggleAttend(event.id) },
+                                    enabled = !eventDetailState.isAttendingLoading,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    if (eventDetailState.isAttendingLoading) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                    } else {
+                                        Text("Attend")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    item {
                         val attendeeCount = event.attendeeCount.takeIf { it > 0 } ?: event.attendeeIds?.size ?: eventDetailState.attendees.size
                         Text(
                             text = "Attendees ($attendeeCount)",
@@ -728,25 +779,46 @@ fun ForumEventDetailContent(
                         )
                     }
                     items(items = eventDetailState.attendees, key = { it.id ?: it.username ?: "" }) { attendee ->
+                        val ctx = LocalContext.current
+                        var imageLoadFailed by remember { mutableStateOf(false) }
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp),
+                                .clip(MaterialTheme.shapes.small)
+                                .clickable(enabled = attendee.id != null) { attendee.id?.let { id -> onOpenUserProfile(id) } }
+                                .padding(vertical = 6.dp, horizontal = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primaryContainer),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = forumUserInitials(attendee),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                            val initial = (attendee.username ?: attendee.fullName ?: "?")
+                                .trim().firstOrNull()?.uppercase() ?: "?"
+                            if (!attendee.profilePicture.isNullOrBlank() && !imageLoadFailed) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(ctx)
+                                        .data(attendee.profilePicture)
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = attendee.username,
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                    onError = { imageLoadFailed = true },
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
                                 )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primaryContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = initial,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
                             }
                             Text(
                                 text = attendee.fullName?.takeIf { it.isNotBlank() } ?: attendee.username ?: "User",

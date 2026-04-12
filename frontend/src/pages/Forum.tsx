@@ -44,7 +44,7 @@ function timeAgo(dateStr: string) {
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   if (days < 30) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString();
+  return new Date(dateStr).toLocaleDateString("en-GB");
 }
 export function Forum() {
   const navigate = useNavigate();
@@ -295,7 +295,7 @@ export function Forum() {
                     <Flex gap="2" align="center">
                       <Badge size="1" variant="soft" color="purple">
                         <CalendarClockIcon className="w-3 h-3" />
-                        {new Date(ev.event_at).toLocaleDateString(undefined, {
+                        {new Date(ev.event_at).toLocaleDateString("en-GB", {
                           month: "short",
                           day: "numeric",
                           year: "numeric",
@@ -687,3 +687,4 @@ function NewEventDialog({
     </Dialog.Root>
   );
 }
+                                                                                                                                                                                         
