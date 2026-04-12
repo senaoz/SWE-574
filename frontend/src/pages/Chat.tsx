@@ -9,21 +9,21 @@ import { useUser } from "@/App";
 // @ts-ignore
 import messageIcon from "../assets/message.webp";
 export function Chat() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [roomId, setRoomId] = useState<string | null>(null);
   const [selectedRoom, setSelectedRoom] = useState<ChatRoom | null>(null);
   const { currentUserId } = useUser();
   const roomIdFromUrl = searchParams.get("room_id");
-
-  {
-    /*
-      useEffect(() => {
+  useEffect(() => {
     if (roomIdFromUrl) {
       setRoomId(roomIdFromUrl);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("room_id");
+        return next;
+      }, { replace: true });
     }
   }, [roomIdFromUrl]);
-    * */
-  }
   useEffect(() => {
     if (roomId !== selectedRoom?._id && roomId) {
       chatApi.getChatRoom(roomId).then((response) => {

@@ -7,11 +7,12 @@ import {
   TextField,
   Badge,
   Avatar,
+  IconButton,
 } from "@radix-ui/themes";
 import { ChatRoom, Message } from "@/types";
 import { chatApi, getImageUrl } from "@/services/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PaperPlaneIcon } from "@radix-ui/react-icons";
+import { PaperPlaneIcon, Pencil1Icon, CheckIcon, Cross2Icon } from "@radix-ui/react-icons";
 import { useNavigate } from "react-router-dom";
 import { formatTime } from "@/utils/utils";
 
@@ -22,6 +23,9 @@ interface ChatRoomProps {
 
 export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
   const [newMessage, setNewMessage] = useState("");
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(room.name || "");
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -35,6 +39,32 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
     queryFn: () => chatApi.getRoomMessages(room._id, 1, 50),
     refetchInterval: 5000,
   });
+
+  const updateNameMutation = useMutation({
+    mutationFn: (name: string) => chatApi.updateChatRoom(room._id, { name }),
+    onSuccess: () => {
+      setEditingName(false);
+      queryClient.invalidateQueries({ queryKey: ["chat-rooms"] });
+    },
+  });
+
+  const handleSaveName = () => {
+    const trimmed = nameInput.trim();
+    if (!trimmed || trimmed === room.name) {
+      setEditingName(false);
+      setNameInput(room.name || "");
+      return;
+    }
+    updateNameMutation.mutate(trimmed);
+  };
+
+  const handleNameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleSaveName();
+    if (e.key === "Escape") {
+      setEditingName(false);
+      setNameInput(room.name || "");
+    }
+  };
 
   const sendMessageMutation = useMutation({
     mutationFn: (content: string) =>
@@ -91,14 +121,59 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
         className="border-b border-gray-200/30 p-2 pb-3"
       >
         <div className="flex flex-col gap-1 flex-1">
-          <Text size="3" weight="bold">
-            {room.name
-              ? room.name
-              : `Chat with ${room.participants
-                  ?.filter((p) => p.id !== currentUserId)
-                  ?.map((p) => p.full_name || p.username)
-                  .join(", ")}`}
-          </Text>
+          {editingName ? (
+            <Flex align="center" gap="1">
+              <input
+                ref={nameInputRef}
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                onKeyDown={handleNameKeyDown}
+                onBlur={handleSaveName}
+                autoFocus
+                className="text-sm font-bold bg-transparent border-b border-current outline-none w-full"
+              />
+              <IconButton
+                size="1"
+                variant="ghost"
+                onClick={handleSaveName}
+                disabled={updateNameMutation.isPending}
+              >
+                <CheckIcon />
+              </IconButton>
+              <IconButton
+                size="1"
+                variant="ghost"
+                color="gray"
+                onClick={() => {
+                  setEditingName(false);
+                  setNameInput(room.name || "");
+                }}
+              >
+                <Cross2Icon />
+              </IconButton>
+            </Flex>
+          ) : (
+            <Flex align="center" gap="1" className="group">
+              <Text size="3" weight="bold">
+                {room.name || `Chat with ${room.participants
+                      ?.filter((p) => p.id !== currentUserId)
+                      ?.map((p) => p.full_name || p.username)
+                      .join(", ")}`}
+              </Text>
+              <IconButton
+                size="1"
+                variant="ghost"
+                color="gray"
+                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => {
+                  setNameInput(room.name || "");
+                  setEditingName(true);
+                }}
+              >
+                <Pencil1Icon />
+              </IconButton>
+            </Flex>
+          )}
           {room.participants && room.participants.length > 2 && (
             <Flex align="center" gap="1" wrap="wrap">
               {room.participants.map((p) => (

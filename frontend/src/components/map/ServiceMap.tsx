@@ -10,7 +10,7 @@ import {
 import L from "leaflet";
 import { Service, TagEntity, ForumEvent } from "@/types";
 import { calculateDistance } from "@/utils/utils";
-import { usersApi } from "@/services/api";
+import { ratingsApi, usersApi } from "@/services/api";
 import { getHighestPriorityBadge, CustomBadge } from "@/components/ui/BadgeDisplay";
 import { Badge as BadgeType } from "@/types";
 import {

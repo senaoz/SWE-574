@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
-import { Text, Flex, Badge} from "@radix-ui/themes";
-import { ChevronUpIcon } from "@radix-ui/react-icons";
+import {Text, Flex, Button} from "@radix-ui/themes";
+import {ChevronUpIcon} from "@radix-ui/react-icons";
 
 interface UpvoteButtonProps {
   count: number;
   upvoted?: boolean;
-  /** When provided, the button is interactive. When omitted, renders read-only. */
   onUpvote?: () => Promise<{ upvote_count: number; user_upvoted: boolean }>;
   disabled?: boolean;
   size?: "1" | "2";
@@ -56,18 +55,16 @@ export function UpvoteButton({
 
   return (
     <Flex align="center" gap="1">
-      <Badge
-        size={size}
-        variant={localUpvoted ? 'solid' : 'soft'}
-        className={`font-bold ${isReadOnly || loading ? "cursor-not-allowed" : "cursor-pointer"}`}
-        // localUpvoted ? "solid" : isReadOnly ? "soft" : "ghost"
-        color={isReadOnly ? "gray" : "orange"}
-        onClick={handleClick}
-        style={isReadOnly ? { cursor: "default", pointerEvents: "none" } : undefined}
+      <Button
+          disabled={isReadOnly}
+          variant={localUpvoted ? 'solid' : 'soft'}
+          color={isReadOnly ? "gray" : "orange"}
+          onClick={handleClick}
+          size={size}
       >
         <ChevronUpIcon />
         {localCount}
-      </Badge>
+      </Button>
       {showLoginHint && (
         <Text size="1" color="gray">Sign in to upvote</Text>
       )}

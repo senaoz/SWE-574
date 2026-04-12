@@ -154,6 +154,15 @@ export function Profile() {
   };
 
   useEffect(() => {
+    setVisitedTabs((prev) => {
+      if (prev.has(profileTab)) return prev;
+      const next = new Set(prev);
+      next.add(profileTab);
+      return next;
+    });
+  }, [profileTab]);
+
+  useEffect(() => {
     if (selectInterests && selectInterests === "true") {
       setShowInterestSelector(true);
       setSearchParams((prev) => {
