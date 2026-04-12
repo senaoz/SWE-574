@@ -375,3 +375,10 @@ button {
 .dark .recommended-listing-reason {
     color: #8fa86a;
 }
+
+
+.comment-images-input {
+    position: absolute;
+    right: 0.5rem;
+    bottom: 3em;
+}

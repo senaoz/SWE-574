@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   Card,
@@ -7,7 +7,6 @@ import {
   Avatar,
   Badge,
   Button,
-  TextArea,
   Heading,
   Tooltip,
   Dialog,
@@ -21,16 +20,14 @@ import {
   ArrowLeftIcon,
   CalendarIcon,
   GlobeIcon,
-  PaperPlaneIcon,
   Link2Icon,
   PersonIcon,
   CheckCircledIcon,
   Pencil1Icon,
   TrashIcon,
 } from "@radix-ui/react-icons";
-import { MessageCircleIcon } from "lucide-react";
 import { forumApi, getImageUrl } from "@/services/api";
-import { ForumEvent, ForumComment, TagEntity } from "@/types";
+import { ForumEvent, TagEntity } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import { UpvoteButton } from "@/components/ui/UpvoteButton";
 import { useUser } from "@/App";
@@ -39,6 +36,7 @@ import { MarkdownEditor } from "@/components/forms/MarkdownEditor";
 import { TagAutocomplete } from "@/components/forms/TagAutocomplete";
 import { MapLocationPicker } from "@/components/ui/MapLocationPicker";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { CommentSection } from "@/components/ui/CommentSection";
 
 function timeAgo(dateStr: string) {
   const now = Date.now();
@@ -66,9 +64,6 @@ export function ForumEventDetail() {
   const navigate = useNavigate();
   const { currentUserId } = useUser();
   const [event, setEvent] = useState<ForumEvent | null>(null);
-  const [comments, setComments] = useState<ForumComment[]>([]);
-  const [newComment, setNewComment] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [attendToggling, setAttendToggling] = useState(false);
@@ -85,13 +80,11 @@ export function ForumEventDetail() {
     (async () => {
       setLoading(true);
       try {
-        const [eRes, cRes, aRes] = await Promise.all([
+        const [eRes, aRes] = await Promise.all([
           forumApi.getEvent(id),
-          forumApi.getComments("event", id),
           forumApi.getEventAttendees(id),
         ]);
         setEvent(eRes.data);
-        setComments(cRes.data.comments);
         setAttendees(aRes.data);
       } catch {
         setEvent(null);
@@ -125,24 +118,6 @@ export function ForumEventDetail() {
     if (!id) return;
     await forumApi.deleteEvent(id);
     navigate("/forum?tab=events");
-  };
-
-  const handlePostComment = async () => {
-    if (!newComment.trim() || !id) return;
-    setSubmitting(true);
-    try {
-      const res = await forumApi.createComment({
-        target_type: "event",
-        target_id: id,
-        content: newComment.trim(),
-      });
-      setComments((prev) => [res.data, ...prev]);
-      setNewComment("");
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSubmitting(false);
-    }
   };
 
   if (loading) {
@@ -341,73 +316,35 @@ export function ForumEventDetail() {
         </div>
       </Card>
 
-      {/* Comments section */}
-      <Flex align="center" gap="2" className="mb-4">
-        <MessageCircleIcon className="w-5 h-5" />
-        <Text size="4" weight="bold">
-          Comments ({comments.length})
-        </Text>
-      </Flex>
-
-      {/* New comment */}
-      <div>
-        <TextArea
-          placeholder="Write a comment..."
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          rows={3}
-          className="mb-2 p-3 rounded-lg"
-          variant="soft"
-          size="2"
-        />
-        <Flex justify="end">
-          <Button
-            onClick={handlePostComment}
-            disabled={!newComment.trim() || submitting}
-            size="2"
-          >
-            <PaperPlaneIcon className="w-4 h-4 mr-1" />
-            {submitting ? "Posting..." : "Post"}
-          </Button>
-        </Flex>
-      </div>
-
-      {/* Comment list */}
-      <div className="space-y-2">
-        {comments.map((c) => (
-          <div key={c._id} className="flex gap-3 pt-2">
-            <Avatar
-              size="2"
-              src={getImageUrl(c.user?.profile_picture)}
-              fallback={c.user?.full_name?.[0] || c.user?.username?.[0] || "?"}
-            />
-            <div className="flex-1">
-              <Flex gap="2" align="center" className="mb-1">
-                <Text size="2" weight="bold">
-                  {c.user?.full_name || c.user?.username || "Unknown"}
-                </Text>
-                <Text size="1" color="gray">
-                  {timeAgo(c.created_at)}
-                </Text>
-              </Flex>
-              <div>{c.content}</div>
-            </div>
-            <div className="mt-1">
-              <UpvoteButton
-                  count={c.upvote_count ?? 0}
-                  upvoted={c.user_upvoted}
-                  onUpvote={currentUserId ? () => forumApi.upvoteComment(c._id).then(r => r.data) : undefined}
-                  disabled={!currentUserId}
-              />
-            </div>
-          </div>
-        ))}
-        {comments.length === 0 && (
-          <Text size="2" color="gray" className="text-center py-4">
-            No comments yet. Be the first!
-          </Text>
+      <CommentSection
+        fetchComments={() =>
+          forumApi.getComments("event", id!).then((r) => r.data.comments)
+        }
+        postComment={(content, imageUrls) =>
+          forumApi
+            .createComment({
+              target_type: "event",
+              target_id: id!,
+              content,
+              ...(imageUrls ? { image_urls: imageUrls } : {}),
+            })
+            .then((r) => r.data)
+        }
+        placeholder="Write a comment..."
+        emptyMessage="No comments yet. Be the first!"
+        renderCommentActions={(comment) => (
+          <UpvoteButton
+            count={comment.upvote_count ?? 0}
+            upvoted={comment.user_upvoted}
+            onUpvote={
+              currentUserId
+                ? () => forumApi.upvoteComment(comment._id).then((r) => r.data)
+                : undefined
+            }
+            disabled={!currentUserId}
+          />
         )}
-      </div>
+      />
 
       {event && (
         <>

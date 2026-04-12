@@ -372,6 +372,7 @@ class ForumService:
             "target_type": data.target_type,
             "target_id": target_id,
             "content": data.content,
+            "image_urls": data.image_urls or [],
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
         }
@@ -408,9 +409,12 @@ class ForumService:
         if str(existing["user_id"]) != user_id:
             raise ValueError("Not authorized to update this comment")
 
+        update_fields: dict = {"content": data.content, "updated_at": datetime.utcnow()}
+        if data.image_urls is not None:
+            update_fields["image_urls"] = data.image_urls
         await self.forum_comments.update_one(
             {"_id": ObjectId(comment_id)},
-            {"$set": {"content": data.content, "updated_at": datetime.utcnow()}},
+            {"$set": update_fields},
         )
         updated = await self.forum_comments.find_one({"_id": ObjectId(comment_id)})
         updated = await self._enrich_user(updated)

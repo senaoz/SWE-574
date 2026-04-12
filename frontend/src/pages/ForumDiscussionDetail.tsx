@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Card,
@@ -6,7 +6,6 @@ import {
   Flex,
   Avatar,
   Button,
-  TextArea,
   Heading,
   Dialog,
   TextField,
@@ -14,20 +13,18 @@ import {
 import { Form } from "radix-ui";
 import {
   ArrowLeftIcon,
-  PaperPlaneIcon,
   Pencil1Icon,
   TrashIcon,
-  Cross2Icon,
 } from "@radix-ui/react-icons";
-import { MessageCircleIcon, ImageIcon } from "lucide-react";
-import { forumApi, getImageUrl, uploadApi } from "@/services/api";
+import { forumApi, getImageUrl } from "@/services/api";
 import { useUser } from "@/App";
-import { ForumDiscussion, ForumComment, TagEntity } from "@/types";
+import { ForumDiscussion, TagEntity } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import { UpvoteButton } from "@/components/ui/UpvoteButton";
 import { MarkdownEditor } from "@/components/forms/MarkdownEditor";
 import { TagAutocomplete } from "@/components/forms/TagAutocomplete";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { CommentSection } from "@/components/ui/CommentSection";
 import ReactMarkdown from "react-markdown";
 
 function timeAgo(dateStr: string) {
@@ -49,16 +46,9 @@ export function ForumDiscussionDetail() {
   const navigate = useNavigate();
   const { currentUserId } = useUser();
   const [discussion, setDiscussion] = useState<ForumDiscussion | null>(null);
-  const [comments, setComments] = useState<ForumComment[]>([]);
-  const [newComment, setNewComment] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
-  const [commentImages, setCommentImages] = useState<File[]>([]);
-  const [commentImagePreviews, setCommentImagePreviews] = useState<string[]>([]);
-  const [commentUploadError, setCommentUploadError] = useState<string | null>(null);
-  const commentFileInputRef = useRef<HTMLInputElement>(null);
 
   const isOwner = !!currentUserId && discussion?.user_id === currentUserId;
 
@@ -67,12 +57,8 @@ export function ForumDiscussionDetail() {
     (async () => {
       setLoading(true);
       try {
-        const [dRes, cRes] = await Promise.all([
-          forumApi.getDiscussion(id),
-          forumApi.getComments("discussion", id),
-        ]);
+        const dRes = await forumApi.getDiscussion(id);
         setDiscussion(dRes.data);
-        setComments(cRes.data.comments);
       } catch {
         setDiscussion(null);
       } finally {
@@ -80,56 +66,6 @@ export function ForumDiscussionDetail() {
       }
     })();
   }, [id]);
-
-  const handleCommentFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    const remaining = 3 - commentImages.length;
-    const toAdd = files.slice(0, remaining);
-    setCommentImages((prev) => [...prev, ...toAdd]);
-    setCommentImagePreviews((prev) => [
-      ...prev,
-      ...toAdd.map((f) => URL.createObjectURL(f)),
-    ]);
-    setCommentUploadError(null);
-    if (commentFileInputRef.current) commentFileInputRef.current.value = "";
-  };
-
-  const handleRemoveCommentImage = (index: number) => {
-    URL.revokeObjectURL(commentImagePreviews[index]);
-    setCommentImages((prev) => prev.filter((_, i) => i !== index));
-    setCommentImagePreviews((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handlePostComment = async () => {
-    if (!newComment.trim() || !id) return;
-    setSubmitting(true);
-    setCommentUploadError(null);
-    try {
-      let image_urls: string[] | undefined;
-      if (commentImages.length > 0) {
-        const uploads = await Promise.all(
-          commentImages.map((file) => uploadApi.uploadCommentImage(file))
-        );
-        image_urls = uploads.map((r) => r.data.url);
-      }
-      const res = await forumApi.createComment({
-        target_type: "discussion",
-        target_id: id,
-        content: newComment.trim(),
-        ...(image_urls ? { image_urls } : {}),
-      });
-      setComments((prev) => [res.data, ...prev]);
-      setNewComment("");
-      commentImagePreviews.forEach((u) => URL.revokeObjectURL(u));
-      setCommentImages([]);
-      setCommentImagePreviews([]);
-    } catch (e) {
-      console.error(e);
-      setCommentUploadError("Failed to post comment. Please try again.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   const handleDelete = async () => {
     if (!id) return;
@@ -248,152 +184,48 @@ export function ForumDiscussionDetail() {
         </Flex>
       </Card>
 
-      {/* Comments section */}
-      <Flex align="center" gap="2" className="mb-4">
-        <MessageCircleIcon className="w-5 h-5" />
-        <Text size="4" weight="bold">
-          Comments ({comments.length})
-        </Text>
-      </Flex>
-
-      {/* New comment */}
-      <div>
-        <TextArea
-          placeholder="Write a comment..."
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          rows={3}
-          className="mb-2 p-3 rounded-lg"
-          variant="soft"
-          size="2"
-        />
-
-        {/* Image previews */}
-        {commentImagePreviews.length > 0 && (
-          <Flex gap="2" wrap="wrap" className="mb-2">
-            {commentImagePreviews.map((url, i) => (
-              <div key={i} className="relative inline-block">
-                <img
-                  src={url}
-                  alt={`preview ${i + 1}`}
-                  className="w-20 h-20 object-cover rounded border border-gray-200"
-                />
-                <button
-                  onClick={() => handleRemoveCommentImage(i)}
-                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs leading-none"
-                  aria-label="Remove image"
-                >
-                  <Cross2Icon width={8} height={8} />
-                </button>
-              </div>
-            ))}
-          </Flex>
-        )}
-
-        {commentUploadError && (
-          <Text size="1" color="red" className="mb-2">
-            {commentUploadError}
-          </Text>
-        )}
-
-        <Flex justify="between" align="center">
-          <Flex align="center" gap="2">
-            <input
-              ref={commentFileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              multiple
-              className="hidden"
-              onChange={handleCommentFileChange}
-            />
-            <Button
-              variant="ghost"
-              size="1"
-              color="gray"
-              onClick={() => commentFileInputRef.current?.click()}
-              disabled={commentImages.length >= 3}
-              title={commentImages.length >= 3 ? "Max 3 images" : "Attach images"}
+      <CommentSection
+        fetchComments={() =>
+          forumApi.getComments("discussion", id!).then((r) => r.data.comments)
+        }
+        postComment={(content, imageUrls) =>
+          forumApi
+            .createComment({
+              target_type: "discussion",
+              target_id: id!,
+              content,
+              ...(imageUrls ? { image_urls: imageUrls } : {}),
+            })
+            .then((r) => r.data)
+        }
+        placeholder="Write a comment..."
+        emptyMessage="No comments yet. Be the first!"
+        renderCommentContent={(comment) => (
+          <div className="prose-content">
+            <ReactMarkdown
+              components={{
+                a: ({ node: _node, ...props }) => (
+                  <a {...props} target="_blank" rel="noopener noreferrer" />
+                ),
+              }}
             >
-              <ImageIcon className="w-4 h-4" />
-              {commentImages.length > 0 && (
-                <Text size="1" color="gray">{commentImages.length}/3</Text>
-              )}
-            </Button>
-          </Flex>
-          <Button
-            onClick={handlePostComment}
-            disabled={!newComment.trim() || submitting}
-            size="2"
-          >
-            <PaperPlaneIcon className="w-4 h-4 mr-1" />
-            {submitting ? "Posting..." : "Post"}
-          </Button>
-        </Flex>
-      </div>
-
-      {/* Comment list */}
-      <div className="space-y-2">
-        {comments.map((c) => (
-          <div key={c._id} className="flex gap-3 pt-2">
-            <Avatar
-              size="2"
-              src={getImageUrl(c.user?.profile_picture)}
-              fallback={c.user?.full_name?.[0] || c.user?.username?.[0] || "?"}
-            />
-            <div className="flex-1">
-              <Flex gap="2" align="center" className="mb-1">
-                <Text size="2" weight="bold">
-                  {c.user?.full_name || c.user?.username || "Unknown"}
-                </Text>
-                <Text size="1" color="gray">
-                  {timeAgo(c.created_at)}
-                </Text>
-              </Flex>
-              <div className="prose-content">
-                <ReactMarkdown
-                  components={{
-                    a: ({ node: _node, ...props }) => (
-                      <a {...props} target="_blank" rel="noopener noreferrer" />
-                    ),
-                  }}
-                >
-                  {c.content}
-                </ReactMarkdown>
-              </div>
-              {c.image_urls && c.image_urls.length > 0 && (
-                <Flex gap="2" wrap="wrap" className="mt-2">
-                  {c.image_urls.map((url, i) => (
-                    <a key={i} href={getImageUrl(url)} target="_blank" rel="noopener noreferrer">
-                      <img
-                        src={getImageUrl(url)}
-                        alt={`comment image ${i + 1}`}
-                        className="w-24 h-24 object-cover rounded border border-gray-200 hover:opacity-90 transition-opacity"
-                      />
-                    </a>
-                  ))}
-                </Flex>
-              )}
-            </div>
-            <div className="mt-1">
-              <UpvoteButton
-                count={c.upvote_count ?? 0}
-                upvoted={c.user_upvoted}
-                onUpvote={
-                  currentUserId
-                    ? () => forumApi.upvoteComment(c._id).then((r) => r.data)
-                    : undefined
-                }
-                disabled={!currentUserId}
-              />
-            </div>
+              {comment.content}
+            </ReactMarkdown>
           </div>
-        ))}
-        {comments.length === 0 && (
-          <Text size="2" color="gray" className="text-center py-4">
-            No comments yet. Be the first!
-          </Text>
         )}
-      </div>
+        renderCommentActions={(comment) => (
+          <UpvoteButton
+            count={comment.upvote_count ?? 0}
+            upvoted={comment.user_upvoted}
+            onUpvote={
+              currentUserId
+                ? () => forumApi.upvoteComment(comment._id).then((r) => r.data)
+                : undefined
+            }
+            disabled={!currentUserId}
+          />
+        )}
+      />
 
       <EditDiscussionDialog
         open={showEdit}

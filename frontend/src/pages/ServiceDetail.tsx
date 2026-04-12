@@ -23,6 +23,7 @@ import {
   usersApi,
   joinRequestsApi,
   forumApi,
+  commentsApi,
 } from "@/services/api";
 import { ImageGallery } from "@/components/ui/ImageGallery";
 import { useUser } from "@/App";
@@ -52,7 +53,7 @@ import {
 import { ProviderProfileSummary } from "@/components/ui/ProviderProfileSummary";
 import { ServiceMap } from "@/components/map/ServiceMap";
 import { HandShakeModal } from "@/components/ui/HandShakeModal";
-import { CommentSection } from "@/components/ui/CommentSection";
+import { CommentSection, CommentItem } from "@/components/ui/CommentSection";
 import { ParticipantAvatars } from "@/components/ui/ParticipantAvatars";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ClickableTag } from "@/components/ui/ClickableTag";
@@ -1111,7 +1112,31 @@ export function ServiceDetail() {
             </Card>
           )}
 
-          <CommentSection serviceId={service._id} />
+          <CommentSection
+            fetchComments={() =>
+              commentsApi.getServiceComments(service._id).then((r) => r.data.comments)
+            }
+            postComment={(content, imageUrls) =>
+              commentsApi
+                .createComment({ content, service_id: service._id, ...(imageUrls ? { image_urls: imageUrls } : {}) })
+                .then((r) => r.data)
+            }
+            title="Comments & Ideas"
+            placeholder="Add a comment, idea, or share your experience..."
+            renderCommentMeta={(comment: CommentItem) => {
+              const uid = String(comment.user_id ?? "");
+              const isOwner = String(service.user_id ?? "") === uid;
+              const isParticipant =
+                !isOwner &&
+                service.matched_user_ids?.some((id) => String(id ?? "") === uid);
+              return (
+                <>
+                  {isOwner && <Badge color="amber" size="1">Owner</Badge>}
+                  {isParticipant && <Badge color="blue" size="1">Participant</Badge>}
+                </>
+              );
+            }}
+          />
         </div>
       </div>
     </>
