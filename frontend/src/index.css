@@ -40,6 +40,11 @@ p {
     @apply line-clamp-2 text-ellipsis overflow-hidden opacity-80 [&_p]:my-0 [&_p]:text-sm [&_p]:mb-2 [&_h1]:m-0 [&_h1]:text-base [&_h2]:my-1 [&_h2]:text-sm [&_h3]:m-0 [&_h3]:text-sm [&_ul]:m-0;
 }
 
+.prose-content :where(img):not(:where([class~=not-prose],[class~=not-prose] *)) {
+    border-radius: 1em;
+    max-width: 600px;
+}
+
 .rt-BaseDialogOverlay::before {
     backdrop-filter: blur(2px);
 }
