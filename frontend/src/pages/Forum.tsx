@@ -60,6 +60,7 @@ export function Forum() {
   const [eventsTotal, setEventsTotal] = useState(0);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [discussionSort, setDiscussionSort] = useState<"created_at" | "upvote_count">("created_at");
+  const [eventSort, setEventSort] = useState<"event_at" | "upvote_count" | "created_at">("event_at");
   const [showNewDiscussion, setShowNewDiscussion] = useState(false);
   const [showNewEvent, setShowNewEvent] = useState(false);
   useEffect(() => {
@@ -93,6 +94,7 @@ export function Forum() {
         const res = await forumApi.getEvents({
           q: searchQ || undefined,
           tag: tagFilter || undefined,
+          sort_by: eventSort,
         });
         setEvents(res.data.events);
         setEventsTotal(res.data.total);
@@ -102,7 +104,7 @@ export function Forum() {
         setEventsLoading(false);
       }
     })();
-  }, [searchQ, tagFilter]);
+  }, [searchQ, tagFilter, eventSort]);
   const refresh = () => {
     setSearchQ((q) => q);
     setTagFilter((t) => t);
@@ -113,7 +115,7 @@ export function Forum() {
         setDiscussionsTotal(r.data.total);
       });
     forumApi
-      .getEvents({ q: searchQ || undefined, tag: tagFilter || undefined })
+      .getEvents({ q: searchQ || undefined, tag: tagFilter || undefined, sort_by: eventSort })
       .then((r) => {
         setEvents(r.data.events);
         setEventsTotal(r.data.total);
@@ -266,7 +268,31 @@ export function Forum() {
           )}
         </Tabs.Content>
         <Tabs.Content value="events" className="pt-4">
-          <Flex justify="end" className="mb-4">
+          <Flex justify="between" align="center" className="mb-4">
+            <Flex gap="2" align="center">
+              <Text size="2" color="gray">Sort:</Text>
+              <Button
+                size="1"
+                variant={eventSort === "event_at" ? "solid" : "soft"}
+                onClick={() => setEventSort("event_at")}
+              >
+                <CalendarClockIcon className="w-3 h-3" /> Event Date
+              </Button>
+              <Button
+                size="1"
+                variant={eventSort === "upvote_count" ? "solid" : "soft"}
+                onClick={() => setEventSort("upvote_count")}
+              >
+                <ChevronUpIcon /> Most Upvoted
+              </Button>
+              <Button
+                size="1"
+                variant={eventSort === "created_at" ? "solid" : "soft"}
+                onClick={() => setEventSort("created_at")}
+              >
+                Latest
+              </Button>
+            </Flex>
             <Button onClick={() => setShowNewEvent(true)}>
               <PlusIcon /> New Event
             </Button>

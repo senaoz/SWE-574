@@ -389,7 +389,7 @@ export const forumApi = {
     api.delete(`/forum/discussions/${id}`),
 
   // Events
-  getEvents: (params?: { page?: number; limit?: number; tag?: string; q?: string; has_location?: boolean }): Promise<AxiosResponse<ForumEventListResponse>> =>
+  getEvents: (params?: { page?: number; limit?: number; tag?: string; q?: string; has_location?: boolean; sort_by?: string }): Promise<AxiosResponse<ForumEventListResponse>> =>
     api.get('/forum/events', { params }),
 
   getEvent: (id: string): Promise<AxiosResponse<ForumEvent>> =>

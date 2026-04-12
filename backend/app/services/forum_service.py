@@ -184,6 +184,7 @@ class ForumService:
         q: Optional[str] = None,
         has_location: bool = False,
         user_id: Optional[str] = None,
+        sort_by: str = "event_at",
     ) -> Tuple[List[ForumEventResponse], int]:
         query: dict = {}
         if tag:
@@ -199,7 +200,8 @@ class ForumService:
 
         total = await self.events.count_documents(query)
         skip = (page - 1) * limit
-        cursor = self.events.find(query).sort("event_at", -1).skip(skip).limit(limit)
+        sort_field = sort_by if sort_by in ("event_at", "upvote_count", "created_at") else "event_at"
+        cursor = self.events.find(query).sort(sort_field, -1).skip(skip).limit(limit)
 
         results = []
         async for doc in cursor:
