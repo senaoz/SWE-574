@@ -497,7 +497,7 @@ function ServicePopupContent({
 
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return null;
-    return new Date(dateStr).toLocaleDateString(undefined, {
+    return new Date(dateStr).toLocaleDateString("en-GB", {
       year: "numeric",
       month: "long",
       day: "numeric",
@@ -607,7 +607,7 @@ function EventPopupContent({ event }: { event: ForumEvent }) {
           Event
         </Badge>
         <Badge color="gray" variant="soft" size="1">
-          {new Date(event.event_at).toLocaleDateString(undefined, {
+          {new Date(event.event_at).toLocaleDateString("en-GB", {
             month: "short",
             day: "numeric",
             hour: "2-digit",
@@ -622,15 +622,6 @@ function EventPopupContent({ event }: { event: ForumEvent }) {
           Linked: {event.service.title}
         </Badge>
       )}
-      <div className="flex items-center gap-2 w-full">
-        <Button
-          variant="soft"
-          className="flex-1"
-          onClick={() => navigate(`/forum/events/${event._id}`)}
-        >
-          View Event
-        </Button>
-      </div>
     </div>
   );
 }
