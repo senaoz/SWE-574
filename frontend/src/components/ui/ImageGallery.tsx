@@ -59,7 +59,7 @@ export function ImageGallery({
             key={i}
             src={src}
             alt={`${alt} ${i + 1}`}
-            className={`w-full max-h-80 rounded-lg cursor-pointer hover:opacity-80 transition-opacity ${urls.length > 2 ? 'object-contain' : 'object-cover'}`}
+            className={`w-full max-h-80 rounded-lg cursor-pointer hover:opacity-80 transition-opacity ${urls.length > 2 ? 'object-cover' : 'object-contain'}`}
             onClick={() => openAt(i)}
           />
         ))}
