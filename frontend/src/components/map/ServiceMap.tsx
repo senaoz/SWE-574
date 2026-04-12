@@ -599,7 +599,6 @@ function ServicePopupContent({
 }
 
 function EventPopupContent({ event }: { event: ForumEvent }) {
-  const navigate = useNavigate();
   return (
     <div className="max-w-xs text-xs space-y-2 min-w-[260px]">
       <div className="flex flex-wrap gap-1 mb-2 items-center">
