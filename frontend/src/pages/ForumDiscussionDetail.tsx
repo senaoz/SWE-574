@@ -8,14 +8,25 @@ import {
   Button,
   TextArea,
   Heading,
+  Dialog,
+  TextField,
 } from "@radix-ui/themes";
-import { ArrowLeftIcon, PaperPlaneIcon } from "@radix-ui/react-icons";
+import { Form } from "radix-ui";
+import {
+  ArrowLeftIcon,
+  PaperPlaneIcon,
+  Pencil1Icon,
+  TrashIcon,
+} from "@radix-ui/react-icons";
 import { MessageCircleIcon } from "lucide-react";
 import { forumApi, getImageUrl } from "@/services/api";
 import { useUser } from "@/App";
-import { ForumDiscussion, ForumComment } from "@/types";
+import { ForumDiscussion, ForumComment, TagEntity } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import { UpvoteButton } from "@/components/ui/UpvoteButton";
+import { MarkdownEditor } from "@/components/forms/MarkdownEditor";
+import { TagAutocomplete } from "@/components/forms/TagAutocomplete";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import ReactMarkdown from "react-markdown";
 
 function timeAgo(dateStr: string) {
@@ -41,6 +52,10 @@ export function ForumDiscussionDetail() {
   const [newComment, setNewComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showEdit, setShowEdit] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+
+  const isOwner = !!currentUserId && discussion?.user_id === currentUserId;
 
   useEffect(() => {
     if (!id) return;
@@ -77,6 +92,12 @@ export function ForumDiscussionDetail() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleDelete = async () => {
+    if (!id) return;
+    await forumApi.deleteDiscussion(id);
+    navigate("/forum?tab=discussions");
   };
 
   if (loading) {
@@ -120,13 +141,42 @@ export function ForumDiscussionDetail() {
           <div className="flex-1">
             <div className="flex justify-between">
               <Heading size="5">{discussion.title}</Heading>
-              <UpvoteButton
+              <Flex gap="2" align="center">
+                {isOwner && (
+                  <>
+                    <Button
+                      variant="soft"
+                      color="gray"
+                      size="1"
+                      onClick={() => setShowEdit(true)}
+                    >
+                      <Pencil1Icon /> Edit
+                    </Button>
+                    <Button
+                      variant="soft"
+                      color="red"
+                      size="1"
+                      onClick={() => setShowDelete(true)}
+                    >
+                      <TrashIcon /> Delete
+                    </Button>
+                  </>
+                )}
+                <UpvoteButton
                   count={discussion.upvote_count ?? 0}
                   upvoted={discussion.user_upvoted}
-                  onUpvote={currentUserId ? () => forumApi.upvoteDiscussion(id!).then(r => r.data) : undefined}
+                  onUpvote={
+                    currentUserId
+                      ? () =>
+                          forumApi
+                            .upvoteDiscussion(id!)
+                            .then((r) => r.data)
+                      : undefined
+                  }
                   disabled={!currentUserId}
                   showLoginHint={!currentUserId}
-              />
+                />
+              </Flex>
             </div>
             <Flex gap="2" align="center" className="mt-1 mb-4">
               <Text size="2" color="gray">
@@ -224,10 +274,14 @@ export function ForumDiscussionDetail() {
             </div>
             <div className="mt-1">
               <UpvoteButton
-                  count={c.upvote_count ?? 0}
-                  upvoted={c.user_upvoted}
-                  onUpvote={currentUserId ? () => forumApi.upvoteComment(c._id).then(r => r.data) : undefined}
-                  disabled={!currentUserId}
+                count={c.upvote_count ?? 0}
+                upvoted={c.user_upvoted}
+                onUpvote={
+                  currentUserId
+                    ? () => forumApi.upvoteComment(c._id).then((r) => r.data)
+                    : undefined
+                }
+                disabled={!currentUserId}
               />
             </div>
           </div>
@@ -238,6 +292,135 @@ export function ForumDiscussionDetail() {
           </Text>
         )}
       </div>
+
+      <EditDiscussionDialog
+        open={showEdit}
+        onOpenChange={setShowEdit}
+        discussion={discussion}
+        onUpdated={(updated) => setDiscussion(updated)}
+      />
+      <ConfirmDialog
+        open={showDelete}
+        onOpenChange={setShowDelete}
+        title="Delete Discussion"
+        description="Are you sure you want to delete this discussion? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleDelete}
+      />
     </div>
+  );
+}
+
+function EditDiscussionDialog({
+  open,
+  onOpenChange,
+  discussion,
+  onUpdated,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  discussion: ForumDiscussion;
+  onUpdated: (updated: ForumDiscussion) => void;
+}) {
+  const [title, setTitle] = useState(discussion.title);
+  const [body, setBody] = useState(discussion.body);
+  const [tags, setTags] = useState<TagEntity[]>(discussion.tags ?? []);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setTitle(discussion.title);
+      setBody(discussion.body);
+      setTags(discussion.tags ?? []);
+      setError("");
+    }
+  }, [open, discussion]);
+
+  const handleSubmit = async () => {
+    if (!title.trim() || !body.trim()) {
+      setError("Title and body are required");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await forumApi.updateDiscussion(discussion._id, {
+        title,
+        body,
+        tags,
+      });
+      onUpdated(res.data);
+      onOpenChange(false);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || "Failed to update discussion");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Content className="max-w-2xl" aria-describedby={undefined}>
+        <Dialog.Title>Edit Discussion</Dialog.Title>
+        <Form.Root
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleSubmit();
+          }}
+          className="space-y-4 mt-4"
+        >
+          <Form.Field name="title" className="space-y-2">
+            <Form.Label className="text-sm font-medium">Title *</Form.Label>
+            <Form.Control asChild>
+              <TextField.Root
+                placeholder="Discussion title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </Form.Control>
+          </Form.Field>
+          <Form.Field name="body" className="space-y-2">
+            <Form.Label className="text-sm font-medium">Body *</Form.Label>
+            <MarkdownEditor
+              placeholder="Write your discussion..."
+              value={body}
+              onChange={(value) => setBody(value)}
+              rows={8}
+            />
+          </Form.Field>
+          <Form.Field name="tags" className="space-y-1">
+            <Form.Label className="text-sm font-medium">Tags</Form.Label>
+            <TagAutocomplete
+              tags={tags}
+              onTagAdd={(t) => setTags([...tags, t])}
+              onTagRemove={(t) =>
+                setTags(tags.filter((x) => x.label !== t.label))
+              }
+            />
+          </Form.Field>
+          {error && (
+            <Text size="2" color="red">
+              {error}
+            </Text>
+          )}
+          <Flex justify="end" gap="3">
+            <Button
+              type="button"
+              variant="soft"
+              color="gray"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Form.Submit asChild>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "Saving..." : "Save Changes"}
+              </Button>
+            </Form.Submit>
+          </Flex>
+        </Form.Root>
+      </Dialog.Content>
+    </Dialog.Root>
   );
 }

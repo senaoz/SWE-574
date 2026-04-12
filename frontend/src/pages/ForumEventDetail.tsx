@@ -10,7 +10,13 @@ import {
   TextArea,
   Heading,
   Tooltip,
+  Dialog,
+  Box,
+  Grid,
+  Switch,
+  TextField,
 } from "@radix-ui/themes";
+import { Form } from "radix-ui";
 import {
   ArrowLeftIcon,
   CalendarIcon,
@@ -19,14 +25,20 @@ import {
   Link2Icon,
   PersonIcon,
   CheckCircledIcon,
+  Pencil1Icon,
+  TrashIcon,
 } from "@radix-ui/react-icons";
 import { MessageCircleIcon } from "lucide-react";
 import { forumApi, getImageUrl } from "@/services/api";
-import { ForumEvent, ForumComment } from "@/types";
+import { ForumEvent, ForumComment, TagEntity } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import { UpvoteButton } from "@/components/ui/UpvoteButton";
 import { useUser } from "@/App";
 import ReactMarkdown from "react-markdown";
+import { MarkdownEditor } from "@/components/forms/MarkdownEditor";
+import { TagAutocomplete } from "@/components/forms/TagAutocomplete";
+import { MapLocationPicker } from "@/components/ui/MapLocationPicker";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 function timeAgo(dateStr: string) {
   const now = Date.now();
@@ -61,8 +73,12 @@ export function ForumEventDetail() {
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [attendToggling, setAttendToggling] = useState(false);
 
+  const [showEdit, setShowEdit] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+
   const isAttending =
     event?.attendee_ids?.includes(currentUserId || "") ?? false;
+  const isOwner = !!currentUserId && event?.user_id === currentUserId;
 
   useEffect(() => {
     if (!id) return;
@@ -103,6 +119,12 @@ export function ForumEventDetail() {
     } finally {
       setAttendToggling(false);
     }
+  };
+
+  const handleDelete = async () => {
+    if (!id) return;
+    await forumApi.deleteEvent(id);
+    navigate("/forum?tab=events");
   };
 
   const handlePostComment = async () => {
@@ -153,13 +175,35 @@ export function ForumEventDetail() {
       <Card className="p-6 mb-6">
         <div className="flex justify-between">
           <Heading size="5">{event.title}</Heading>
-          <UpvoteButton
-              count={event.upvote_count ?? 0}
-              upvoted={event.user_upvoted}
-              onUpvote={currentUserId ? () => forumApi.upvoteEvent(id!).then(r => r.data) : undefined}
-              disabled={!currentUserId}
-              showLoginHint={!currentUserId}
-          />
+          <Flex gap="2" align="center">
+            {isOwner && (
+              <>
+                <Button
+                  variant="soft"
+                  color="gray"
+                  size="1"
+                  onClick={() => setShowEdit(true)}
+                >
+                  <Pencil1Icon /> Edit
+                </Button>
+                <Button
+                  variant="soft"
+                  color="red"
+                  size="1"
+                  onClick={() => setShowDelete(true)}
+                >
+                  <TrashIcon /> Delete
+                </Button>
+              </>
+            )}
+            <UpvoteButton
+                count={event.upvote_count ?? 0}
+                upvoted={event.user_upvoted}
+                onUpvote={currentUserId ? () => forumApi.upvoteEvent(id!).then(r => r.data) : undefined}
+                disabled={!currentUserId}
+                showLoginHint={!currentUserId}
+            />
+          </Flex>
         </div>
         <Flex gap="2" align="center" className="mt-1 mb-4" wrap="wrap">
           <Text size="2" color="gray">
@@ -364,6 +408,226 @@ export function ForumEventDetail() {
           </Text>
         )}
       </div>
+
+      {event && (
+        <>
+          <EditEventDialog
+            open={showEdit}
+            onOpenChange={setShowEdit}
+            event={event}
+            onUpdated={(updated) => setEvent(updated)}
+          />
+          <ConfirmDialog
+            open={showDelete}
+            onOpenChange={setShowDelete}
+            title="Delete Event"
+            description="Are you sure you want to delete this event? This action cannot be undone."
+            confirmLabel="Delete"
+            variant="danger"
+            onConfirm={handleDelete}
+          />
+        </>
+      )}
     </div>
+  );
+}
+
+function EditEventDialog({
+  open,
+  onOpenChange,
+  event,
+  onUpdated,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  event: ForumEvent;
+  onUpdated: (updated: ForumEvent) => void;
+}) {
+  const [title, setTitle] = useState(event.title);
+  const [description, setDescription] = useState(event.description);
+  const [eventDate, setEventDate] = useState(
+    event.event_at ? event.event_at.slice(0, 10) : ""
+  );
+  const [eventTime, setEventTime] = useState(
+    event.event_at ? event.event_at.slice(11, 16) : ""
+  );
+  const [locationValue, setLocationValue] = useState<{
+    latitude: number;
+    longitude: number;
+    address?: string;
+  }>({
+    latitude: event.latitude ?? 0,
+    longitude: event.longitude ?? 0,
+    address: event.location ?? "",
+  });
+  const [isRemote, setIsRemote] = useState(event.is_remote);
+  const [tags, setTags] = useState<TagEntity[]>(event.tags ?? []);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  // Reset when event changes or dialog reopens
+  useEffect(() => {
+    if (open) {
+      setTitle(event.title);
+      setDescription(event.description);
+      setEventDate(event.event_at ? event.event_at.slice(0, 10) : "");
+      setEventTime(event.event_at ? event.event_at.slice(11, 16) : "");
+      setLocationValue({
+        latitude: event.latitude ?? 0,
+        longitude: event.longitude ?? 0,
+        address: event.location ?? "",
+      });
+      setIsRemote(event.is_remote);
+      setTags(event.tags ?? []);
+      setError("");
+    }
+  }, [open, event]);
+
+  const handleSubmit = async () => {
+    if (!title.trim() || !description.trim() || !eventDate || !eventTime) {
+      setError("Title, description, date, and time are required");
+      return;
+    }
+    const eventAt = new Date(`${eventDate}T${eventTime}`).toISOString();
+    setSubmitting(true);
+    try {
+      const res = await forumApi.updateEvent(event._id, {
+        title,
+        description,
+        event_at: eventAt,
+        location: isRemote ? undefined : locationValue.address || undefined,
+        latitude:
+          isRemote || locationValue.latitude === 0
+            ? undefined
+            : locationValue.latitude,
+        longitude:
+          isRemote || locationValue.longitude === 0
+            ? undefined
+            : locationValue.longitude,
+        is_remote: isRemote,
+        tags,
+      });
+      onUpdated(res.data);
+      onOpenChange(false);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || "Failed to update event");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Content className="max-w-2xl" aria-describedby={undefined}>
+        <Dialog.Title>Edit Event</Dialog.Title>
+        <Form.Root
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleSubmit();
+          }}
+          className="space-y-4 mt-4"
+        >
+          <Form.Field name="title" className="space-y-2">
+            <Form.Label className="text-sm font-medium">
+              Event title *
+            </Form.Label>
+            <Form.Control asChild>
+              <TextField.Root
+                placeholder="Event title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </Form.Control>
+          </Form.Field>
+          <Form.Field name="description" className="space-y-2">
+            <Form.Label className="text-sm font-medium">
+              Description *
+            </Form.Label>
+            <MarkdownEditor
+              placeholder="Describe the event..."
+              value={description}
+              onChange={(value) => setDescription(value)}
+              rows={6}
+            />
+          </Form.Field>
+          <Box>
+            <Text size="2" weight="medium" className="mb-2 block">
+              Date & Time *
+            </Text>
+            <Grid columns="2" gap="3">
+              <Form.Field name="event_date" className="space-y-2">
+                <Form.Control asChild>
+                  <TextField.Root
+                    type="date"
+                    value={eventDate}
+                    onChange={(e) => setEventDate(e.target.value)}
+                  />
+                </Form.Control>
+              </Form.Field>
+              <Form.Field name="event_time" className="space-y-2">
+                <Form.Control asChild>
+                  <TextField.Root
+                    type="time"
+                    value={eventTime}
+                    onChange={(e) => setEventTime(e.target.value)}
+                  />
+                </Form.Control>
+              </Form.Field>
+            </Grid>
+          </Box>
+          <Box>
+            <Flex gap="2" align="center">
+              <Switch checked={isRemote} onCheckedChange={setIsRemote} />
+              <Text size="2" className="font-medium">
+                Remote / Online event
+              </Text>
+            </Flex>
+          </Box>
+          {!isRemote && (
+            <Box className="mb-4">
+              <Text size="2" weight="medium" className="mb-2 block">
+                Location
+              </Text>
+              <MapLocationPicker
+                value={locationValue}
+                onChange={setLocationValue}
+                markerColor="#7c3aed"
+                height={200}
+              />
+            </Box>
+          )}
+          <Form.Field name="tags" className="space-y-1">
+            <Form.Label className="text-sm font-medium">Tags</Form.Label>
+            <TagAutocomplete
+              tags={tags}
+              onTagAdd={(t) => setTags([...tags, t])}
+              onTagRemove={(t) =>
+                setTags(tags.filter((x) => x.label !== t.label))
+              }
+            />
+          </Form.Field>
+          {error && (
+            <Text size="2" color="red">
+              {error}
+            </Text>
+          )}
+          <Flex justify="end" gap="3">
+            <Button
+              type="button"
+              variant="soft"
+              color="gray"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Form.Submit asChild>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "Saving..." : "Save Changes"}
+              </Button>
+            </Form.Submit>
+          </Flex>
+        </Form.Root>
+      </Dialog.Content>
+    </Dialog.Root>
   );
 }
