@@ -359,8 +359,7 @@ export function MyServicesTab({
                               )}
 
                               {/* Group Chat button for active services with matched users */}
-                              {service.status === "active" &&
-                                service.matched_user_ids &&
+                              {service.matched_user_ids &&
                                 service.matched_user_ids.length > 0 && (
                                   <Tooltip content="Create group chat with matched users">
                                     <Button
