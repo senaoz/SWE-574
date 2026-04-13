@@ -1,4 +1,5 @@
 import { Card, Text, Flex, Badge, Box, Heading } from "@radix-ui/themes";
+import { Link } from "react-router-dom";
 import { TimeBankTransaction, TimeBankResponse } from "@/types";
 
 interface MyTimebankTabProps {
@@ -24,10 +25,20 @@ export function MyTimebankTab({
           {timebankData.transactions.map((transaction: TimeBankTransaction) => (
             <Card key={transaction.id} className="p-3">
               <Flex justify="between" align="center">
-                <div className="flex-1">
-                  <Text size="2" weight="medium" className="block mb-1">
-                    {transaction.description}
-                  </Text>
+                <div className="flex-1 flex flex-col gap-2">
+                  {transaction.service_id ? (
+                    <Link
+                      to={`/service/${transaction.service_id}`}
+                      className="text-sm font-medium hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {transaction.description}
+                    </Link>
+                  ) : (
+                    <Text size="2" weight="medium" className="block mb-1">
+                      {transaction.description}
+                    </Text>
+                  )}
                   <Text size="1" color="gray">
                     {new Date(transaction.created_at).toLocaleDateString(
                       "en-US",

@@ -102,3 +102,15 @@ async def upload_comment_image(
     filename = f"{uuid.uuid4().hex}{ext}"
     url = _save_upload(file, "comments", filename)
     return {"url": url}
+
+
+@router.post("/forum-event-image")
+async def upload_forum_event_image(
+    file: UploadFile = File(...),
+    current_user: UserResponse = Depends(get_current_user),
+):
+    """Upload an image for a forum event. Returns the URL."""
+    ext = _validate_image(file)
+    filename = f"{uuid.uuid4().hex}{ext}"
+    url = _save_upload(file, "forum-events", filename)
+    return {"url": url}

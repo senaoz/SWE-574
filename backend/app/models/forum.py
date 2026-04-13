@@ -98,6 +98,7 @@ class ForumEventCreate(BaseModel):
     is_remote: bool = False
     tags: List[dict] = Field(default_factory=list, max_length=10)
     service_id: Optional[str] = None
+    image_urls: Optional[List[str]] = None
 
     @model_validator(mode='before')
     @classmethod
@@ -128,6 +129,7 @@ class ForumEventUpdate(BaseModel):
     is_remote: Optional[bool] = None
     tags: Optional[List[dict]] = Field(None, max_length=10)
     service_id: Optional[str] = None
+    image_urls: Optional[List[str]] = None
 
     class Config:
         json_encoders = {ObjectId: str}
@@ -154,6 +156,7 @@ class ForumEventResponse(BaseModel):
     attendee_count: int = 0
     upvote_count: int = 0
     user_upvoted: bool = False
+    image_urls: List[str] = Field(default_factory=list)
 
     class Config:
         populate_by_name = True
