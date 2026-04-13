@@ -25,8 +25,9 @@ import {
   CheckCircledIcon,
   Pencil1Icon,
   TrashIcon,
+  PlusIcon,
 } from "@radix-ui/react-icons";
-import { forumApi, getImageUrl } from "@/services/api";
+import { forumApi, getImageUrl, uploadApi } from "@/services/api";
 import { ForumEvent, TagEntity } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import { UpvoteButton } from "@/components/ui/UpvoteButton";
@@ -212,6 +213,19 @@ export function ForumEventDetail() {
             </Badge>
           ) : null}
         </Flex>
+
+        {event.image_urls && event.image_urls.length > 0 && (
+          <div className="mb-4 flex gap-2 flex-wrap">
+            {event.image_urls.map((url, i) => (
+              <img
+                key={i}
+                src={getImageUrl(url) ?? url}
+                alt={`Event image ${i + 1}`}
+                className="rounded-lg object-cover h-48 w-auto max-w-full"
+              />
+            ))}
+          </div>
+        )}
 
         <div className="prose-content mb-4">
           <ReactMarkdown
@@ -401,6 +415,29 @@ function EditEventDialog({
   const [tags, setTags] = useState<TagEntity[]>(event.tags ?? []);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>(event.image_urls ?? []);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
+  const [imageUploading, setImageUploading] = useState(false);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (existingImageUrls.length + imageFiles.length >= 3) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Image must be under 5 MB");
+      return;
+    }
+    setError("");
+    setImageFiles((prev) => [...prev, file]);
+    setImagePreviewUrls((prev) => [...prev, URL.createObjectURL(file)]);
+    e.target.value = "";
+  };
+  const removeNewImage = (index: number) => {
+    URL.revokeObjectURL(imagePreviewUrls[index]);
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviewUrls((prev) => prev.filter((_, i) => i !== index));
+  };
 
   // Reset when event changes or dialog reopens
   useEffect(() => {
@@ -416,8 +453,13 @@ function EditEventDialog({
       });
       setIsRemote(event.is_remote);
       setTags(event.tags ?? []);
+      setExistingImageUrls(event.image_urls ?? []);
+      imagePreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+      setImageFiles([]);
+      setImagePreviewUrls([]);
       setError("");
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, event]);
 
   const handleSubmit = async () => {
@@ -427,6 +469,22 @@ function EditEventDialog({
     }
     const eventAt = new Date(`${eventDate}T${eventTime}`).toISOString();
     setSubmitting(true);
+    const uploadedUrls: string[] = [];
+    if (imageFiles.length > 0) {
+      setImageUploading(true);
+      try {
+        for (const file of imageFiles) {
+          const res = await uploadApi.uploadForumEventImage(file);
+          uploadedUrls.push(res.data.url);
+        }
+      } catch (err: any) {
+        setError(err?.response?.data?.detail || "Image upload failed");
+        setImageUploading(false);
+        setSubmitting(false);
+        return;
+      }
+      setImageUploading(false);
+    }
     try {
       const res = await forumApi.updateEvent(event._id, {
         title,
@@ -443,6 +501,7 @@ function EditEventDialog({
             : locationValue.longitude,
         is_remote: isRemote,
         tags,
+        image_urls: [...existingImageUrls, ...uploadedUrls],
       });
       onUpdated(res.data);
       onOpenChange(false);
@@ -543,6 +602,74 @@ function EditEventDialog({
               }
             />
           </Form.Field>
+          <Box className="space-y-2">
+            <Text size="2" weight="medium" className="block">
+              Event images
+            </Text>
+            {existingImageUrls.length + imageFiles.length < 3 && (
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  disabled={imageUploading}
+                  onChange={handleImageChange}
+                />
+                <span className="flex items-center justify-center gap-2 border rounded-lg p-2 hover-card text-center cursor-pointer font-medium text-sm w-full">
+                  <PlusIcon className="w-4 h-4" />
+                  Add image (max 3)
+                </span>
+              </label>
+            )}
+            {existingImageUrls.length > 0 && (
+              <Flex gap="2" wrap="wrap" className="border rounded-lg p-2">
+                {existingImageUrls.map((url, i) => (
+                  <Box key={i} className="relative">
+                    <img
+                      src={getImageUrl(url) ?? url}
+                      alt={`Image ${i + 1}`}
+                      className="rounded-lg object-cover h-24 w-24"
+                    />
+                    <Button
+                      type="button"
+                      size="1"
+                      variant="solid"
+                      color="red"
+                      className="!absolute top-1 right-1 !p-1 w-5 h-5 cursor-pointer"
+                      onClick={() =>
+                        setExistingImageUrls((prev) => prev.filter((_, j) => j !== i))
+                      }
+                    >
+                      ×
+                    </Button>
+                  </Box>
+                ))}
+              </Flex>
+            )}
+            {imagePreviewUrls.length > 0 && (
+              <Flex gap="2" wrap="wrap" className="border rounded-lg p-2">
+                {imagePreviewUrls.map((url, i) => (
+                  <Box key={i} className="relative">
+                    <img
+                      src={url}
+                      alt={`New image ${i + 1}`}
+                      className="rounded-lg object-cover h-24 w-24"
+                    />
+                    <Button
+                      type="button"
+                      size="1"
+                      variant="solid"
+                      color="red"
+                      className="!absolute top-1 right-1 !p-1 w-5 h-5 cursor-pointer"
+                      onClick={() => removeNewImage(i)}
+                    >
+                      ×
+                    </Button>
+                  </Box>
+                ))}
+              </Flex>
+            )}
+          </Box>
           {error && (
             <Text size="2" color="red">
               {error}
@@ -558,8 +685,8 @@ function EditEventDialog({
               Cancel
             </Button>
             <Form.Submit asChild>
-              <Button type="submit" disabled={submitting}>
-                {submitting ? "Saving..." : "Save Changes"}
+              <Button type="submit" disabled={submitting || imageUploading}>
+                {imageUploading ? "Uploading..." : submitting ? "Saving..." : "Save Changes"}
               </Button>
             </Form.Submit>
           </Flex>

@@ -5,6 +5,7 @@ import {
   Card,
   Flex,
   Heading,
+  Inset,
   Tabs,
   Text,
   TextField,
@@ -26,7 +27,7 @@ import {
 } from "@radix-ui/react-icons";
 import { UpvoteButton } from "@/components/ui/UpvoteButton";
 import { MessageCircleIcon, CalendarClockIcon } from "lucide-react";
-import { forumApi, getImageUrl } from "@/services/api";
+import { forumApi, getImageUrl, uploadApi } from "@/services/api";
 import { ForumDiscussion, ForumEvent, TagEntity } from "@/types";
 import { TagAutocomplete } from "@/components/forms/TagAutocomplete";
 import { ClickableTag } from "@/components/ui/ClickableTag";
@@ -59,8 +60,12 @@ export function Forum() {
   const [events, setEvents] = useState<ForumEvent[]>([]);
   const [eventsTotal, setEventsTotal] = useState(0);
   const [eventsLoading, setEventsLoading] = useState(true);
-  const [discussionSort, setDiscussionSort] = useState<"created_at" | "upvote_count">("created_at");
-  const [eventSort, setEventSort] = useState<"event_at" | "upvote_count" | "created_at">("event_at");
+  const [discussionSort, setDiscussionSort] = useState<
+    "created_at" | "upvote_count"
+  >("created_at");
+  const [eventSort, setEventSort] = useState<
+    "event_at" | "upvote_count" | "created_at"
+  >("event_at");
   const [showNewDiscussion, setShowNewDiscussion] = useState(false);
   const [showNewEvent, setShowNewEvent] = useState(false);
   useEffect(() => {
@@ -115,7 +120,11 @@ export function Forum() {
         setDiscussionsTotal(r.data.total);
       });
     forumApi
-      .getEvents({ q: searchQ || undefined, tag: tagFilter || undefined, sort_by: eventSort })
+      .getEvents({
+        q: searchQ || undefined,
+        tag: tagFilter || undefined,
+        sort_by: eventSort,
+      })
       .then((r) => {
         setEvents(r.data.events);
         setEventsTotal(r.data.total);
@@ -160,13 +169,16 @@ export function Forum() {
             {discussionsTotal})
           </Tabs.Trigger>
           <Tabs.Trigger value="events">
-            <CalendarClockIcon className="mr-1 w-4 h-4" /> Events ({eventsTotal})
+            <CalendarClockIcon className="mr-1 w-4 h-4" /> Events ({eventsTotal}
+            )
           </Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="discussions" className="pt-4">
           <Flex justify="between" align="center" className="mb-4">
             <Flex gap="2" align="center">
-              <Text size="2" color="gray">Sort:</Text>
+              <Text size="2" color="gray">
+                Sort:
+              </Text>
               <Button
                 size="1"
                 variant={discussionSort === "created_at" ? "solid" : "soft"}
@@ -195,7 +207,7 @@ export function Forum() {
               <Text color="gray">No discussions yet. Start one!</Text>
             </Card>
           ) : (
-            <div className="space-y-3">
+            <div className="grid gap-4">
               {discussions.map((d) => (
                 <Card
                   key={d._id}
@@ -225,21 +237,21 @@ export function Forum() {
                         </Text>
                       </Flex>
                       <div className="mt-1 prose-content card-description">
-	                        <ReactMarkdown
-	                          components={{
-	                            a: ({ node: _node, ...props }) => (
-	                              <a
-	                                {...props}
-	                                target="_blank"
-	                                rel="noopener noreferrer"
-	                              >
-	                                {props.children}
-	                              </a>
-	                            ),
-	                          }}
-	                        >
-	                          {d.body}
-	                        </ReactMarkdown>
+                        <ReactMarkdown
+                          components={{
+                            a: ({ node: _node, ...props }) => (
+                              <a
+                                {...props}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {props.children}
+                              </a>
+                            ),
+                          }}
+                        >
+                          {d.body}
+                        </ReactMarkdown>
                       </div>
                       <Flex gap="2" align="center" className="mt-2" wrap="wrap">
                         <Text size="1" color="gray">
@@ -250,7 +262,10 @@ export function Forum() {
                           <MessageCircleIcon className="w-3 h-3 mr-1" />
                           {d.comment_count}
                         </Badge>
-                        <UpvoteButton count={d.upvote_count ?? 0} upvoted={d.user_upvoted} />
+                        <UpvoteButton
+                          count={d.upvote_count ?? 0}
+                          upvoted={d.user_upvoted}
+                        />
                         {(d.tags || []).slice(0, 3).map((tag, i) => (
                           <ClickableTag
                             key={i}
@@ -270,7 +285,9 @@ export function Forum() {
         <Tabs.Content value="events" className="pt-4">
           <Flex justify="between" align="center" className="mb-4">
             <Flex gap="2" align="center">
-              <Text size="2" color="gray">Sort:</Text>
+              <Text size="2" color="gray">
+                Sort:
+              </Text>
               <Button
                 size="1"
                 variant={eventSort === "event_at" ? "solid" : "soft"}
@@ -306,7 +323,7 @@ export function Forum() {
               <Text color="gray">No events yet. Create one!</Text>
             </Card>
           ) : (
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {events.map((ev) => (
                 <Card
                   key={ev._id}
@@ -314,6 +331,22 @@ export function Forum() {
                   size="3"
                   onClick={() => navigate(`/forum/events/${ev._id}`)}
                 >
+                  {ev.image_urls && ev.image_urls.length > 0 && (
+                    <Inset clip="padding-box" side="top" pb="current">
+                      <img
+                        src={getImageUrl(ev.image_urls[0]) ?? ev.image_urls[0]}
+                        alt={ev.title}
+                        loading="lazy"
+                        style={{
+                          display: "block",
+                          objectFit: "cover",
+                          width: "100%",
+                          height: 160,
+                          backgroundColor: "var(--gray-5)",
+                        }}
+                      />
+                    </Inset>
+                  )}
                   <Flex justify="between" align="start" wrap="wrap">
                     <Text size="3" weight="bold" className="line-clamp-1">
                       {ev.title}
@@ -332,20 +365,20 @@ export function Forum() {
                     </Flex>
                   </Flex>
                   <div className="prose-content card-description">
-	                    <ReactMarkdown
-	                      components={{
-	                        a: ({ node: _node, ...props }) => (
-	                          <a
-	                            {...props}
-	                            target="_blank"
-	                            rel="noopener noreferrer"
-	                          >
-	                            {props.children}
-	                          </a>
-	                        ),
-	                      }}
-	                    >
-	                      {ev.description}
+                    <ReactMarkdown
+                      components={{
+                        a: ({ node: _node, ...props }) => (
+                          <a
+                            {...props}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {props.children}
+                          </a>
+                        ),
+                      }}
+                    >
+                      {ev.description}
                     </ReactMarkdown>
                   </div>
                   <Flex gap="2" align="center" className="mt-2" wrap="wrap">
@@ -376,7 +409,10 @@ export function Forum() {
                       <MessageCircleIcon className="w-3 h-3 mr-1" />
                       {ev.comment_count}
                     </Badge>
-                    <UpvoteButton count={ev.upvote_count ?? 0} upvoted={ev.user_upvoted} />
+                    <UpvoteButton
+                      count={ev.upvote_count ?? 0}
+                      upvoted={ev.user_upvoted}
+                    />
                     {(ev.tags || []).slice(0, 3).map((tag, i) => (
                       <ClickableTag
                         key={i}
@@ -542,6 +578,9 @@ function NewEventDialog({
   const [serviceId, setServiceId] = useState("__none__");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
+  const [imageUploading, setImageUploading] = useState(false);
   const reset = () => {
     setTitle("");
     setDescription("");
@@ -552,14 +591,55 @@ function NewEventDialog({
     setTags([]);
     setServiceId("__none__");
     setError("");
+    imagePreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+    setImageFiles([]);
+    setImagePreviewUrls([]);
+  };
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (imageFiles.length >= 3) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Image must be under 5 MB");
+      return;
+    }
+    setError("");
+    setImageFiles((prev) => [...prev, file]);
+    setImagePreviewUrls((prev) => [...prev, URL.createObjectURL(file)]);
+    e.target.value = "";
+  };
+  const removeImage = (index: number) => {
+    URL.revokeObjectURL(imagePreviewUrls[index]);
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviewUrls((prev) => prev.filter((_, i) => i !== index));
   };
   const handleSubmit = async () => {
     if (!title.trim() || !description.trim() || !eventDate || !eventTime) {
       setError("Title, description, date, and time are required");
       return;
     }
+    if (imageFiles.length === 0) {
+      setError("Please upload at least one image for the event");
+      return;
+    }
     const eventAt = new Date(`${eventDate}T${eventTime}`).toISOString();
     setSubmitting(true);
+    const uploadedUrls: string[] = [];
+    if (imageFiles.length > 0) {
+      setImageUploading(true);
+      try {
+        for (const file of imageFiles) {
+          const res = await uploadApi.uploadForumEventImage(file);
+          uploadedUrls.push(res.data.url);
+        }
+      } catch (err: any) {
+        setError(err?.response?.data?.detail || "Image upload failed");
+        setImageUploading(false);
+        setSubmitting(false);
+        return;
+      }
+      setImageUploading(false);
+    }
     try {
       await forumApi.createEvent({
         title,
@@ -578,6 +658,7 @@ function NewEventDialog({
         tags,
         service_id:
           serviceId && serviceId !== "__none__" ? serviceId : undefined,
+        image_urls: uploadedUrls,
       });
       reset();
       onOpenChange(false);
@@ -688,6 +769,49 @@ function NewEventDialog({
               }
             />
           </Form.Field>
+          <Box className="space-y-2">
+            <Text size="2" weight="medium" className="block">
+              Event image *
+            </Text>
+            {imageFiles.length < 3 && (
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  disabled={imageUploading}
+                  onChange={handleImageChange}
+                />
+                <span className="flex items-center justify-center gap-2 border rounded-lg p-2 hover-card text-center cursor-pointer font-medium text-sm w-full">
+                  <PlusIcon className="w-4 h-4" />
+                  Add image (max 3)
+                </span>
+              </label>
+            )}
+            {imagePreviewUrls.length > 0 && (
+              <Flex gap="2" wrap="wrap" className="border rounded-lg p-2">
+                {imagePreviewUrls.map((url, i) => (
+                  <Box key={i} className="relative">
+                    <img
+                      src={url}
+                      alt={`Preview ${i + 1}`}
+                      className="rounded-lg object-cover h-24 w-24"
+                    />
+                    <Button
+                      type="button"
+                      size="1"
+                      variant="solid"
+                      color="red"
+                      className="!absolute top-1 right-1 !p-1 w-5 h-5 cursor-pointer"
+                      onClick={() => removeImage(i)}
+                    >
+                      ×
+                    </Button>
+                  </Box>
+                ))}
+              </Flex>
+            )}
+          </Box>
           {error && (
             <Text size="2" color="red">
               {error}
@@ -703,8 +827,12 @@ function NewEventDialog({
               Cancel
             </Button>
             <Form.Submit asChild>
-              <Button type="submit" disabled={submitting}>
-                {submitting ? "Creating..." : "Create Event"}
+              <Button type="submit" disabled={submitting || imageUploading}>
+                {imageUploading
+                  ? "Uploading..."
+                  : submitting
+                    ? "Creating..."
+                    : "Create Event"}
               </Button>
             </Form.Submit>
           </Flex>

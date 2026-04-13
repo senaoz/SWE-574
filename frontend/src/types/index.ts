@@ -609,6 +609,7 @@ export interface ForumEvent {
   attendee_count: number;
   upvote_count: number;
   user_upvoted?: boolean;
+  image_urls?: string[];
 }
 
 export interface ForumEventListResponse {
@@ -628,6 +629,7 @@ export interface ForumEventForm {
   is_remote: boolean;
   tags: TagEntity[];
   service_id?: string;
+  image_urls?: string[];
 }
 
 export interface ForumComment {
