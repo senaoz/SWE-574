@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, BeforeValidator, model_validator
+from pydantic import BaseModel, Field, BeforeValidator, model_validator, field_validator
 from typing import Optional, List, Annotated
 from datetime import datetime
 from bson import ObjectId
@@ -157,6 +157,11 @@ class ForumEventResponse(BaseModel):
     upvote_count: int = 0
     user_upvoted: bool = False
     image_urls: List[str] = Field(default_factory=list)
+
+    @field_validator("image_urls", mode="before")
+    @classmethod
+    def coerce_image_urls(cls, v):
+        return v or []
 
     class Config:
         populate_by_name = True
