@@ -1,4 +1,4 @@
-import { Card, Badge, Text, Flex } from "@radix-ui/themes";
+import { Card, Badge, Text, Flex, Inset } from "@radix-ui/themes";
 import { Service, BadgeSummary } from "@/types";
 import { useNavigate } from "react-router-dom";
 import { ClickableTag } from "@/components/ui/ClickableTag";
@@ -11,10 +11,14 @@ import {
 } from "@radix-ui/react-icons";
 import { CalendarIcon } from "lucide-react";
 import { useEffect, useState } from "react";
-import { usersApi, ratingsApi } from "@/services/api";
+import { usersApi, ratingsApi, getImageUrl } from "@/services/api";
 import { StatusBadge } from "./StatusBadge";
 import { CustomBadge, getHighestPriorityBadge } from "./BadgeDisplay";
-import { formatRelativeTime, formatDurationShort, formatDateShort } from "@/utils/utils";
+import {
+  formatRelativeTime,
+  formatDurationShort,
+  formatDateShort,
+} from "@/utils/utils";
 import { useSavedServiceIds } from "@/hooks/useSavedServiceIds";
 
 interface OfferListingCardProps {
@@ -59,7 +63,8 @@ export function OfferListingCard({
             data: { total: 0, average_score: null },
           })),
         ]);
-        const earnedBadges = badgesRes.data?.badges.filter((b) => b.earned) ?? [];
+        const earnedBadges =
+          badgesRes.data?.badges.filter((b) => b.earned) ?? [];
         setUser(userRes.data);
         setBadgeSummary({
           badges: badgesRes.data?.badges ?? [],
@@ -133,13 +138,31 @@ export function OfferListingCard({
   return (
     <Card
       size="2"
-      className={`hover-card flex flex-col h-full gap-2 overflow-hidden ${
+      className={`offer-listing-card hover-card flex flex-col h-full gap-2 overflow-hidden ${
         isRecommended ? "recommended-listing-card" : ""
       }`}
       onClick={handleCardClick}
     >
+      {service.image_urls && service.image_urls.length > 0 && (
+        <Inset clip="padding-box" side="top" pb="current" className="p-[1px]">
+          <img
+            src={getImageUrl(service.image_urls[0]) ?? service.image_urls[0]}
+            alt={service.title}
+            loading="lazy"
+            style={{
+              display: "block",
+              objectFit: "cover",
+              width: "100%",
+              height: 160,
+              backgroundColor: "var(--gray-5)",
+            }}
+          />
+        </Inset>
+      )}
       {/* Header with status badges (left) and user info (right) */}
-      <div className={`flex gap-2 ${isRecommended ? "flex-col" : "items-center justify-between"}`}>
+      <div
+        className={`flex gap-2 ${isRecommended ? "flex-col" : "items-center justify-between"}`}
+      >
         {isRecommended && (
           <Text size="1" className="recommended-listing-label">
             Recommended
@@ -183,19 +206,23 @@ export function OfferListingCard({
             </Text>
           </Flex>
         )}
-        {service.scheduling_type === "recurring" && service.recurring_pattern && (
-          <Flex align="center" gap="1">
-            <CalendarIcon className="w-5 h-5 text-blue-500" />
-            <Text>
-              {service.recurring_pattern.days.join(", ")}
-              {service.recurring_pattern.time && ` · ${service.recurring_pattern.time}`}
-            </Text>
-          </Flex>
-        )}
+        {service.scheduling_type === "recurring" &&
+          service.recurring_pattern && (
+            <Flex align="center" gap="1">
+              <CalendarIcon className="w-5 h-5 text-blue-500" />
+              <Text>
+                {service.recurring_pattern.days.join(", ")}
+                {service.recurring_pattern.time &&
+                  ` · ${service.recurring_pattern.time}`}
+              </Text>
+            </Flex>
+          )}
         {service.scheduling_type === "open" && service.open_availability && (
           <Flex align="center" gap="1">
             <CalendarIcon className="w-5 h-5 text-blue-500" />
-            <Text className="truncate max-w-[200px]">{service.open_availability}</Text>
+            <Text className="truncate max-w-[200px]">
+              {service.open_availability}
+            </Text>
           </Flex>
         )}
       </Flex>
@@ -233,7 +260,8 @@ export function OfferListingCard({
       <div className="flex items-center justify-between">
         <Text size="1" className="opacity-60">
           Posted {formatRelativeTime(service.created_at)}
-          {service.deadline && ` | Deadline: ${formatRelativeTime(service.deadline)}`}
+          {service.deadline &&
+            ` | Deadline: ${formatRelativeTime(service.deadline)}`}
         </Text>
         {currentUserId && (
           <Badge
