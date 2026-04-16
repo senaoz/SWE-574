@@ -51,22 +51,44 @@ The following requirements from the SRS were addressed during Milestone 2. Full 
 The Hive Platform is a community time-banking domain where trust, transparency, and discoverability are central. UX decisions in this milestone were driven by these domain constraints.
 
 **Service Cards**
+
 Scheduled date/time appears directly on listing cards so users can assess availability without opening the detail page. The highest-priority badge is shown on the card to signal trustworthy providers at a glance. Creator names truncate with an ellipsis on overflow.
 
+<img width="939" height="501" alt="Screenshot 2026-04-17 at 00 51 28" src="https://github.com/user-attachments/assets/ec55b88f-c48d-4975-af64-2bef2f83673a" />
+
 **Dashboard Recommendations**
+
 The recommendations panel separates *For You* (interest-matched) from *Near You* (location-based fallback). New users with no interests see a guided prompt pointing them to the profile page — turning the cold-start gap into an onboarding moment. Filters persist across back-navigation so users are not forced to re-enter criteria.
 
+<img width="1800" height="538" alt="Screenshot 2026-04-17 at 00 51 48" src="https://github.com/user-attachments/assets/a2e817e8-6be4-4294-a5c3-987b7fe0ca55" />
+
 **Map**
+
 Emoji markers were replaced with SVG icons differentiated by offer (blue) and need (amber) type. Popups are enriched with provider rating, top badge, tags, and estimated duration — surfacing trust-relevant signals without requiring a page navigation.
 
+<img width="296" height="228" alt="Screenshot 2026-04-17 at 00 53 02" src="https://github.com/user-attachments/assets/39535f4f-e817-47f8-a472-877866251be3" />
+
 **Ratings / Feedback**
+
 Photo attachment lets users add richer, more authentic community feedback. A dedicated *Reviews* section on the profile page consolidates all incoming ratings with photo thumbnails, making reputation immediately visible to other users.
 
+<img width="820" height="302" alt="Screenshot 2026-04-17 at 00 53 34" src="https://github.com/user-attachments/assets/733e81b5-a602-4dc8-855d-0c222dc454ae" />
+
 **Forum**
+
 Markdown rendering (via Tailwind Typography) lets creators use headers, lists, bold, and links, matching the richness expected in a community knowledge-sharing space. Upvote counts give community members a signal of endorsed content.
 
+<img width="1800" height="923" alt="Screenshot 2026-04-17 at 00 55 07" src="https://github.com/user-attachments/assets/ec1905e4-d425-4e21-a50a-69cf211bc491" />
+
+
 **Group Chat**
+
 When a service becomes active, a group chat room is created automatically, removing the friction of manually starting a conversation. Profile pictures appear in chat and link to the sender's profile, reinforcing trust and identity.
+
+<img width="1223" height="577" alt="Screenshot 2026-04-17 at 00 54 09" src="https://github.com/user-attachments/assets/54afdc4f-17ad-4355-9b9a-c6f3fe65f9d3" />
+
+<img width="707" height="415" alt="Screenshot 2026-04-17 at 00 53 46" src="https://github.com/user-attachments/assets/c8776a0f-9aea-4bac-9005-65ee88639883" />
+
 
 ---
 
