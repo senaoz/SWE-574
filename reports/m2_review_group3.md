@@ -42,7 +42,7 @@ The following requirements from the SRS were addressed during Milestone 2. Full 
 | CI: test job blocks deployment — [#218](https://github.com/senaoz/SWE-574/pull/218) | Completed |
 | Persistent Docker volume for uploads — [#245](https://github.com/senaoz/SWE-574/pull/245) | Completed |
 | ESLint + TypeScript strict checks in CI — [#242](https://github.com/senaoz/SWE-574/pull/242) | Completed |
-| Pre-release v0.2.0-alpha | Completed |
+| [Pre-release v0.2.0-alpha](https://github.com/senaoz/SWE-574/releases/tag/customer-milestone-2) | Completed |
 
 ---
 
