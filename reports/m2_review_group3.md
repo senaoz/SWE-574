@@ -275,48 +275,44 @@ Android parity is partially complete (service creation and ratings implemented; 
 ### Individual Contributions
 
 #### Ayşenur Ünal
-* Offer post creation & transaction fixes #145, #146
-* Unit tests for ChatService, TransactionService & image upload API #136, #142
-* Recommendation posts in post detail page #194
-* "For You" filter with tightened interest matching #208, #255
-* Dashboard recommendations, sorting & filter persistence #215, #256
-* Save (heart) button for posts & stale state fix #240, #252, #253
-* Cold-start recommendation fallback & interests guidance #270
-* Frontend type-check error fixes #241
+* Offer post creation & transaction fixes
+* Unit tests for ChatService, TransactionService & image upload API
+* Recommendation posts in post detail page
+* "For You" filter with tightened interest matching
+* Dashboard recommendations, sorting & filter persistence
+* Save (heart) button for posts & stale state fix
+* Cold-start recommendation fallback & interests guidance
+* Frontend type-check error fixes
 
 #### Kenan Altunbaş
-* Badge display names & priority display #157, #184
-* Navigate to user profile on attendee avatar click #168
-* 10-hour balance limit enforcement #220
-* Feedback tag selection limit (max 5) & creator name overflow fix #249, #258
-* Comment profile navigation fix #248
-* SVG map markers & enriched map popups #299, #307, #310
-* Event attendance, attendee avatars & rich map popups #318
-* Chores: `.gitattributes` for line ending normalization #214
+* Badge display names & priority display
+* Navigate to user profile on attendee avatar click
+* 10-hour balance limit enforcement
+* Feedback tag selection limit (max 5) & creator name overflow fix
+* Comment profile navigation fix
+* SVG map markers & enriched map popups
+* Event attendance, attendee avatars & rich map popups
+* Chores: `.gitattributes` for line ending normalization
 
 #### Yusuf Savaş
-* Service creation workflow for mobile #172
-* Separate profile edit page with rating info & UI improvements #247
-* Photo upload for ratings & multiple rating fix on mobile #273
-* Service cards, filters & icon updates on map #295
-* Participant acceptiance fixes #234
-* Implemantaion of profile edit for mobile #181
+* Service creation workflow for mobile
+* Separate profile edit page with rating info & UI improvements
+* Photo upload for ratings & multiple rating fix on mobile
+* Service cards, filters & icon updates on map
+* Participant acceptance fixes
+* Implementation of profile edit for mobile
+* Mobile rating flow polish & bug fixes
+* Map UI consistency improvements
 
 #### Sena Oz
-* Markdown rendering with Tailwind Typography plugin #153
-* Reporting system #163
-* User role management for authentication #169
-* Server-side search, autocomplete & geolocation format support #185, #189
-* Onboarding modal for new users & search bar improvements #196
-* Notifications (web & mobile) #211, #233
-* Group chat & group chat rooms for active services #219, #291
-* Upvote functionality for discussions & events #257
-* ReviewCard component & rating image persistence #280, #309
-* Notification types for chat messages & service status updates #290
-* Services summary, data fetching refactor & edit/delete for forum posts #292, #294, #312
-* Images in comments & events page sorting #315
-* Testing infrastructure: Vitest, CI/CD, unit & integration tests #218, #243, #269, #313
-
+* Markdown rendering with Tailwind Typography plugin
+* Reporting system & user role management for authentication
+* Server-side search, autocomplete & geolocation format support
+* Onboarding modal for new users & search bar improvements
+* Notifications (web & mobile) + notification types for chat & service updates
+* Group chat & group chat rooms for active services
+* Upvote for discussions/events, ReviewCard & rating image persistence
+* Services summary, forum post edit/delete, comment images & events sorting; testing infrastructure (Vitest, CI/CD, unit & integration tests)
 
 ---
 
