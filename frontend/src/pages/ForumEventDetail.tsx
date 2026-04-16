@@ -459,7 +459,6 @@ function EditEventDialog({
       setImagePreviewUrls([]);
       setError("");
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, event]);
 
   const handleSubmit = async () => {
