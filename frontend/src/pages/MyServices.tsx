@@ -446,7 +446,7 @@ onDeleteService={handleDeleteService}
           <Tabs.List>
             <Tabs.Trigger value="applications">
               <LucideList className="w-4 h-4 mr-2" />
-              My Applications ({requests.length})
+              My Applications
             </Tabs.Trigger>
             <Tabs.Trigger value="timebank">
               <ClockIcon className="w-4 h-4 mr-2" />
@@ -454,7 +454,7 @@ onDeleteService={handleDeleteService}
             </Tabs.Trigger>
             <Tabs.Trigger value="saved">
               <BookmarkIcon className="w-4 h-4 mr-2" />
-              Saved Items ({savedServicesData?.services?.length ?? 0})
+              Saved Items
             </Tabs.Trigger>
           </Tabs.List>
 
