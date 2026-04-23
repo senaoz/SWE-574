@@ -319,6 +319,7 @@ export interface ServiceFormErrors {
   specific_time?: string;
   recurring_pattern?: string | { days: string[]; time: string; error: string };
   open_availability?: string;
+  images?: string;
 }
 
 export interface Comment {
