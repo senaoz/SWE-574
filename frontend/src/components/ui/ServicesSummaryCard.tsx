@@ -206,8 +206,7 @@ export function ServicesSummaryCard({
                 return (
                   <div
                     key={label}
-                    className="flex-1 flex flex-col items-center gap-1"
-                    title={`${label}: ${offer} offers, ${need} needs`}
+                    className="flex-1 flex flex-col items-center gap-1 group relative"
                   >
                     <Text size="1" color="gray" className="leading-none">
                       {t > 0 ? t : ""}
@@ -236,6 +235,20 @@ export function ServicesSummaryCard({
                     <Text size="1" color="gray" className="leading-none">
                       {label}
                     </Text>
+                    {/* Hover tooltip */}
+                    <div
+                      className="pointer-events-none absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-10
+                                 opacity-0 group-hover:opacity-100 transition-opacity duration-150
+                                 whitespace-nowrap rounded-md px-2 py-1 text-xs shadow-md"
+                      style={{
+                        backgroundColor: "var(--gray-12)",
+                        color: "var(--gray-1)",
+                      }}
+                    >
+                      <span style={{ color: "var(--blue-9)" }}>{offer} offers</span>
+                      {" · "}
+                      <span style={{ color: "var(--amber-9)" }}>{need} needs</span>
+                    </div>
                   </div>
                 );
               })}
