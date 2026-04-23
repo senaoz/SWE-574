@@ -1278,26 +1278,61 @@ export function Profile() {
               <BadgeDisplay />
 
               {/* Reviews Section */}
-              <div className="space-y-4">
-                <Heading size="5">Services which you have reviewed</Heading>
+              <div className="space-y-6">
+                <Heading size="5">Reviews Received</Heading>
                 {detailedRatingsLoading ? (
                   <Card className="p-6 text-center">
-                    <Text color="gray">
-                      Loading services which you have reviewed...
-                    </Text>
+                    <Text color="gray">Loading reviews...</Text>
                   </Card>
-                ) : detailedRatings.length > 0 ? (
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {detailedRatings.map((rating) => (
-                      <ReviewCard key={rating._id} rating={rating} />
-                    ))}
-                  </div>
-                ) : (
+                ) : detailedRatings.length === 0 ? (
                   <Card className="p-6 text-center">
-                    <Text color="gray">
-                      No services which you have reviewed yet
-                    </Text>
+                    <Text color="gray">No reviews received yet</Text>
                   </Card>
+                ) : (
+                  <>
+                    {(() => {
+                      const providerRatings = detailedRatings.filter(
+                        (r) => r.transaction?.rated_user_role === "provider"
+                      );
+                      const takerRatings = detailedRatings.filter(
+                        (r) => r.transaction?.rated_user_role === "taker"
+                      );
+                      const unknownRatings = detailedRatings.filter(
+                        (r) => !r.transaction?.rated_user_role
+                      );
+                      return (
+                        <>
+                          {providerRatings.length > 0 && (
+                            <div className="space-y-3">
+                              <Heading size="3" color="gray">As Service Provider</Heading>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                {providerRatings.map((rating) => (
+                                  <ReviewCard key={rating._id} rating={rating} />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {takerRatings.length > 0 && (
+                            <div className="space-y-3">
+                              <Heading size="3" color="gray">As Service Taker</Heading>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                {takerRatings.map((rating) => (
+                                  <ReviewCard key={rating._id} rating={rating} />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {unknownRatings.length > 0 && (
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                              {unknownRatings.map((rating) => (
+                                <ReviewCard key={rating._id} rating={rating} />
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </>
                 )}
               </div>
             </div>

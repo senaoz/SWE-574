@@ -74,6 +74,7 @@ export interface RatingDetailed {
     timebank_hours: number;
     completed_at?: string;
     created_at?: string;
+    rated_user_role?: "provider" | "taker";
   };
   service?: {
     id: string;
