@@ -20,6 +20,7 @@ PyObjectId = Annotated[str, BeforeValidator(validate_object_id)]
 class ForumTargetType(str, Enum):
     DISCUSSION = "discussion"
     EVENT = "event"
+    COMMUNITY_POST = "community_post"
 
 
 # --------------- Discussion ---------------
