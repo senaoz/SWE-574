@@ -730,12 +730,7 @@ function NewEventDialog({
     setImagePreviewUrls((prev) => [...prev, URL.createObjectURL(file)]);
     e.target.value = "";
   };
-  const removeImage = (index: number) => {
-    URL.revokeObjectURL(imagePreviewUrls[index]);
-    setImageFiles((prev) => prev.filter((_, i) => i !== index));
-    setImagePreviewUrls((prev) => prev.filter((_, i) => i !== index));
-  };
-  const handleSubmit = async () => {
+const handleSubmit = async () => {
     if (!title.trim() || !description.trim() || !eventDate || !eventTime) {
       setError("Title, description, date, and time are required");
       return;

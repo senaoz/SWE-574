@@ -10,7 +10,7 @@ import {
   TrashIcon, ChevronUpIcon,
 } from "@radix-ui/react-icons";
 import { MessageCircleIcon, UsersIcon, PinIcon } from "lucide-react";
-import { communityApi, forumApi, getImageUrl } from "@/services/api";
+import { communityApi, getImageUrl } from "@/services/api";
 import { useUser } from "@/App";
 import { Community, CommunityPost, TagEntity } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
@@ -41,7 +41,7 @@ export function CommunityDetail() {
 
   const [community, setCommunity] = useState<Community | null>(null);
   const [posts, setPosts] = useState<CommunityPost[]>([]);
-  const [postsTotal, setPostsTotal] = useState(0);
+  const [, setPostsTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [postsLoading, setPostsLoading] = useState(true);
   const [postSort, setPostSort] = useState<"created_at" | "upvote_count">("created_at");
