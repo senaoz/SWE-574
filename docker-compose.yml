@@ -26,7 +26,7 @@ services:
     restart: unless-stopped
     environment:
       - PYTHONUNBUFFERED=1
-      - MONGODB_URL=mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017
+      - MONGODB_URL=${MONGODB_URL:-mongodb://admin:password@mongodb:27017}
       - DATABASE_NAME=${DATABASE_NAME:-hive_platform}
       - SECRET_KEY=${SECRET_KEY:-1cc121f4d036f246fb13825d0119717ee0655634538ea3f47db5f507ba5899da}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
@@ -46,6 +46,8 @@ services:
       args:
         - VITE_API_URL=${VITE_API_URL}
     restart: unless-stopped
+    ports:
+      - "3000:80"
     environment:
       - VITE_API_URL=${VITE_API_URL}
     depends_on:

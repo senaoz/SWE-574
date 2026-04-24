@@ -218,7 +218,7 @@ async def get_event_attendees(
 
 @router.get("/comments", response_model=ForumCommentListResponse)
 async def list_comments(
-    target_type: str = Query(..., pattern="^(discussion|event)$"),
+    target_type: str = Query(..., pattern="^(discussion|event|community_post)$"),
     target_id: str = Query(...),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),

@@ -364,8 +364,10 @@ class ForumService:
         target_id = ObjectId(data.target_id)
         if data.target_type == "discussion":
             target = await self.discussions.find_one({"_id": target_id})
-        else:
+        elif data.target_type == "event":
             target = await self.events.find_one({"_id": target_id})
+        else:  # community_post
+            target = await self.db["community_posts"].find_one({"_id": target_id})
         if not target:
             raise ValueError(f"{data.target_type.capitalize()} not found")
 

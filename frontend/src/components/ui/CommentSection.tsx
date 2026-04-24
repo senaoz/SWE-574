@@ -27,7 +27,7 @@ export interface CommentItem {
 
 interface CommentSectionProps {
   fetchComments: () => Promise<CommentItem[]>;
-  postComment: (content: string, imageUrls?: string[]) => Promise<CommentItem>;
+  postComment?: (content: string, imageUrls?: string[]) => Promise<CommentItem>;
   title?: string;
   placeholder?: string;
   emptyMessage?: string;
@@ -94,7 +94,7 @@ export function CommentSection({
   };
 
   const handleSubmit = async () => {
-    if (!newComment.trim()) return;
+    if (!newComment.trim() || !postComment) return;
     setIsSubmitting(true);
     setUploadError(null);
     try {
@@ -128,7 +128,7 @@ export function CommentSection({
         </Text>
       </Flex>
 
-      {/* Comment form */}
+      {/* Comment form — hidden when postComment is not provided (e.g. non-member) */}
       <div className="mb-4 relative">
         <TextArea
           placeholder={placeholder}
@@ -137,6 +137,7 @@ export function CommentSection({
           className="mb-2"
           rows={3}
           variant="soft"
+          disabled={!postComment}
         />
 
         <Flex align="center" gap="2" className="comment-images-input">

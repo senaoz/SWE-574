@@ -27,8 +27,10 @@ import {
 } from "@radix-ui/react-icons";
 import { UpvoteButton } from "@/components/ui/UpvoteButton";
 import { MessageCircleIcon, CalendarClockIcon } from "lucide-react";
-import { forumApi, getImageUrl, uploadApi } from "@/services/api";
-import { ForumDiscussion, ForumEvent, TagEntity } from "@/types";
+import { forumApi, getImageUrl, uploadApi, communityApi } from "@/services/api";
+import { ForumDiscussion, ForumEvent, TagEntity, Community } from "@/types";
+import { useUser } from "@/App";
+import { UsersIcon } from "lucide-react";
 import { TagAutocomplete } from "@/components/forms/TagAutocomplete";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import { MarkdownEditor } from "@/components/forms/MarkdownEditor";
@@ -68,6 +70,13 @@ export function Forum() {
   >("event_at");
   const [showNewDiscussion, setShowNewDiscussion] = useState(false);
   const [showNewEvent, setShowNewEvent] = useState(false);
+  const [showNewCommunity, setShowNewCommunity] = useState(false);
+  const [communities, setCommunities] = useState<Community[]>([]);
+  const [communitiesTotal, setCommunitiesTotal] = useState(0);
+  const [communitiesLoading, setCommunitiesLoading] = useState(true);
+  const [communitySort, setCommunitySort] = useState<"member_count" | "created_at" | "post_count">("member_count");
+  const [communityMyOnly, setCommunityMyOnly] = useState(false);
+  const { currentUserId } = useUser();
   useEffect(() => {
     setSearchParams((p) => {
       p.set("tab", tab);
@@ -110,6 +119,26 @@ export function Forum() {
       }
     })();
   }, [searchQ, tagFilter, eventSort]);
+  useEffect(() => {
+    (async () => {
+      setCommunitiesLoading(true);
+      try {
+        const res = await communityApi.getCommunities({
+          q: searchQ || undefined,
+          tag: tagFilter || undefined,
+          sort_by: communitySort,
+          my_only: communityMyOnly || undefined,
+        });
+        setCommunities(res.data.communities);
+        setCommunitiesTotal(res.data.total);
+      } catch {
+        setCommunities([]);
+      } finally {
+        setCommunitiesLoading(false);
+      }
+    })();
+  }, [searchQ, tagFilter, communitySort, communityMyOnly]);
+
   const refresh = () => {
     setSearchQ((q) => q);
     setTagFilter((t) => t);
@@ -128,6 +157,12 @@ export function Forum() {
       .then((r) => {
         setEvents(r.data.events);
         setEventsTotal(r.data.total);
+      });
+    communityApi
+      .getCommunities({ q: searchQ || undefined, tag: tagFilter || undefined, sort_by: communitySort })
+      .then((r) => {
+        setCommunities(r.data.communities);
+        setCommunitiesTotal(r.data.total);
       });
   };
   return (
@@ -171,6 +206,9 @@ export function Forum() {
           <Tabs.Trigger value="events">
             <CalendarClockIcon className="mr-1 w-4 h-4" /> Events ({eventsTotal}
             )
+          </Tabs.Trigger>
+          <Tabs.Trigger value="communities">
+            <UsersIcon className="mr-1 w-4 h-4" /> Communities ({communitiesTotal})
           </Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="discussions" className="pt-4">
@@ -427,6 +465,85 @@ export function Forum() {
             </div>
           )}
         </Tabs.Content>
+        <Tabs.Content value="communities" className="pt-4">
+          <Flex justify="between" align="center" className="mb-4">
+            <Flex gap="2" align="center" wrap="wrap">
+              <Text size="2" color="gray">Sort:</Text>
+              <Button size="1" variant={communitySort === "member_count" ? "solid" : "soft"} onClick={() => setCommunitySort("member_count")}>
+                <UsersIcon className="w-3 h-3" /> Members
+              </Button>
+              <Button size="1" variant={communitySort === "post_count" ? "solid" : "soft"} onClick={() => setCommunitySort("post_count")}>
+                Posts
+              </Button>
+              <Button size="1" variant={communitySort === "created_at" ? "solid" : "soft"} onClick={() => setCommunitySort("created_at")}>
+                Latest
+              </Button>
+              {currentUserId && (
+                <Button size="1" variant={communityMyOnly ? "solid" : "soft"} color="violet" onClick={() => setCommunityMyOnly(!communityMyOnly)}>
+                  My Communities
+                </Button>
+              )}
+            </Flex>
+            {currentUserId && (
+              <Button onClick={() => setShowNewCommunity(true)}>
+                <PlusIcon /> New Community
+              </Button>
+            )}
+          </Flex>
+          {communitiesLoading ? (
+            <Card className="p-8 text-center"><Text color="gray">Loading...</Text></Card>
+          ) : communities.length === 0 ? (
+            <Card className="p-8 text-center"><Text color="gray">No communities yet. Create the first one!</Text></Card>
+          ) : (
+            <div className="grid gap-4">
+              {communities.map((c) => (
+                <Card
+                  key={c._id}
+                  className="hover-card cursor-pointer"
+                  size="3"
+                  onClick={() => navigate(`/forum/communities/${c._id}`)}
+                >
+                  <Flex gap="3" align="start">
+                    <Avatar
+                      size="4"
+                      src={getImageUrl(c.avatar_url) ?? undefined}
+                      fallback={c.name[0]}
+                      radius="full"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <Flex justify="between" align="start" wrap="wrap" gap="2">
+                        <div>
+                          <Text size="3" weight="bold">{c.name}</Text>
+                          {c.user_membership && (
+                            <Badge size="1" variant="soft" color="violet" className="ml-2">
+                              {c.user_membership === "founder" ? "Founder" : c.user_membership === "moderator" ? "Mod" : "Member"}
+                            </Badge>
+                          )}
+                        </div>
+                        <Flex gap="2" align="center">
+                          <Badge size="1" variant="soft" color="gray">
+                            <UsersIcon className="w-3 h-3 mr-1" />{c.member_count} members
+                          </Badge>
+                          <Badge size="1" variant="soft" color="gray">
+                            <MessageCircleIcon className="w-3 h-3 mr-1" />{c.post_count} posts
+                          </Badge>
+                        </Flex>
+                      </Flex>
+                      <Text size="2" color="gray" className="mt-1 line-clamp-2">{c.description}</Text>
+                      <Flex gap="2" align="center" className="mt-2" wrap="wrap">
+                        <Text size="1" color="gray">by {c.founder?.full_name || c.founder?.username || "Unknown"}</Text>
+                        <Text size="1" color="gray">· {timeAgo(c.created_at)}</Text>
+                        {(c.tags || []).slice(0, 3).map((tag, i) => (
+                          <ClickableTag key={i} tag={tag} size="1" stopPropagation />
+                        ))}
+                      </Flex>
+                    </div>
+                  </Flex>
+                </Card>
+              ))}
+            </div>
+          )}
+        </Tabs.Content>
       </Tabs.Root>
       <NewDiscussionDialog
         open={showNewDiscussion}
@@ -437,6 +554,11 @@ export function Forum() {
         open={showNewEvent}
         onOpenChange={setShowNewEvent}
         onCreated={refresh}
+      />
+      <NewCommunityDialog
+        open={showNewCommunity}
+        onOpenChange={setShowNewCommunity}
+        onCreated={(c) => { navigate(`/forum/communities/${c._id}`); }}
       />
     </div>
   );
@@ -794,19 +916,20 @@ function NewEventDialog({
                   <Box key={i} className="relative">
                     <img
                       src={url}
-                      alt={`Preview ${i + 1}`}
-                      className="rounded-lg object-cover h-24 w-24"
+                      alt={"Preview " + String(i + 1)}
+                      className="w-20 h-20 object-cover rounded"
                     />
-                    <Button
+                    <button
                       type="button"
-                      size="1"
-                      variant="solid"
-                      color="red"
-                      className="!absolute top-1 right-1 !p-1 w-5 h-5 cursor-pointer"
-                      onClick={() => removeImage(i)}
+                      className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs"
+                      onClick={() => {
+                        URL.revokeObjectURL(url);
+                        setImageFiles((prev) => prev.filter((_, j) => j !== i));
+                        setImagePreviewUrls((prev) => prev.filter((_, j) => j !== i));
+                      }}
                     >
-                      ×
-                    </Button>
+                      x
+                    </button>
                   </Box>
                 ))}
               </Flex>
@@ -831,8 +954,169 @@ function NewEventDialog({
                 {imageUploading
                   ? "Uploading..."
                   : submitting
-                    ? "Creating..."
-                    : "Create Event"}
+                  ? "Creating..."
+                  : "Create Event"}
+              </Button>
+            </Form.Submit>
+          </Flex>
+        </Form.Root>
+      </Dialog.Content>
+    </Dialog.Root>
+  );
+}
+function NewCommunityDialog({
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  onCreated: (community: import("@/types").Community) => void;
+}) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [rules, setRules] = useState<string[]>([]);
+  const [newRule, setNewRule] = useState("");
+  const [tags, setTags] = useState<TagEntity[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const reset = () => {
+    setName("");
+    setDescription("");
+    setRules([]);
+    setNewRule("");
+    setTags([]);
+    setError("");
+  };
+
+  const handleAddRule = () => {
+    const r = newRule.trim();
+    if (r && rules.length < 10) {
+      setRules([...rules, r]);
+      setNewRule("");
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!name.trim() || !description.trim()) {
+      setError("Name and description are required");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await communityApi.createCommunity({ name, description, rules, tags });
+      reset();
+      onOpenChange(false);
+      onCreated(res.data);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || "Failed to create community");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog.Root
+      open={open}
+      onOpenChange={(o) => {
+        onOpenChange(o);
+        if (!o) reset();
+      }}
+    >
+      <Dialog.Content className="max-w-2xl" aria-describedby={undefined}>
+        <Dialog.Title>Create New Community</Dialog.Title>
+        <Form.Root
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleSubmit();
+          }}
+          className="space-y-4 mt-4"
+        >
+          <Form.Field name="name" className="space-y-2">
+            <Form.Label className="text-sm font-medium">Community Name *</Form.Label>
+            <Form.Control asChild>
+              <TextField.Root
+                placeholder="e.g. Sustainable Living"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </Form.Control>
+          </Form.Field>
+          <Form.Field name="description" className="space-y-2">
+            <Form.Label className="text-sm font-medium">Description *</Form.Label>
+            <MarkdownEditor
+              placeholder="What is this community about?"
+              value={description}
+              onChange={(v) => setDescription(v)}
+              rows={5}
+            />
+          </Form.Field>
+          <Form.Field name="tags" className="space-y-1">
+            <Form.Label className="text-sm font-medium">Tags</Form.Label>
+            <TagAutocomplete
+              tags={tags}
+              onTagAdd={(t) => setTags([...tags, t])}
+              onTagRemove={(t) => setTags(tags.filter((x) => x.label !== t.label))}
+            />
+          </Form.Field>
+          <div className="space-y-2">
+            <Text size="2" weight="medium" className="block">
+              Community Rules
+            </Text>
+            {rules.map((rule, i) => (
+              <Flex key={i} gap="2" align="center">
+                <Text size="2" className="flex-1">
+                  {i + 1}. {rule}
+                </Text>
+                <Button
+                  type="button"
+                  size="1"
+                  variant="ghost"
+                  color="red"
+                  onClick={() => setRules(rules.filter((_, j) => j !== i))}
+                >
+                  <Cross2Icon />
+                </Button>
+              </Flex>
+            ))}
+            {rules.length < 10 && (
+              <Flex gap="2">
+                <TextField.Root
+                  placeholder="Add a rule..."
+                  value={newRule}
+                  onChange={(e) => setNewRule(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddRule();
+                    }
+                  }}
+                  className="flex-1"
+                />
+                <Button type="button" size="2" variant="soft" onClick={handleAddRule}>
+                  Add
+                </Button>
+              </Flex>
+            )}
+          </div>
+          {error && (
+            <Text size="2" color="red">
+              {error}
+            </Text>
+          )}
+          <Flex justify="end" gap="3">
+            <Button
+              type="button"
+              variant="soft"
+              color="gray"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Form.Submit asChild>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "Creating..." : "Create Community"}
               </Button>
             </Form.Submit>
           </Flex>
