@@ -8,6 +8,12 @@ import com.hive.hive_app.data.api.dto.ForumEventResponse
 import com.hive.hive_app.data.api.dto.ForumUserEmbed
 import com.hive.hive_app.data.repository.AuthRepository
 import com.hive.hive_app.data.repository.ForumRepository
+import com.hive.hive_app.data.repository.CommunityRepository
+import com.hive.hive_app.data.api.dto.CommunityResponse
+import com.hive.hive_app.data.api.dto.CommunityCreate
+import com.hive.hive_app.data.api.dto.CommunityPostCreate
+import com.hive.hive_app.data.api.dto.CommunityPostResponse
+import com.hive.hive_app.data.api.dto.UpvoteResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,12 +22,13 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-enum class ForumTab { DISCUSSIONS, EVENTS }
+enum class ForumTab { DISCUSSIONS, EVENTS, COMMUNITIES }
 
 @HiltViewModel
 class ForumViewModel @Inject constructor(
     private val forumRepository: ForumRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val communityRepository: CommunityRepository
 ) : ViewModel() {
 
     data class ForumListState(
@@ -477,4 +484,258 @@ class ForumViewModel @Inject constructor(
                 }
         }
     }
+    // --------------- Communities ---------------
+
+    data class CommunitiesListState(
+        val communities: List<CommunityResponse> = emptyList(),
+        val total: Int = 0,
+        val page: Int = 1,
+        val isLoading: Boolean = false,
+        val error: String? = null,
+        val searchQuery: String = ""
+    )
+
+    data class CreateCommunityState(
+        val name: String = "",
+        val description: String = "",
+        val isSubmitting: Boolean = false,
+        val error: String? = null,
+        val createdId: String? = null
+    )
+
+    private val _communitiesListState = MutableStateFlow(CommunitiesListState())
+    val communitiesListState: StateFlow<CommunitiesListState> = _communitiesListState.asStateFlow()
+
+    private val _createCommunityState = MutableStateFlow(CreateCommunityState())
+    val createCommunityState: StateFlow<CreateCommunityState> = _createCommunityState.asStateFlow()
+
+    fun setCommunitySearchQuery(query: String) {
+        _communitiesListState.update { it.copy(searchQuery = query) }
+    }
+
+    fun loadCommunities(page: Int = 1) {
+        viewModelScope.launch {
+            _communitiesListState.update { it.copy(isLoading = true, error = null) }
+            val q = _communitiesListState.value.searchQuery.takeIf { it.isNotBlank() }
+            communityRepository.listCommunities(page = page, limit = 20, q = q)
+                .onSuccess { response ->
+                    _communitiesListState.update {
+                        it.copy(
+                            communities = if (page == 1) response.communities else it.communities + response.communities,
+                            total = response.total,
+                            page = response.page,
+                            isLoading = false,
+                            error = null
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _communitiesListState.update {
+                        it.copy(isLoading = false, error = e.message ?: "Failed to load communities")
+                    }
+                }
+        }
+    }
+
+    fun setCreateCommunityName(name: String) {
+        _createCommunityState.update { it.copy(name = name, error = null) }
+    }
+
+    fun setCreateCommunityDescription(desc: String) {
+        _createCommunityState.update { it.copy(description = desc, error = null) }
+    }
+
+    fun createCommunity(onSuccess: (String) -> Unit = {}) {
+        val name = _createCommunityState.value.name.trim()
+        val description = _createCommunityState.value.description.trim()
+        if (name.length < 3) {
+            _createCommunityState.update { it.copy(error = "Name must be at least 3 characters") }
+            return
+        }
+        if (description.isBlank()) {
+            _createCommunityState.update { it.copy(error = "Description is required") }
+            return
+        }
+        viewModelScope.launch {
+            _createCommunityState.update { it.copy(isSubmitting = true, error = null) }
+            communityRepository.createCommunity(CommunityCreate(name = name, description = description))
+                .onSuccess { community ->
+                    _createCommunityState.update {
+                        it.copy(isSubmitting = false, name = "", description = "", createdId = community.id, error = null)
+                    }
+                    loadCommunities(1)
+                    onSuccess(community.id)
+                }
+                .onFailure { e ->
+                    _createCommunityState.update {
+                        it.copy(isSubmitting = false, error = e.message ?: "Failed to create community")
+                    }
+                }
+        }
+    }
+
+    fun clearCreateCommunityState() {
+        _createCommunityState.value = CreateCommunityState()
+    }
+
+    // --------------- Community Detail ---------------
+
+    data class CommunityDetailState(
+        val community: CommunityResponse? = null,
+        val posts: List<CommunityPostResponse> = emptyList(),
+        val postsTotal: Int = 0,
+        val isLoading: Boolean = false,
+        val postsLoading: Boolean = false,
+        val membershipLoading: Boolean = false,
+        val error: String? = null,
+        val sortBy: String = "created_at"
+    )
+
+    data class CreatePostState(
+        val title: String = "",
+        val body: String = "",
+        val isSubmitting: Boolean = false,
+        val error: String? = null
+    )
+
+    private val _communityDetailState = MutableStateFlow(CommunityDetailState())
+    val communityDetailState: StateFlow<CommunityDetailState> = _communityDetailState.asStateFlow()
+
+    private val _createPostState = MutableStateFlow(CreatePostState())
+    val createPostState: StateFlow<CreatePostState> = _createPostState.asStateFlow()
+
+    fun loadCommunityDetail(communityId: String) {
+        viewModelScope.launch {
+            _communityDetailState.update { it.copy(isLoading = true, error = null) }
+            communityRepository.getCommunity(communityId)
+                .onSuccess { community ->
+                    _communityDetailState.update { it.copy(community = community, isLoading = false) }
+                    loadCommunityPosts(communityId)
+                }
+                .onFailure { e ->
+                    _communityDetailState.update { it.copy(isLoading = false, error = e.message ?: "Failed to load community") }
+                }
+        }
+    }
+
+    fun loadCommunityPosts(communityId: String, page: Int = 1) {
+        viewModelScope.launch {
+            _communityDetailState.update { it.copy(postsLoading = true) }
+            val sortBy = _communityDetailState.value.sortBy
+            communityRepository.getCommunityPosts(communityId, page = page, sortBy = sortBy)
+                .onSuccess { resp ->
+                    _communityDetailState.update {
+                        it.copy(
+                            posts = if (page == 1) resp.posts else it.posts + resp.posts,
+                            postsTotal = resp.total,
+                            postsLoading = false
+                        )
+                    }
+                }
+                .onFailure {
+                    _communityDetailState.update { it.copy(postsLoading = false) }
+                }
+        }
+    }
+
+    fun setCommunityPostSort(communityId: String, sortBy: String) {
+        _communityDetailState.update { it.copy(sortBy = sortBy) }
+        loadCommunityPosts(communityId, page = 1)
+    }
+
+    fun joinCommunity(communityId: String) {
+        viewModelScope.launch {
+            _communityDetailState.update { it.copy(membershipLoading = true) }
+            communityRepository.joinCommunity(communityId)
+                .onSuccess { updated ->
+                    _communityDetailState.update { it.copy(community = updated, membershipLoading = false) }
+                    _communitiesListState.update { listState ->
+                        listState.copy(communities = listState.communities.map { c ->
+                            if (c.id == communityId) updated else c
+                        })
+                    }
+                }
+                .onFailure { e ->
+                    _communityDetailState.update { it.copy(membershipLoading = false, error = e.message) }
+                }
+        }
+    }
+
+    fun leaveCommunity(communityId: String) {
+        viewModelScope.launch {
+            _communityDetailState.update { it.copy(membershipLoading = true) }
+            communityRepository.leaveCommunity(communityId)
+                .onSuccess { updated ->
+                    _communityDetailState.update { it.copy(community = updated, membershipLoading = false) }
+                    _communitiesListState.update { listState ->
+                        listState.copy(communities = listState.communities.map { c ->
+                            if (c.id == communityId) updated else c
+                        })
+                    }
+                }
+                .onFailure { e ->
+                    _communityDetailState.update { it.copy(membershipLoading = false, error = e.message) }
+                }
+        }
+    }
+
+    fun setCreatePostTitle(title: String) {
+        _createPostState.update { it.copy(title = title, error = null) }
+    }
+
+    fun setCreatePostBody(body: String) {
+        _createPostState.update { it.copy(body = body, error = null) }
+    }
+
+    fun createCommunityPost(communityId: String, onSuccess: () -> Unit = {}) {
+        val title = _createPostState.value.title.trim()
+        val body = _createPostState.value.body.trim()
+        if (title.isBlank()) {
+            _createPostState.update { it.copy(error = "Title is required") }
+            return
+        }
+        if (body.isBlank()) {
+            _createPostState.update { it.copy(error = "Body is required") }
+            return
+        }
+        viewModelScope.launch {
+            _createPostState.update { it.copy(isSubmitting = true, error = null) }
+            communityRepository.createCommunityPost(communityId, CommunityPostCreate(title = title, body = body))
+                .onSuccess { post ->
+                    _createPostState.value = CreatePostState()
+                    _communityDetailState.update { it.copy(posts = listOf(post) + it.posts, postsTotal = it.postsTotal + 1) }
+                    _communityDetailState.update { s ->
+                        s.copy(community = s.community?.copy(postCount = (s.community.postCount) + 1))
+                    }
+                    onSuccess()
+                }
+                .onFailure { e ->
+                    _createPostState.update { it.copy(isSubmitting = false, error = e.message ?: "Failed to create post") }
+                }
+        }
+    }
+
+    fun clearCreatePostState() {
+        _createPostState.value = CreatePostState()
+    }
+
+    fun upvoteCommunityPost(communityId: String, postId: String) {
+        viewModelScope.launch {
+            communityRepository.upvotePost(communityId, postId)
+                .onSuccess { result ->
+                    _communityDetailState.update { s ->
+                        s.copy(posts = s.posts.map { p ->
+                            if (p.id == postId) p.copy(upvoteCount = result.upvoteCount, userUpvoted = result.userUpvoted) else p
+                        })
+                    }
+                }
+                .onFailure { /* silent */ }
+        }
+    }
+
+    fun clearCommunityDetail() {
+        _communityDetailState.value = CommunityDetailState()
+        _createPostState.value = CreatePostState()
+    }
+
 }

@@ -24,6 +24,24 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.hive.hive_app.ui.main.*
 import com.hive.hive_app.ui.notifications.NotificationsScreen
 
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.Forum
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.text.font.FontWeight
+import com.hive.hive_app.ui.main.ForumViewModel
+
 private sealed class OverlayRoute {
     data class UserProfile(val userId: String) : OverlayRoute()
     data class UserRatings(val userId: String, val title: String = "Ratings") : OverlayRoute()
@@ -46,6 +64,7 @@ fun MainScaffold(
     var showNotifications by remember { mutableStateOf(false) }
     var showEditProfile by remember { mutableStateOf(false) }
     var showCreateService by remember { mutableStateOf(false) }
+    var showCommonSheet by remember { mutableStateOf(false) }
     var showActiveItems by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -64,7 +83,7 @@ fun MainScaffold(
 
     BackHandler(
         enabled = overlayStack.isNotEmpty() || showSavedServices || showNotifications ||
-                showEditProfile || showCreateService || showActiveItems ||
+                showEditProfile || showCreateService || showActiveItems || showCommonSheet ||
                 currentDestination != MainDestinations.MAP
     ) {
         when {
@@ -76,6 +95,7 @@ fun MainScaffold(
             }
             showEditProfile -> showEditProfile = false
             showCreateService -> showCreateService = false
+            showCommonSheet -> showCommonSheet = false
             showActiveItems -> showActiveItems = false
             currentDestination != MainDestinations.MAP -> {
                 currentDestination = MainDestinations.MAP
@@ -186,6 +206,17 @@ fun MainScaffold(
         return
     }
 
+    if (showCommonSheet) {
+        CommonCreateSheet(
+            onDismiss = { showCommonSheet = false },
+            onCreateService = {
+                showCommonSheet = false
+                showCreateService = true
+            }
+        )
+        return
+    }
+
     if (showCreateService) {
         CreateServiceScreen(
             modifier = Modifier.fillMaxSize(),
@@ -253,7 +284,7 @@ fun MainScaffold(
             currentDestination = currentDestination,
             unreadCount = unreadCount,
             onDestinationSelected = { currentDestination = it },
-            onAddClick = { showCreateService = true },
+            onAddClick = { showCommonSheet = true },
             barHeightParam = navBarHeight
         )
     }
@@ -349,5 +380,209 @@ private fun BottomNavItem(
             Icon(imageVector = icon, contentDescription = label, tint = color, modifier = Modifier.size(27.dp))
         }
         Text(text = label, style = MaterialTheme.typography.labelSmall, color = color, fontSize = 10.sp)
+    }
+}
+// ─── Common Create Bottom Sheet ───────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CommonCreateSheet(
+    onDismiss: () -> Unit,
+    onCreateService: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val forumViewModel: ForumViewModel = hiltViewModel()
+
+    var selectedTab by remember { mutableIntStateOf(0) }
+    val tabs = listOf("Service", "Common")
+
+    // Common sub-states
+    var commonStep by remember { mutableStateOf<String?>(null) } // null | "discussion" | "event" | "community"
+
+    // Discussion form state
+    var discussionTitle by remember { mutableStateOf("") }
+    var discussionBody by remember { mutableStateOf("") }
+    var discussionError by remember { mutableStateOf("") }
+
+    // Community form state  
+    var communityName by remember { mutableStateOf("") }
+    var communityDesc by remember { mutableStateOf("") }
+    var communityError by remember { mutableStateOf("") }
+
+    val createCommunityState by forumViewModel.createCommunityState.collectAsState()
+    val createDiscussionState by forumViewModel.createState.collectAsState()
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        modifier = Modifier.statusBarsPadding()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 24.dp)
+        ) {
+            TabRow(selectedTabIndex = selectedTab) {
+                tabs.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTab == index,
+                        onClick = {
+                            selectedTab = index
+                            commonStep = null
+                        },
+                        text = { Text(title, fontWeight = FontWeight.Medium) }
+                    )
+                }
+            }
+
+            // ── Service tab ──
+            if (selectedTab == 0) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        "What would you like to do?",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onCreateService,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Filled.Group, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                            Column {
+                                Text("Offer or Need a Service", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                Text("Share skills or request help", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Common tab ──
+            if (selectedTab == 1) {
+                when (commonStep) {
+                    null -> {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(24.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                "Create in Common",
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            )
+                            Card(modifier = Modifier.fillMaxWidth(), onClick = { commonStep = "discussion" }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                                Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Filled.Forum, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    Column {
+                                        Text("Discussion", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                        Text("Start a conversation with the community", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                            Card(modifier = Modifier.fillMaxWidth(), onClick = { commonStep = "event" }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                                Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Filled.CalendarToday, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    Column {
+                                        Text("Event", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                        Text("Organize a community gathering", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                            Card(modifier = Modifier.fillMaxWidth(), onClick = { commonStep = "community" }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                                Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Filled.Group, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    Column {
+                                        Text("Community", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                        Text("Create a group around a shared interest", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    "discussion" -> {
+                        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            TextButton(onClick = { commonStep = null }) { Text("← Back") }
+                            Text("New Discussion", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            OutlinedTextField(value = discussionTitle, onValueChange = { discussionTitle = it }, label = { Text("Title *") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                            OutlinedTextField(value = discussionBody, onValueChange = { discussionBody = it }, label = { Text("Body *") }, modifier = Modifier.fillMaxWidth(), minLines = 4, maxLines = 8)
+                            if (discussionError.isNotBlank()) Text(discussionError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                            Button(
+                                onClick = {
+                                    if (discussionTitle.isBlank() || discussionBody.isBlank()) { discussionError = "Title and body are required"; return@Button }
+                                    forumViewModel.setCreateTitle(discussionTitle)
+                                    forumViewModel.setCreateBody(discussionBody)
+                                    forumViewModel.createDiscussion { onDismiss() }
+                                },
+                                enabled = !createDiscussionState.isSubmitting,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(if (createDiscussionState.isSubmitting) "Creating…" else "Create Discussion")
+                            }
+                            if (createDiscussionState.error != null) Text(createDiscussionState.error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+
+                    "event" -> {
+                        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick = { commonStep = null }) { Text("← Back") }
+                            Text("New Event", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text("To create an event with images and location, please use the web app.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            HorizontalDivider()
+                            val createEventState by forumViewModel.createEventState.collectAsState()
+                            OutlinedTextField(value = createEventState.title, onValueChange = { forumViewModel.setCreateEventTitle(it) }, label = { Text("Title *") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                            OutlinedTextField(value = createEventState.description, onValueChange = { forumViewModel.setCreateEventDescription(it) }, label = { Text("Description *") }, modifier = Modifier.fillMaxWidth(), minLines = 3, maxLines = 6)
+                            OutlinedTextField(value = createEventState.eventAt, onValueChange = { forumViewModel.setCreateEventAt(it) }, label = { Text("Date & Time (ISO) *") }, placeholder = { Text("e.g. 2026-06-01T18:00:00") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                androidx.compose.material3.Switch(checked = createEventState.isRemote, onCheckedChange = { forumViewModel.setCreateEventIsRemote(it) })
+                                Text("Remote / Online event")
+                            }
+                            if (createEventState.error != null) Text(createEventState.error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                            Button(
+                                onClick = { forumViewModel.createEvent { onDismiss() } },
+                                enabled = !createEventState.isSubmitting,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(if (createEventState.isSubmitting) "Creating…" else "Create Event")
+                            }
+                        }
+                    }
+
+                    "community" -> {
+                        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            TextButton(onClick = { commonStep = null }) { Text("← Back") }
+                            Text("New Community", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            OutlinedTextField(value = communityName, onValueChange = { communityName = it }, label = { Text("Name *") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                            OutlinedTextField(value = communityDesc, onValueChange = { communityDesc = it }, label = { Text("Description *") }, modifier = Modifier.fillMaxWidth(), minLines = 3, maxLines = 6)
+                            if (communityError.isNotBlank()) Text(communityError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                            if (createCommunityState.error != null) Text(createCommunityState.error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                            Button(
+                                onClick = {
+                                    if (communityName.isBlank() || communityDesc.isBlank()) { communityError = "Name and description are required"; return@Button }
+                                    forumViewModel.setCreateCommunityName(communityName)
+                                    forumViewModel.setCreateCommunityDescription(communityDesc)
+                                    forumViewModel.createCommunity { onDismiss() }
+                                },
+                                enabled = !createCommunityState.isSubmitting,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(if (createCommunityState.isSubmitting) "Creating…" else "Create Community")
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

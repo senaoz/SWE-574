@@ -126,4 +126,9 @@ object NetworkModule {
     @Singleton
     fun provideNotificationsApi(retrofit: Retrofit): NotificationsApi =
         retrofit.create(NotificationsApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideCommunityApi(retrofit: Retrofit): com.hive.hive_app.data.api.CommunityApi =
+        retrofit.create(com.hive.hive_app.data.api.CommunityApi::class.java)
 }

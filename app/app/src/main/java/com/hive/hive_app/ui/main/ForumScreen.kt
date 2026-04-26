@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
@@ -35,7 +36,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -60,7 +60,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.hive.hive_app.data.api.dto.ForumCommentResponse
 import com.hive.hive_app.data.api.dto.ForumDiscussionResponse
 import com.hive.hive_app.data.api.dto.ForumEventResponse
+import com.hive.hive_app.data.api.dto.CommunityResponse
+import com.hive.hive_app.data.api.dto.CommunityPostResponse
 import com.hive.hive_app.data.api.dto.ForumUserEmbed
+import androidx.compose.material.icons.filled.ThumbUp
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.Color
 import com.hive.hive_app.util.formatApplicationDate
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.ui.platform.LocalContext
@@ -87,8 +92,10 @@ fun ForumScreen(
 ) {
     var selectedDiscussionId by remember { mutableStateOf<String?>(null) }
     var selectedEventId by remember { mutableStateOf<String?>(null) }
+    var selectedCommunityId by remember { mutableStateOf<String?>(null) }
     var showCreate by remember { mutableStateOf(false) }
     var showCreateEvent by remember { mutableStateOf(false) }
+    var showCreateCommunity by remember { mutableStateOf(false) }
     val selectedTab by viewModel.selectedTab.collectAsState()
 
     if (showCreateEvent) {
@@ -134,6 +141,23 @@ fun ForumScreen(
         return
     }
 
+    if (selectedCommunityId != null) {
+        val id = selectedCommunityId!!
+        LaunchedEffect(id) {
+            viewModel.loadCommunityDetail(id)
+        }
+        CommunityDetailScreen(
+            communityId = id,
+            viewModel = viewModel,
+            onBack = {
+                viewModel.clearCommunityDetail()
+                selectedCommunityId = null
+            },
+            modifier = modifier
+        )
+        return
+    }
+
     if (selectedDiscussionId != null) {
         val id = selectedDiscussionId!!
         LaunchedEffect(id) {
@@ -152,6 +176,7 @@ fun ForumScreen(
 
     val listState by viewModel.listState.collectAsState()
     val eventsListState by viewModel.eventsListState.collectAsState()
+    val communitiesListState by viewModel.communitiesListState.collectAsState()
     LaunchedEffect(Unit) {
         if (listState.discussions.isEmpty() && !listState.isLoading) viewModel.loadDiscussions()
         if (eventsListState.events.isEmpty() && !eventsListState.isLoading) viewModel.loadEvents()
@@ -159,6 +184,9 @@ fun ForumScreen(
     LaunchedEffect(selectedTab) {
         if (selectedTab == ForumTab.EVENTS && eventsListState.events.isEmpty() && !eventsListState.isLoading) {
             viewModel.loadEvents(1)
+        }
+        if (selectedTab == ForumTab.COMMUNITIES && communitiesListState.communities.isEmpty() && !communitiesListState.isLoading) {
+            viewModel.loadCommunities(1)
         }
     }
     LaunchedEffect(listState.searchQuery) {
@@ -184,6 +212,11 @@ fun ForumScreen(
                 selected = selectedTab == ForumTab.EVENTS,
                 onClick = { viewModel.setSelectedTab(ForumTab.EVENTS) },
                 label = { Text("Events") }
+            )
+            FilterChip(
+                selected = selectedTab == ForumTab.COMMUNITIES,
+                onClick = { viewModel.setSelectedTab(ForumTab.COMMUNITIES) },
+                label = { Text("Communities") }
             )
         }
 
@@ -230,15 +263,13 @@ fun ForumScreen(
                         }
                     }
                 }
-                FloatingActionButton(
-                    onClick = { showCreate = true },
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "New discussion")
-                }
+
             }
+        } else if (selectedTab == ForumTab.COMMUNITIES) {
+            CommunitiesContent(
+                viewModel = viewModel,
+                onCommunityClick = { id -> selectedCommunityId = id }
+            )
         } else {
             OutlinedTextField(
                 value = eventsListState.searchQuery,
@@ -282,14 +313,7 @@ fun ForumScreen(
                         }
                     }
                 }
-                FloatingActionButton(
-                    onClick = { showCreateEvent = true },
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "New event")
-                }
+
             }
         }
     }
@@ -1350,6 +1374,600 @@ private fun ForumCreateDiscussionContent(
                     ) {
                         Text("Post")
                     }
+                }
+            }
+        }
+    }
+}
+
+// ─── Communities List ─────────────────────────────────────────────────────────
+
+@Composable
+fun CommunitiesContent(
+    viewModel: ForumViewModel,
+    modifier: Modifier = Modifier,
+    onCommunityClick: (String) -> Unit = {}
+) {
+    val state by viewModel.communitiesListState.collectAsState()
+
+    Column(modifier = modifier.fillMaxSize()) {
+        OutlinedTextField(
+            value = state.searchQuery,
+            onValueChange = { viewModel.setCommunitySearchQuery(it) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            placeholder = { Text("Search communities…") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { viewModel.loadCommunities(1) }),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                cursorColor = MaterialTheme.colorScheme.primary
+            )
+        )
+
+        Box(modifier = Modifier.weight(1f)) {
+            when {
+                state.isLoading && state.communities.isEmpty() -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                state.error != null && state.communities.isEmpty() -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize().padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = state.error!!,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            TextButton(onClick = { viewModel.loadCommunities(1) }) { Text("Retry") }
+                        }
+                    }
+                }
+                state.communities.isEmpty() -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("No communities yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(items = state.communities, key = { it.id }) { community ->
+                            CommunityCard(
+                                community = community,
+                                onClick = { onCommunityClick(community.id) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CommunityCard(
+    community: CommunityResponse,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = {}
+) {
+    Card(
+        modifier = modifier.fillMaxWidth().clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Avatar circle
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!community.avatarUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(community.avatarUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = community.name,
+                            modifier = Modifier.fillMaxSize().clip(CircleShape)
+                        )
+                    } else {
+                        Text(
+                            text = community.name.firstOrNull()?.uppercase() ?: "C",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = community.name,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        if (community.userMembership != null) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            ) {
+                                Text(
+                                    text = when (community.userMembership) {
+                                        "founder" -> "Founder"
+                                        "moderator" -> "Mod"
+                                        else -> "Member"
+                                    },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            text = "${community.memberCount} members",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "${community.postCount} posts",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            if (community.description.isNotBlank()) {
+                Text(
+                    text = community.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+
+            if (!community.founder?.fullName.isNullOrBlank()) {
+                Text(
+                    text = "by ${community.founder?.fullName ?: community.founder?.username ?: ""}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Community Detail Screen
+// ─────────────────────────────────────────────────────────────
+@Composable
+fun CommunityDetailScreen(
+    communityId: String,
+    viewModel: ForumViewModel,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val detailState by viewModel.communityDetailState.collectAsState()
+    val createPostState by viewModel.createPostState.collectAsState()
+    var showNewPost by remember { mutableStateOf(false) }
+
+    val community = detailState.community
+
+    Column(modifier = modifier.fillMaxSize()) {
+        // ── Top bar ──
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            }
+            Text(
+                text = community?.name ?: "Community",
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        if (detailState.isLoading && community == null) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            }
+            return@Column
+        }
+
+        if (community == null) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Community not found.", color = MaterialTheme.colorScheme.error)
+            }
+            return@Column
+        }
+
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 88.dp)
+        ) {
+            // ── Community header card ──
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = CardDefaults.cardElevation(2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (!community.avatarUrl.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(community.avatarUrl).crossfade(true).build(),
+                                        contentDescription = community.name,
+                                        modifier = Modifier.fillMaxSize().clip(CircleShape)
+                                    )
+                                } else {
+                                    Text(
+                                        text = community.name.firstOrNull()?.uppercase() ?: "C",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(community.name, style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    text = "${community.memberCount} members · ${community.postCount} posts",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (!community.founder?.fullName.isNullOrBlank()) {
+                                    Text(
+                                        text = "by ${community.founder?.fullName ?: community.founder?.username ?: ""}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+
+                        if (community.description.isNotBlank()) {
+                            Text(
+                                text = community.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 10.dp)
+                            )
+                        }
+
+                        if (community.rules.isNotEmpty()) {
+                            Column(modifier = Modifier.padding(top = 10.dp)) {
+                                Text("Rules", style = MaterialTheme.typography.labelMedium)
+                                community.rules.forEachIndexed { i, rule ->
+                                    Text(
+                                        text = "${i + 1}. $rule",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+
+                        // ── Join / Leave button ──
+                        val membership = community.userMembership
+                        val isFounder = membership == "founder"
+                        val isMember = membership != null
+                        Spacer(Modifier.height(12.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (!isMember) {
+                                Button(
+                                    onClick = { viewModel.joinCommunity(communityId) },
+                                    enabled = !detailState.membershipLoading
+                                ) {
+                                    if (detailState.membershipLoading) {
+                                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                    } else {
+                                        Text("Join")
+                                    }
+                                }
+                            } else if (!isFounder) {
+                                OutlinedButton(
+                                    onClick = { viewModel.leaveCommunity(communityId) },
+                                    enabled = !detailState.membershipLoading
+                                ) {
+                                    if (detailState.membershipLoading) {
+                                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                    } else {
+                                        Text("Leave")
+                                    }
+                                }
+                            }
+                            if (isMember) {
+                                Button(onClick = { showNewPost = true }) {
+                                    Text("+ New Post")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Sort row ──
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Sort:", style = MaterialTheme.typography.labelMedium)
+                    FilterChip(
+                        selected = detailState.sortBy == "created_at",
+                        onClick = { viewModel.setCommunityPostSort(communityId, "created_at") },
+                        label = { Text("Latest") }
+                    )
+                    FilterChip(
+                        selected = detailState.sortBy == "upvote_count",
+                        onClick = { viewModel.setCommunityPostSort(communityId, "upvote_count") },
+                        label = { Text("Top") }
+                    )
+                }
+            }
+
+            // ── New post form ──
+            if (showNewPost) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        elevation = CardDefaults.cardElevation(2.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("New Post", style = MaterialTheme.typography.titleSmall)
+                            OutlinedTextField(
+                                value = createPostState.title,
+                                onValueChange = { viewModel.setCreatePostTitle(it) },
+                                label = { Text("Title") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                            OutlinedTextField(
+                                value = createPostState.body,
+                                onValueChange = { viewModel.setCreatePostBody(it) },
+                                label = { Text("Body") },
+                                modifier = Modifier.fillMaxWidth().height(120.dp),
+                                maxLines = 6
+                            )
+                            if (createPostState.error != null) {
+                                Text(createPostState.error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(onClick = {
+                                    showNewPost = false
+                                    viewModel.clearCreatePostState()
+                                }) { Text("Cancel") }
+                                Button(
+                                    onClick = {
+                                        viewModel.createCommunityPost(communityId) { showNewPost = false }
+                                    },
+                                    enabled = !createPostState.isSubmitting
+                                ) {
+                                    if (createPostState.isSubmitting) {
+                                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                    } else {
+                                        Text("Post")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Non-member notice ──
+            if (community.userMembership == null) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                            Text(
+                                "Join this community to create posts.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ── Posts loading ──
+            if (detailState.postsLoading && detailState.posts.isEmpty()) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            } else if (detailState.posts.isEmpty()) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        Text("No posts yet. Be the first!", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            } else {
+                items(items = detailState.posts, key = { it.id }) { post ->
+                    CommunityPostCard(
+                        post = post,
+                        onUpvote = { viewModel.upvoteCommunityPost(communityId, post.id) },
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CommunityPostCard(
+    post: CommunityPostResponse,
+    onUpvote: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    fun timeAgo(dateStr: String): String {
+        return try {
+            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault())
+            sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
+            val date = sdf.parse(dateStr.substringBefore(".").substringBefore("Z")) ?: return dateStr
+            val diffMs = System.currentTimeMillis() - date.time
+            val mins = diffMs / 60000
+            when {
+                mins < 1 -> "just now"
+                mins < 60 -> "${mins}m ago"
+                mins < 1440 -> "${mins / 60}h ago"
+                mins < 43200 -> "${mins / 1440}d ago"
+                else -> java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault()).format(date)
+            }
+        } catch (e: Exception) { dateStr }
+    }
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header row: avatar + author + time
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.secondaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val initials = post.user?.fullName?.firstOrNull()?.uppercase()
+                        ?: post.user?.username?.firstOrNull()?.uppercase() ?: "?"
+                    Text(initials, style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer)
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = post.user?.fullName ?: post.user?.username ?: "Unknown",
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                    Text(timeAgo(post.createdAt), style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (post.isPinned) {
+                    Surface(shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.tertiaryContainer) {
+                        Text("📌 Pinned", style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Title
+            Text(
+                text = post.title,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            // Body preview
+            if (post.body.isNotBlank()) {
+                Text(
+                    text = post.body,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Footer: upvote + comments
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.clickable { onUpvote() }
+                ) {
+                    Icon(
+                        Icons.Filled.ThumbUp,
+                        contentDescription = "Upvote",
+                        modifier = Modifier.size(16.dp),
+                        tint = if (post.userUpvoted) MaterialTheme.colorScheme.primary
+                               else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "${post.upvoteCount}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (post.userUpvoted) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(Icons.Filled.ChatBubble, contentDescription = "Comments",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${post.commentCount}", style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
