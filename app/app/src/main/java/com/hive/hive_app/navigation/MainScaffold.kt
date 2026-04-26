@@ -1,48 +1,32 @@
 package com.hive.hive_app.navigation
 
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.activity.compose.BackHandler
-import androidx.compose.material3.Badge
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.key
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.hive.hive_app.ui.main.ActiveItemsScreen
-import com.hive.hive_app.ui.main.ChatScreen
-import com.hive.hive_app.ui.main.DiscoverScreen
-import com.hive.hive_app.ui.main.ForumScreen
-import com.hive.hive_app.ui.main.MainViewModel
-import com.hive.hive_app.ui.main.MapScreen
-import com.hive.hive_app.ui.main.EditProfileScreen
-import com.hive.hive_app.ui.main.ProfileScreen
-import com.hive.hive_app.ui.main.SavedServicesScreen
-import com.hive.hive_app.ui.main.ManageServiceScreen
-import com.hive.hive_app.ui.main.ServiceDetailScreen
-import com.hive.hive_app.ui.main.ServiceDetailViewModel
-import com.hive.hive_app.ui.main.UserProfileScreen
-import com.hive.hive_app.ui.main.UserRatingsScreen
+import com.hive.hive_app.ui.main.*
 import com.hive.hive_app.ui.notifications.NotificationsScreen
 
 private sealed class OverlayRoute {
     data class UserProfile(val userId: String) : OverlayRoute()
     data class UserRatings(val userId: String, val title: String = "Ratings") : OverlayRoute()
-    /** Public service / exchange view (works for any user; Manage is for owners.) */
     data class ServiceDetail(val serviceId: String) : OverlayRoute()
     data class ManageService(val serviceId: String) : OverlayRoute()
 }
@@ -55,12 +39,14 @@ fun MainScaffold(
     val unreadCount by mainViewModel.unreadCount.collectAsState()
     val pendingDestination by mainViewModel.pendingDestination.collectAsState()
 
-    var currentDestination by rememberSaveable { mutableStateOf(MainDestinations.DISCOVER) }
+    var currentDestination by rememberSaveable { mutableStateOf(MainDestinations.MAP) }
     var openChatRoomId by remember { mutableStateOf<String?>(null) }
     var overlayStack by remember { mutableStateOf<List<OverlayRoute>>(emptyList()) }
     var showSavedServices by remember { mutableStateOf(false) }
     var showNotifications by remember { mutableStateOf(false) }
     var showEditProfile by remember { mutableStateOf(false) }
+    var showCreateService by remember { mutableStateOf(false) }
+    var showActiveItems by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         mainViewModel.refreshUnreadCount()
@@ -68,25 +54,18 @@ fun MainScaffold(
 
     LaunchedEffect(pendingDestination) {
         pendingDestination?.let { dest ->
-            if (dest == "ACTIVE") currentDestination = MainDestinations.ACTIVE
+            if (dest == "ACTIVE") showActiveItems = true
             mainViewModel.consumePendingDestination()
         }
     }
 
-    fun pushOverlay(route: OverlayRoute) {
-        overlayStack = overlayStack + route
-    }
-
-    fun popOverlay() {
-        if (overlayStack.isNotEmpty()) overlayStack = overlayStack.dropLast(1)
-    }
+    fun pushOverlay(route: OverlayRoute) { overlayStack = overlayStack + route }
+    fun popOverlay() { if (overlayStack.isNotEmpty()) overlayStack = overlayStack.dropLast(1) }
 
     BackHandler(
-        enabled = overlayStack.isNotEmpty() ||
-            showSavedServices ||
-            showNotifications ||
-            showEditProfile ||
-            currentDestination != MainDestinations.DISCOVER
+        enabled = overlayStack.isNotEmpty() || showSavedServices || showNotifications ||
+                showEditProfile || showCreateService || showActiveItems ||
+                currentDestination != MainDestinations.MAP
     ) {
         when {
             overlayStack.isNotEmpty() -> popOverlay()
@@ -96,8 +75,10 @@ fun MainScaffold(
                 mainViewModel.refreshUnreadCount()
             }
             showEditProfile -> showEditProfile = false
-            currentDestination != MainDestinations.DISCOVER -> {
-                currentDestination = MainDestinations.DISCOVER
+            showCreateService -> showCreateService = false
+            showActiveItems -> showActiveItems = false
+            currentDestination != MainDestinations.MAP -> {
+                currentDestination = MainDestinations.MAP
                 openChatRoomId = null
             }
         }
@@ -107,13 +88,8 @@ fun MainScaffold(
         openChatRoomId = roomId
         currentDestination = MainDestinations.CHAT
     }
-    val onOpenUserProfile: (String) -> Unit = { userId ->
-        pushOverlay(OverlayRoute.UserProfile(userId))
-    }
-
-    val onOpenRatings: (String) -> Unit = { userId ->
-        pushOverlay(OverlayRoute.UserRatings(userId))
-    }
+    val onOpenUserProfile: (String) -> Unit = { userId -> pushOverlay(OverlayRoute.UserProfile(userId)) }
+    val onOpenRatings: (String) -> Unit = { userId -> pushOverlay(OverlayRoute.UserRatings(userId)) }
 
     when (val top = overlayStack.lastOrNull()) {
         is OverlayRoute.ManageService -> {
@@ -155,10 +131,7 @@ fun MainScaffold(
                     isSaved = detailIsSaved,
                     onStartChat = onStartChat,
                     onOpenUserProfile = { pushOverlay(OverlayRoute.UserProfile(it)) },
-                    onManageJoinRequests = {
-                        val sid = detailState?._id
-                        if (sid != null) pushOverlay(OverlayRoute.ManageService(sid))
-                    }
+                    onManageJoinRequests = { detailState?._id?.let { pushOverlay(OverlayRoute.ManageService(it)) } }
                 )
             }
             return
@@ -169,9 +142,7 @@ fun MainScaffold(
                     userId = top.userId,
                     onBack = { popOverlay() },
                     modifier = Modifier.fillMaxSize(),
-                    onOpenRatings = { uid ->
-                        pushOverlay(OverlayRoute.UserRatings(uid))
-                    }
+                    onOpenRatings = { uid -> pushOverlay(OverlayRoute.UserRatings(uid)) }
                 )
             }
             return
@@ -183,7 +154,7 @@ fun MainScaffold(
                     title = top.title,
                     onBack = { popOverlay() },
                     onOpenRaterProfile = { pushOverlay(OverlayRoute.UserProfile(it)) },
-                    onOpenExchange = { serviceId -> pushOverlay(OverlayRoute.ServiceDetail(serviceId)) },
+                    onOpenExchange = { pushOverlay(OverlayRoute.ServiceDetail(it)) },
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -191,17 +162,10 @@ fun MainScaffold(
         }
         null -> { }
     }
-    if (showEditProfile) {
-        EditProfileScreen(onBack = { showEditProfile = false })
-        return
-    }
-    if (showSavedServices) {
-        SavedServicesScreen(
-            onBack = { showSavedServices = false },
-            modifier = Modifier.fillMaxSize()
-        )
-        return
-    }
+
+    if (showEditProfile) { EditProfileScreen(onBack = { showEditProfile = false }); return }
+    if (showSavedServices) { SavedServicesScreen(onBack = { showSavedServices = false }, modifier = Modifier.fillMaxSize()); return }
+
     if (showNotifications) {
         LaunchedEffect(Unit) { mainViewModel.clearUnreadBadge() }
         NotificationsScreen(
@@ -213,10 +177,8 @@ fun MainScaffold(
             onNavigate = { notif ->
                 showNotifications = false
                 when (notif.type) {
-                    "JOIN_REQUEST_RECEIVED",
-                    "JOIN_REQUEST_APPROVED",
-                    "JOIN_REQUEST_REJECTED",
-                    "TRANSACTION_COMPLETED" -> currentDestination = MainDestinations.ACTIVE
+                    "JOIN_REQUEST_RECEIVED", "JOIN_REQUEST_APPROVED",
+                    "JOIN_REQUEST_REJECTED", "TRANSACTION_COMPLETED" -> showActiveItems = true
                 }
                 mainViewModel.refreshUnreadCount()
             }
@@ -224,67 +186,168 @@ fun MainScaffold(
         return
     }
 
-    NavigationSuiteScaffold(
-        navigationSuiteItems = {
-            MainDestinations.entries.forEach { dest ->
-                item(
-                    icon = {
-                        Icon(
-                            dest.icon,
-                            contentDescription = dest.label
-                        )
-                    },
-                    label = { Text(dest.label) },
-                    selected = dest == currentDestination,
-                    onClick = { currentDestination = dest },
-                    badge = if (dest == MainDestinations.PROFILE && unreadCount > 0) {
-                        { Badge { Text(unreadCount.toString()) } }
-                    } else null
-                )
-            }
-        }
-    ) {
+    if (showCreateService) {
+        CreateServiceScreen(
+            modifier = Modifier.fillMaxSize(),
+            userLat = null, userLon = null,
+            locationPermissionGranted = false,
+            onRequestLocationPermission = { },
+            onRefreshLocation = { },
+            onBack = { showCreateService = false },
+            onCreated = { showCreateService = false }
+        )
+        return
+    }
+
+    if (showActiveItems) {
+        ActiveItemsScreen(
+            modifier = Modifier.fillMaxSize(),
+            onStartChat = onStartChat,
+            onOpenUserProfile = onOpenUserProfile,
+            onBack = { showActiveItems = false }
+        )
+        return
+    }
+
+    val navBarHeight = 70.dp
+    val fabRadius = 30.dp  // half of fabSize (60.dp) in CustomBottomNavBar
+    val navBarTotalHeight = navBarHeight + fabRadius
+
+    Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
             val layoutDirection = LocalLayoutDirection.current
             when (currentDestination) {
-                MainDestinations.DISCOVER -> DiscoverScreen(
-                    Modifier.padding(innerPadding),
-                    onStartChat = onStartChat,
-                    onOpenUserProfile = onOpenUserProfile
-                )
-                // Map draws under the status bar; top inset is handled inside MapScreen (white bar + insets).
                 MainDestinations.MAP -> MapScreen(
-                    Modifier
+                    modifier = Modifier
                         .fillMaxSize()
                         .padding(
                             start = innerPadding.calculateStartPadding(layoutDirection),
                             end = innerPadding.calculateEndPadding(layoutDirection),
-                            bottom = innerPadding.calculateBottomPadding(),
+                            bottom = 0.dp, // Full screen map
                             top = 0.dp
                         ),
                     onStartChat = onStartChat,
                     onOpenUserProfile = onOpenUserProfile
                 )
-                MainDestinations.ACTIVE -> ActiveItemsScreen(
-                    Modifier.padding(innerPadding),
-                    onStartChat = onStartChat,
-                    onOpenUserProfile = onOpenUserProfile
-                )
                 MainDestinations.CHAT -> ChatScreen(
-                    Modifier.padding(innerPadding),
-                    initialRoomId = openChatRoomId,
-                    onInitialRoomConsumed = { openChatRoomId = null }
+                    Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = navBarTotalHeight),
+                    initialRoomId = openChatRoomId, onInitialRoomConsumed = { openChatRoomId = null }
                 )
-                MainDestinations.FORUM -> ForumScreen(Modifier.padding(innerPadding))
+                MainDestinations.COMMON -> ForumScreen(
+                    Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = navBarHeight)
+                )
                 MainDestinations.PROFILE -> ProfileScreen(
                     onLogout = onLogout,
-                    modifier = Modifier.padding(innerPadding),
+                    modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = navBarHeight),
                     onOpenSaved = { showSavedServices = true },
                     onOpenNotifications = { showNotifications = true },
+                    onOpenActive = { showActiveItems = true },
                     onOpenRatings = onOpenRatings,
                     onOpenEditProfile = { showEditProfile = true }
                 )
             }
         }
+
+        CustomBottomNavBar(
+            modifier = Modifier.align(Alignment.BottomCenter),
+            currentDestination = currentDestination,
+            unreadCount = unreadCount,
+            onDestinationSelected = { currentDestination = it },
+            onAddClick = { showCreateService = true },
+            barHeightParam = navBarHeight
+        )
+    }
+}
+
+@Composable
+fun CustomBottomNavBar(
+    modifier: Modifier = Modifier,
+    currentDestination: MainDestinations,
+    unreadCount: Int,
+    onDestinationSelected: (MainDestinations) -> Unit,
+    onAddClick: () -> Unit,
+    barHeightParam: Dp
+) {
+    val barHeight    = barHeightParam
+    val fabSize      = 60.dp
+    val fabRadius    = fabSize / 2
+    val notchRadius  = fabRadius + 8.dp
+    val totalHeight  = barHeight + fabRadius
+    val backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
+
+    Box(modifier = modifier.fillMaxWidth().height(totalHeight)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .align(Alignment.BottomCenter)
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val w = size.width
+                val h = size.height
+                val cx = w / 2f
+                val nr = notchRadius.toPx()
+                val notchW = nr * 3.0f
+                val notchH = nr * 1.3f
+                // flat top edge of the bar (sides) sits at the barHeight offset from bottom
+                val topY = h - barHeight.toPx()
+
+                val path = Path().apply {
+                    moveTo(0f, topY)
+                    lineTo(cx - notchW * 0.9f, topY)
+                    cubicTo(cx - notchW * 0.6f, topY, cx - notchW * 0.3f, topY + notchH, cx, topY + notchH)
+                    cubicTo(cx + notchW * 0.3f, topY + notchH, cx + notchW * 0.6f, topY, cx + notchW * 0.9f, topY)
+                    lineTo(w, topY)
+                    lineTo(w, h)
+                    lineTo(0f, h)
+                    close()
+                }
+                drawPath(path, color = backgroundColor)
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth().height(barHeight).align(Alignment.BottomCenter).padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BottomNavItem(MainDestinations.MAP.icon, "Map", currentDestination == MainDestinations.MAP, { onDestinationSelected(MainDestinations.MAP) }, Modifier.weight(1f))
+            BottomNavItem(MainDestinations.CHAT.icon, "Chat", currentDestination == MainDestinations.CHAT, { onDestinationSelected(MainDestinations.CHAT) }, Modifier.weight(1f))
+            Spacer(modifier = Modifier.weight(1.4f))
+            BottomNavItem(MainDestinations.COMMON.icon, "Commons", currentDestination == MainDestinations.COMMON, { onDestinationSelected(MainDestinations.COMMON) }, Modifier.weight(1f))
+            BottomNavItem(MainDestinations.PROFILE.icon, "Profile", currentDestination == MainDestinations.PROFILE, { onDestinationSelected(MainDestinations.PROFILE) }, Modifier.weight(1f), if (unreadCount > 0) unreadCount.toString() else null)
+        }
+
+        FloatingActionButton(
+            onClick = onAddClick,
+            modifier = Modifier.size(fabSize).align(Alignment.TopCenter).offset(y = 14.dp),
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = Color.White,
+            shape = CircleShape,
+            elevation = FloatingActionButtonDefaults.elevation(8.dp)
+        ) {
+            Icon(Icons.Filled.Add, contentDescription = "Add", modifier = Modifier.size(30.dp))
+        }
+    }
+}
+
+@Composable
+private fun BottomNavItem(
+    icon: ImageVector,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    badge: String? = null
+) {
+    val color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    Column(
+        modifier = modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }, onClick = onClick).padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        BadgedBox(badge = { if (badge != null) Badge { Text(badge) } }) {
+            Icon(imageVector = icon, contentDescription = label, tint = color, modifier = Modifier.size(27.dp))
+        }
+        Text(text = label, style = MaterialTheme.typography.labelSmall, color = color, fontSize = 10.sp)
     }
 }

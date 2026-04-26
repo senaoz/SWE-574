@@ -27,6 +27,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.FormatListBulleted
+import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.WbCloudy
@@ -561,7 +563,7 @@ fun MapScreen(
                 showCreateServiceScreen = false
                 editServiceId = null
                 viewModel.loadServices()
-                selectedServiceId = serviceId
+                if (onServiceSelected != null) onServiceSelected(serviceId) else selectedServiceId = serviceId
             }
         )
         return
@@ -617,6 +619,7 @@ fun MapScreen(
     }
 
     var mapView by remember { mutableStateOf<MapView?>(null) }
+    var showListView by remember { mutableStateOf(false) }
     val activity = LocalActivity.current
     SideEffect {
         activity?.window?.let { w ->
@@ -631,6 +634,13 @@ fun MapScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
+        if (showListView) {
+            DiscoverScreen(
+                modifier = Modifier.fillMaxSize(),
+                onStartChat = onStartChat,
+                onOpenUserProfile = onOpenUserProfile
+            )
+        } else {
         // Map first so it stays behind the bar
         AndroidView(
             factory = {
@@ -982,14 +992,32 @@ fun MapScreen(
                     }
                     "Type: $typeLabel   Date: $dateLabel   Time of day: $timeLabel"
                 }
-                Text(
-                    text = filterSummary,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showFilters = true }
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = filterSummary,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { showFilters = true }
+                    )
+                    IconButton(
+                        onClick = { showListView = !showListView },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (showListView) Icons.Outlined.Map else Icons.Outlined.FormatListBulleted,
+                            contentDescription = if (showListView) "Map View" else "List View",
+                            tint = if (showListView) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
                 }
             }
         }
@@ -999,7 +1027,7 @@ fun MapScreen(
             Card(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(12.dp),
+                    .padding(start = 12.dp, end = 12.dp, bottom = 112.dp, top = 12.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
@@ -1074,6 +1102,7 @@ fun MapScreen(
                 }
             )
         }
+        } // end else - map content
     }
 }
 

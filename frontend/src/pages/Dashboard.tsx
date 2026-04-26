@@ -742,5 +742,4 @@ function CreateServiceDialog({
         />
       </Dialog.Content>
     </Dialog.Root>
-  );
-}
+  )

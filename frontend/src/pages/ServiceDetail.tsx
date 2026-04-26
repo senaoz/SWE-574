@@ -556,7 +556,7 @@ export function ServiceDetail() {
         <ArrowLeftIcon className="w-4 h-4 mr-2" />
         Back
       </Button>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 mb-10">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 mb-24">
         {/* Main content */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-start justify-between mb-4">

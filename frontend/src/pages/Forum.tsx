@@ -166,7 +166,7 @@ export function Forum() {
       });
   };
   return (
-    <div>
+        <div>
       <Flex justify="between" align="center" className="mb-6">
         <div>
           <Heading size="7">Community Forum</Heading>
