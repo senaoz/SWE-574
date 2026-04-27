@@ -1,6 +1,16 @@
 import { useMemo, useState } from "react";
-import { Button, Flex, Popover, Text, Separator, TextField } from "@radix-ui/themes";
 import {
+  Badge,
+  Button,
+  Flex,
+  HoverCard,
+  Popover,
+  Separator,
+  Text,
+  TextField,
+} from "@radix-ui/themes";
+import {
+  ArrowRightIcon,
   ChevronDownIcon,
   Cross2Icon,
   HeartFilledIcon,
@@ -59,6 +69,7 @@ interface DashboardFilterBarProps {
   onFiltersChange: (filters: DashboardFilters) => void;
   availableTags: TagEntity[];
   hasLocation: boolean;
+  onOpenForYouSettings?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -220,6 +231,73 @@ function OptionGroup({
   );
 }
 
+function ForYouExplanationContent({
+  onOpenForYouSettings,
+}: {
+  onOpenForYouSettings?: () => void;
+}) {
+  return (
+    <div className="for-you-popover-panel">
+      <div className="for-you-popover-hero px-4 py-4">
+        <Flex align="center" gap="3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/85 text-lime-700 shadow-sm dark:bg-black/25 dark:text-lime-300">
+            <HeartFilledIcon className="h-5 w-5" />
+          </div>
+          <div>
+            <Text
+              as="div"
+              size="1"
+              weight="medium"
+              className="uppercase tracking-[0.18em] text-lime-950/65 dark:text-lime-50/70"
+            >
+              For You
+            </Text>
+            <Text as="div" size="4" weight="bold">
+              Why these posts appear
+            </Text>
+          </div>
+        </Flex>
+      </div>
+
+      <div className="space-y-4 px-4 py-4">
+        <Flex gap="2" wrap="wrap">
+          <Badge color="lime" variant="soft">
+            Interests
+          </Badge>
+          <Badge color="amber" variant="soft">
+            Location
+          </Badge>
+          <Badge color="gray" variant="soft">
+            Activity
+          </Badge>
+        </Flex>
+
+        <Text
+          as="div"
+          size="2"
+          className="leading-6 text-[var(--gray-11)]"
+        >
+          We rank these suggestions using the interests on your profile, your
+          city or distance filters, and activity signals like saved or
+          completed exchanges. If we do not have enough signals yet, we may
+          temporarily show nearby posts instead. Update your Interests to make
+          the next recommendations more relevant.
+        </Text>
+
+        <Button
+          size="2"
+          color="lime"
+          className="w-full justify-between"
+          onClick={() => onOpenForYouSettings?.()}
+        >
+          Update interests
+          <ArrowRightIcon className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
@@ -229,6 +307,7 @@ export function DashboardFilterBar({
   onFiltersChange,
   availableTags,
   hasLocation,
+  onOpenForYouSettings,
 }: DashboardFilterBarProps) {
   const activeTagCount = filters.selectedTags.length;
 
@@ -269,27 +348,43 @@ export function DashboardFilterBar({
 
   return (
     <div className="filter-bar-scroll flex w-full flex-wrap items-center gap-2 pt-2">
-      <button
-        className={`
-          filter-pill inline-flex items-center gap-1.5 whitespace-nowrap
-          rounded-full border px-4 py-2 text-sm font-medium transition-all duration-200 hover:shadow-sm
-          ${
-            filters.forYouOnly
-              ? "border-current font-semibold filter-pill-active text-lime-600"
-              : "border-[var(--gray-6)] text-[var(--gray-11)]"
-          }
-        `}
-        onClick={() => update({ forYouOnly: !filters.forYouOnly })}
-      >
-        <HeartFilledIcon
-          className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${
-            filters.forYouOnly
-              ? "scale-110 text-rose-400"
-              : "text-rose-300"
-          }`}
-        />
-        For you
-      </button>
+      <div className="flex items-center gap-2">
+        <HoverCard.Root>
+          <HoverCard.Trigger>
+            <button
+              className={`
+                filter-pill inline-flex items-center gap-1.5 whitespace-nowrap
+                rounded-full border px-4 py-2 text-sm font-medium transition-all duration-200 hover:shadow-sm
+                ${
+                  filters.forYouOnly
+                    ? "border-current font-semibold filter-pill-active text-lime-600"
+                    : "border-[var(--gray-6)] text-[var(--gray-11)]"
+                }
+              `}
+              onClick={() => update({ forYouOnly: !filters.forYouOnly })}
+            >
+              <HeartFilledIcon
+                className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${
+                  filters.forYouOnly
+                    ? "scale-110 text-rose-400"
+                    : "text-rose-300"
+                }`}
+              />
+              For you
+            </button>
+          </HoverCard.Trigger>
+          <HoverCard.Content
+            side="bottom"
+            align="start"
+            sideOffset={12}
+            className="w-[340px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-[22px] p-0"
+          >
+            <ForYouExplanationContent
+              onOpenForYouSettings={onOpenForYouSettings}
+            />
+          </HoverCard.Content>
+        </HoverCard.Root>
+      </div>
 
       {/* Service Type */}
       <FilterPill
