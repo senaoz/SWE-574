@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsTopHeight
@@ -621,6 +623,11 @@ fun MapScreen(
     var mapView by remember { mutableStateOf<MapView?>(null) }
     var showListView by remember { mutableStateOf(false) }
     val activity = LocalActivity.current
+
+    BackHandler(enabled = showListView) {
+        showListView = false
+    }
+
     SideEffect {
         activity?.window?.let { w ->
             w.statusBarColor = android.graphics.Color.WHITE
@@ -1027,7 +1034,7 @@ fun MapScreen(
             Card(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(start = 12.dp, end = 12.dp, bottom = 112.dp, top = 12.dp),
+                    .padding(start = 12.dp, end = 12.dp, bottom = 96.dp, top = 12.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
@@ -1150,10 +1157,14 @@ private fun MapFilterSheet(
     var dateFilter by remember { mutableStateOf(selectedDateFilter) }
     var filterType by remember { mutableStateOf(selectedFilterType) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.statusBarsPadding()
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
