@@ -767,15 +767,16 @@ function NewDiscussionDialog({
               }
             />
           </Form.Field>
-          <Form.Field name="discussion-image" className="space-y-1">
-            <Form.Label className="text-sm font-medium">
+          <Box className="space-y-2">
+            <Text size="2" weight="medium" className="block">
               Discussion image (optional)
-            </Form.Label>
-            <Box mt="1">
+            </Text>
+            {discussionImageUrls.length === 0 && (
               <label className="cursor-pointer">
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
+                  className="sr-only"
                   disabled={discussionImageUploading}
                   onChange={async (e) => {
                     const file = e.target.files?.[0];
@@ -793,37 +794,32 @@ function NewDiscussionDialog({
                 />
                 <span className="flex items-center justify-center gap-2 border rounded-lg p-2 hover-card text-center cursor-pointer font-medium text-sm w-full">
                   <PlusIcon className="w-4 h-4" />
-                  Add Image
+                  {discussionImageUploading ? "Uploading..." : "Add image"}
                 </span>
               </label>
-              {discussionImageUploading && (
-                <Text size="1" color="gray">
-                  Uploading...
-                </Text>
-              )}
-              {discussionImageUrls.length > 0 && (
-                <Flex mt="1" gap="1" align="center">
+            )}
+            {discussionImageUrls.length > 0 && (
+              <Flex gap="2" wrap="wrap" className="border rounded-lg p-2">
+                <Box className="relative">
                   <img
                     src={
                       getImageUrl(discussionImageUrls[0]) ??
                       discussionImageUrls[0]
                     }
-                    alt="preview"
-                    style={{ height: 48, borderRadius: 4, objectFit: "cover" }}
+                    alt="Preview"
+                    className="w-20 h-20 object-cover rounded"
                   />
-                  <Button
-                    size="1"
-                    variant="ghost"
-                    color="red"
+                  <button
                     type="button"
+                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs"
                     onClick={() => setDiscussionImageUrls([])}
                   >
-                    Remove
-                  </Button>
-                </Flex>
-              )}
-            </Box>
-          </Form.Field>
+                    x
+                  </button>
+                </Box>
+              </Flex>
+            )}
+          </Box>
           {communities.length > 0 && (
             <Form.Field name="discussion-community" className="space-y-1">
               <Form.Label className="text-sm font-medium">
