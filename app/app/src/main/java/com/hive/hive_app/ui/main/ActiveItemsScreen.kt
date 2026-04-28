@@ -17,7 +17,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -54,12 +59,14 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActiveItemsScreen(
     modifier: Modifier = Modifier,
     viewModel: ActiveItemsViewModel = hiltViewModel(),
     onStartChat: ((String) -> Unit)? = null,
-    onOpenUserProfile: ((String) -> Unit)? = null
+    onOpenUserProfile: ((String) -> Unit)? = null,
+    onBack: (() -> Unit)? = null
 ) {
     var selectedServiceId by remember { mutableStateOf<String?>(null) }
     var showCreateServiceScreen by remember { mutableStateOf(false) }
@@ -165,19 +172,37 @@ fun ActiveItemsScreen(
 
     LaunchedEffect(Unit) { viewModel.load() }
 
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            if (onBack != null) {
+                TopAppBar(
+                    title = { Text("Active") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back"
+                            )
+                        }
+                    }
+                )
+            }
+        }
+    ) { innerPadding ->
     if (state.isLoading && state.myActiveServices.isEmpty() && state.applicationsSubmitted.isEmpty() && state.acceptedParticipation.isEmpty()) {
         Column(
-            modifier = modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             CircularProgressIndicator()
         }
-        return
+        return@Scaffold
     }
 
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().padding(innerPadding),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -336,7 +361,8 @@ fun ActiveItemsScreen(
                 )
             }
         }
-    }
+    } // end LazyColumn
+    } // end Scaffold content
 }
 
 @Composable

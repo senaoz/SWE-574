@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsTopHeight
@@ -27,6 +29,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.FormatListBulleted
+import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.WbCloudy
@@ -46,6 +50,12 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -60,6 +70,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -384,6 +395,60 @@ private fun distanceKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): 
     return r * c
 }
 
+@Composable
+private fun MapLoadingOverlay(
+    visible: Boolean,
+    modifier: Modifier = Modifier,
+    label: String = "Loading map"
+) {
+    if (!visible) return
+
+    val t = rememberInfiniteTransition(label = "map-loading")
+    val pulse by t.animateFloat(
+        initialValue = 0.85f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 900, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
+    val dotsPhase by t.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1100, easing = LinearEasing)
+        ),
+        label = "dots"
+    )
+    val dots = when ((dotsPhase * 3f).toInt() % 4) {
+        0 -> ""
+        1 -> "."
+        2 -> ".."
+        else -> "..."
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color.White.copy(alpha = 0.72f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(44.dp).alpha(pulse),
+                color = MaterialTheme.colorScheme.primary,
+                strokeWidth = 4.dp
+            )
+            Text(
+                text = "$label$dots",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
 /**
  * Web-aligned vector icon centered in a solid colored circle (marker icon). No outer stroke.
  * Privacy radius on the map is drawn separately as a [Polygon] overlay.
@@ -561,7 +626,7 @@ fun MapScreen(
                 showCreateServiceScreen = false
                 editServiceId = null
                 viewModel.loadServices()
-                selectedServiceId = serviceId
+                if (onServiceSelected != null) onServiceSelected(serviceId) else selectedServiceId = serviceId
             }
         )
         return
@@ -617,7 +682,14 @@ fun MapScreen(
     }
 
     var mapView by remember { mutableStateOf<MapView?>(null) }
+    var showListView by remember { mutableStateOf(false) }
+    var mapUiReady by remember { mutableStateOf(false) }
     val activity = LocalActivity.current
+
+    BackHandler(enabled = showListView) {
+        showListView = false
+    }
+
     SideEffect {
         activity?.window?.let { w ->
             w.statusBarColor = android.graphics.Color.WHITE
@@ -631,6 +703,13 @@ fun MapScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
+        if (showListView) {
+            DiscoverScreen(
+                modifier = Modifier.fillMaxSize(),
+                onStartChat = onStartChat,
+                onOpenUserProfile = onOpenUserProfile
+            )
+        } else {
         // Map first so it stays behind the bar
         AndroidView(
             factory = {
@@ -777,6 +856,15 @@ fun MapScreen(
         )
         val mapViewRef = mapView
 
+        LaunchedEffect(mapViewRef) {
+            mapUiReady = false
+            if (mapViewRef != null) {
+                // Give osmdroid a moment to create layout/first tiles; then fade loader out.
+                delay(400)
+                mapUiReady = true
+            }
+        }
+
         DisposableEffect(mapViewRef, state.userLat, state.userLon) {
             val map = mapViewRef ?: return@DisposableEffect onDispose { }
             val handler = Handler(Looper.getMainLooper())
@@ -891,16 +979,10 @@ fun MapScreen(
             }
         }
 
-        if (state.isLoading && state.services.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        }
+        MapLoadingOverlay(
+            visible = !mapUiReady || (state.isLoading && state.services.isEmpty() && state.events.isEmpty()),
+            label = "Loading map"
+        )
 
         // Top bar drawn on top of map so it never gets covered
         Surface(
@@ -982,14 +1064,32 @@ fun MapScreen(
                     }
                     "Type: $typeLabel   Date: $dateLabel   Time of day: $timeLabel"
                 }
-                Text(
-                    text = filterSummary,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showFilters = true }
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = filterSummary,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { showFilters = true }
+                    )
+                    IconButton(
+                        onClick = { showListView = !showListView },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (showListView) Icons.Outlined.Map else Icons.Outlined.FormatListBulleted,
+                            contentDescription = if (showListView) "Map View" else "List View",
+                            tint = if (showListView) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
                 }
             }
         }
@@ -999,7 +1099,7 @@ fun MapScreen(
             Card(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(12.dp),
+                    .padding(start = 12.dp, end = 12.dp, bottom = 96.dp, top = 12.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
@@ -1074,6 +1174,7 @@ fun MapScreen(
                 }
             )
         }
+        } // end else - map content
     }
 }
 
@@ -1121,10 +1222,14 @@ private fun MapFilterSheet(
     var dateFilter by remember { mutableStateOf(selectedDateFilter) }
     var filterType by remember { mutableStateOf(selectedFilterType) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.statusBarsPadding()
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {

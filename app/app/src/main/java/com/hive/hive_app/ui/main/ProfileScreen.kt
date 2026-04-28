@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Image
@@ -98,6 +99,7 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel(),
     onOpenSaved: (() -> Unit)? = null,
     onOpenNotifications: (() -> Unit)? = null,
+    onOpenActive: (() -> Unit)? = null,
     onOpenRatings: (userId: String) -> Unit = { },
     onOpenEditProfile: () -> Unit = {}
 ) {
@@ -176,6 +178,7 @@ fun ProfileScreen(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(scrollState)
+                    .padding(bottom = 88.dp)
             ) {
                 profile?.let { user ->
                     Spacer(Modifier.height(12.dp))
@@ -193,6 +196,42 @@ fun ProfileScreen(
                             }
                         }
                     )
+
+                    // Active items (if callback provided)
+                    if (onOpenActive != null) {
+                        Spacer(Modifier.height(12.dp))
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClick = onOpenActive),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.DateRange,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = "Active",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
 
                     // Saved services (if callback provided)
                     if (onOpenSaved != null) {

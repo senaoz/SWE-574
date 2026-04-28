@@ -137,7 +137,12 @@ data class ForumEventListResponse(
 @JsonClass(generateAdapter = true)
 data class ForumUserEmbed(
     @Json(name = "_id") val id: String? = null,
+    // Some endpoints may return `id` instead of `_id`.
+    @Json(name = "id") val idAlt: String? = null,
     val username: String? = null,
     @Json(name = "full_name") val fullName: String? = null,
     @Json(name = "profile_picture") val profilePicture: String? = null
-)
+) {
+    val resolvedId: String?
+        get() = id ?: idAlt
+}
