@@ -154,6 +154,7 @@ fun ForumScreen(
                 viewModel.clearCommunityDetail()
                 selectedCommunityId = null
             },
+            onOpenUserProfile = onOpenUserProfile,
             modifier = modifier
         )
         return
@@ -170,6 +171,7 @@ fun ForumScreen(
                 viewModel.clearDetail()
                 selectedDiscussionId = null
             },
+            onOpenUserProfile = onOpenUserProfile,
             modifier = modifier
         )
         return
@@ -259,7 +261,8 @@ fun ForumScreen(
                         items(items = listState.discussions, key = { it.id }) { discussion ->
                             ForumDiscussionCard(
                                 discussion = discussion,
-                                onClick = { selectedDiscussionId = discussion.id }
+                                onClick = { selectedDiscussionId = discussion.id },
+                                onOpenUserProfile = onOpenUserProfile
                             )
                         }
                     }
@@ -309,7 +312,8 @@ fun ForumScreen(
                         items(items = eventsListState.events, key = { it.id }) { event ->
                             ForumEventCard(
                                 event = event,
-                                onClick = { selectedEventId = event.id }
+                                onClick = { selectedEventId = event.id },
+                                onOpenUserProfile = onOpenUserProfile
                             )
                         }
                     }
@@ -453,9 +457,11 @@ private fun CommunityAvatar(
 @Composable
 private fun ForumDiscussionCard(
     discussion: ForumDiscussionResponse,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onOpenUserProfile: (String) -> Unit = {}
 ) {
     val author = discussion.user?.username ?: discussion.user?.fullName ?: "Unknown"
+    val authorId = discussion.user?.resolvedId ?: discussion.userId
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -473,8 +479,16 @@ private fun ForumDiscussionCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                ForumUserAvatar(user = discussion.user, size = 40.dp)
-                Column(modifier = Modifier.weight(1f)) {
+                ForumUserAvatar(
+                    user = discussion.user,
+                    size = 40.dp,
+                    modifier = Modifier.clickable(enabled = authorId != null) { authorId?.let(onOpenUserProfile) }
+                )
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable(enabled = authorId != null) { authorId?.let(onOpenUserProfile) }
+                ) {
                     Text(
                         text = discussion.title,
                         style = MaterialTheme.typography.titleMedium,
@@ -552,9 +566,11 @@ private fun formatEventTimeLeft(eventAtIso: String?): String? {
 @Composable
 private fun ForumEventCard(
     event: ForumEventResponse,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onOpenUserProfile: (String) -> Unit = {}
 ) {
     val author = event.user?.username ?: event.user?.fullName ?: "Unknown"
+    val authorId = event.user?.resolvedId ?: event.userId
     val locationText = event.location?.takeIf { it.isNotBlank() }
         ?: if (event.isRemote) "Remote" else "—"
     val timeLeft = formatEventTimeLeft(event.eventAt)
@@ -570,8 +586,16 @@ private fun ForumEventCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                ForumUserAvatar(user = event.user, size = 40.dp)
-                Column(modifier = Modifier.weight(1f)) {
+                ForumUserAvatar(
+                    user = event.user,
+                    size = 40.dp,
+                    modifier = Modifier.clickable(enabled = authorId != null) { authorId?.let(onOpenUserProfile) }
+                )
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable(enabled = authorId != null) { authorId?.let(onOpenUserProfile) }
+                ) {
                     Text(
                         text = event.title,
                         style = MaterialTheme.typography.titleMedium,
@@ -733,8 +757,17 @@ fun ForumEventDetailContent(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    ForumUserAvatar(user = event.user, size = 48.dp)
-                                    Column(modifier = Modifier.weight(1f)) {
+                                    val authorId = event.user?.resolvedId ?: event.userId
+                                    ForumUserAvatar(
+                                        user = event.user,
+                                        size = 48.dp,
+                                        modifier = Modifier.clickable(enabled = authorId != null) { authorId?.let(onOpenUserProfile) }
+                                    )
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable(enabled = authorId != null) { authorId?.let(onOpenUserProfile) }
+                                    ) {
                                         Text(text = event.title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
                                         Text(
                                             text = event.user?.username ?: event.user?.fullName ?: "User",
@@ -845,7 +878,7 @@ fun ForumEventDetailContent(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(MaterialTheme.shapes.small)
-                                .clickable(enabled = attendee.id != null) { attendee.id?.let { id -> onOpenUserProfile(id) } }
+                                .clickable(enabled = attendee.resolvedId != null) { attendee.resolvedId?.let { id -> onOpenUserProfile(id) } }
                                 .padding(vertical = 6.dp, horizontal = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -899,7 +932,7 @@ fun ForumEventDetailContent(
                         }
                     } else {
                         items(items = eventDetailState.comments, key = { it.id }) { comment ->
-                            ForumCommentItem(comment = comment)
+                            ForumCommentItem(comment = comment, onOpenUserProfile = onOpenUserProfile)
                         }
                     }
                 }
@@ -1051,6 +1084,7 @@ private fun ForumCreateEventContent(
 private fun ForumDiscussionDetailContent(
     viewModel: ForumViewModel,
     onBack: () -> Unit,
+    onOpenUserProfile: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val detailState by viewModel.detailState.collectAsState()
@@ -1137,8 +1171,17 @@ private fun ForumDiscussionDetailContent(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    ForumUserAvatar(user = discussion.user, size = 48.dp)
-                                    Column(modifier = Modifier.weight(1f)) {
+                                    val authorId = discussion.user?.resolvedId ?: discussion.userId
+                                    ForumUserAvatar(
+                                        user = discussion.user,
+                                        size = 48.dp,
+                                        modifier = Modifier.clickable(enabled = authorId != null) { authorId?.let(onOpenUserProfile) }
+                                    )
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable(enabled = authorId != null) { authorId?.let(onOpenUserProfile) }
+                                    ) {
                                         Text(
                                             text = discussion.title,
                                             style = MaterialTheme.typography.titleLarge,
@@ -1203,7 +1246,7 @@ private fun ForumDiscussionDetailContent(
                             items = detailState.comments,
                             key = { it.id }
                         ) { comment ->
-                            ForumCommentItem(comment = comment)
+                            ForumCommentItem(comment = comment, onOpenUserProfile = onOpenUserProfile)
                         }
                     }
                 }
@@ -1251,8 +1294,12 @@ private fun ForumDiscussionDetailContent(
 }
 
 @Composable
-private fun ForumCommentItem(comment: ForumCommentResponse) {
+private fun ForumCommentItem(
+    comment: ForumCommentResponse,
+    onOpenUserProfile: (String) -> Unit = {}
+) {
     val author = comment.user?.username ?: comment.user?.fullName ?: "Unknown"
+    val authorId = comment.user?.resolvedId ?: comment.userId
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -1266,8 +1313,16 @@ private fun ForumCommentItem(comment: ForumCommentResponse) {
             verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            ForumUserAvatar(user = comment.user, size = 32.dp)
-            Column(modifier = Modifier.weight(1f)) {
+            ForumUserAvatar(
+                user = comment.user,
+                size = 32.dp,
+                modifier = Modifier.clickable(enabled = authorId != null) { authorId?.let(onOpenUserProfile) }
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(enabled = authorId != null) { authorId?.let(onOpenUserProfile) }
+            ) {
                 Text(
                     text = comment.content,
                     style = MaterialTheme.typography.bodyMedium,
@@ -1552,6 +1607,7 @@ fun CommunityDetailScreen(
     communityId: String,
     viewModel: ForumViewModel,
     onBack: () -> Unit,
+    onOpenUserProfile: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val detailState by viewModel.communityDetailState.collectAsState()
@@ -1816,6 +1872,7 @@ fun CommunityDetailScreen(
                     CommunityPostCard(
                         post = post,
                         onUpvote = { viewModel.upvoteCommunityPost(communityId, post.id) },
+                        onOpenUserProfile = onOpenUserProfile,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                     )
                 }
@@ -1828,6 +1885,7 @@ fun CommunityDetailScreen(
 fun CommunityPostCard(
     post: CommunityPostResponse,
     onUpvote: () -> Unit,
+    onOpenUserProfile: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     fun timeAgo(dateStr: String): String {
@@ -1859,11 +1917,13 @@ fun CommunityPostCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                val authorId = post.user?.resolvedId ?: post.userId
                 Box(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.secondaryContainer),
+                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                        .clickable(enabled = authorId != null) { authorId?.let(onOpenUserProfile) },
                     contentAlignment = Alignment.Center
                 ) {
                     val context = LocalContext.current
@@ -1887,7 +1947,11 @@ fun CommunityPostCard(
                         )
                     }
                 }
-                Column(modifier = Modifier.weight(1f)) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable(enabled = authorId != null) { authorId?.let(onOpenUserProfile) }
+                ) {
                     Text(
                         text = post.user?.fullName ?: post.user?.username ?: "Unknown",
                         style = MaterialTheme.typography.labelMedium
