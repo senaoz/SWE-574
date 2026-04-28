@@ -636,7 +636,10 @@ fun ServiceDetailScreen(
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     comments.forEach { comment ->
-                                        ServiceCommentItem(comment = comment)
+                                        ServiceCommentItem(
+                                            comment = comment,
+                                            onOpenUserProfile = onOpenUserProfile
+                                        )
                                     }
                                 }
                             }
@@ -805,10 +808,20 @@ private fun BadgeInfoInlineBox(
 }
 
 @Composable
-private fun ServiceCommentItem(comment: CommentResponse) {
+private fun ServiceCommentItem(
+    comment: CommentResponse,
+    onOpenUserProfile: ((String) -> Unit)? = null
+) {
     val author = comment.user?.username ?: comment.user?.fullName ?: "Unknown"
+    val authorId = comment.user?.resolvedId ?: comment.userId
+    val context = LocalContext.current
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (onOpenUserProfile != null) Modifier.clickable { onOpenUserProfile(authorId) }
+                else Modifier
+            ),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
@@ -820,18 +833,29 @@ private fun ServiceCommentItem(comment: CommentResponse) {
             verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = serviceCommentInitials(comment.user),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+            val profilePicture = comment.user?.profilePicture
+            if (!profilePicture.isNullOrBlank()) {
+                AsyncImage(
+                    model = buildImageRequest(context, profilePicture),
+                    contentDescription = "Profile photo",
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
                 )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = serviceCommentInitials(comment.user),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
