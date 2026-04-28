@@ -501,6 +501,7 @@ private fun privacyRadiusPolygon(lat: Double, lon: Double, density: Float, kind:
 @Composable
 fun MapScreen(
     modifier: Modifier = Modifier,
+    resetNonce: Int = 0,
     viewModel: MapViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
     onServiceSelected: ((String) -> Unit)? = null,
     onStartChat: ((String) -> Unit)? = null,
@@ -531,6 +532,19 @@ fun MapScreen(
     var showFilters by remember { mutableStateOf(false) }
     var didInitialCenter by remember { mutableStateOf(false) }
     var nearMeCenterNonce by remember { mutableStateOf(0) }
+    var showListView by remember { mutableStateOf(false) }
+
+    LaunchedEffect(resetNonce) {
+        // "Map" tab reselected from bottom bar: return to the map root UI.
+        selectedServiceId = null
+        selectedForumEventId = null
+        showCreateServiceScreen = false
+        editServiceId = null
+        manageRequestsServiceId = null
+        completeServiceRatingArgs = null
+        showFilters = false
+        showListView = false
+    }
 
     BackHandler(
         enabled = completeServiceRatingArgs != null ||
@@ -683,7 +697,6 @@ fun MapScreen(
     }
 
     var mapView by remember { mutableStateOf<MapView?>(null) }
-    var showListView by remember { mutableStateOf(false) }
     var mapUiReady by remember { mutableStateOf(false) }
     val activity = LocalActivity.current
 
@@ -1176,6 +1189,23 @@ fun MapScreen(
             )
         }
         } // end else - map content
+
+        // When the user switches to discovery/list view, keep an explicit way back to map.
+        if (showListView) {
+            Card(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(top = 10.dp, end = 12.dp),
+                shape = RoundedCornerShape(999.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+            ) {
+                IconButton(onClick = { showListView = false }) {
+                    Icon(Icons.Outlined.Map, contentDescription = "Map View")
+                }
+            }
+        }
     }
 }
 
