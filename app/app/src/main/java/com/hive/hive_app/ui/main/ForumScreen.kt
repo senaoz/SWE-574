@@ -83,6 +83,7 @@ import android.content.Context
 import androidx.compose.ui.viewinterop.AndroidView
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import androidx.compose.ui.layout.ContentScale
 
 @Composable
 fun ForumScreen(
@@ -379,6 +380,77 @@ private fun forumUserInitials(user: ForumUserEmbed?): String {
 }
 
 @Composable
+private fun ForumUserAvatar(
+    user: ForumUserEmbed?,
+    size: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    var imageLoadFailed by remember { mutableStateOf(false) }
+    val model = buildImageRequest(context, user?.profilePicture)
+
+    if (model != null && !imageLoadFailed) {
+        AsyncImage(
+            model = model,
+            contentDescription = user?.username ?: user?.fullName,
+            contentScale = ContentScale.Crop,
+            onError = { imageLoadFailed = true },
+            modifier = modifier.size(size).clip(CircleShape)
+        )
+    } else {
+        Box(
+            modifier = modifier
+                .size(size)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = forumUserInitials(user),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        }
+    }
+}
+
+@Composable
+private fun CommunityAvatar(
+    name: String,
+    avatarUrl: String?,
+    size: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    var imageLoadFailed by remember { mutableStateOf(false) }
+    val model = buildImageRequest(context, avatarUrl)
+
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primaryContainer),
+        contentAlignment = Alignment.Center
+    ) {
+        if (model != null && !imageLoadFailed) {
+            AsyncImage(
+                model = model,
+                contentDescription = name,
+                contentScale = ContentScale.Crop,
+                onError = { imageLoadFailed = true },
+                modifier = Modifier.fillMaxSize().clip(CircleShape)
+            )
+        } else {
+            Text(
+                text = name.firstOrNull()?.uppercase() ?: "C",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        }
+    }
+}
+
+@Composable
 private fun ForumDiscussionCard(
     discussion: ForumDiscussionResponse,
     onClick: () -> Unit
@@ -401,19 +473,7 @@ private fun ForumDiscussionCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = forumUserInitials(discussion.user),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
+                ForumUserAvatar(user = discussion.user, size = 40.dp)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = discussion.title,
@@ -510,19 +570,7 @@ private fun ForumEventCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = forumUserInitials(event.user),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
+                ForumUserAvatar(user = event.user, size = 40.dp)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = event.title,
@@ -685,19 +733,7 @@ fun ForumEventDetailContent(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(48.dp)
-                                            .clip(CircleShape)
-                                            .background(MaterialTheme.colorScheme.primaryContainer),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = forumUserInitials(event.user),
-                                            style = MaterialTheme.typography.titleMedium,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                                        )
-                                    }
+                                    ForumUserAvatar(user = event.user, size = 48.dp)
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(text = event.title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
                                         Text(
@@ -818,12 +854,9 @@ fun ForumEventDetailContent(
                                 .trim().firstOrNull()?.uppercase() ?: "?"
                             if (!attendee.profilePicture.isNullOrBlank() && !imageLoadFailed) {
                                 AsyncImage(
-                                    model = ImageRequest.Builder(ctx)
-                                        .data(attendee.profilePicture)
-                                        .crossfade(true)
-                                        .build(),
+                                    model = buildImageRequest(ctx, attendee.profilePicture),
                                     contentDescription = attendee.username,
-                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                    contentScale = ContentScale.Crop,
                                     onError = { imageLoadFailed = true },
                                     modifier = Modifier
                                         .size(36.dp)
@@ -1104,19 +1137,7 @@ private fun ForumDiscussionDetailContent(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(48.dp)
-                                            .clip(CircleShape)
-                                            .background(MaterialTheme.colorScheme.primaryContainer),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = forumUserInitials(discussion.user),
-                                            style = MaterialTheme.typography.titleMedium,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                                        )
-                                    }
+                                    ForumUserAvatar(user = discussion.user, size = 48.dp)
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             text = discussion.title,
@@ -1245,19 +1266,7 @@ private fun ForumCommentItem(comment: ForumCommentResponse) {
             verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = forumUserInitials(comment.user),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
+            ForumUserAvatar(user = comment.user, size = 32.dp)
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = comment.content,
@@ -1471,31 +1480,7 @@ fun CommunityCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Avatar circle
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (!community.avatarUrl.isNullOrBlank()) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current)
-                                .data(community.avatarUrl)
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = community.name,
-                            modifier = Modifier.fillMaxSize().clip(CircleShape)
-                        )
-                    } else {
-                        Text(
-                            text = community.name.firstOrNull()?.uppercase() ?: "C",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-                }
+                CommunityAvatar(name = community.name, avatarUrl = community.avatarUrl, size = 48.dp)
 
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1634,20 +1619,11 @@ fun CommunityDetailScreen(
                                     .background(MaterialTheme.colorScheme.primaryContainer),
                                 contentAlignment = Alignment.Center
                             ) {
-                                if (!community.avatarUrl.isNullOrBlank()) {
-                                    AsyncImage(
-                                        model = ImageRequest.Builder(LocalContext.current)
-                                            .data(community.avatarUrl).crossfade(true).build(),
-                                        contentDescription = community.name,
-                                        modifier = Modifier.fillMaxSize().clip(CircleShape)
-                                    )
-                                } else {
-                                    Text(
-                                        text = community.name.firstOrNull()?.uppercase() ?: "C",
-                                        style = MaterialTheme.typography.titleLarge,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                }
+                                CommunityAvatar(
+                                    name = community.name,
+                                    avatarUrl = community.avatarUrl,
+                                    size = 56.dp
+                                )
                             }
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(community.name, style = MaterialTheme.typography.titleMedium)
@@ -1890,10 +1866,26 @@ fun CommunityPostCard(
                         .background(MaterialTheme.colorScheme.secondaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
-                    val initials = post.user?.fullName?.firstOrNull()?.uppercase()
-                        ?: post.user?.username?.firstOrNull()?.uppercase() ?: "?"
-                    Text(initials, style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    val context = LocalContext.current
+                    var imageLoadFailed by remember { mutableStateOf(false) }
+                    val model = buildImageRequest(context, post.user?.profilePicture)
+                    if (model != null && !imageLoadFailed) {
+                        AsyncImage(
+                            model = model,
+                            contentDescription = post.user?.username ?: post.user?.fullName,
+                            contentScale = ContentScale.Crop,
+                            onError = { imageLoadFailed = true },
+                            modifier = Modifier.fillMaxSize().clip(CircleShape)
+                        )
+                    } else {
+                        val initials = post.user?.fullName?.firstOrNull()?.uppercase()
+                            ?: post.user?.username?.firstOrNull()?.uppercase() ?: "?"
+                        Text(
+                            initials,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
