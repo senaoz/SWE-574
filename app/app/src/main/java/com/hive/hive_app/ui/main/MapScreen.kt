@@ -1262,136 +1262,11 @@ private fun MapFilterSheet(
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text("Filters", style = MaterialTheme.typography.titleMedium)
 
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Type", style = MaterialTheme.typography.titleSmall)
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    MapLimeOutlinedFilterChip(
-                        selected = filterType == null,
-                        onClick = { filterType = null },
-                        label = { Text("All") }
-                    )
-                    MapLimeOutlinedFilterChip(
-                        selected = filterType == "offer",
-                        onClick = { filterType = "offer" },
-                        label = { Text("Offers ($offerCount)") }
-                    )
-                    MapLimeOutlinedFilterChip(
-                        selected = filterType == "need",
-                        onClick = { filterType = "need" },
-                        label = { Text("Needs ($needCount)") }
-                    )
-                    MapLimeOutlinedFilterChip(
-                        selected = filterType == "event",
-                        onClick = { filterType = "event" },
-                        label = { Text("Events ($eventCount)") }
-                    )
-                }
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Time of day", style = MaterialTheme.typography.titleSmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MapLimeOutlinedFilterChip(
-                        selected = time == MapViewModel.TimeOfDayFilter.ANYTIME,
-                        onClick = { time = MapViewModel.TimeOfDayFilter.ANYTIME },
-                        label = { Text("Any time") },
-                        leadingIcon = { Icon(Icons.Outlined.Schedule, contentDescription = null) }
-                    )
-                    MapLimeOutlinedFilterChip(
-                        selected = time == MapViewModel.TimeOfDayFilter.MORNING,
-                        onClick = { time = MapViewModel.TimeOfDayFilter.MORNING },
-                        label = { Text("Morning") },
-                        leadingIcon = { Icon(Icons.Outlined.WbSunny, contentDescription = null) }
-                    )
-                    MapLimeOutlinedFilterChip(
-                        selected = time == MapViewModel.TimeOfDayFilter.AFTERNOON,
-                        onClick = { time = MapViewModel.TimeOfDayFilter.AFTERNOON },
-                        label = { Text("Afternoon") },
-                        leadingIcon = { Icon(Icons.Outlined.WbCloudy, contentDescription = null) }
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MapLimeOutlinedFilterChip(
-                        selected = time == MapViewModel.TimeOfDayFilter.EVENING,
-                        onClick = { time = MapViewModel.TimeOfDayFilter.EVENING },
-                        label = { Text("Evening") },
-                        leadingIcon = { Icon(Icons.Outlined.Nightlight, contentDescription = null) }
-                    )
-                    MapLimeOutlinedFilterChip(
-                        selected = time == MapViewModel.TimeOfDayFilter.NIGHT,
-                        onClick = { time = MapViewModel.TimeOfDayFilter.NIGHT },
-                        label = { Text("Night") },
-                        leadingIcon = { Icon(Icons.Outlined.DarkMode, contentDescription = null) }
-                    )
-                }
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Date", style = MaterialTheme.typography.titleSmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MapLimeOutlinedFilterChip(
-                        selected = dateFilter is MapViewModel.DateFilter.ANYTIME,
-                        onClick = { dateFilter = MapViewModel.DateFilter.ANYTIME },
-                        label = { Text("Anytime") }
-                    )
-                    MapLimeOutlinedFilterChip(
-                        selected = dateFilter is MapViewModel.DateFilter.TODAY,
-                        onClick = { dateFilter = MapViewModel.DateFilter.TODAY },
-                        label = { Text("Today") }
-                    )
-                    MapLimeOutlinedFilterChip(
-                        selected = dateFilter is MapViewModel.DateFilter.TOMORROW,
-                        onClick = { dateFilter = MapViewModel.DateFilter.TOMORROW },
-                        label = { Text("Tomorrow") }
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MapLimeOutlinedFilterChip(
-                        selected = dateFilter is MapViewModel.DateFilter.WEEKEND,
-                        onClick = { dateFilter = MapViewModel.DateFilter.WEEKEND },
-                        label = { Text("Weekend") }
-                    )
-                    MapLimeOutlinedFilterChip(
-                        selected = dateFilter is MapViewModel.DateFilter.NEXT_WEEKEND,
-                        onClick = { dateFilter = MapViewModel.DateFilter.NEXT_WEEKEND },
-                        label = { Text("Next weekend") }
-                    )
-                }
-                MapLimeOutlinedFilterChip(
-                    selected = dateFilter is MapViewModel.DateFilter.SPECIFIC,
-                    onClick = {
-                        val cal = Calendar.getInstance()
-                        DatePickerDialog(
-                            context,
-                            { _, y, m, d ->
-                                dateFilter = MapViewModel.DateFilter.SPECIFIC(LocalDate.of(y, m + 1, d))
-                            },
-                            cal.get(Calendar.YEAR),
-                            cal.get(Calendar.MONTH),
-                            cal.get(Calendar.DAY_OF_MONTH)
-                        ).show()
-                    },
-                    label = {
-                        val label = when (val df = dateFilter) {
-                            MapViewModel.DateFilter.ANYTIME -> "Pick date"
-                            MapViewModel.DateFilter.TODAY -> "Pick date"
-                            MapViewModel.DateFilter.TOMORROW -> "Pick date"
-                            MapViewModel.DateFilter.WEEKEND -> "Pick date"
-                            MapViewModel.DateFilter.NEXT_WEEKEND -> "Pick date"
-                            is MapViewModel.DateFilter.SPECIFIC -> df.date.toString()
-                        }
-                        Text(label)
-                    }
-                )
-            }
-
+            // Keep primary actions visible without needing to scroll.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1421,7 +1296,133 @@ private fun MapFilterSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.size(1.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Type", style = MaterialTheme.typography.titleSmall)
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    MapLimeOutlinedFilterChip(
+                        selected = filterType == null,
+                        onClick = { filterType = null },
+                        label = { Text("All") }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = filterType == "offer",
+                        onClick = { filterType = "offer" },
+                        label = { Text("Offers ($offerCount)") }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = filterType == "need",
+                        onClick = { filterType = "need" },
+                        label = { Text("Needs ($needCount)") }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = filterType == "event",
+                        onClick = { filterType = "event" },
+                        label = { Text("Events ($eventCount)") }
+                    )
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Time of day", style = MaterialTheme.typography.titleSmall)
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    MapLimeOutlinedFilterChip(
+                        selected = time == MapViewModel.TimeOfDayFilter.ANYTIME,
+                        onClick = { time = MapViewModel.TimeOfDayFilter.ANYTIME },
+                        label = { Text("Any time") },
+                        leadingIcon = { Icon(Icons.Outlined.Schedule, contentDescription = null) }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = time == MapViewModel.TimeOfDayFilter.MORNING,
+                        onClick = { time = MapViewModel.TimeOfDayFilter.MORNING },
+                        label = { Text("Morning") },
+                        leadingIcon = { Icon(Icons.Outlined.WbSunny, contentDescription = null) }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = time == MapViewModel.TimeOfDayFilter.AFTERNOON,
+                        onClick = { time = MapViewModel.TimeOfDayFilter.AFTERNOON },
+                        label = { Text("Afternoon") },
+                        leadingIcon = { Icon(Icons.Outlined.WbCloudy, contentDescription = null) }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = time == MapViewModel.TimeOfDayFilter.EVENING,
+                        onClick = { time = MapViewModel.TimeOfDayFilter.EVENING },
+                        label = { Text("Evening") },
+                        leadingIcon = { Icon(Icons.Outlined.Nightlight, contentDescription = null) }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = time == MapViewModel.TimeOfDayFilter.NIGHT,
+                        onClick = { time = MapViewModel.TimeOfDayFilter.NIGHT },
+                        label = { Text("Night") },
+                        leadingIcon = { Icon(Icons.Outlined.DarkMode, contentDescription = null) }
+                    )
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Date", style = MaterialTheme.typography.titleSmall)
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    MapLimeOutlinedFilterChip(
+                        selected = dateFilter is MapViewModel.DateFilter.ANYTIME,
+                        onClick = { dateFilter = MapViewModel.DateFilter.ANYTIME },
+                        label = { Text("Anytime") }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = dateFilter is MapViewModel.DateFilter.TODAY,
+                        onClick = { dateFilter = MapViewModel.DateFilter.TODAY },
+                        label = { Text("Today") }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = dateFilter is MapViewModel.DateFilter.TOMORROW,
+                        onClick = { dateFilter = MapViewModel.DateFilter.TOMORROW },
+                        label = { Text("Tomorrow") }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = dateFilter is MapViewModel.DateFilter.WEEKEND,
+                        onClick = { dateFilter = MapViewModel.DateFilter.WEEKEND },
+                        label = { Text("Weekend") }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = dateFilter is MapViewModel.DateFilter.NEXT_WEEKEND,
+                        onClick = { dateFilter = MapViewModel.DateFilter.NEXT_WEEKEND },
+                        label = { Text("Next weekend") }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = dateFilter is MapViewModel.DateFilter.SPECIFIC,
+                        onClick = {
+                            val cal = Calendar.getInstance()
+                            DatePickerDialog(
+                                context,
+                                { _, y, m, d ->
+                                    dateFilter = MapViewModel.DateFilter.SPECIFIC(LocalDate.of(y, m + 1, d))
+                                },
+                                cal.get(Calendar.YEAR),
+                                cal.get(Calendar.MONTH),
+                                cal.get(Calendar.DAY_OF_MONTH)
+                            ).show()
+                        },
+                        label = {
+                            val label = when (val df = dateFilter) {
+                                MapViewModel.DateFilter.ANYTIME -> "Pick date"
+                                MapViewModel.DateFilter.TODAY -> "Pick date"
+                                MapViewModel.DateFilter.TOMORROW -> "Pick date"
+                                MapViewModel.DateFilter.WEEKEND -> "Pick date"
+                                MapViewModel.DateFilter.NEXT_WEEKEND -> "Pick date"
+                                is MapViewModel.DateFilter.SPECIFIC -> df.date.toString()
+                            }
+                            Text(label)
+                        }
+                    )
+                }
+            }
         }
     }
 }
