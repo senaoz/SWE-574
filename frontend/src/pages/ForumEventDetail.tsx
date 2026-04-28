@@ -553,7 +553,7 @@ function EditEventDialog({
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Content className="max-w-2xl" aria-describedby={undefined}>
+      <Dialog.Content className="max-w-4xl" aria-describedby={undefined}>
         <Dialog.Title>Edit Event</Dialog.Title>
         <Form.Root
           onSubmit={(e) => {
@@ -676,7 +676,9 @@ function EditEventDialog({
                       color="red"
                       className="!absolute top-1 right-1 !p-1 w-5 h-5 cursor-pointer"
                       onClick={() =>
-                        setExistingImageUrls((prev) => prev.filter((_, j) => j !== i))
+                        setExistingImageUrls((prev) =>
+                          prev.filter((_, j) => j !== i),
+                        )
                       }
                     >
                       ×
@@ -725,7 +727,11 @@ function EditEventDialog({
             </Button>
             <Form.Submit asChild>
               <Button type="submit" disabled={submitting || imageUploading}>
-                {imageUploading ? "Uploading..." : submitting ? "Saving..." : "Save Changes"}
+                {imageUploading
+                  ? "Uploading..."
+                  : submitting
+                    ? "Saving..."
+                    : "Save Changes"}
               </Button>
             </Form.Submit>
           </Flex>

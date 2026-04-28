@@ -12,11 +12,7 @@ import {
   Box,
 } from "@radix-ui/themes";
 import { Form } from "radix-ui";
-import {
-  ArrowLeftIcon,
-  Pencil1Icon,
-  TrashIcon,
-} from "@radix-ui/react-icons";
+import { ArrowLeftIcon, Pencil1Icon, TrashIcon } from "@radix-ui/react-icons";
 import { forumApi, getImageUrl, communityApi } from "@/services/api";
 import { useUser } from "@/App";
 import { ForumDiscussion, TagEntity, Community } from "@/types";
@@ -141,10 +137,7 @@ export function ForumDiscussionDetail() {
                   upvoted={discussion.user_upvoted}
                   onUpvote={
                     currentUserId
-                      ? () =>
-                          forumApi
-                            .upvoteDiscussion(id!)
-                            .then((r) => r.data)
+                      ? () => forumApi.upvoteDiscussion(id!).then((r) => r.data)
                       : undefined
                   }
                   disabled={!currentUserId}
@@ -177,7 +170,16 @@ export function ForumDiscussionDetail() {
             {discussion.image_urls && discussion.image_urls.length > 0 && (
               <Flex gap="2" mt="2" wrap="wrap">
                 {discussion.image_urls.map((url, i) => (
-                  <img key={i} src={getImageUrl(url) ?? url} alt="" style={{ maxHeight: 300, borderRadius: 8, objectFit: 'cover' }} />
+                  <img
+                    key={i}
+                    src={getImageUrl(url) ?? url}
+                    alt=""
+                    style={{
+                      maxHeight: 300,
+                      borderRadius: 8,
+                      objectFit: "cover",
+                    }}
+                  />
                 ))}
               </Flex>
             )}
@@ -188,7 +190,9 @@ export function ForumDiscussionDetail() {
                 ))}
               </Flex>
             )}
-            {discussion.community_id && <RelatedCommunityBlock communityId={discussion.community_id} />}
+            {discussion.community_id && (
+              <RelatedCommunityBlock communityId={discussion.community_id} />
+            )}
           </div>
         </Flex>
       </Card>
@@ -260,8 +264,9 @@ function RelatedCommunityBlock({ communityId }: { communityId: string }) {
   const [community, setCommunity] = useState<Community | null>(null);
 
   useEffect(() => {
-    communityApi.getCommunity(communityId)
-      .then(r => setCommunity(r.data))
+    communityApi
+      .getCommunity(communityId)
+      .then((r) => setCommunity(r.data))
       .catch(() => {});
   }, [communityId]);
 
@@ -271,21 +276,42 @@ function RelatedCommunityBlock({ communityId }: { communityId: string }) {
     <Card mt="4">
       <Flex gap="3" align="center">
         <Avatar
-          src={community.avatar_url ? getImageUrl(community.avatar_url) ?? undefined : undefined}
+          src={
+            community.avatar_url
+              ? (getImageUrl(community.avatar_url) ?? undefined)
+              : undefined
+          }
           fallback={community.name[0]}
           size="3"
           radius="full"
         />
         <Box flexGrow="1">
-          <Text size="1" color="gray">Related Community</Text>
-          <Text weight="bold" size="2">{community.name}</Text>
+          <Text size="1" color="gray">
+            Related Community
+          </Text>
+          <Text weight="bold" size="2">
+            {community.name}
+          </Text>
           {community.description && (
-            <Text size="1" color="gray" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+            <Text
+              size="1"
+              color="gray"
+              style={{
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }}
+            >
               {community.description}
             </Text>
           )}
         </Box>
-        <Button size="1" variant="soft" onClick={() => navigate(`/forum/communities/${community._id}`)}>
+        <Button
+          size="1"
+          variant="soft"
+          onClick={() => navigate(`/forum/communities/${community._id}`)}
+        >
           View
         </Button>
       </Flex>
@@ -342,7 +368,7 @@ function EditDiscussionDialog({
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Content className="max-w-2xl" aria-describedby={undefined}>
+      <Dialog.Content className="max-w-4xl" aria-describedby={undefined}>
         <Dialog.Title>Edit Discussion</Dialog.Title>
         <Form.Root
           onSubmit={(e) => {
