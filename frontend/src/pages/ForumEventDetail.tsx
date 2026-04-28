@@ -27,8 +27,8 @@ import {
   TrashIcon,
   PlusIcon,
 } from "@radix-ui/react-icons";
-import { forumApi, getImageUrl, uploadApi } from "@/services/api";
-import { ForumEvent, TagEntity } from "@/types";
+import { forumApi, getImageUrl, uploadApi, communityApi } from "@/services/api";
+import { ForumEvent, TagEntity, Community } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import { UpvoteButton } from "@/components/ui/UpvoteButton";
 import { useUser } from "@/App";
@@ -265,6 +265,8 @@ export function ForumEventDetail() {
           </Flex>
         )}
 
+        {event.community_id && <RelatedCommunityBlock communityId={event.community_id} />}
+
         {/* Attending section */}
         <div className="mt-8 border-t pt-4">
           <Flex justify="between" align="center" className="mb-3">
@@ -380,6 +382,44 @@ export function ForumEventDetail() {
         </>
       )}
     </div>
+  );
+}
+
+function RelatedCommunityBlock({ communityId }: { communityId: string }) {
+  const navigate = useNavigate();
+  const [community, setCommunity] = useState<Community | null>(null);
+
+  useEffect(() => {
+    communityApi.getCommunity(communityId)
+      .then(r => setCommunity(r.data))
+      .catch(() => {});
+  }, [communityId]);
+
+  if (!community) return null;
+
+  return (
+    <Card mt="4">
+      <Flex gap="3" align="center">
+        <Avatar
+          src={community.avatar_url ? getImageUrl(community.avatar_url) ?? undefined : undefined}
+          fallback={community.name[0]}
+          size="3"
+          radius="full"
+        />
+        <Box flexGrow="1">
+          <Text size="1" color="gray">Related Community</Text>
+          <Text weight="bold" size="2">{community.name}</Text>
+          {community.description && (
+            <Text size="1" color="gray" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+              {community.description}
+            </Text>
+          )}
+        </Box>
+        <Button size="1" variant="soft" onClick={() => navigate(`/forum/communities/${community._id}`)}>
+          View
+        </Button>
+      </Flex>
+    </Card>
   );
 }
 

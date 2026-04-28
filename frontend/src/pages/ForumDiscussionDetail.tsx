@@ -9,6 +9,7 @@ import {
   Heading,
   Dialog,
   TextField,
+  Box,
 } from "@radix-ui/themes";
 import { Form } from "radix-ui";
 import {
@@ -16,9 +17,9 @@ import {
   Pencil1Icon,
   TrashIcon,
 } from "@radix-ui/react-icons";
-import { forumApi, getImageUrl } from "@/services/api";
+import { forumApi, getImageUrl, communityApi } from "@/services/api";
 import { useUser } from "@/App";
-import { ForumDiscussion, TagEntity } from "@/types";
+import { ForumDiscussion, TagEntity, Community } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import { UpvoteButton } from "@/components/ui/UpvoteButton";
 import { MarkdownEditor } from "@/components/forms/MarkdownEditor";
@@ -173,6 +174,13 @@ export function ForumDiscussionDetail() {
                 {discussion.body}
               </ReactMarkdown>
             </div>
+            {discussion.image_urls && discussion.image_urls.length > 0 && (
+              <Flex gap="2" mt="2" wrap="wrap">
+                {discussion.image_urls.map((url, i) => (
+                  <img key={i} src={getImageUrl(url) ?? url} alt="" style={{ maxHeight: 300, borderRadius: 8, objectFit: 'cover' }} />
+                ))}
+              </Flex>
+            )}
             {discussion.tags && discussion.tags.length > 0 && (
               <Flex gap="2" className="mt-4" wrap="wrap">
                 {discussion.tags.map((tag, i) => (
@@ -180,6 +188,7 @@ export function ForumDiscussionDetail() {
                 ))}
               </Flex>
             )}
+            {discussion.community_id && <RelatedCommunityBlock communityId={discussion.community_id} />}
           </div>
         </Flex>
       </Card>
@@ -243,6 +252,44 @@ export function ForumDiscussionDetail() {
         onConfirm={handleDelete}
       />
     </div>
+  );
+}
+
+function RelatedCommunityBlock({ communityId }: { communityId: string }) {
+  const navigate = useNavigate();
+  const [community, setCommunity] = useState<Community | null>(null);
+
+  useEffect(() => {
+    communityApi.getCommunity(communityId)
+      .then(r => setCommunity(r.data))
+      .catch(() => {});
+  }, [communityId]);
+
+  if (!community) return null;
+
+  return (
+    <Card mt="4">
+      <Flex gap="3" align="center">
+        <Avatar
+          src={community.avatar_url ? getImageUrl(community.avatar_url) ?? undefined : undefined}
+          fallback={community.name[0]}
+          size="3"
+          radius="full"
+        />
+        <Box flexGrow="1">
+          <Text size="1" color="gray">Related Community</Text>
+          <Text weight="bold" size="2">{community.name}</Text>
+          {community.description && (
+            <Text size="1" color="gray" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+              {community.description}
+            </Text>
+          )}
+        </Box>
+        <Button size="1" variant="soft" onClick={() => navigate(`/forum/communities/${community._id}`)}>
+          View
+        </Button>
+      </Flex>
+    </Card>
   );
 }
 

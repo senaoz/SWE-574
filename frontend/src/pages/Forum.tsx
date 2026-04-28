@@ -312,6 +312,12 @@ export function Forum() {
                             stopPropagation
                           />
                         ))}
+                        {d.community_id && communities.find(c => c._id === d.community_id) && (
+                          <Badge color="violet" variant="soft" size="1" style={{ cursor: 'pointer' }}
+                            onClick={(e) => { e.stopPropagation(); navigate(`/forum/communities/${d.community_id}`); }}>
+                            {communities.find(c => c._id === d.community_id)?.name}
+                          </Badge>
+                        )}
                       </Flex>
                     </div>
                   </Flex>
@@ -459,6 +465,12 @@ export function Forum() {
                         stopPropagation
                       />
                     ))}
+                    {ev.community_id && communities.find(c => c._id === ev.community_id) && (
+                      <Badge color="violet" variant="soft" size="1" style={{ cursor: 'pointer' }}
+                        onClick={(e) => { e.stopPropagation(); navigate(`/forum/communities/${ev.community_id}`); }}>
+                        {communities.find(c => c._id === ev.community_id)?.name}
+                      </Badge>
+                    )}
                   </Flex>
                 </Card>
               ))}
@@ -549,11 +561,13 @@ export function Forum() {
         open={showNewDiscussion}
         onOpenChange={setShowNewDiscussion}
         onCreated={refresh}
+        communities={communities}
       />
       <NewEventDialog
         open={showNewEvent}
         onOpenChange={setShowNewEvent}
         onCreated={refresh}
+        communities={communities}
       />
       <NewCommunityDialog
         open={showNewCommunity}
@@ -567,21 +581,29 @@ function NewDiscussionDialog({
   open,
   onOpenChange,
   onCreated,
+  communities,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   onCreated: () => void;
+  communities: Community[];
 }) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [tags, setTags] = useState<TagEntity[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [discussionCommunityId, setDiscussionCommunityId] = useState<string>("");
+  const [discussionImageUrls, setDiscussionImageUrls] = useState<string[]>([]);
+  const [discussionImageUploading, setDiscussionImageUploading] = useState(false);
   const reset = () => {
     setTitle("");
     setBody("");
     setTags([]);
     setError("");
+    setDiscussionCommunityId("");
+    setDiscussionImageUrls([]);
+    setDiscussionImageUploading(false);
   };
   const handleSubmit = async () => {
     if (!title.trim() || !body.trim()) {
@@ -590,7 +612,13 @@ function NewDiscussionDialog({
     }
     setSubmitting(true);
     try {
-      await forumApi.createDiscussion({ title, body, tags });
+      await forumApi.createDiscussion({
+        title,
+        body,
+        tags,
+        community_id: discussionCommunityId || undefined,
+        image_urls: discussionImageUrls.length > 0 ? discussionImageUrls : undefined,
+      });
       reset();
       onOpenChange(false);
       onCreated();
@@ -648,6 +676,54 @@ function NewDiscussionDialog({
               }
             />
           </Form.Field>
+          <Form.Field name="discussion-image" className="space-y-1">
+            <Form.Label className="text-sm font-medium">Image (optional)</Form.Label>
+            <Box mt="1">
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                disabled={discussionImageUploading}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setDiscussionImageUploading(true);
+                  try {
+                    const res = await uploadApi.uploadDiscussionImage(file);
+                    setDiscussionImageUrls([res.data.url]);
+                  } catch {
+                    // ignore upload errors
+                  } finally {
+                    setDiscussionImageUploading(false);
+                  }
+                }}
+                style={{ fontSize: 13 }}
+              />
+              {discussionImageUploading && <Text size="1" color="gray">Uploading...</Text>}
+              {discussionImageUrls.length > 0 && (
+                <Flex mt="1" gap="1" align="center">
+                  <img src={getImageUrl(discussionImageUrls[0]) ?? discussionImageUrls[0]} alt="preview" style={{ height: 48, borderRadius: 4, objectFit: 'cover' }} />
+                  <Button size="1" variant="ghost" color="red" type="button" onClick={() => setDiscussionImageUrls([])}>Remove</Button>
+                </Flex>
+              )}
+            </Box>
+          </Form.Field>
+          {communities.length > 0 && (
+            <Form.Field name="discussion-community" className="space-y-1">
+              <Form.Label className="text-sm font-medium">Related Community (optional)</Form.Label>
+              <Box mt="1">
+                <select
+                  value={discussionCommunityId}
+                  onChange={(e) => setDiscussionCommunityId(e.target.value)}
+                  style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid var(--gray-6)', fontSize: 13 }}
+                >
+                  <option value="">None</option>
+                  {communities.map((c) => (
+                    <option key={c._id} value={c._id}>{c.name}</option>
+                  ))}
+                </select>
+              </Box>
+            </Form.Field>
+          )}
           {error && (
             <Text size="2" color="red">
               {error}
@@ -663,7 +739,7 @@ function NewDiscussionDialog({
               Cancel
             </Button>
             <Form.Submit asChild>
-              <Button type="submit" disabled={submitting}>
+              <Button type="submit" disabled={submitting || discussionImageUploading}>
                 {submitting ? "Creating..." : "Create Discussion"}
               </Button>
             </Form.Submit>
@@ -677,10 +753,12 @@ function NewEventDialog({
   open,
   onOpenChange,
   onCreated,
+  communities,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   onCreated: () => void;
+  communities: Community[];
 }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -703,6 +781,7 @@ function NewEventDialog({
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const [imageUploading, setImageUploading] = useState(false);
+  const [eventCommunityId, setEventCommunityId] = useState<string>("");
   const reset = () => {
     setTitle("");
     setDescription("");
@@ -716,6 +795,7 @@ function NewEventDialog({
     imagePreviewUrls.forEach((url) => URL.revokeObjectURL(url));
     setImageFiles([]);
     setImagePreviewUrls([]);
+    setEventCommunityId("");
   };
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -776,6 +856,7 @@ const handleSubmit = async () => {
         service_id:
           serviceId && serviceId !== "__none__" ? serviceId : undefined,
         image_urls: uploadedUrls,
+        community_id: eventCommunityId || undefined,
       });
       reset();
       onOpenChange(false);
@@ -930,6 +1011,23 @@ const handleSubmit = async () => {
               </Flex>
             )}
           </Box>
+          {communities.length > 0 && (
+            <Form.Field name="event-community" className="space-y-1">
+              <Form.Label className="text-sm font-medium">Related Community (optional)</Form.Label>
+              <Box mt="1">
+                <select
+                  value={eventCommunityId}
+                  onChange={(e) => setEventCommunityId(e.target.value)}
+                  style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid var(--gray-6)', fontSize: 13 }}
+                >
+                  <option value="">None</option>
+                  {communities.map((c) => (
+                    <option key={c._id} value={c._id}>{c.name}</option>
+                  ))}
+                </select>
+              </Box>
+            </Form.Field>
+          )}
           {error && (
             <Text size="2" color="red">
               {error}
