@@ -214,7 +214,6 @@ fun MainScaffold(
                 showCreateService = true
             }
         )
-        return
     }
 
     if (showCreateService) {
