@@ -265,11 +265,11 @@ fun MainScaffold(
                     initialRoomId = openChatRoomId, onInitialRoomConsumed = { openChatRoomId = null }
                 )
                 MainDestinations.COMMON -> ForumScreen(
-                    Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = navBarHeight)
+                    Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = 0.dp)
                 )
                 MainDestinations.PROFILE -> ProfileScreen(
                     onLogout = onLogout,
-                    modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = navBarHeight),
+                    modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = 0.dp),
                     onOpenSaved = { showSavedServices = true },
                     onOpenNotifications = { showNotifications = true },
                     onOpenActive = { showActiveItems = true },

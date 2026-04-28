@@ -178,6 +178,7 @@ fun ProfileScreen(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(scrollState)
+                    .padding(bottom = 88.dp)
             ) {
                 profile?.let { user ->
                     Spacer(Modifier.height(12.dp))
