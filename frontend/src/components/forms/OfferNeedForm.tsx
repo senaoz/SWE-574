@@ -288,6 +288,10 @@ export function OfferNeedForm({
       newErrors.max_participants = "Must allow at least 1 participant";
     }
 
+    if (!isEditMode && serviceImageFiles.length === 0) {
+      newErrors.images = "Please upload at least one photo of your service.";
+    }
+
     // Validate scheduling based on type
     if (formData.scheduling_type === "specific") {
       if (!formData.specific_date) {
@@ -499,6 +503,7 @@ export function OfferNeedForm({
                           return;
                         }
                         setServiceImageError(null);
+                        setErrors((prev) => ({ ...prev, images: undefined }));
                         setServiceImageFiles((prev) => [...prev, file]);
                         setServiceImagePreviewUrls((prev) => [
                           ...prev,
@@ -507,9 +512,11 @@ export function OfferNeedForm({
                         e.target.value = "";
                       }}
                     />
-                    <span className="flex items-center justify-center gap-2 border rounded-lg p-2 hover-card text-center cursor-pointer font-medium text-sm w-full">
+                    <span className={`flex items-center justify-center gap-2 border rounded-lg p-2 hover-card text-center cursor-pointer font-medium text-sm w-full${errors.images ? " border-red-500" : ""}`}>
                       <PlusIcon className="w-4 h-4" />
-                      Add Images (optional, max {MAX_SERVICE_IMAGES})
+                      {isEditMode
+                        ? `Add Images (optional, max ${MAX_SERVICE_IMAGES})`
+                        : `Add Images (required, max ${MAX_SERVICE_IMAGES})`}
                     </span>
                   </label>
                 )}
@@ -592,6 +599,11 @@ export function OfferNeedForm({
                 {serviceImageError && (
                   <Text color="red" size="1">
                     {serviceImageError}
+                  </Text>
+                )}
+                {errors.images && (
+                  <Text color="red" size="1">
+                    {errors.images}
                   </Text>
                 )}
               </Form.Field>

@@ -74,6 +74,7 @@ export interface RatingDetailed {
     timebank_hours: number;
     completed_at?: string;
     created_at?: string;
+    rated_user_role?: "provider" | "taker";
   };
   service?: {
     id: string;
@@ -319,6 +320,7 @@ export interface ServiceFormErrors {
   specific_time?: string;
   recurring_pattern?: string | { days: string[]; time: string; error: string };
   open_availability?: string;
+  images?: string;
 }
 
 export interface Comment {

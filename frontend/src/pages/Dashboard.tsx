@@ -105,6 +105,9 @@ export function Dashboard() {
         ? false
         : undefined;
   const activeCity = dashFilters.city;
+  const openInterestsEditor = useCallback(() => {
+    navigate("/profile?tab=profile&interests=true");
+  }, [navigate]);
 
   useEffect(() => {
     if (selectedCity === activeCity) return;
@@ -539,6 +542,7 @@ export function Dashboard() {
           onFiltersChange={handleDashFiltersChange}
           availableTags={availableTags}
           hasLocation={userPosition !== null}
+          onOpenForYouSettings={openInterestsEditor}
         />
         {showProfilePrompt && (
           <Callout.Root size="1" color="lime" variant="soft">
@@ -561,9 +565,7 @@ export function Dashboard() {
                   size="1"
                   color="lime"
                   variant="soft"
-                  onClick={() =>
-                    navigate("/profile?tab=profile&interests=true")
-                  }
+                  onClick={openInterestsEditor}
                 >
                   Go to Interests
                 </Button>

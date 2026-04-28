@@ -17,6 +17,7 @@ vi.mock("@/constants/turkishCities", () => ({
 function renderBar(
   filters: DashboardFilters = defaultDashboardFilters,
   onFiltersChange = vi.fn(),
+  onOpenForYouSettings = vi.fn(),
 ) {
   return render(
     <DashboardFilterBar
@@ -27,6 +28,7 @@ function renderBar(
         { entityId: "Q2", label: "music", description: "" },
       ]}
       hasLocation={false}
+      onOpenForYouSettings={onOpenForYouSettings}
     />,
   );
 }
@@ -69,6 +71,30 @@ describe("DashboardFilterBar", () => {
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ forYouOnly: true }),
     );
+  });
+
+  it("shows the For You explainer and opens interests from the CTA", async () => {
+    const user = userEvent.setup();
+    const onOpenForYouSettings = vi.fn();
+    renderBar(
+      defaultDashboardFilters,
+      vi.fn(),
+      onOpenForYouSettings,
+    );
+
+    await user.hover(
+      screen.getByRole("button", { name: "For you" }),
+    );
+
+    expect(
+      await screen.findByText("Why these posts appear"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/We rank these suggestions using the interests/),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Update interests/i }));
+    expect(onOpenForYouSettings).toHaveBeenCalledTimes(1);
   });
 
   it("shows active pill label when serviceType is set to offer", () => {
