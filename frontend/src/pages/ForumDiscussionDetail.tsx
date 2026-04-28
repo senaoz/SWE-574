@@ -273,7 +273,11 @@ function RelatedCommunityBlock({ communityId }: { communityId: string }) {
   if (!community) return null;
 
   return (
-    <Card mt="4">
+    <Card
+      mt="4"
+      className="hover-card cursor-pointer"
+      onClick={() => navigate(`/forum/communities/${community._id}`)}
+    >
       <Flex gap="3" align="center">
         <Avatar
           src={
@@ -286,12 +290,14 @@ function RelatedCommunityBlock({ communityId }: { communityId: string }) {
           radius="full"
         />
         <Box flexGrow="1">
-          <Text size="1" color="gray">
-            Related Community
-          </Text>
-          <Text weight="bold" size="2">
-            {community.name}
-          </Text>
+          <div className="flex flex-col mb-2">
+            <Text size="1" color="gray">
+              Related Community
+            </Text>
+            <Text weight="bold" size="3">
+              {community.name}
+            </Text>
+          </div>
           {community.description && (
             <Text
               size="1"
@@ -307,13 +313,6 @@ function RelatedCommunityBlock({ communityId }: { communityId: string }) {
             </Text>
           )}
         </Box>
-        <Button
-          size="1"
-          variant="soft"
-          onClick={() => navigate(`/forum/communities/${community._id}`)}
-        >
-          View
-        </Button>
       </Flex>
     </Card>
   );

@@ -173,11 +173,15 @@ export function ForumEventDetail() {
               </>
             )}
             <UpvoteButton
-                count={event.upvote_count ?? 0}
-                upvoted={event.user_upvoted}
-                onUpvote={currentUserId ? () => forumApi.upvoteEvent(id!).then(r => r.data) : undefined}
-                disabled={!currentUserId}
-                showLoginHint={!currentUserId}
+              count={event.upvote_count ?? 0}
+              upvoted={event.user_upvoted}
+              onUpvote={
+                currentUserId
+                  ? () => forumApi.upvoteEvent(id!).then((r) => r.data)
+                  : undefined
+              }
+              disabled={!currentUserId}
+              showLoginHint={!currentUserId}
             />
           </Flex>
         </div>
@@ -265,7 +269,9 @@ export function ForumEventDetail() {
           </Flex>
         )}
 
-        {event.community_id && <RelatedCommunityBlock communityId={event.community_id} />}
+        {event.community_id && (
+          <RelatedCommunityBlock communityId={event.community_id} />
+        )}
 
         {/* Attending section */}
         <div className="mt-8 border-t pt-4">
@@ -390,34 +396,55 @@ function RelatedCommunityBlock({ communityId }: { communityId: string }) {
   const [community, setCommunity] = useState<Community | null>(null);
 
   useEffect(() => {
-    communityApi.getCommunity(communityId)
-      .then(r => setCommunity(r.data))
+    communityApi
+      .getCommunity(communityId)
+      .then((r) => setCommunity(r.data))
       .catch(() => {});
   }, [communityId]);
 
   if (!community) return null;
 
   return (
-    <Card mt="4">
+    <Card
+      mt="4"
+      onClick={() => navigate(`/forum/communities/${community._id}`)}
+      className="hover-card cursor-pointer"
+    >
       <Flex gap="3" align="center">
         <Avatar
-          src={community.avatar_url ? getImageUrl(community.avatar_url) ?? undefined : undefined}
+          src={
+            community.avatar_url
+              ? (getImageUrl(community.avatar_url) ?? undefined)
+              : undefined
+          }
           fallback={community.name[0]}
           size="3"
           radius="full"
         />
         <Box flexGrow="1">
-          <Text size="1" color="gray">Related Community</Text>
-          <Text weight="bold" size="2">{community.name}</Text>
+          <div className="flex flex-col mb-2">
+            <Text size="1" color="gray">
+              Related Community
+            </Text>
+            <Text weight="bold" size="3">
+              {community.name}
+            </Text>
+          </div>
           {community.description && (
-            <Text size="1" color="gray" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+            <Text
+              size="1"
+              color="gray"
+              style={{
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }}
+            >
               {community.description}
             </Text>
           )}
         </Box>
-        <Button size="1" variant="soft" onClick={() => navigate(`/forum/communities/${community._id}`)}>
-          View
-        </Button>
       </Flex>
     </Card>
   );
@@ -437,10 +464,10 @@ function EditEventDialog({
   const [title, setTitle] = useState(event.title);
   const [description, setDescription] = useState(event.description);
   const [eventDate, setEventDate] = useState(
-    event.event_at ? event.event_at.slice(0, 10) : ""
+    event.event_at ? event.event_at.slice(0, 10) : "",
   );
   const [eventTime, setEventTime] = useState(
-    event.event_at ? event.event_at.slice(11, 16) : ""
+    event.event_at ? event.event_at.slice(11, 16) : "",
   );
   const [locationValue, setLocationValue] = useState<{
     latitude: number;
@@ -455,7 +482,9 @@ function EditEventDialog({
   const [tags, setTags] = useState<TagEntity[]>(event.tags ?? []);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [existingImageUrls, setExistingImageUrls] = useState<string[]>(event.image_urls ?? []);
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>(
+    event.image_urls ?? [],
+  );
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const [imageUploading, setImageUploading] = useState(false);
