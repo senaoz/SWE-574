@@ -1,17 +1,28 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { Theme } from "@radix-ui/themes";
 import { CityFilter } from "../CityFilter";
+
+function renderFilter(props: Parameters<typeof CityFilter>[0]) {
+  return render(
+    <Theme>
+      <CityFilter {...props} />
+    </Theme>,
+  );
+}
 
 describe("CityFilter", () => {
   it("renders a trigger element", () => {
-    render(<CityFilter selectedCity="all" onCityChange={vi.fn()} />);
+    renderFilter({ selectedCity: "all", onCityChange: vi.fn() });
     expect(screen.getByRole("combobox")).toBeInTheDocument();
   });
 
   it("accepts a className prop without crashing", () => {
-    const { container } = render(
-      <CityFilter selectedCity="Istanbul" onCityChange={vi.fn()} className="custom-class" />,
-    );
-    expect(container.firstChild).toHaveClass("custom-class");
+    const { container } = renderFilter({
+      selectedCity: "Istanbul",
+      onCityChange: vi.fn(),
+      className: "custom-class",
+    });
+    expect(container.querySelector(".custom-class")).toBeInTheDocument();
   });
 });

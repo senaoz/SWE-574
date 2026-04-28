@@ -10,7 +10,7 @@ function makeService(overrides: Partial<Service> & { _id: string }): Service {
     category: "misc",
     tags: [],
     estimated_duration: 1,
-    location: { latitude: 41, longitude: 29, city: "Istanbul", district: "" },
+    location: { latitude: 41, longitude: 29, address: "Istanbul" },
     service_type: "offer",
     status: "active",
     created_at: "2026-01-01T00:00:00Z",
@@ -29,18 +29,18 @@ describe("getServiceDistance", () => {
   it("returns Infinity when service has no coordinates", () => {
     const svc = makeService({
       _id: "s1",
-      location: { city: "Istanbul", district: "" } as any,
+      location: { address: "Istanbul" } as any,
     });
     expect(getServiceDistance(svc, [41, 29])).toBe(Number.POSITIVE_INFINITY);
   });
 
   it("returns 0 when service is at the user position", () => {
-    const svc = makeService({ _id: "s1", location: { latitude: 41, longitude: 29, city: "Istanbul", district: "" } });
+    const svc = makeService({ _id: "s1", location: { latitude: 41, longitude: 29, address: "Istanbul" } });
     expect(getServiceDistance(svc, [41, 29])).toBe(0);
   });
 
   it("returns positive distance for different coordinates", () => {
-    const svc = makeService({ _id: "s1", location: { latitude: 39.93, longitude: 32.86, city: "Ankara", district: "" } });
+    const svc = makeService({ _id: "s1", location: { latitude: 39.93, longitude: 32.86, address: "Ankara" } });
     const dist = getServiceDistance(svc, [41.01, 28.98]);
     expect(dist).toBeGreaterThan(300);
   });
@@ -78,8 +78,8 @@ describe("sortDashboardServices", () => {
   it("sorts by closest when userPosition is provided", () => {
     const userPos: [number, number] = [41, 29]; // Istanbul
     const services = [
-      makeService({ _id: "near", location: { latitude: 41.01, longitude: 29.01, city: "Istanbul", district: "" } }),
-      makeService({ _id: "far", location: { latitude: 39.93, longitude: 32.86, city: "Ankara", district: "" } }),
+      makeService({ _id: "near", location: { latitude: 41.01, longitude: 29.01, address: "Istanbul" } }),
+      makeService({ _id: "far", location: { latitude: 39.93, longitude: 32.86, address: "Ankara" } }),
     ];
     const sorted = sortDashboardServices(services, "closest", userPos);
     expect(sorted[0]._id).toBe("near");
@@ -89,8 +89,8 @@ describe("sortDashboardServices", () => {
   it("sorts by farthest when userPosition is provided", () => {
     const userPos: [number, number] = [41, 29];
     const services = [
-      makeService({ _id: "near", location: { latitude: 41.01, longitude: 29.01, city: "Istanbul", district: "" } }),
-      makeService({ _id: "far", location: { latitude: 39.93, longitude: 32.86, city: "Ankara", district: "" } }),
+      makeService({ _id: "near", location: { latitude: 41.01, longitude: 29.01, address: "Istanbul" } }),
+      makeService({ _id: "far", location: { latitude: 39.93, longitude: 32.86, address: "Ankara" } }),
     ];
     const sorted = sortDashboardServices(services, "farthest", userPos);
     expect(sorted[0]._id).toBe("far");
