@@ -317,14 +317,34 @@ class MapViewModel @Inject constructor(
             "need" -> state.services.filter { it.serviceType.equals("need", ignoreCase = true) }
             else -> state.services
         }
-        return byType.filter { matchesMapSearchService(it, q) }
+        return byType
+            .asSequence()
+            .filter { matchesMapSearchService(it, q) }
+            .filter { service ->
+                matchesDateTimeFilters(
+                    dateFilter = state.filterDate,
+                    timeOfDay = state.filterTimeOfDay,
+                    service = service
+                )
+            }
+            .toList()
     }
 
     /** Events to draw on the map (no viewport): search + type (hide when Offer/Need only). */
     fun eventsForMapOverlay(state: MapState): List<ForumEventResponse> {
         if (!eventMatchesTypeForVisible(state.filterType)) return emptyList()
         val q = state.mapSearchQuery.trim()
-        return state.events.filter { matchesMapSearchEvent(it, q) }
+        return state.events
+            .asSequence()
+            .filter { matchesMapSearchEvent(it, q) }
+            .filter { event ->
+                matchesDateTimeFilters(
+                    dateFilter = state.filterDate,
+                    timeOfDay = state.filterTimeOfDay,
+                    event = event
+                )
+            }
+            .toList()
     }
 
     private fun recomputeVisible() {

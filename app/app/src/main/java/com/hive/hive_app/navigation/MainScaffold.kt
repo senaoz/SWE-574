@@ -58,6 +58,7 @@ fun MainScaffold(
     val pendingDestination by mainViewModel.pendingDestination.collectAsState()
 
     var currentDestination by rememberSaveable { mutableStateOf(MainDestinations.MAP) }
+    var mapReselectNonce by rememberSaveable { mutableStateOf(0) }
     var openChatRoomId by remember { mutableStateOf<String?>(null) }
     var overlayStack by remember { mutableStateOf<List<OverlayRoute>>(emptyList()) }
     var showSavedServices by remember { mutableStateOf(false) }
@@ -256,6 +257,7 @@ fun MainScaffold(
                             bottom = 0.dp, // Full screen map
                             top = 0.dp
                         ),
+                    resetNonce = mapReselectNonce,
                     onStartChat = onStartChat,
                     onOpenUserProfile = onOpenUserProfile
                 )
@@ -264,7 +266,7 @@ fun MainScaffold(
                     initialRoomId = openChatRoomId, onInitialRoomConsumed = { openChatRoomId = null }
                 )
                 MainDestinations.COMMON -> ForumScreen(
-                    modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = 0.dp),
+                    modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = navBarTotalHeight),
                     onOpenUserProfile = onOpenUserProfile
                 )
                 MainDestinations.PROFILE -> ProfileScreen(
@@ -283,7 +285,19 @@ fun MainScaffold(
             modifier = Modifier.align(Alignment.BottomCenter),
             currentDestination = currentDestination,
             unreadCount = unreadCount,
-            onDestinationSelected = { currentDestination = it },
+            onDestinationSelected = { dest ->
+                if (dest == MainDestinations.MAP) {
+                    if (currentDestination == MainDestinations.MAP) {
+                        // Reselecting the current tab should pop to the map root (close detail/list states).
+                        mapReselectNonce++
+                    } else {
+                        currentDestination = MainDestinations.MAP
+                    }
+                    openChatRoomId = null
+                } else {
+                    currentDestination = dest
+                }
+            },
             onAddClick = { showCommonSheet = true },
             barHeightParam = navBarHeight
         )

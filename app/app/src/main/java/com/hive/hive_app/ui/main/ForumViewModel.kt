@@ -584,6 +584,8 @@ class ForumViewModel @Inject constructor(
         val community: CommunityResponse? = null,
         val posts: List<CommunityPostResponse> = emptyList(),
         val postsTotal: Int = 0,
+        val members: List<ForumUserEmbed> = emptyList(),
+        val membersLoading: Boolean = false,
         val isLoading: Boolean = false,
         val postsLoading: Boolean = false,
         val membershipLoading: Boolean = false,
@@ -611,9 +613,23 @@ class ForumViewModel @Inject constructor(
                 .onSuccess { community ->
                     _communityDetailState.update { it.copy(community = community, isLoading = false) }
                     loadCommunityPosts(communityId)
+                    loadCommunityMembers(communityId)
                 }
                 .onFailure { e ->
                     _communityDetailState.update { it.copy(isLoading = false, error = e.message ?: "Failed to load community") }
+                }
+        }
+    }
+
+    fun loadCommunityMembers(communityId: String) {
+        viewModelScope.launch {
+            _communityDetailState.update { it.copy(membersLoading = true) }
+            communityRepository.getCommunityMembers(communityId)
+                .onSuccess { members ->
+                    _communityDetailState.update { it.copy(members = members, membersLoading = false) }
+                }
+                .onFailure {
+                    _communityDetailState.update { it.copy(membersLoading = false) }
                 }
         }
     }
@@ -654,6 +670,7 @@ class ForumViewModel @Inject constructor(
                             if (c.id == communityId) updated else c
                         })
                     }
+                    loadCommunityMembers(communityId)
                 }
                 .onFailure { e ->
                     _communityDetailState.update { it.copy(membershipLoading = false, error = e.message) }
