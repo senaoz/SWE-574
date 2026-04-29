@@ -571,6 +571,8 @@ export interface ForumDiscussion {
   comment_count: number;
   upvote_count: number;
   user_upvoted?: boolean;
+  image_urls?: string[];
+  community_id?: string;
 }
 
 export interface ForumDiscussionListResponse {
@@ -584,6 +586,8 @@ export interface ForumDiscussionForm {
   title: string;
   body: string;
   tags: TagEntity[];
+  image_urls?: string[];
+  community_id?: string;
 }
 
 export interface ForumEvent {
@@ -612,6 +616,7 @@ export interface ForumEvent {
   upvote_count: number;
   user_upvoted?: boolean;
   image_urls?: string[];
+  community_id?: string;
 }
 
 export interface ForumEventListResponse {
@@ -632,6 +637,7 @@ export interface ForumEventForm {
   tags: TagEntity[];
   service_id?: string;
   image_urls?: string[];
+  community_id?: string;
 }
 
 export interface ForumComment {

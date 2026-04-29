@@ -54,6 +54,20 @@ fun formatMemberJoinDate(isoDate: String?): String {
     return "$month ${day}${ordinalSuffix(day)}, $year"
 }
 
+/**
+ * Formats a date as "27th of April 2026".
+ *
+ * Accepts ISO strings like "2026-04-27" or "2026-04-27T10:00:00".
+ */
+fun formatLongOrdinalDate(isoDate: String?): String {
+    if (isoDate.isNullOrBlank()) return ""
+    val date = parseIsoToLocalDate(isoDate) ?: return ""
+    val month = date.month.getDisplayName(TextStyle.FULL, Locale.US)
+    val day = date.dayOfMonth
+    val year = date.year
+    return "${day}${ordinalSuffix(day)} of $month $year"
+}
+
 private fun parseIsoToLocalDate(isoDate: String): LocalDate? {
     val trimmed = isoDate.trim()
     return try {

@@ -27,8 +27,8 @@ import {
   TrashIcon,
   PlusIcon,
 } from "@radix-ui/react-icons";
-import { forumApi, getImageUrl, uploadApi } from "@/services/api";
-import { ForumEvent, TagEntity } from "@/types";
+import { forumApi, getImageUrl, uploadApi, communityApi } from "@/services/api";
+import { ForumEvent, TagEntity, Community } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import { UpvoteButton } from "@/components/ui/UpvoteButton";
 import { useUser } from "@/App";
@@ -173,11 +173,15 @@ export function ForumEventDetail() {
               </>
             )}
             <UpvoteButton
-                count={event.upvote_count ?? 0}
-                upvoted={event.user_upvoted}
-                onUpvote={currentUserId ? () => forumApi.upvoteEvent(id!).then(r => r.data) : undefined}
-                disabled={!currentUserId}
-                showLoginHint={!currentUserId}
+              count={event.upvote_count ?? 0}
+              upvoted={event.user_upvoted}
+              onUpvote={
+                currentUserId
+                  ? () => forumApi.upvoteEvent(id!).then((r) => r.data)
+                  : undefined
+              }
+              disabled={!currentUserId}
+              showLoginHint={!currentUserId}
             />
           </Flex>
         </div>
@@ -263,6 +267,10 @@ export function ForumEventDetail() {
               <ClickableTag key={i} tag={tag} size="1" />
             ))}
           </Flex>
+        )}
+
+        {event.community_id && (
+          <RelatedCommunityBlock communityId={event.community_id} />
         )}
 
         {/* Attending section */}
@@ -383,6 +391,65 @@ export function ForumEventDetail() {
   );
 }
 
+function RelatedCommunityBlock({ communityId }: { communityId: string }) {
+  const navigate = useNavigate();
+  const [community, setCommunity] = useState<Community | null>(null);
+
+  useEffect(() => {
+    communityApi
+      .getCommunity(communityId)
+      .then((r) => setCommunity(r.data))
+      .catch(() => {});
+  }, [communityId]);
+
+  if (!community) return null;
+
+  return (
+    <Card
+      mt="4"
+      onClick={() => navigate(`/forum/communities/${community._id}`)}
+      className="hover-card cursor-pointer"
+    >
+      <Flex gap="3" align="center">
+        <Avatar
+          src={
+            community.avatar_url
+              ? (getImageUrl(community.avatar_url) ?? undefined)
+              : undefined
+          }
+          fallback={community.name[0]}
+          size="3"
+          radius="full"
+        />
+        <Box flexGrow="1">
+          <div className="flex flex-col mb-2">
+            <Text size="1" color="gray">
+              Related Community
+            </Text>
+            <Text weight="bold" size="3">
+              {community.name}
+            </Text>
+          </div>
+          {community.description && (
+            <Text
+              size="1"
+              color="gray"
+              style={{
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }}
+            >
+              {community.description}
+            </Text>
+          )}
+        </Box>
+      </Flex>
+    </Card>
+  );
+}
+
 function EditEventDialog({
   open,
   onOpenChange,
@@ -397,10 +464,10 @@ function EditEventDialog({
   const [title, setTitle] = useState(event.title);
   const [description, setDescription] = useState(event.description);
   const [eventDate, setEventDate] = useState(
-    event.event_at ? event.event_at.slice(0, 10) : ""
+    event.event_at ? event.event_at.slice(0, 10) : "",
   );
   const [eventTime, setEventTime] = useState(
-    event.event_at ? event.event_at.slice(11, 16) : ""
+    event.event_at ? event.event_at.slice(11, 16) : "",
   );
   const [locationValue, setLocationValue] = useState<{
     latitude: number;
@@ -415,7 +482,9 @@ function EditEventDialog({
   const [tags, setTags] = useState<TagEntity[]>(event.tags ?? []);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [existingImageUrls, setExistingImageUrls] = useState<string[]>(event.image_urls ?? []);
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>(
+    event.image_urls ?? [],
+  );
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const [imageUploading, setImageUploading] = useState(false);
@@ -513,7 +582,7 @@ function EditEventDialog({
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Content className="max-w-2xl" aria-describedby={undefined}>
+      <Dialog.Content className="max-w-4xl" aria-describedby={undefined}>
         <Dialog.Title>Edit Event</Dialog.Title>
         <Form.Root
           onSubmit={(e) => {
@@ -636,7 +705,9 @@ function EditEventDialog({
                       color="red"
                       className="!absolute top-1 right-1 !p-1 w-5 h-5 cursor-pointer"
                       onClick={() =>
-                        setExistingImageUrls((prev) => prev.filter((_, j) => j !== i))
+                        setExistingImageUrls((prev) =>
+                          prev.filter((_, j) => j !== i),
+                        )
                       }
                     >
                       ×
@@ -685,7 +756,11 @@ function EditEventDialog({
             </Button>
             <Form.Submit asChild>
               <Button type="submit" disabled={submitting || imageUploading}>
-                {imageUploading ? "Uploading..." : submitting ? "Saving..." : "Save Changes"}
+                {imageUploading
+                  ? "Uploading..."
+                  : submitting
+                    ? "Saving..."
+                    : "Save Changes"}
               </Button>
             </Form.Submit>
           </Flex>

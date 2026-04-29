@@ -2,6 +2,7 @@ package com.hive.hive_app.ui.main
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -95,6 +97,7 @@ import com.hive.hive_app.ui.theme.HiveTheme
 import com.hive.hive_app.ui.theme.SurfaceVariantLight
 import com.hive.hive_app.util.formatDurationHours
 import com.hive.hive_app.util.formatApplicationDate
+import com.hive.hive_app.util.formatLongOrdinalDate
 import com.hive.hive_app.util.badgeIcon
 import com.hive.hive_app.util.getHighestPriorityBadge
 import org.osmdroid.config.Configuration
@@ -197,6 +200,7 @@ fun ServiceDetailScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                        .statusBarsPadding()
                         .verticalScroll(scrollState)
                 ) {
                 // Top bar
@@ -570,7 +574,10 @@ fun ServiceDetailScreen(
                             service.schedulingType?.let { type ->
                                 LabelValue("Type", type.replaceFirstChar { it.uppercase() })
                             }
-                            service.specificDate?.let { LabelValue("Date", it) }
+                            service.specificDate?.let { raw ->
+                                val formatted = formatLongOrdinalDate(raw).ifBlank { raw }
+                                LabelValue("Date", formatted)
+                            }
                             service.specificTime?.let { LabelValue("Time", it) }
                             service.recurringPattern?.let { rp ->
                                 if (rp.days.isNotEmpty()) {
@@ -581,7 +588,10 @@ fun ServiceDetailScreen(
                                 }
                             }
                             service.openAvailability?.let { LabelValue("Availability", it) }
-                            service.deadline?.let { LabelValue("Deadline", it) }
+                            service.deadline?.let { raw ->
+                                val formatted = formatLongOrdinalDate(raw).ifBlank { raw }
+                                LabelValue("Deadline", formatted)
+                            }
                             LabelValue("Duration", formatDurationHours(service.estimatedDuration))
                             if (service.schedulingType == null && service.specificDate == null &&
                                 service.specificTime == null && service.recurringPattern == null &&
@@ -626,7 +636,10 @@ fun ServiceDetailScreen(
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     comments.forEach { comment ->
-                                        ServiceCommentItem(comment = comment)
+                                        ServiceCommentItem(
+                                            comment = comment,
+                                            onOpenUserProfile = onOpenUserProfile
+                                        )
                                     }
                                 }
                             }
@@ -687,7 +700,7 @@ fun ServiceDetailScreen(
                     // Meta (created / updated)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Created ${service.createdAt}",
+                        text = "Created ${formatLongOrdinalDate(service.createdAt).ifBlank { service.createdAt.take(10) }}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -703,12 +716,29 @@ fun ServiceDetailScreen(
                             )
                         } else {
                             val loc = service.location
+                            val locationLabel = loc.address?.takeIf { it.isNotBlank() }
+                                ?: "Approximate: %.4f, %.4f".format(loc.latitude, loc.longitude)
                             Text(
-                                text = loc.address?.takeIf { it.isNotBlank() }
-                                    ?: "Approximate: %.4f, %.4f".format(loc.latitude, loc.longitude),
+                                text = locationLabel,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.padding(bottom = 12.dp)
+                                modifier = Modifier
+                                    .padding(bottom = 12.dp)
+                                    .clickable {
+                                        val query =
+                                            loc.address?.takeIf { it.isNotBlank() }
+                                                ?: "${loc.latitude},${loc.longitude}"
+                                        val url =
+                                            "https://www.google.com/maps/search/?api=1&query=${Uri.encode(query)}"
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        try {
+                                            context.startActivity(intent)
+                                        } catch (_: Exception) {
+                                            // no-op: if no handler exists, ignore click
+                                        }
+                                    }
                             )
                             ServiceDetailMap(
                                 latitude = loc.latitude,
@@ -778,10 +808,20 @@ private fun BadgeInfoInlineBox(
 }
 
 @Composable
-private fun ServiceCommentItem(comment: CommentResponse) {
+private fun ServiceCommentItem(
+    comment: CommentResponse,
+    onOpenUserProfile: ((String) -> Unit)? = null
+) {
     val author = comment.user?.username ?: comment.user?.fullName ?: "Unknown"
+    val authorId = comment.user?.resolvedId ?: comment.userId
+    val context = LocalContext.current
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (onOpenUserProfile != null) Modifier.clickable { onOpenUserProfile(authorId) }
+                else Modifier
+            ),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
@@ -793,18 +833,29 @@ private fun ServiceCommentItem(comment: CommentResponse) {
             verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = serviceCommentInitials(comment.user),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+            val profilePicture = comment.user?.profilePicture
+            if (!profilePicture.isNullOrBlank()) {
+                AsyncImage(
+                    model = buildImageRequest(context, profilePicture),
+                    contentDescription = "Profile photo",
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
                 )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = serviceCommentInitials(comment.user),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(

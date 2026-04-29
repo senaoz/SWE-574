@@ -149,7 +149,6 @@ export function Dashboard() {
     userPosition?.[1],
   ]);
 
-
   const {
     data: recommendedServicesData,
     isFetching: isRecommendationsLoading,
@@ -184,8 +183,7 @@ export function Dashboard() {
             dashFilters.selectedTags.length > 0
               ? dashFilters.selectedTags.join(",")
               : undefined,
-          city:
-            activeCity && activeCity !== "all" ? activeCity : undefined,
+          city: activeCity && activeCity !== "all" ? activeCity : undefined,
           latitude: userPosition?.[0],
           longitude: userPosition?.[1],
           radius:
@@ -213,7 +211,9 @@ export function Dashboard() {
 
       const merged = [...prev];
       for (const item of recommendedServicesData.items) {
-        if (!merged.some((existing) => existing.service._id === item.service._id)) {
+        if (
+          !merged.some((existing) => existing.service._id === item.service._id)
+        ) {
           merged.push(item);
         }
       }
@@ -413,7 +413,8 @@ export function Dashboard() {
     return list;
   }, [filteredServices, mapFilters, userPosition, dashFilters]);
 
-  const recommendedServices: RecommendedServiceItem[] = loadedRecommendedServices;
+  const recommendedServices: RecommendedServiceItem[] =
+    loadedRecommendedServices;
   const recommendationMode =
     recommendedServicesData?.recommendation_mode ?? "empty";
   const showProfilePrompt =
@@ -470,9 +471,7 @@ export function Dashboard() {
     recommendedPage === 1 &&
     recommendedServices.length === 0;
   const isLoadingMoreRecommendations =
-    dashFilters.forYouOnly &&
-    isRecommendationsLoading &&
-    recommendedPage > 1;
+    dashFilters.forYouOnly && isRecommendationsLoading && recommendedPage > 1;
 
   if (loading) {
     return (
