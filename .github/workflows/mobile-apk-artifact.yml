@@ -48,20 +48,22 @@ jobs:
             exit 1
           fi
           if [ ${#apks[@]} -gt 1 ]; then
-            echo "Multiple APKs found; uploading them all."
+            echo "Multiple APKs found in app/build/outputs/apk/release/"
+            printf '%s\n' "${apks[@]}"
+            exit 1
           fi
+          artifact_name="$(basename "${apks[0]}" .apk)"
+          echo "artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
           {
             echo "paths<<EOF"
-            for apk in "${apks[@]}"; do
-              echo "app/$apk"
-            done
+            echo "app/${apks[0]}"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mobile-apk
+          name: ${{ steps.apk.outputs.artifact_name }}
           path: |
             ${{ steps.apk.outputs.paths }}
           if-no-files-found: error
