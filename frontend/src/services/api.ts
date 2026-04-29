@@ -126,6 +126,16 @@ export const uploadApi = {
       }],
     });
   },
+  uploadDiscussionImage: (file: File): Promise<AxiosResponse<{ url: string }>> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/upload/discussion-image', formData, {
+      transformRequest: [(data: unknown, headers?: Record<string, string>) => {
+        if (headers) delete headers['Content-Type'];
+        return data;
+      }],
+    });
+  },
 };
 
 // Auth API
@@ -544,6 +554,12 @@ export const communityApi = {
 
   upvotePost: (communityId: string, postId: string): Promise<AxiosResponse<{ upvote_count: number; user_upvoted: boolean }>> =>
     api.post(`/communities/${communityId}/posts/${postId}/upvote`),
+
+  getEventsByCommunity: (communityId: string): Promise<AxiosResponse<import('../types').ForumEventListResponse>> =>
+    api.get(`/communities/${communityId}/events`),
+
+  getDiscussionsByCommunity: (communityId: string): Promise<AxiosResponse<import('../types').ForumDiscussionListResponse>> =>
+    api.get(`/communities/${communityId}/discussions`),
 };
 
 export default api;

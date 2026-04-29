@@ -8,8 +8,10 @@ from ..models.community import (
     CommunityPostResponse, CommunityPostListResponse,
     MembershipListResponse, MemberRoleUpdate, MemberRole,
 )
+from ..models.forum import ForumEventListResponse, ForumDiscussionListResponse
 from ..models.user import UserResponse
 from ..services.community_service import CommunityService
+from ..services.forum_service import ForumService
 from ..api.auth import get_current_user, get_optional_current_user
 from ..core.database import get_database
 
@@ -307,3 +309,27 @@ async def upvote_post(
         return await svc.toggle_upvote(community_id, post_id, str(current_user.id))
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+# ══════════════════════════════════════════════════
+#  Community-linked forum content
+# ══════════════════════════════════════════════════
+
+@router.get("/{community_id}/events", response_model=ForumEventListResponse)
+async def get_community_events(
+    community_id: str,
+    db=Depends(get_database),
+):
+    forum_svc = ForumService(db)
+    events = await forum_svc.get_events_for_community(community_id)
+    return ForumEventListResponse(events=events, total=len(events), page=1, limit=len(events) or 1)
+
+
+@router.get("/{community_id}/discussions", response_model=ForumDiscussionListResponse)
+async def get_community_discussions(
+    community_id: str,
+    db=Depends(get_database),
+):
+    forum_svc = ForumService(db)
+    discussions = await forum_svc.get_discussions_for_community(community_id)
+    return ForumDiscussionListResponse(discussions=discussions, total=len(discussions), page=1, limit=len(discussions) or 1)

@@ -29,6 +29,8 @@ class ForumDiscussionCreate(BaseModel):
     title: str = Field(..., min_length=3, max_length=200)
     body: str = Field(..., min_length=1, max_length=10000)
     tags: List[dict] = Field(default_factory=list, max_length=10)
+    image_urls: Optional[List[str]] = None
+    community_id: Optional[str] = None
 
     @model_validator(mode='before')
     @classmethod
@@ -53,6 +55,8 @@ class ForumDiscussionUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=3, max_length=200)
     body: Optional[str] = Field(None, min_length=1, max_length=10000)
     tags: Optional[List[dict]] = Field(None, max_length=10)
+    image_urls: Optional[List[str]] = None
+    community_id: Optional[str] = None
 
     class Config:
         json_encoders = {ObjectId: str}
@@ -64,12 +68,19 @@ class ForumDiscussionResponse(BaseModel):
     title: str
     body: str
     tags: List[dict] = Field(default_factory=list)
+    image_urls: List[str] = Field(default_factory=list)
+    community_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     user: Optional[dict] = None
     comment_count: int = 0
     upvote_count: int = 0
     user_upvoted: bool = False
+
+    @field_validator("image_urls", mode="before")
+    @classmethod
+    def coerce_image_urls(cls, v):
+        return v or []
 
     class Config:
         populate_by_name = True
@@ -100,6 +111,7 @@ class ForumEventCreate(BaseModel):
     tags: List[dict] = Field(default_factory=list, max_length=10)
     service_id: Optional[str] = None
     image_urls: Optional[List[str]] = None
+    community_id: Optional[str] = None
 
     @model_validator(mode='before')
     @classmethod
@@ -131,6 +143,7 @@ class ForumEventUpdate(BaseModel):
     tags: Optional[List[dict]] = Field(None, max_length=10)
     service_id: Optional[str] = None
     image_urls: Optional[List[str]] = None
+    community_id: Optional[str] = None
 
     class Config:
         json_encoders = {ObjectId: str}
@@ -158,6 +171,7 @@ class ForumEventResponse(BaseModel):
     upvote_count: int = 0
     user_upvoted: bool = False
     image_urls: List[str] = Field(default_factory=list)
+    community_id: Optional[str] = None
 
     @field_validator("image_urls", mode="before")
     @classmethod
