@@ -1,4 +1,4 @@
-name: Mobile APK (Artifact)
+name: Build Mobile APK
 
 on:
   push:
@@ -51,7 +51,7 @@ jobs:
             echo "Multiple APKs found; uploading them all."
           fi
           {
-            echo "paths<<'EOF'"
+            echo "paths<<EOF"
             for apk in "${apks[@]}"; do
               echo "app/$apk"
             done
