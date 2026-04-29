@@ -6,6 +6,7 @@ import com.hive.hive_app.data.api.dto.CommunityPostCreate
 import com.hive.hive_app.data.api.dto.CommunityPostListResponse
 import com.hive.hive_app.data.api.dto.CommunityPostResponse
 import com.hive.hive_app.data.api.dto.CommunityResponse
+import com.hive.hive_app.data.api.dto.CommunityMemberListResponse
 import com.hive.hive_app.data.api.dto.UpvoteResponse
 import retrofit2.Response
 import retrofit2.http.Body
@@ -57,4 +58,9 @@ interface CommunityApi {
         @Path("community_id") communityId: String,
         @Path("post_id") postId: String
     ): Response<UpvoteResponse>
+
+    @GET("communities/{community_id}/members")
+    suspend fun getCommunityMembers(
+        @Path("community_id") communityId: String
+    ): Response<CommunityMemberListResponse>
 }

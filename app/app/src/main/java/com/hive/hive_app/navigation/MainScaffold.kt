@@ -266,7 +266,7 @@ fun MainScaffold(
                     initialRoomId = openChatRoomId, onInitialRoomConsumed = { openChatRoomId = null }
                 )
                 MainDestinations.COMMON -> ForumScreen(
-                    modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = 0.dp),
+                    modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = navBarTotalHeight),
                     onOpenUserProfile = onOpenUserProfile
                 )
                 MainDestinations.PROFILE -> ProfileScreen(
