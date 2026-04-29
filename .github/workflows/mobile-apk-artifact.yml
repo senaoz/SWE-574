@@ -1,0 +1,68 @@
+name: Mobile APK (Artifact)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - ".github/workflows/mobile-apk-artifact.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build release APK
+        working-directory: app
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease
+
+      - name: Find APK
+        id: apk
+        working-directory: app
+        shell: bash
+        run: |
+          shopt -s nullglob
+          apks=(app/build/outputs/apk/release/*.apk)
+          if [ ${#apks[@]} -eq 0 ]; then
+            echo "No APKs found in app/build/outputs/apk/release/"
+            ls -R app/build/outputs/apk || true
+            exit 1
+          fi
+          if [ ${#apks[@]} -gt 1 ]; then
+            echo "Multiple APKs found; uploading them all."
+          fi
+          {
+            echo "paths<<'EOF'"
+            for apk in "${apks[@]}"; do
+              echo "app/$apk"
+            done
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-apk
+          path: |
+            ${{ steps.apk.outputs.paths }}
+          if-no-files-found: error
+          retention-days: 7
