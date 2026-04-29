@@ -29,7 +29,8 @@ export function formatTime(date: string | Date): string {
 
 export function formatDuration(hours: number): string {
   if (hours < 1) {
-    return `${Math.round(hours * 60)} minutes`
+    const mins = Math.round(hours * 60)
+    return `${mins} ${mins === 1 ? 'minute' : 'minutes'}`
   }
   if (hours === 1) {
     return '1 hour'
