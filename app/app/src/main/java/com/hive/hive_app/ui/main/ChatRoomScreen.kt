@@ -23,15 +23,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,6 +53,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.hive.hive_app.data.api.dto.ChatRoomResponse
 import com.hive.hive_app.data.api.dto.ChatParticipant
 import com.hive.hive_app.data.api.dto.MessageResponse
+import com.hive.hive_app.data.api.dto.ServiceResponse
 import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -64,9 +68,11 @@ fun ChatRoomScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenUserProfile: (String) -> Unit = {},
+    onOpenServiceDetail: (String) -> Unit = {},
     viewModel: ChatRoomViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    var showParticipantsSheet by remember { mutableStateOf(false) }
     // Allow sending in all chats (including transaction); backend enforces rules if needed
     val canSend = true
 
@@ -152,11 +158,11 @@ fun ChatRoomScreen(
                         .weight(1f)
                         .padding(horizontal = 10.dp)
                         .clickable {
-                            if (!isGroupChat) {
-                                val profileId = state.otherUser?._id ?: otherParticipant?._id
-                                if (!profileId.isNullOrBlank()) {
-                                    onOpenUserProfile(profileId)
-                                }
+                            val profileId = state.otherUser?._id ?: otherParticipant?._id
+                            if (!isGroupChat && !profileId.isNullOrBlank()) {
+                                onOpenUserProfile(profileId)
+                            } else if (isGroupChat) {
+                                showParticipantsSheet = true
                             }
                         }
                 ) {
@@ -185,6 +191,24 @@ fun ChatRoomScreen(
                 }
             }
         }
+
+        if (showParticipantsSheet && isGroupChat) {
+            ParticipantsBottomSheet(
+                participants = room.participants.orEmpty(),
+                onDismiss = { showParticipantsSheet = false },
+                onParticipantClick = { participantId ->
+                    showParticipantsSheet = false
+                    onOpenUserProfile(participantId)
+                }
+            )
+        }
+
+        TransactionServiceCard(
+            transactionId = room.transactionId ?: room.transaction?._id,
+            transactionServiceId = state.transaction?.serviceId,
+            service = state.transactionService,
+            onOpenServiceDetail = onOpenServiceDetail
+        )
 
         if (state.isLoading && state.messages.isEmpty()) {
             Box(
@@ -298,6 +322,176 @@ fun ChatRoomScreen(
                     )
                 }
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ParticipantsBottomSheet(
+    participants: List<ChatParticipant>,
+    onDismiss: () -> Unit,
+    onParticipantClick: (String) -> Unit
+) {
+    val context = LocalContext.current
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            Text(
+                text = "Participants",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "${participants.size} members",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, bottom = 10.dp)
+            )
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                items(participants, key = { it._id ?: it.username ?: it.hashCode().toString() }) { participant ->
+                    val participantId = participant._id
+                    val name = participant.fullName?.takeIf { it.isNotBlank() } ?: participant.username ?: "Unknown user"
+                    val profilePic = participant.profilePicture?.takeIf { it.isNotBlank() }
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = !participantId.isNullOrBlank()) {
+                                if (!participantId.isNullOrBlank()) {
+                                    onParticipantClick(participantId)
+                                }
+                            },
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            if (!profilePic.isNullOrBlank()) {
+                                coil.compose.AsyncImage(
+                                    model = buildImageRequest(context, profilePic),
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primaryContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = name.take(2).uppercase(),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                participant.username?.let { username ->
+                                    Text(
+                                        text = "@$username",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Icon(
+                                imageVector = Icons.Filled.Person,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TransactionServiceCard(
+    transactionId: String?,
+    transactionServiceId: String?,
+    service: ServiceResponse?,
+    onOpenServiceDetail: (String) -> Unit
+) {
+    if (transactionId.isNullOrBlank()) return
+    val serviceId = service?._id ?: transactionServiceId
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .clickable(enabled = !serviceId.isNullOrBlank()) {
+                if (!serviceId.isNullOrBlank()) {
+                    onOpenServiceDetail(serviceId)
+                }
+            },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = "Service details",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (service != null) {
+                Text(
+                    text = service.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+                Text(
+                    text = service.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+                Text(
+                    text = "${service.category ?: "General"} • ${service.estimatedDuration}h",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                Text(
+                    text = "Tap to view service",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+            } else {
+                Text(
+                    text = "Loading service information...",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+            }
         }
     }
 }

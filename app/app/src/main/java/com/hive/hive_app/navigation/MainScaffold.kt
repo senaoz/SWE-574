@@ -274,7 +274,8 @@ fun MainScaffold(
                     onInitialRoomConsumed = { openChatRoomId = null },
                     openCreateGroupSheet = openCreateGroupSheet,
                     onCreateGroupSheetConsumed = { openCreateGroupSheet = false },
-                    onOpenUserProfile = onOpenUserProfile
+                    onOpenUserProfile = onOpenUserProfile,
+                    onOpenServiceDetail = { serviceId -> pushOverlay(OverlayRoute.ServiceDetail(serviceId)) }
                 )
                 MainDestinations.COMMON -> ForumScreen(
                     modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = navBarTotalHeight),

@@ -71,7 +71,8 @@ fun ChatScreen(
     onInitialRoomConsumed: () -> Unit = {},
     openCreateGroupSheet: Boolean = false,
     onCreateGroupSheetConsumed: () -> Unit = {},
-    onOpenUserProfile: (String) -> Unit = {}
+    onOpenUserProfile: (String) -> Unit = {},
+    onOpenServiceDetail: (String) -> Unit = {}
 ) {
     var selectedRoom by remember { mutableStateOf<ChatRoomResponse?>(null) }
     val state by viewModel.state.collectAsState()
@@ -100,7 +101,8 @@ fun ChatScreen(
             room = room,
             onBack = { selectedRoom = null },
             modifier = modifier,
-            onOpenUserProfile = onOpenUserProfile
+            onOpenUserProfile = onOpenUserProfile,
+            onOpenServiceDetail = onOpenServiceDetail
         )
         return
     }
