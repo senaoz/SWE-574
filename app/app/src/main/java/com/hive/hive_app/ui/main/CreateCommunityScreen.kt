@@ -24,6 +24,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -34,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
@@ -95,7 +97,8 @@ fun CreateCommunityScreen(
             },
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Name") },
-            singleLine = true
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp)
         )
         Spacer(modifier = Modifier.height(10.dp))
         OutlinedTextField(
@@ -107,23 +110,24 @@ fun CreateCommunityScreen(
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Description") },
             minLines = 4,
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(12.dp)
         )
         Spacer(modifier = Modifier.height(10.dp))
         Text("Rules", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(modifier = Modifier.height(8.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             OutlinedTextField(
                 value = ruleInput,
                 onValueChange = { ruleInput = it },
-                modifier = Modifier.fillMaxWidth(0.75f),
+                modifier = Modifier.weight(1f),
                 label = { Text("Add a rule") },
                 placeholder = { Text("Be respectful") },
                 singleLine = true,
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(12.dp)
             )
             Button(
                 onClick = {
@@ -132,24 +136,33 @@ fun CreateCommunityScreen(
                         addedRules = addedRules + rule
                     }
                     ruleInput = ""
-                }
+                },
+                modifier = Modifier.height(56.dp)
             ) {
                 Text("Add")
             }
         }
         if (addedRules.isNotEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                addedRules.forEach { rule ->
-                    FilterChip(
-                        selected = true,
-                        onClick = { addedRules = addedRules.filterNot { it == rule } },
-                        label = { Text(rule) },
-                        colors = commonLimeFilterChipColors()
-                    )
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                addedRules.forEachIndexed { index, rule ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "${index + 1}. $rule",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = {
+                                addedRules = addedRules.filterIndexed { i, _ -> i != index }
+                            }
+                        ) {
+                            Text("X")
+                        }
+                    }
                 }
             }
         }

@@ -148,7 +148,8 @@ fun CreateEventScreen(
             },
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Title") },
-            singleLine = true
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp)
         )
         Spacer(modifier = Modifier.height(10.dp))
         OutlinedTextField(
@@ -159,7 +160,8 @@ fun CreateEventScreen(
             },
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Description") },
-            minLines = 4
+            minLines = 4,
+            shape = RoundedCornerShape(12.dp)
         )
         Spacer(modifier = Modifier.height(12.dp))
 
