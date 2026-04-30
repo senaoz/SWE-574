@@ -29,7 +29,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -60,6 +60,7 @@ fun MainScaffold(
     var currentDestination by rememberSaveable { mutableStateOf(MainDestinations.MAP) }
     var mapReselectNonce by rememberSaveable { mutableStateOf(0) }
     var openChatRoomId by remember { mutableStateOf<String?>(null) }
+    var openCreateGroupSheet by remember { mutableStateOf(false) }
     var overlayStack by remember { mutableStateOf<List<OverlayRoute>>(emptyList()) }
     var showSavedServices by remember { mutableStateOf(false) }
     var showNotifications by remember { mutableStateOf(false) }
@@ -107,6 +108,7 @@ fun MainScaffold(
 
     val onStartChat: (String) -> Unit = { roomId ->
         openChatRoomId = roomId
+        openCreateGroupSheet = false
         currentDestination = MainDestinations.CHAT
     }
     val onOpenUserProfile: (String) -> Unit = { userId -> pushOverlay(OverlayRoute.UserProfile(userId)) }
@@ -213,6 +215,11 @@ fun MainScaffold(
             onCreateService = {
                 showCommonSheet = false
                 showCreateService = true
+            },
+            onCreateChat = {
+                showCommonSheet = false
+                currentDestination = MainDestinations.CHAT
+                openCreateGroupSheet = true
             }
         )
     }
@@ -263,7 +270,12 @@ fun MainScaffold(
                 )
                 MainDestinations.CHAT -> ChatScreen(
                     Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = navBarTotalHeight),
-                    initialRoomId = openChatRoomId, onInitialRoomConsumed = { openChatRoomId = null }
+                    initialRoomId = openChatRoomId,
+                    onInitialRoomConsumed = { openChatRoomId = null },
+                    openCreateGroupSheet = openCreateGroupSheet,
+                    onCreateGroupSheetConsumed = { openCreateGroupSheet = false },
+                    onOpenUserProfile = onOpenUserProfile,
+                    onOpenServiceDetail = { serviceId -> pushOverlay(OverlayRoute.ServiceDetail(serviceId)) }
                 )
                 MainDestinations.COMMON -> ForumScreen(
                     modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = navBarTotalHeight),
@@ -402,7 +414,8 @@ private fun BottomNavItem(
 @Composable
 fun CommonCreateSheet(
     onDismiss: () -> Unit,
-    onCreateService: () -> Unit
+    onCreateService: () -> Unit,
+    onCreateChat: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val forumViewModel: ForumViewModel = hiltViewModel()
@@ -519,6 +532,15 @@ fun CommonCreateSheet(
                                     Column {
                                         Text("Community", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                                         Text("Create a group around a shared interest", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                            Card(modifier = Modifier.fillMaxWidth(), onClick = onCreateChat, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                                Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    Column {
+                                        Text("Chat", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                        Text("Start a new group chat", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
                             }

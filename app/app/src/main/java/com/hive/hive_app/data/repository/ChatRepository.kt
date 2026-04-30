@@ -38,10 +38,20 @@ class ChatRepository @Inject constructor(
         }
     }
 
-    /** Create a chat room with participants and optional service. */
-    suspend fun createRoom(participantIds: List<String>, serviceId: String? = null): Result<ChatRoomResponse> {
+    /** Create a chat room with participants and optional service/name. */
+    suspend fun createRoom(
+        participantIds: List<String>,
+        serviceId: String? = null,
+        name: String? = null
+    ): Result<ChatRoomResponse> {
         return try {
-            val response = api.createRoom(ChatRoomCreate(participantIds = participantIds, serviceId = serviceId))
+            val response = api.createRoom(
+                ChatRoomCreate(
+                    participantIds = participantIds,
+                    serviceId = serviceId,
+                    name = name?.trim()?.takeIf { it.isNotBlank() }
+                )
+            )
             if (response.isSuccessful && response.body() != null) Result.success(response.body()!!)
             else Result.failure(HttpException(response))
         } catch (e: Exception) {
