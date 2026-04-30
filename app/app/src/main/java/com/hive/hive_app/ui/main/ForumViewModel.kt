@@ -694,6 +694,8 @@ class ForumViewModel @Inject constructor(
     fun createCommunity(
         rules: List<String> = emptyList(),
         tags: List<TagDto>? = null,
+        coverImageUrl: String? = null,
+        avatarUrl: String? = null,
         onSuccess: (String) -> Unit = {}
     ) {
         val name = _createCommunityState.value.name.trim()
@@ -713,7 +715,9 @@ class ForumViewModel @Inject constructor(
                     name = name,
                     description = description,
                     rules = rules,
-                    tags = tags
+                    tags = tags,
+                    coverImageUrl = coverImageUrl,
+                    avatarUrl = avatarUrl
                 )
             )
                 .onSuccess { community ->
@@ -736,25 +740,36 @@ class ForumViewModel @Inject constructor(
         description: String,
         rules: List<String>,
         tags: List<WikidataTagSuggestion>,
-        imageUris: List<Uri>,
+        coverImageUri: Uri?,
+        avatarImageUri: Uri?,
         onSuccess: (String) -> Unit = {}
     ) {
         setCreateCommunityName(name)
         setCreateCommunityDescription(description)
         viewModelScope.launch {
             _createCommunityState.update { it.copy(isSubmitting = true, error = null) }
-            val uploaded = uploadImages(imageUris).getOrElse { err ->
-                _createCommunityState.update {
-                    it.copy(isSubmitting = false, error = err.message ?: "Failed to upload images")
+            val coverImageUrl = coverImageUri?.let { uri ->
+                uploadsRepository.uploadServiceImage(appContext, uri).getOrElse { err ->
+                    _createCommunityState.update {
+                        it.copy(isSubmitting = false, error = err.message ?: "Failed to upload cover image")
+                    }
+                    return@launch
                 }
-                return@launch
             }
-            val descriptionWithImages = appendImageLinks(description, uploaded)
-            setCreateCommunityDescription(descriptionWithImages)
+            val avatarImageUrl = avatarImageUri?.let { uri ->
+                uploadsRepository.uploadServiceImage(appContext, uri).getOrElse { err ->
+                    _createCommunityState.update {
+                        it.copy(isSubmitting = false, error = err.message ?: "Failed to upload avatar image")
+                    }
+                    return@launch
+                }
+            }
             _createCommunityState.update { it.copy(isSubmitting = false) }
             createCommunity(
                 rules = rules,
                 tags = tags.toTagDtos(),
+                coverImageUrl = coverImageUrl,
+                avatarUrl = avatarImageUrl,
                 onSuccess = onSuccess
             )
         }

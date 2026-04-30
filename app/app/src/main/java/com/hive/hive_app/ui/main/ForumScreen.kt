@@ -2009,29 +2009,37 @@ fun CommunityDetailScreen(
                     elevation = CardDefaults.cardElevation(2.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White)
                 ) {
-                    // Cover image
-                    if (!community.coverImageUrl.isNullOrBlank()) {
-                        var coverLoadFailed by remember { mutableStateOf(false) }
-                        if (!coverLoadFailed) {
-                            AsyncImage(
-                                model = buildImageRequest(context, community.coverImageUrl),
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                onError = { coverLoadFailed = true },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(120.dp)
-                                    .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
-                            )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(128.dp)
+                            .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        if (!community.coverImageUrl.isNullOrBlank()) {
+                            var coverLoadFailed by remember { mutableStateOf(false) }
+                            if (!coverLoadFailed) {
+                                AsyncImage(
+                                    model = buildImageRequest(context, community.coverImageUrl),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    onError = { coverLoadFailed = true },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         }
                     }
 
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            CommunityAvatar(name = community.name, avatarUrl = community.avatarUrl, size = 56.dp)
+                            CommunityAvatar(
+                                name = community.name,
+                                avatarUrl = community.avatarUrl,
+                                size = 60.dp
+                            )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     community.name,
