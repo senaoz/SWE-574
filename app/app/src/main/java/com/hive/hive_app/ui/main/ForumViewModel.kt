@@ -1,7 +1,10 @@
 package com.hive.hive_app.ui.main
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hive.hive_app.data.api.dto.TagDto
 import com.hive.hive_app.data.api.dto.ForumCommentResponse
 import com.hive.hive_app.data.api.dto.ForumDiscussionResponse
 import com.hive.hive_app.data.api.dto.ForumEventResponse
@@ -14,11 +17,19 @@ import com.hive.hive_app.data.api.dto.CommunityCreate
 import com.hive.hive_app.data.api.dto.CommunityPostCreate
 import com.hive.hive_app.data.api.dto.CommunityPostResponse
 import com.hive.hive_app.data.api.dto.UpvoteResponse
+import com.hive.hive_app.data.repository.UploadsRepository
+import com.hive.hive_app.data.repository.WikidataRepository
+import com.hive.hive_app.data.repository.WikidataTagSuggestion
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -28,7 +39,10 @@ enum class ForumTab { DISCUSSIONS, EVENTS, COMMUNITIES }
 class ForumViewModel @Inject constructor(
     private val forumRepository: ForumRepository,
     private val authRepository: AuthRepository,
-    private val communityRepository: CommunityRepository
+    private val communityRepository: CommunityRepository,
+    private val uploadsRepository: UploadsRepository,
+    private val wikidataRepository: WikidataRepository,
+    @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
     data class ForumListState(
@@ -110,6 +124,20 @@ class ForumViewModel @Inject constructor(
     private val _createEventState = MutableStateFlow(CreateEventState())
     val createEventState: StateFlow<CreateEventState> = _createEventState.asStateFlow()
 
+    private val _tagSearchQuery = MutableStateFlow("")
+    val tagSearchQuery: StateFlow<String> = _tagSearchQuery.asStateFlow()
+
+    private val _tagSuggestions = MutableStateFlow<List<WikidataTagSuggestion>>(emptyList())
+    val tagSuggestions: StateFlow<List<WikidataTagSuggestion>> = _tagSuggestions.asStateFlow()
+
+    private val _tagSearchLoading = MutableStateFlow(false)
+    val tagSearchLoading: StateFlow<Boolean> = _tagSearchLoading.asStateFlow()
+
+    private val _tagSearchError = MutableStateFlow<String?>(null)
+    val tagSearchError: StateFlow<String?> = _tagSearchError.asStateFlow()
+
+    private var tagSearchJob: Job? = null
+
     private val _newCommentText = MutableStateFlow("")
     val newCommentText: StateFlow<String> = _newCommentText.asStateFlow()
 
@@ -124,6 +152,37 @@ class ForumViewModel @Inject constructor(
     fun setEventsSearchQuery(query: String) {
         _eventsListState.update { it.copy(searchQuery = query) }
         _listState.update { it.copy(searchQuery = query) }
+    }
+
+    fun setTagSearchQuery(query: String) {
+        _tagSearchQuery.value = query
+        tagSearchJob?.cancel()
+
+        val trimmed = query.trim()
+        if (trimmed.isBlank()) {
+            _tagSuggestions.value = emptyList()
+            _tagSearchError.value = null
+            _tagSearchLoading.value = false
+            return
+        }
+
+        tagSearchJob = viewModelScope.launch {
+            _tagSearchLoading.value = true
+            _tagSearchError.value = null
+            delay(300)
+
+            wikidataRepository.searchTags(trimmed, language = "en", limit = 10).fold(
+                onSuccess = { suggestions ->
+                    _tagSuggestions.value = suggestions
+                    _tagSearchLoading.value = false
+                },
+                onFailure = { err ->
+                    _tagSearchError.value = err.message ?: "Failed to search tags"
+                    _tagSuggestions.value = emptyList()
+                    _tagSearchLoading.value = false
+                }
+            )
+        }
     }
 
     fun loadDiscussions(page: Int = 1) {
@@ -228,7 +287,10 @@ class ForumViewModel @Inject constructor(
         _createState.update { it.copy(body = body, error = null) }
     }
 
-    fun createDiscussion(onSuccess: (String) -> Unit = {}) {
+    fun createDiscussion(
+        tags: List<TagDto>? = null,
+        onSuccess: (String) -> Unit = {}
+    ) {
         val title = _createState.value.title.trim()
         val body = _createState.value.body.trim()
         if (title.length < 3) {
@@ -241,7 +303,7 @@ class ForumViewModel @Inject constructor(
         }
         viewModelScope.launch {
             _createState.update { it.copy(isSubmitting = true, error = null) }
-            forumRepository.createDiscussion(title = title, body = body)
+            forumRepository.createDiscussion(title = title, body = body, tags = tags)
                 .onSuccess { discussion ->
                     _createState.update {
                         it.copy(
@@ -263,6 +325,29 @@ class ForumViewModel @Inject constructor(
                         )
                     }
                 }
+        }
+    }
+
+    fun createDiscussionRich(
+        title: String,
+        body: String,
+        tags: List<WikidataTagSuggestion>,
+        imageUris: List<Uri>,
+        onSuccess: (String) -> Unit = {}
+    ) {
+        setCreateTitle(title)
+        setCreateBody(body)
+        viewModelScope.launch {
+            _createState.update { it.copy(isSubmitting = true, error = null) }
+            val uploaded = uploadImages(imageUris).getOrElse { err ->
+                _createState.update { it.copy(isSubmitting = false, error = err.message ?: "Failed to upload images") }
+                return@launch
+            }
+            _createState.update { it.copy(isSubmitting = false) }
+            val tagsDto = tags.toTagDtos()
+            val bodyWithImages = appendImageLinks(body, uploaded)
+            setCreateBody(bodyWithImages)
+            createDiscussion(tags = tagsDto, onSuccess = onSuccess)
         }
     }
 
@@ -457,7 +542,10 @@ class ForumViewModel @Inject constructor(
                 description = description,
                 eventAt = eventAt,
                 location = _createEventState.value.location.takeIf { it.isNotBlank() },
-                isRemote = _createEventState.value.isRemote
+                latitude = null,
+                longitude = null,
+                isRemote = _createEventState.value.isRemote,
+                tags = null
             )
                 .onSuccess { event ->
                     _createEventState.update {
@@ -482,6 +570,64 @@ class ForumViewModel @Inject constructor(
                         )
                     }
                 }
+        }
+    }
+
+    fun createEventRich(
+        title: String,
+        description: String,
+        eventAt: String,
+        location: String?,
+        latitude: Double?,
+        longitude: Double?,
+        isRemote: Boolean,
+        tags: List<WikidataTagSuggestion>,
+        imageUris: List<Uri>,
+        onSuccess: (String) -> Unit = {}
+    ) {
+        setCreateEventTitle(title)
+        setCreateEventDescription(description)
+        setCreateEventAt(eventAt)
+        setCreateEventLocation(location.orEmpty())
+        setCreateEventIsRemote(isRemote)
+        viewModelScope.launch {
+            _createEventState.update { it.copy(isSubmitting = true, error = null) }
+            val uploaded = uploadImages(imageUris).getOrElse { err ->
+                _createEventState.update { it.copy(isSubmitting = false, error = err.message ?: "Failed to upload images") }
+                return@launch
+            }
+            val descriptionWithImages = appendImageLinks(description, uploaded)
+            forumRepository.createEvent(
+                title = title.trim(),
+                description = descriptionWithImages,
+                eventAt = eventAt.trim(),
+                location = location?.takeIf { it.isNotBlank() },
+                latitude = latitude,
+                longitude = longitude,
+                isRemote = isRemote,
+                tags = tags.toTagDtos()
+            ).onSuccess { event ->
+                _createEventState.update {
+                    it.copy(
+                        isSubmitting = false,
+                        title = "",
+                        description = "",
+                        eventAt = "",
+                        location = "",
+                        createdId = event.id,
+                        error = null
+                    )
+                }
+                loadEvents(1)
+                onSuccess(event.id)
+            }.onFailure { e ->
+                _createEventState.update {
+                    it.copy(
+                        isSubmitting = false,
+                        error = e.message ?: "Failed to create event"
+                    )
+                }
+            }
         }
     }
     // --------------- Communities ---------------
@@ -545,7 +691,11 @@ class ForumViewModel @Inject constructor(
         _createCommunityState.update { it.copy(description = desc, error = null) }
     }
 
-    fun createCommunity(onSuccess: (String) -> Unit = {}) {
+    fun createCommunity(
+        rules: List<String> = emptyList(),
+        tags: List<TagDto>? = null,
+        onSuccess: (String) -> Unit = {}
+    ) {
         val name = _createCommunityState.value.name.trim()
         val description = _createCommunityState.value.description.trim()
         if (name.length < 3) {
@@ -558,7 +708,14 @@ class ForumViewModel @Inject constructor(
         }
         viewModelScope.launch {
             _createCommunityState.update { it.copy(isSubmitting = true, error = null) }
-            communityRepository.createCommunity(CommunityCreate(name = name, description = description))
+            communityRepository.createCommunity(
+                CommunityCreate(
+                    name = name,
+                    description = description,
+                    rules = rules,
+                    tags = tags
+                )
+            )
                 .onSuccess { community ->
                     _createCommunityState.update {
                         it.copy(isSubmitting = false, name = "", description = "", createdId = community.id, error = null)
@@ -574,9 +731,71 @@ class ForumViewModel @Inject constructor(
         }
     }
 
+    fun createCommunityRich(
+        name: String,
+        description: String,
+        rules: List<String>,
+        tags: List<WikidataTagSuggestion>,
+        imageUris: List<Uri>,
+        onSuccess: (String) -> Unit = {}
+    ) {
+        setCreateCommunityName(name)
+        setCreateCommunityDescription(description)
+        viewModelScope.launch {
+            _createCommunityState.update { it.copy(isSubmitting = true, error = null) }
+            val uploaded = uploadImages(imageUris).getOrElse { err ->
+                _createCommunityState.update {
+                    it.copy(isSubmitting = false, error = err.message ?: "Failed to upload images")
+                }
+                return@launch
+            }
+            val descriptionWithImages = appendImageLinks(description, uploaded)
+            setCreateCommunityDescription(descriptionWithImages)
+            _createCommunityState.update { it.copy(isSubmitting = false) }
+            createCommunity(
+                rules = rules,
+                tags = tags.toTagDtos(),
+                onSuccess = onSuccess
+            )
+        }
+    }
+
     fun clearCreateCommunityState() {
         _createCommunityState.value = CreateCommunityState()
     }
+
+    private suspend fun uploadImages(imageUris: List<Uri>): Result<List<String>> {
+        if (imageUris.isEmpty()) return Result.success(emptyList())
+        return coroutineScope {
+            val deferred = imageUris.map { uri ->
+                async { uploadsRepository.uploadServiceImage(appContext, uri) }
+            }
+            val results = deferred.map { it.await() }
+            val firstFailure = results.firstOrNull { it.isFailure }?.exceptionOrNull()
+            if (firstFailure != null) {
+                Result.failure(firstFailure)
+            } else {
+                Result.success(results.mapNotNull { it.getOrNull() })
+            }
+        }
+    }
+
+    private fun appendImageLinks(baseText: String, urls: List<String>): String {
+        if (urls.isEmpty()) return baseText.trim()
+        val linksBlock = buildString {
+            appendLine()
+            appendLine()
+            appendLine("Images:")
+            urls.forEach { appendLine("- $it") }
+        }
+        return baseText.trim() + linksBlock
+    }
+
+    private fun List<WikidataTagSuggestion>.toTagDtos(): List<TagDto>? =
+        this.mapNotNull { tag ->
+            val id = tag.id.trim()
+            if (id.isBlank()) null else TagDto(entityId = id, label = tag.label.trim(), aliases = emptyList())
+        }.takeIf { it.isNotEmpty() }
 
     // --------------- Community Detail ---------------
 
