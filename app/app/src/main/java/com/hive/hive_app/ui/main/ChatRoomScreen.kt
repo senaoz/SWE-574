@@ -4,12 +4,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,7 +20,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Button
@@ -40,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.hive.hive_app.data.api.dto.ChatRoomResponse
 import com.hive.hive_app.data.api.dto.MessageResponse
@@ -80,66 +83,83 @@ fun ChatRoomScreen(
         ?: "Chat"
     val otherInitials = otherName.take(2).uppercase()
 
-    Column(modifier = modifier.fillMaxSize().imePadding()) {
-        Row(
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .imePadding()
+    ) {
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+            )
         ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
-            val profilePicUrl = state.otherUser?.profilePicture?.takeIf { it.isNotBlank() }
-                ?: otherParticipant?.profilePicture?.takeIf { it.isNotBlank() }
-            if (!profilePicUrl.isNullOrBlank()) {
-                val context = androidx.compose.ui.platform.LocalContext.current
-                coil.compose.AsyncImage(
-                    model = buildImageRequest(context, profilePicUrl),
-                    contentDescription = null,
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                }
+                val profilePicUrl = state.otherUser?.profilePicture?.takeIf { it.isNotBlank() }
+                    ?: otherParticipant?.profilePicture?.takeIf { it.isNotBlank() }
+                if (!profilePicUrl.isNullOrBlank()) {
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    coil.compose.AsyncImage(
+                        model = buildImageRequest(context, profilePicUrl),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = otherInitials,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+                Column(
                     modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
+                        .weight(1f)
+                        .padding(horizontal = 10.dp)
                 ) {
                     Text(
-                        text = otherInitials,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        text = room.name ?: otherName,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.SemiBold
                     )
-                }
-            }
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 8.dp)
-            ) {
-                Text(
-                    text = room.name ?: otherName,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                if (room.participants != null && room.participants!!.size > 1) {
                     Text(
-                        text = otherName,
+                        text = if (room.participantIds.size > 2) {
+                            "${room.participantIds.size} participants"
+                        } else {
+                            otherName
+                        },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            }
-            if (!canSend) {
-                Text(
-                    text = "Exchange completed",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (!canSend) {
+                    Text(
+                        text = "Exchange completed",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
 
@@ -286,7 +306,7 @@ private fun MessageBubble(
             )
         }
         Card(
-            modifier = Modifier.fillMaxWidth(0.85f),
+            modifier = Modifier.fillMaxWidth(0.82f),
             shape = RoundedCornerShape(
                 topStart = 16.dp,
                 topEnd = 16.dp,
@@ -299,6 +319,12 @@ private fun MessageBubble(
                 if (!isFromCurrentUser && message.sender?.username != null) {
                     Text(
                         text = message.sender.username,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = color.copy(alpha = 0.8f)
+                    )
+                } else if (isFromCurrentUser) {
+                    Text(
+                        text = "You",
                         style = MaterialTheme.typography.labelSmall,
                         color = color.copy(alpha = 0.8f)
                     )
@@ -322,31 +348,42 @@ private fun MessageBubble(
 @Composable
 private fun MessageInput(onSend: (String) -> Unit) {
     var text by remember { mutableStateOf("") }
-    Row(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp),
-        verticalAlignment = Alignment.Bottom
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+        ),
+        shape = RoundedCornerShape(14.dp)
     ) {
-        OutlinedTextField(
-            value = text,
-            onValueChange = { text = it },
-            modifier = Modifier.weight(1f),
-            placeholder = { Text("Message") },
-            maxLines = 4
-        )
-        IconButton(
-            onClick = {
-                if (text.isNotBlank()) {
-                    onSend(text)
-                    text = ""
-                }
-            }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            verticalAlignment = Alignment.Bottom
         ) {
-            Icon(
-                Icons.Filled.Send,
-                contentDescription = "Send"
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Write a message") },
+                maxLines = 4
             )
+            Spacer(modifier = Modifier.width(4.dp))
+            IconButton(
+                onClick = {
+                    if (text.isNotBlank()) {
+                        onSend(text)
+                        text = ""
+                    }
+                }
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.Send,
+                    contentDescription = "Send"
+                )
+            }
         }
     }
 }
