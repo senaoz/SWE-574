@@ -314,8 +314,8 @@ private fun ChatRoomListItem(
 ) {
     val isGroup = room.participantIds.size > 2
     val otherId = room.participantIds.firstOrNull { it != currentUserId }
-    val otherParticipant = room.participants?.firstOrNull { it._id == otherId }
-        ?: room.participants?.firstOrNull { it._id != currentUserId }
+    val otherParticipant = room.participants?.firstOrNull { it.userId == otherId }
+        ?: room.participants?.firstOrNull { it.userId != currentUserId }
         ?: room.participants?.firstOrNull()
     val title = room.name?.takeIf { it.isNotBlank() }
         ?: otherParticipant?.fullName?.takeIf { it.isNotBlank() }
@@ -393,7 +393,7 @@ private fun ChatRoomListItem(
                     }
                     if (isGroup) {
                         val names = room.participants
-                            ?.filter { it._id != currentUserId }
+                            ?.filter { it.userId != currentUserId }
                             ?.mapNotNull { it.fullName?.takeIf(String::isNotBlank) ?: it.username }
                             ?.take(3)
                             ?.joinToString(", ")
@@ -477,7 +477,7 @@ private fun GroupParticipantBubbles(
     val context = LocalContext.current
     Box(modifier = modifier) {
         participants
-            .filter { it._id != currentUserId }
+            .filter { it.userId != currentUserId }
             .take(3)
             .forEachIndexed { index, participant ->
                 val picUrl = participant.profilePicture?.takeIf { it.isNotBlank() }

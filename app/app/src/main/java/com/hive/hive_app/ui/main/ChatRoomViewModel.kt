@@ -96,7 +96,7 @@ class ChatRoomViewModel @Inject constructor(
             val userId = userResult.getOrNull()?._id
             chatRepository.getMessages(roomId, page = 1, limit = 100).fold(
                 onSuccess = { response ->
-                    val otherId = room.participants?.firstOrNull { it._id != userId }?._id
+                    val otherId = room.participants?.firstOrNull { it.userId != userId }?.userId
                     var otherUser: UserResponse? = null
                     if (otherId != null) {
                         usersRepository.getUser(otherId).onSuccess { otherUser = it }
@@ -126,7 +126,7 @@ class ChatRoomViewModel @Inject constructor(
                     )
                 },
                 onFailure = {
-                    val otherId = room.participants?.firstOrNull { it._id != userId }?._id
+                    val otherId = room.participants?.firstOrNull { it.userId != userId }?.userId
                     var otherUser: UserResponse? = null
                     if (otherId != null) {
                         usersRepository.getUser(otherId).onSuccess { otherUser = it }

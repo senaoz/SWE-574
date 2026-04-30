@@ -371,7 +371,7 @@ class ChatViewModel @Inject constructor(
 
             val roomName = room.name.orEmpty().lowercase()
             val participantText = room.participants
-                ?.filter { it._id != currentUserId }
+                ?.filter { it.userId != currentUserId }
                 ?.joinToString(" ") { participant ->
                     listOfNotNull(participant.fullName, participant.username).joinToString(" ")
                 }

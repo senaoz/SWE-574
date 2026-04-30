@@ -85,8 +85,8 @@ fun ChatRoomScreen(
     }
 
     val otherId = room.participantIds.firstOrNull { it != state.currentUserId }
-    val otherParticipant = room.participants?.firstOrNull { it._id == otherId }
-        ?: room.participants?.firstOrNull { it._id != state.currentUserId }
+    val otherParticipant = room.participants?.firstOrNull { it.userId == otherId }
+        ?: room.participants?.firstOrNull { it.userId != state.currentUserId }
         ?: room.participants?.firstOrNull()
     val otherName = state.otherUser?.fullName?.takeIf { it.isNotBlank() }
         ?: state.otherUser?.username
@@ -158,9 +158,9 @@ fun ChatRoomScreen(
                         .weight(1f)
                         .padding(horizontal = 10.dp)
                         .clickable {
-                            val profileId = state.otherUser?._id ?: otherParticipant?._id
-                            if (!isGroupChat && !profileId.isNullOrBlank()) {
-                                onOpenUserProfile(profileId)
+                            val resolvedProfileId = state.otherUser?._id ?: otherParticipant?.userId
+                            if (!isGroupChat && !resolvedProfileId.isNullOrBlank()) {
+                                onOpenUserProfile(resolvedProfileId)
                             } else if (isGroupChat) {
                                 showParticipantsSheet = true
                             }
@@ -358,7 +358,7 @@ private fun ParticipantsBottomSheet(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 items(participants, key = { it._id ?: it.username ?: it.hashCode().toString() }) { participant ->
-                    val participantId = participant._id
+                    val participantId = participant.userId
                     val name = participant.fullName?.takeIf { it.isNotBlank() } ?: participant.username ?: "Unknown user"
                     val profilePic = participant.profilePicture?.takeIf { it.isNotBlank() }
                     Card(
