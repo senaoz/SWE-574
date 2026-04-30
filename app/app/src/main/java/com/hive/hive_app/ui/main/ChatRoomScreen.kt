@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -44,10 +46,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.ui.platform.LocalContext
 import com.hive.hive_app.data.api.dto.ChatRoomResponse
+import com.hive.hive_app.data.api.dto.ChatParticipant
 import com.hive.hive_app.data.api.dto.MessageResponse
-import com.hive.hive_app.ui.main.buildImageRequest
 import kotlinx.coroutines.delay
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -58,6 +63,7 @@ fun ChatRoomScreen(
     room: ChatRoomResponse,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenUserProfile: (String) -> Unit = {},
     viewModel: ChatRoomViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -82,6 +88,12 @@ fun ChatRoomScreen(
         ?: otherParticipant?.username
         ?: "Chat"
     val otherInitials = otherName.take(2).uppercase()
+    val context = LocalContext.current
+    val isGroupChat = room.participantIds.size > 2
+    val groupParticipants = room.participants
+        ?.filter { it._id != state.currentUserId }
+        ?.take(3)
+        .orEmpty()
 
     Column(
         modifier = modifier
@@ -106,36 +118,47 @@ fun ChatRoomScreen(
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                 }
-                val profilePicUrl = state.otherUser?.profilePicture?.takeIf { it.isNotBlank() }
-                    ?: otherParticipant?.profilePicture?.takeIf { it.isNotBlank() }
-                if (!profilePicUrl.isNullOrBlank()) {
-                    val context = androidx.compose.ui.platform.LocalContext.current
-                    coil.compose.AsyncImage(
-                        model = buildImageRequest(context, profilePicUrl),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(42.dp)
-                            .clip(CircleShape)
-                    )
+                if (isGroupChat) {
+                    GroupHeaderAvatars(participants = groupParticipants, modifier = Modifier.size(42.dp))
                 } else {
-                    Box(
-                        modifier = Modifier
-                            .size(42.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = otherInitials,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                    val profilePicUrl = state.otherUser?.profilePicture?.takeIf { it.isNotBlank() }
+                        ?: otherParticipant?.profilePicture?.takeIf { it.isNotBlank() }
+                    if (!profilePicUrl.isNullOrBlank()) {
+                        coil.compose.AsyncImage(
+                            model = buildImageRequest(context, profilePicUrl),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(CircleShape)
                         )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = otherInitials,
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
                     }
                 }
                 Column(
                     modifier = Modifier
                         .weight(1f)
                         .padding(horizontal = 10.dp)
+                        .clickable {
+                            if (!isGroupChat) {
+                                val profileId = state.otherUser?._id ?: otherParticipant?._id
+                                if (!profileId.isNullOrBlank()) {
+                                    onOpenUserProfile(profileId)
+                                }
+                            }
+                        }
                 ) {
                     Text(
                         text = room.name ?: otherName,
@@ -249,11 +272,17 @@ fun ChatRoomScreen(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(state.messages, key = { it._id }) { msg ->
+            itemsIndexed(state.messages, key = { _, message -> message._id }) { index, msg ->
+                val previousMessage = state.messages.getOrNull(index - 1)
+                val currentDate = messageDate(msg.createdAt)
+                val previousDate = messageDate(previousMessage?.createdAt)
+                val showDaySeparator = currentDate != null && currentDate != previousDate
+                if (showDaySeparator) {
+                    DaySeparator(date = currentDate!!)
+                }
                 MessageBubble(
                     message = msg,
-                    isFromCurrentUser = msg.senderId == state.currentUserId,
-                    currentUserId = state.currentUserId
+                    isFromCurrentUser = msg.senderId == state.currentUserId
                 )
             }
         }
@@ -276,8 +305,7 @@ fun ChatRoomScreen(
 @Composable
 private fun MessageBubble(
     message: MessageResponse,
-    isFromCurrentUser: Boolean,
-    currentUserId: String? = null
+    isFromCurrentUser: Boolean
 ) {
     val backgroundColor = if (isFromCurrentUser)
         MaterialTheme.colorScheme.primaryContainer
@@ -287,24 +315,11 @@ private fun MessageBubble(
         MaterialTheme.colorScheme.onPrimaryContainer
     else
         MaterialTheme.colorScheme.onSurfaceVariant
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val senderProfilePic = message.sender?.profilePicture?.takeIf { it.isNotBlank() }
-
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isFromCurrentUser) Arrangement.End else Arrangement.Start,
         verticalAlignment = Alignment.Bottom
     ) {
-        if (!isFromCurrentUser && senderProfilePic != null) {
-            coil.compose.AsyncImage(
-                model = buildImageRequest(context, senderProfilePic),
-                contentDescription = null,
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .padding(end = 6.dp)
-            )
-        }
         Card(
             modifier = Modifier.fillMaxWidth(0.82f),
             shape = RoundedCornerShape(
@@ -343,6 +358,83 @@ private fun MessageBubble(
             }
         }
     }
+}
+
+@Composable
+private fun DaySeparator(date: LocalDate) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            shape = RoundedCornerShape(10.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+            )
+        ) {
+            Text(
+                text = date.format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.US)),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun GroupHeaderAvatars(
+    participants: List<ChatParticipant>,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    Box(modifier = modifier) {
+        participants.take(3).forEachIndexed { index, participant ->
+            val offsetX = (index * 12).dp
+            val pic = participant.profilePicture?.takeIf { it.isNotBlank() }
+            if (!pic.isNullOrBlank()) {
+                coil.compose.AsyncImage(
+                    model = buildImageRequest(context, pic),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .padding(start = offsetX)
+                        .size(24.dp)
+                        .clip(CircleShape)
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .padding(start = offsetX)
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val name = participant.fullName?.takeIf { it.isNotBlank() } ?: participant.username ?: "?"
+                    Text(
+                        text = name.take(1).uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun messageDate(isoDate: String?): LocalDate? {
+    if (isoDate.isNullOrBlank()) return null
+    return runCatching {
+        val parsed = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).parse(isoDate.take(19))
+        if (parsed != null) {
+            val cal = java.util.Calendar.getInstance().apply { time = parsed }
+            LocalDate.of(cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH) + 1, cal.get(java.util.Calendar.DAY_OF_MONTH))
+        } else {
+            null
+        }
+    }.getOrNull()
 }
 
 @Composable
@@ -429,13 +521,7 @@ private fun formatMessageTime(isoDate: String?): String {
         val input = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
         val date = input.parse(isoDate.take(19))
         if (date != null) {
-            val now = System.currentTimeMillis()
-            val diff = now - date.time
-            when {
-                diff < 60_000 -> "Just now"
-                diff < 3600_000 -> "${diff / 60_000}m ago"
-                else -> SimpleDateFormat("MMM d, HH:mm", Locale.US).format(date)
-            }
+            SimpleDateFormat("HH:mm", Locale.US).format(date)
         } else isoDate.take(16)
     } catch (_: Exception) {
         isoDate.take(16)

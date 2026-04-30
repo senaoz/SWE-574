@@ -25,6 +25,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -65,7 +67,10 @@ fun ChatScreen(
     modifier: Modifier = Modifier,
     viewModel: ChatViewModel = hiltViewModel(),
     initialRoomId: String? = null,
-    onInitialRoomConsumed: () -> Unit = {}
+    onInitialRoomConsumed: () -> Unit = {},
+    openCreateGroupSheet: Boolean = false,
+    onCreateGroupSheetConsumed: () -> Unit = {},
+    onOpenUserProfile: (String) -> Unit = {}
 ) {
     var selectedRoom by remember { mutableStateOf<ChatRoomResponse?>(null) }
     val state by viewModel.state.collectAsState()
@@ -78,13 +83,20 @@ fun ChatScreen(
             }
         }
     }
+    LaunchedEffect(openCreateGroupSheet) {
+        if (openCreateGroupSheet) {
+            viewModel.showCreateGroupSheet()
+            onCreateGroupSheetConsumed()
+        }
+    }
 
     if (selectedRoom != null) {
         val room = selectedRoom!!
         ChatRoomScreen(
             room = room,
             onBack = { selectedRoom = null },
-            modifier = modifier
+            modifier = modifier,
+            onOpenUserProfile = onOpenUserProfile
         )
         return
     }
@@ -203,6 +215,7 @@ fun ChatScreen(
                 ChatRoomListItem(
                     room = room,
                     currentUserId = state.currentUserId,
+                    lastMessage = state.roomLastMessages[room._id],
                     onClick = { selectedRoom = room }
                 )
             }
@@ -287,6 +300,7 @@ private fun RoomFilterChip(label: String, selected: Boolean, onClick: () -> Unit
 private fun ChatRoomListItem(
     room: ChatRoomResponse,
     currentUserId: String?,
+    lastMessage: ChatViewModel.RoomLastMessage?,
     onClick: () -> Unit
 ) {
     val isGroup = room.participantIds.size > 2
@@ -299,11 +313,7 @@ private fun ChatRoomListItem(
         ?: otherParticipant?.username
         ?: otherId?.let { "User ${it.take(8)}…" }
         ?: "Room ${room._id.take(8)}…"
-    val subtitle = when {
-        room.transactionId != null -> "Transaction chat"
-        isGroup -> "${room.participantIds.size} participants"
-        else -> "Direct chat"
-    }
+    val subtitle = null
     val profilePicUrl = otherParticipant?.profilePicture?.takeIf { it.isNotBlank() }
     val context = LocalContext.current
 
@@ -320,19 +330,11 @@ private fun ChatRoomListItem(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             if (isGroup) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.secondaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Groups,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                }
+                GroupParticipantBubbles(
+                    participants = room.participants.orEmpty(),
+                    currentUserId = currentUserId,
+                    modifier = Modifier.size(52.dp)
+                )
             } else if (!profilePicUrl.isNullOrBlank()) {
                 AsyncImage(
                     model = buildImageRequest(context, profilePicUrl),
@@ -364,11 +366,17 @@ private fun ChatRoomListItem(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                val preview = lastMessage?.content?.trim().orEmpty()
+                if (preview.isNotEmpty()) {
+                    Text(
+                        text = preview,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.95f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
                 if (isGroup) {
                     val names = room.participants
                         ?.filter { it._id != currentUserId }
@@ -385,16 +393,93 @@ private fun ChatRoomListItem(
                         )
                     }
                 }
-                room.lastMessageAt?.let { at ->
+                Row(
+                    modifier = Modifier.padding(top = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = when {
+                            room.transactionId != null -> Icons.Filled.Receipt
+                            isGroup -> Icons.Filled.Groups
+                            else -> Icons.Filled.Person
+                        },
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    (lastMessage?.createdAt ?: room.lastMessageAt)?.let { at ->
+                        Text(
+                            text = formatApplicationDate(at),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            if (isGroup) {
+                Row(
+                    modifier = Modifier.align(Alignment.Bottom),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.People,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     Text(
-                        text = "Last message: ${formatApplicationDate(at)}",
+                        text = room.participantIds.size.toString(),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun GroupParticipantBubbles(
+    participants: List<ChatParticipant>,
+    currentUserId: String?,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    Box(modifier = modifier) {
+        participants
+            .filter { it._id != currentUserId }
+            .take(3)
+            .forEachIndexed { index, participant ->
+                val picUrl = participant.profilePicture?.takeIf { it.isNotBlank() }
+                val offsetX = (index * 14).dp
+                if (!picUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = buildImageRequest(context, picUrl),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .padding(start = offsetX)
+                            .size(26.dp)
+                            .clip(CircleShape)
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .padding(start = offsetX)
+                            .size(26.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.secondaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = chatParticipantInitials(participant),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
+            }
     }
 }
 

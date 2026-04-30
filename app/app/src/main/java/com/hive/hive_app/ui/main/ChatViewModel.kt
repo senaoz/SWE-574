@@ -3,12 +3,14 @@ package com.hive.hive_app.ui.main
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hive.hive_app.data.api.dto.ChatRoomResponse
+import com.hive.hive_app.data.api.dto.MessageResponse
 import com.hive.hive_app.data.api.dto.UserResponse
 import com.hive.hive_app.data.repository.AuthRepository
 import com.hive.hive_app.data.repository.ChatRepository
 import com.hive.hive_app.data.repository.UsersRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +24,10 @@ class ChatViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val usersRepository: UsersRepository
 ) : ViewModel() {
+    data class RoomLastMessage(
+        val content: String,
+        val createdAt: String?
+    )
 
     enum class RoomFilter { ALL, DIRECT, GROUP }
 
@@ -41,7 +47,8 @@ class ChatViewModel @Inject constructor(
         val isSearchingParticipants: Boolean = false,
         val participantSearchError: String? = null,
         val isCreatingGroup: Boolean = false,
-        val createGroupError: String? = null
+        val createGroupError: String? = null,
+        val roomLastMessages: Map<String, RoomLastMessage> = emptyMap()
     )
 
     private val _state = MutableStateFlow(ChatListState())
@@ -55,6 +62,7 @@ class ChatViewModel @Inject constructor(
             chatRepository.getRooms(page = 1, limit = 50).fold(
                 onSuccess = { response ->
                     val sortedRooms = sortRooms(response.rooms)
+                    val lastMessages = fetchRoomLastMessages(sortedRooms)
                     _state.value = _state.value.copy(
                         rooms = sortedRooms,
                         visibleRooms = applyRoomFilters(
@@ -63,6 +71,7 @@ class ChatViewModel @Inject constructor(
                             filter = _state.value.activeFilter,
                             currentUserId = userId
                         ),
+                        roomLastMessages = lastMessages,
                         isLoading = false,
                         error = null
                     )
@@ -230,6 +239,12 @@ class ChatViewModel @Inject constructor(
                             filter = _state.value.activeFilter,
                             currentUserId = currentUserId
                         ),
+                        roomLastMessages = _state.value.roomLastMessages + (
+                            room._id to RoomLastMessage(
+                                content = "",
+                                createdAt = room.lastMessageAt ?: room.updatedAt
+                            )
+                        ),
                         isCreateGroupSheetVisible = false,
                         createGroupName = "",
                         participantSearchQuery = "",
@@ -263,6 +278,27 @@ class ChatViewModel @Inject constructor(
 
     private fun sortRooms(rooms: List<ChatRoomResponse>): List<ChatRoomResponse> {
         return rooms.sortedByDescending { room -> room.lastMessageAt ?: room.updatedAt }
+    }
+
+    private suspend fun fetchRoomLastMessages(rooms: List<ChatRoomResponse>): Map<String, RoomLastMessage> {
+        val previewJobs = rooms.map { room ->
+            viewModelScope.async {
+                val latestMessage = chatRepository.getMessages(
+                    roomId = room._id,
+                    page = 1,
+                    limit = 20
+                ).getOrNull()
+                    ?.messages
+                    ?.maxByOrNull(MessageResponse::createdAt)
+                room._id to RoomLastMessage(
+                    content = latestMessage?.content.orEmpty(),
+                    createdAt = latestMessage?.createdAt ?: room.lastMessageAt ?: room.updatedAt
+                )
+            }
+        }
+        return previewJobs.mapNotNull { job ->
+            runCatching { job.await() }.getOrNull()
+        }.toMap()
     }
 
     private fun applyRoomFilters(
