@@ -25,8 +25,10 @@ class ChatViewModel @Inject constructor(
     private val usersRepository: UsersRepository
 ) : ViewModel() {
     data class RoomLastMessage(
+        val senderLabel: String?,
         val content: String,
-        val createdAt: String?
+        val createdAt: String?,
+        val unreadCount: Int = 0
     )
 
     enum class RoomFilter { ALL, DIRECT, GROUP }
@@ -54,6 +56,7 @@ class ChatViewModel @Inject constructor(
     private val _state = MutableStateFlow(ChatListState())
     val state: StateFlow<ChatListState> = _state.asStateFlow()
     private var searchJob: Job? = null
+    private val roomLastReadAt = mutableMapOf<String, String>()
 
     fun loadRooms() {
         viewModelScope.launch {
@@ -241,6 +244,7 @@ class ChatViewModel @Inject constructor(
                         ),
                         roomLastMessages = _state.value.roomLastMessages + (
                             room._id to RoomLastMessage(
+                                senderLabel = null,
                                 content = "",
                                 createdAt = room.lastMessageAt ?: room.updatedAt
                             )
@@ -276,29 +280,77 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    fun markRoomAsRead(roomId: String) {
+        roomLastReadAt[roomId] = currentTimestampForComparison()
+        val existing = _state.value.roomLastMessages[roomId] ?: return
+        _state.value = _state.value.copy(
+            roomLastMessages = _state.value.roomLastMessages + (roomId to existing.copy(unreadCount = 0))
+        )
+    }
+
     private fun sortRooms(rooms: List<ChatRoomResponse>): List<ChatRoomResponse> {
         return rooms.sortedByDescending { room -> room.lastMessageAt ?: room.updatedAt }
     }
 
     private suspend fun fetchRoomLastMessages(rooms: List<ChatRoomResponse>): Map<String, RoomLastMessage> {
+        val currentUserId = _state.value.currentUserId
         val previewJobs = rooms.map { room ->
             viewModelScope.async {
-                val latestMessage = chatRepository.getMessages(
+                val messages = chatRepository.getMessages(
                     roomId = room._id,
                     page = 1,
                     limit = 20
                 ).getOrNull()
                     ?.messages
-                    ?.maxByOrNull(MessageResponse::createdAt)
+                    ?.sortedBy(MessageResponse::createdAt)
+                    .orEmpty()
+                val latestMessage = messages.lastOrNull()
+                val senderLabel = when {
+                    latestMessage == null -> null
+                    latestMessage.senderId == currentUserId -> "You"
+                    !latestMessage.sender?.fullName.isNullOrBlank() -> latestMessage.sender?.fullName
+                    !latestMessage.sender?.username.isNullOrBlank() -> latestMessage.sender?.username
+                    else -> null
+                }
+                val lastReadAt = roomLastReadAt[room._id]
+                val unreadCount = if (currentUserId == null) {
+                    0
+                } else {
+                    messages.count { msg ->
+                        msg.senderId != currentUserId && isAfter(msg.createdAt, lastReadAt)
+                    }
+                }
                 room._id to RoomLastMessage(
+                    senderLabel = senderLabel,
                     content = latestMessage?.content.orEmpty(),
-                    createdAt = latestMessage?.createdAt ?: room.lastMessageAt ?: room.updatedAt
+                    createdAt = latestMessage?.createdAt ?: room.lastMessageAt ?: room.updatedAt,
+                    unreadCount = unreadCount
                 )
             }
         }
         return previewJobs.mapNotNull { job ->
             runCatching { job.await() }.getOrNull()
         }.toMap()
+    }
+
+    private fun currentTimestampForComparison(): String {
+        return java.time.format.DateTimeFormatter.ISO_INSTANT.format(java.time.Instant.now())
+    }
+
+    private fun isAfter(candidate: String?, baseline: String?): Boolean {
+        if (candidate.isNullOrBlank()) return false
+        if (baseline.isNullOrBlank()) return true
+        val c = parseInstant(candidate) ?: return false
+        val b = parseInstant(baseline) ?: return true
+        return c.isAfter(b)
+    }
+
+    private fun parseInstant(value: String): java.time.Instant? {
+        return runCatching { java.time.Instant.parse(value) }.getOrNull()
+            ?: runCatching {
+                val formatted = if (value.endsWith("Z")) value else "${value.take(19)}Z"
+                java.time.Instant.parse(formatted)
+            }.getOrNull()
     }
 
     private fun applyRoomFilters(

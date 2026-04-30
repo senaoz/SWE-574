@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -78,6 +79,9 @@ fun ChatScreen(
     LaunchedEffect(initialRoomId) {
         if (initialRoomId != null) {
             viewModel.openRoom(initialRoomId) { room ->
+                if (room != null) {
+                    viewModel.markRoomAsRead(room._id)
+                }
                 selectedRoom = room
                 onInitialRoomConsumed()
             }
@@ -216,7 +220,10 @@ fun ChatScreen(
                     room = room,
                     currentUserId = state.currentUserId,
                     lastMessage = state.roomLastMessages[room._id],
-                    onClick = { selectedRoom = room }
+                    onClick = {
+                        viewModel.markRoomAsRead(room._id)
+                        selectedRoom = room
+                    }
                 )
             }
         }
@@ -313,7 +320,6 @@ private fun ChatRoomListItem(
         ?: otherParticipant?.username
         ?: otherId?.let { "User ${it.take(8)}…" }
         ?: "Room ${room._id.take(8)}…"
-    val subtitle = null
     val profilePicUrl = otherParticipant?.profilePicture?.takeIf { it.isNotBlank() }
     val context = LocalContext.current
 
@@ -324,102 +330,122 @@ private fun ChatRoomListItem(
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
         ) {
-            if (isGroup) {
-                GroupParticipantBubbles(
-                    participants = room.participants.orEmpty(),
-                    currentUserId = currentUserId,
-                    modifier = Modifier.size(52.dp)
-                )
-            } else if (!profilePicUrl.isNullOrBlank()) {
-                AsyncImage(
-                    model = buildImageRequest(context, profilePicUrl),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = chatParticipantInitials(otherParticipant),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                val preview = lastMessage?.content?.trim().orEmpty()
-                if (preview.isNotEmpty()) {
-                    Text(
-                        text = preview,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.95f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
-                }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 if (isGroup) {
-                    val names = room.participants
-                        ?.filter { it._id != currentUserId }
-                        ?.mapNotNull { it.fullName?.takeIf(String::isNotBlank) ?: it.username }
-                        ?.take(3)
-                        ?.joinToString(", ")
-                    if (!names.isNullOrBlank()) {
+                    GroupParticipantBubbles(
+                        participants = room.participants.orEmpty(),
+                        currentUserId = currentUserId,
+                        modifier = Modifier.size(52.dp)
+                    )
+                } else if (!profilePicUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = buildImageRequest(context, profilePicUrl),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Text(
-                            text = names,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            text = chatParticipantInitials(otherParticipant),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
                 }
-                Row(
-                    modifier = Modifier.padding(top = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        imageVector = when {
-                            room.transactionId != null -> Icons.Filled.Receipt
-                            isGroup -> Icons.Filled.Groups
-                            else -> Icons.Filled.Person
-                        },
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-                    (lastMessage?.createdAt ?: room.lastMessageAt)?.let { at ->
+                    val preview = lastMessage?.content?.trim().orEmpty()
+                    if (preview.isNotEmpty()) {
                         Text(
-                            text = formatApplicationDate(at),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = listOfNotNull(lastMessage?.senderLabel, preview)
+                                .joinToString(": "),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.95f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 2.dp)
                         )
                     }
+                    if (isGroup) {
+                        val names = room.participants
+                            ?.filter { it._id != currentUserId }
+                            ?.mapNotNull { it.fullName?.takeIf(String::isNotBlank) ?: it.username }
+                            ?.take(3)
+                            ?.joinToString(", ")
+                        if (!names.isNullOrBlank()) {
+                            Text(
+                                text = names,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.padding(top = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = when {
+                                room.transactionId != null -> Icons.Filled.Receipt
+                                isGroup -> Icons.Filled.Groups
+                                else -> Icons.Filled.Person
+                            },
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        (lastMessage?.createdAt ?: room.lastMessageAt)?.let { at ->
+                            Text(
+                                text = formatApplicationDate(at),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+            val unread = lastMessage?.unreadCount ?: 0
+            if (unread > 0) {
+                Badge(
+                    modifier = Modifier.align(Alignment.BottomStart),
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ) {
+                    Text(
+                        text = unread.toString(),
+                        style = MaterialTheme.typography.labelSmall
+                    )
                 }
             }
             if (isGroup) {
                 Row(
-                    modifier = Modifier.align(Alignment.Bottom),
+                    modifier = Modifier.align(Alignment.BottomEnd),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
