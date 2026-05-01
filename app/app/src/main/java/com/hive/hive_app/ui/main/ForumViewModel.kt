@@ -289,6 +289,7 @@ class ForumViewModel @Inject constructor(
 
     fun createDiscussion(
         tags: List<TagDto>? = null,
+        communityId: String? = null,
         onSuccess: (String) -> Unit = {}
     ) {
         val title = _createState.value.title.trim()
@@ -303,7 +304,12 @@ class ForumViewModel @Inject constructor(
         }
         viewModelScope.launch {
             _createState.update { it.copy(isSubmitting = true, error = null) }
-            forumRepository.createDiscussion(title = title, body = body, tags = tags)
+            forumRepository.createDiscussion(
+                title = title,
+                body = body,
+                tags = tags,
+                communityId = communityId
+            )
                 .onSuccess { discussion ->
                     _createState.update {
                         it.copy(
@@ -332,6 +338,7 @@ class ForumViewModel @Inject constructor(
         title: String,
         body: String,
         tags: List<WikidataTagSuggestion>,
+        communityId: String?,
         imageUris: List<Uri>,
         onSuccess: (String) -> Unit = {}
     ) {
@@ -347,7 +354,7 @@ class ForumViewModel @Inject constructor(
             val tagsDto = tags.toTagDtos()
             val bodyWithImages = appendImageLinks(body, uploaded)
             setCreateBody(bodyWithImages)
-            createDiscussion(tags = tagsDto, onSuccess = onSuccess)
+            createDiscussion(tags = tagsDto, communityId = communityId, onSuccess = onSuccess)
         }
     }
 
@@ -519,7 +526,10 @@ class ForumViewModel @Inject constructor(
         _createEventState.update { it.copy(isRemote = isRemote) }
     }
 
-    fun createEvent(onSuccess: (String) -> Unit = {}) {
+    fun createEvent(
+        communityId: String? = null,
+        onSuccess: (String) -> Unit = {}
+    ) {
         val title = _createEventState.value.title.trim()
         val description = _createEventState.value.description.trim()
         val eventAt = _createEventState.value.eventAt.trim()
@@ -541,6 +551,7 @@ class ForumViewModel @Inject constructor(
                 title = title,
                 description = description,
                 eventAt = eventAt,
+                communityId = communityId,
                 location = _createEventState.value.location.takeIf { it.isNotBlank() },
                 latitude = null,
                 longitude = null,
@@ -577,6 +588,7 @@ class ForumViewModel @Inject constructor(
         title: String,
         description: String,
         eventAt: String,
+        communityId: String?,
         location: String?,
         latitude: Double?,
         longitude: Double?,
@@ -601,6 +613,7 @@ class ForumViewModel @Inject constructor(
                 title = title.trim(),
                 description = descriptionWithImages,
                 eventAt = eventAt.trim(),
+                communityId = communityId,
                 location = location?.takeIf { it.isNotBlank() },
                 latitude = latitude,
                 longitude = longitude,
@@ -655,6 +668,9 @@ class ForumViewModel @Inject constructor(
     private val _createCommunityState = MutableStateFlow(CreateCommunityState())
     val createCommunityState: StateFlow<CreateCommunityState> = _createCommunityState.asStateFlow()
 
+    private val _communityById = MutableStateFlow<Map<String, CommunityResponse>>(emptyMap())
+    val communityById: StateFlow<Map<String, CommunityResponse>> = _communityById.asStateFlow()
+
     fun setCommunitySearchQuery(query: String) {
         _communitiesListState.update { it.copy(searchQuery = query) }
     }
@@ -665,6 +681,7 @@ class ForumViewModel @Inject constructor(
             val q = _communitiesListState.value.searchQuery.takeIf { it.isNotBlank() }
             communityRepository.listCommunities(page = page, limit = 20, q = q)
                 .onSuccess { response ->
+                    updateCommunityCache(response.communities)
                     _communitiesListState.update {
                         it.copy(
                             communities = if (page == 1) response.communities else it.communities + response.communities,
@@ -845,6 +862,7 @@ class ForumViewModel @Inject constructor(
             _communityDetailState.update { it.copy(isLoading = true, error = null) }
             communityRepository.getCommunity(communityId)
                 .onSuccess { community ->
+                    updateCommunityCache(listOf(community))
                     _communityDetailState.update { it.copy(community = community, isLoading = false) }
                     loadCommunityPosts(communityId)
                     loadCommunityMembers(communityId)
@@ -981,6 +999,29 @@ class ForumViewModel @Inject constructor(
                     }
                 }
                 .onFailure { /* silent */ }
+        }
+    }
+
+    fun ensureCommunity(communityId: String?) {
+        val id = communityId?.trim().orEmpty()
+        if (id.isBlank()) return
+        if (_communityById.value.containsKey(id)) return
+        viewModelScope.launch {
+            communityRepository.getCommunity(id).onSuccess { community ->
+                updateCommunityCache(listOf(community))
+            }
+        }
+    }
+
+    private fun updateCommunityCache(communities: List<CommunityResponse>) {
+        if (communities.isEmpty()) return
+        _communityById.update { existing ->
+            buildMap {
+                putAll(existing)
+                communities.forEach { community ->
+                    put(community.id, community)
+                }
+            }
         }
     }
 

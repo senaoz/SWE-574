@@ -56,10 +56,16 @@ class ForumRepository @Inject constructor(
     suspend fun createDiscussion(
         title: String,
         body: String,
-        tags: List<com.hive.hive_app.data.api.dto.TagDto>? = null
+        tags: List<com.hive.hive_app.data.api.dto.TagDto>? = null,
+        communityId: String? = null
     ): Result<ForumDiscussionResponse> {
         return try {
-            val bodyReq = ForumDiscussionCreate(title = title, body = body, tags = tags)
+            val bodyReq = ForumDiscussionCreate(
+                title = title,
+                body = body,
+                tags = tags,
+                communityId = communityId
+            )
             val response = forumApi.createDiscussion(bodyReq)
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
@@ -173,6 +179,7 @@ class ForumRepository @Inject constructor(
         title: String,
         description: String,
         eventAt: String,
+        communityId: String? = null,
         location: String? = null,
         latitude: Double? = null,
         longitude: Double? = null,
@@ -185,6 +192,7 @@ class ForumRepository @Inject constructor(
                 title = title,
                 description = description,
                 eventAt = eventAt,
+                communityId = communityId,
                 location = location,
                 latitude = latitude,
                 longitude = longitude,

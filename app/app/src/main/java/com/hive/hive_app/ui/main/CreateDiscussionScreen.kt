@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,12 +40,21 @@ fun CreateDiscussionScreen(
     var tagQuery by remember { mutableStateOf("") }
     var selectedTags by remember { mutableStateOf<List<WikidataTagSuggestion>>(emptyList()) }
     var selectedImageUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var selectedCommunityId by remember { mutableStateOf<String?>(null) }
+    var showCommunityDialog by remember { mutableStateOf(false) }
     var localError by remember { mutableStateOf<String?>(null) }
 
     val createState by viewModel.createState.collectAsState()
     val tagSuggestions by viewModel.tagSuggestions.collectAsState()
     val tagSearchLoading by viewModel.tagSearchLoading.collectAsState()
     val tagSearchError by viewModel.tagSearchError.collectAsState()
+    val communitiesState by viewModel.communitiesListState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        if (communitiesState.communities.isEmpty() && !communitiesState.isLoading) {
+            viewModel.loadCommunities(1)
+        }
+    }
 
     Column(
         modifier = modifier
@@ -83,6 +93,15 @@ fun CreateDiscussionScreen(
         )
         Spacer(modifier = Modifier.height(12.dp))
 
+        CommunitySelectorSection(
+            selectedCommunityId = selectedCommunityId,
+            communities = communitiesState.communities,
+            isLoading = communitiesState.isLoading,
+            loadError = communitiesState.error,
+            onOpenPicker = { showCommunityDialog = true }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
         CommonTagSelectorSection(
             tagQuery = tagQuery,
             onTagQueryChange = {
@@ -135,6 +154,7 @@ fun CreateDiscussionScreen(
                     title = title,
                     body = body,
                     tags = selectedTags,
+                    communityId = selectedCommunityId,
                     imageUris = selectedImageUris
                 ) { id ->
                     onCreated(id)
@@ -149,5 +169,14 @@ fun CreateDiscussionScreen(
                 Text("Create discussion")
             }
         }
+    }
+
+    if (showCommunityDialog) {
+        CommunitySelectorDialog(
+            communities = communitiesState.communities,
+            selectedCommunityId = selectedCommunityId,
+            onSelect = { selectedCommunityId = it },
+            onDismiss = { showCommunityDialog = false }
+        )
     }
 }

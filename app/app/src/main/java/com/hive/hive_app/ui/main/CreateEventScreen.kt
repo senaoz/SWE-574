@@ -36,6 +36,7 @@ import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -83,6 +84,8 @@ fun CreateEventScreen(
     var tagQuery by remember { mutableStateOf("") }
     var selectedTags by remember { mutableStateOf<List<WikidataTagSuggestion>>(emptyList()) }
     var selectedImageUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var selectedCommunityId by remember { mutableStateOf<String?>(null) }
+    var showCommunityDialog by remember { mutableStateOf(false) }
     var localError by remember { mutableStateOf<String?>(null) }
     var isRemote by remember { mutableStateOf(false) }
 
@@ -101,6 +104,13 @@ fun CreateEventScreen(
     val tagSuggestions by viewModel.tagSuggestions.collectAsState()
     val tagSearchLoading by viewModel.tagSearchLoading.collectAsState()
     val tagSearchError by viewModel.tagSearchError.collectAsState()
+    val communitiesState by viewModel.communitiesListState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        if (communitiesState.communities.isEmpty() && !communitiesState.isLoading) {
+            viewModel.loadCommunities(1)
+        }
+    }
 
     if (showLocationPicker && !isRemote) {
         LocationPickerScreen(
@@ -165,6 +175,15 @@ fun CreateEventScreen(
         )
         Spacer(modifier = Modifier.height(12.dp))
 
+        CommunitySelectorSection(
+            selectedCommunityId = selectedCommunityId,
+            communities = communitiesState.communities,
+            isLoading = communitiesState.isLoading,
+            loadError = communitiesState.error,
+            onOpenPicker = { showCommunityDialog = true }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -335,6 +354,7 @@ fun CreateEventScreen(
                     title = title,
                     description = description,
                     eventAt = eventAt,
+                    communityId = selectedCommunityId,
                     location = locationText.takeIf { it.isNotBlank() },
                     latitude = if (isRemote) null else selectedLat,
                     longitude = if (isRemote) null else selectedLon,
@@ -354,6 +374,15 @@ fun CreateEventScreen(
                 Text("Create event")
             }
         }
+    }
+
+    if (showCommunityDialog) {
+        CommunitySelectorDialog(
+            communities = communitiesState.communities,
+            selectedCommunityId = selectedCommunityId,
+            onSelect = { selectedCommunityId = it },
+            onDismiss = { showCommunityDialog = false }
+        )
     }
 
     if (showDatePicker) {

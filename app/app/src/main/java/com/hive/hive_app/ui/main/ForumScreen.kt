@@ -210,6 +210,7 @@ fun ForumScreen(
     val listState by viewModel.listState.collectAsState()
     val eventsListState by viewModel.eventsListState.collectAsState()
     val communitiesListState by viewModel.communitiesListState.collectAsState()
+    val communityById by viewModel.communityById.collectAsState()
 
     LaunchedEffect(Unit) {
         if (listState.discussions.isEmpty() && !listState.isLoading) viewModel.loadDiscussions()
@@ -297,8 +298,12 @@ fun ForumScreen(
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 items(items = listState.discussions, key = { it.id }) { discussion ->
+                                    LaunchedEffect(discussion.communityId) {
+                                        viewModel.ensureCommunity(discussion.communityId)
+                                    }
                                     ForumDiscussionCard(
                                         discussion = discussion,
+                                        community = discussion.communityId?.let { communityById[it] },
                                         onClick = { selectedDiscussionId = discussion.id },
                                         onOpenUserProfile = onOpenUserProfile
                                     )
@@ -349,8 +354,12 @@ fun ForumScreen(
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 items(items = eventsListState.events, key = { it.id }) { event ->
+                                    LaunchedEffect(event.communityId) {
+                                        viewModel.ensureCommunity(event.communityId)
+                                    }
                                     ForumEventCard(
                                         event = event,
+                                        community = event.communityId?.let { communityById[it] },
                                         onClick = { selectedEventId = event.id },
                                         onOpenUserProfile = onOpenUserProfile
                                     )
@@ -543,6 +552,7 @@ private fun TagChipsRow(
 @Composable
 private fun ForumDiscussionCard(
     discussion: ForumDiscussionResponse,
+    community: CommunityResponse?,
     onClick: () -> Unit,
     onOpenUserProfile: (String) -> Unit = {}
 ) {
@@ -605,6 +615,21 @@ private fun ForumDiscussionCard(
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (community != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        CommunityAvatar(name = community.name, avatarUrl = community.avatarUrl, size = 18.dp)
+                        Text(
+                            text = community.name,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
                 if (!discussion.tags.isNullOrEmpty()) {
                     TagChipsRow(tags = discussion.tags)
                 }
@@ -700,6 +725,7 @@ private fun EventDateBadge(day: String, month: String) {
 @Composable
 private fun ForumEventCard(
     event: ForumEventResponse,
+    community: CommunityResponse?,
     onClick: () -> Unit,
     onOpenUserProfile: (String) -> Unit = {}
 ) {
@@ -774,6 +800,22 @@ private fun ForumEventCard(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
+
+            if (community != null) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    CommunityAvatar(name = community.name, avatarUrl = community.avatarUrl, size = 18.dp)
+                    Text(
+                        text = community.name,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
 
             // Meta row: location + remote + attendees + comments
             Row(
@@ -888,6 +930,11 @@ fun ForumEventDetailContent(
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
     var showAttendeeNames by remember { mutableStateOf(false) }
+    val communityById by viewModel.communityById.collectAsState()
+
+    LaunchedEffect(eventDetailState.event?.communityId) {
+        viewModel.ensureCommunity(eventDetailState.event?.communityId)
+    }
 
     Scaffold(
         topBar = {
@@ -989,6 +1036,16 @@ fun ForumEventDetailContent(
                                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
+                                    val community = event.communityId?.let { id -> communityById[id] }
+                                    if (community != null) {
+                                        AssistChip(
+                                            onClick = {},
+                                            label = { Text(community.name, style = MaterialTheme.typography.labelSmall) },
+                                            leadingIcon = {
+                                                CommunityAvatar(name = community.name, avatarUrl = community.avatarUrl, size = 16.dp)
+                                            }
+                                        )
+                                    }
                                     AssistChip(
                                         onClick = {},
                                         label = { Text(formatApplicationDate(event.eventAt), style = MaterialTheme.typography.labelSmall) },
@@ -1366,6 +1423,11 @@ private fun ForumDiscussionDetailContent(
     val detailState by viewModel.detailState.collectAsState()
     val newCommentText by viewModel.newCommentText.collectAsState()
     val focusManager = LocalFocusManager.current
+    val communityById by viewModel.communityById.collectAsState()
+
+    LaunchedEffect(detailState.discussion?.communityId) {
+        viewModel.ensureCommunity(detailState.discussion?.communityId)
+    }
 
     Scaffold(
         topBar = {
@@ -1453,6 +1515,20 @@ private fun ForumDiscussionDetailContent(
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
+                                    val community = discussion.communityId?.let { id -> communityById[id] }
+                                    if (community != null) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            CommunityAvatar(name = community.name, avatarUrl = community.avatarUrl, size = 20.dp)
+                                            Text(
+                                                text = community.name,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
                                     if (!discussion.tags.isNullOrEmpty()) {
                                         TagChipsRow(tags = discussion.tags)
                                     }
