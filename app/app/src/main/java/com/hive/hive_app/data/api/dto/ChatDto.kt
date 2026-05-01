@@ -31,10 +31,14 @@ data class ChatRoomResponse(
 @JsonClass(generateAdapter = true)
 data class ChatParticipant(
     val _id: String? = null,
+    @Json(name = "id") val id: String? = null,
     val username: String? = null,
     @Json(name = "full_name") val fullName: String? = null,
     @Json(name = "profile_picture") val profilePicture: String? = null
-)
+) {
+    val userId: String?
+        get() = _id ?: id
+}
 
 /** Minimal transaction info for chat room (to check if exchange is completed). */
 @JsonClass(generateAdapter = true)

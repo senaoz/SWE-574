@@ -35,7 +35,9 @@ data class CommunityCreate(
     val name: String,
     val description: String,
     val rules: List<String> = emptyList(),
-    val tags: List<TagDto>? = null
+    val tags: List<TagDto>? = null,
+    @Json(name = "cover_image_url") val coverImageUrl: String? = null,
+    @Json(name = "avatar_url") val avatarUrl: String? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -75,4 +77,21 @@ data class CommunityPostCreate(
 data class UpvoteResponse(
     @Json(name = "upvote_count") val upvoteCount: Int,
     @Json(name = "user_upvoted") val userUpvoted: Boolean
+)
+
+@JsonClass(generateAdapter = true)
+data class CommunityMemberResponse(
+    @Json(name = "_id") val id: String,
+    @Json(name = "community_id") val communityId: String,
+    @Json(name = "user_id") val userId: String,
+    val role: String? = null,
+    val status: String? = null,
+    @Json(name = "joined_at") val joinedAt: String? = null,
+    val user: ForumUserEmbed? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class CommunityMemberListResponse(
+    val members: List<CommunityMemberResponse> = emptyList(),
+    val total: Int = 0
 )

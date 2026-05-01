@@ -74,7 +74,9 @@ export function Forum() {
   const [communities, setCommunities] = useState<Community[]>([]);
   const [communitiesTotal, setCommunitiesTotal] = useState(0);
   const [communitiesLoading, setCommunitiesLoading] = useState(true);
-  const [communitySort, setCommunitySort] = useState<"member_count" | "created_at" | "post_count">("member_count");
+  const [communitySort, setCommunitySort] = useState<
+    "member_count" | "created_at" | "post_count"
+  >("member_count");
   const [communityMyOnly, setCommunityMyOnly] = useState(false);
   const { currentUserId } = useUser();
   useEffect(() => {
@@ -159,14 +161,18 @@ export function Forum() {
         setEventsTotal(r.data.total);
       });
     communityApi
-      .getCommunities({ q: searchQ || undefined, tag: tagFilter || undefined, sort_by: communitySort })
+      .getCommunities({
+        q: searchQ || undefined,
+        tag: tagFilter || undefined,
+        sort_by: communitySort,
+      })
       .then((r) => {
         setCommunities(r.data.communities);
         setCommunitiesTotal(r.data.total);
       });
   };
   return (
-        <div>
+    <div>
       <Flex justify="between" align="center" className="mb-6">
         <div>
           <Heading size="7">Community Forum</Heading>
@@ -208,7 +214,8 @@ export function Forum() {
             )
           </Tabs.Trigger>
           <Tabs.Trigger value="communities">
-            <UsersIcon className="mr-1 w-4 h-4" /> Communities ({communitiesTotal})
+            <UsersIcon className="mr-1 w-4 h-4" /> Communities (
+            {communitiesTotal})
           </Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="discussions" className="pt-4">
@@ -312,6 +319,27 @@ export function Forum() {
                             stopPropagation
                           />
                         ))}
+                        {d.community_id &&
+                          communities.find((c) => c._id === d.community_id) && (
+                            <Badge
+                              color="violet"
+                              variant="soft"
+                              size="1"
+                              style={{ cursor: "pointer" }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(
+                                  `/forum/communities/${d.community_id}`,
+                                );
+                              }}
+                            >
+                              {
+                                communities.find(
+                                  (c) => c._id === d.community_id,
+                                )?.name
+                              }
+                            </Badge>
+                          )}
                       </Flex>
                     </div>
                   </Flex>
@@ -459,6 +487,24 @@ export function Forum() {
                         stopPropagation
                       />
                     ))}
+                    {ev.community_id &&
+                      communities.find((c) => c._id === ev.community_id) && (
+                        <Badge
+                          color="violet"
+                          variant="soft"
+                          size="1"
+                          style={{ cursor: "pointer" }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/forum/communities/${ev.community_id}`);
+                          }}
+                        >
+                          {
+                            communities.find((c) => c._id === ev.community_id)
+                              ?.name
+                          }
+                        </Badge>
+                      )}
                   </Flex>
                 </Card>
               ))}
@@ -468,18 +514,37 @@ export function Forum() {
         <Tabs.Content value="communities" className="pt-4">
           <Flex justify="between" align="center" className="mb-4">
             <Flex gap="2" align="center" wrap="wrap">
-              <Text size="2" color="gray">Sort:</Text>
-              <Button size="1" variant={communitySort === "member_count" ? "solid" : "soft"} onClick={() => setCommunitySort("member_count")}>
+              <Text size="2" color="gray">
+                Sort:
+              </Text>
+              <Button
+                size="1"
+                variant={communitySort === "member_count" ? "solid" : "soft"}
+                onClick={() => setCommunitySort("member_count")}
+              >
                 <UsersIcon className="w-3 h-3" /> Members
               </Button>
-              <Button size="1" variant={communitySort === "post_count" ? "solid" : "soft"} onClick={() => setCommunitySort("post_count")}>
+              <Button
+                size="1"
+                variant={communitySort === "post_count" ? "solid" : "soft"}
+                onClick={() => setCommunitySort("post_count")}
+              >
                 Posts
               </Button>
-              <Button size="1" variant={communitySort === "created_at" ? "solid" : "soft"} onClick={() => setCommunitySort("created_at")}>
+              <Button
+                size="1"
+                variant={communitySort === "created_at" ? "solid" : "soft"}
+                onClick={() => setCommunitySort("created_at")}
+              >
                 Latest
               </Button>
               {currentUserId && (
-                <Button size="1" variant={communityMyOnly ? "solid" : "soft"} color="violet" onClick={() => setCommunityMyOnly(!communityMyOnly)}>
+                <Button
+                  size="1"
+                  variant={communityMyOnly ? "solid" : "soft"}
+                  color="violet"
+                  onClick={() => setCommunityMyOnly(!communityMyOnly)}
+                >
                   My Communities
                 </Button>
               )}
@@ -491,9 +556,15 @@ export function Forum() {
             )}
           </Flex>
           {communitiesLoading ? (
-            <Card className="p-8 text-center"><Text color="gray">Loading...</Text></Card>
+            <Card className="p-8 text-center">
+              <Text color="gray">Loading...</Text>
+            </Card>
           ) : communities.length === 0 ? (
-            <Card className="p-8 text-center"><Text color="gray">No communities yet. Create the first one!</Text></Card>
+            <Card className="p-8 text-center">
+              <Text color="gray">
+                No communities yet. Create the first one!
+              </Text>
+            </Card>
           ) : (
             <div className="grid gap-4">
               {communities.map((c) => (
@@ -513,28 +584,55 @@ export function Forum() {
                     <div className="flex-1 min-w-0">
                       <Flex justify="between" align="start" wrap="wrap" gap="2">
                         <div>
-                          <Text size="3" weight="bold">{c.name}</Text>
+                          <Text size="3" weight="bold">
+                            {c.name}
+                          </Text>
                           {c.user_membership && (
-                            <Badge size="1" variant="soft" color="violet" className="ml-2">
-                              {c.user_membership === "founder" ? "Founder" : c.user_membership === "moderator" ? "Mod" : "Member"}
+                            <Badge
+                              size="1"
+                              variant="soft"
+                              color="violet"
+                              className="ml-2"
+                            >
+                              {c.user_membership === "founder"
+                                ? "Founder"
+                                : c.user_membership === "moderator"
+                                  ? "Mod"
+                                  : "Member"}
                             </Badge>
                           )}
                         </div>
                         <Flex gap="2" align="center">
                           <Badge size="1" variant="soft" color="gray">
-                            <UsersIcon className="w-3 h-3 mr-1" />{c.member_count} members
+                            <UsersIcon className="w-3 h-3 mr-1" />
+                            {c.member_count} members
                           </Badge>
                           <Badge size="1" variant="soft" color="gray">
-                            <MessageCircleIcon className="w-3 h-3 mr-1" />{c.post_count} posts
+                            <MessageCircleIcon className="w-3 h-3 mr-1" />
+                            {c.post_count} posts
                           </Badge>
                         </Flex>
                       </Flex>
-                      <Text size="2" color="gray" className="mt-1 line-clamp-2">{c.description}</Text>
+                      <Text size="2" color="gray" className="mt-1 line-clamp-2">
+                        {c.description}
+                      </Text>
                       <Flex gap="2" align="center" className="mt-2" wrap="wrap">
-                        <Text size="1" color="gray">by {c.founder?.full_name || c.founder?.username || "Unknown"}</Text>
-                        <Text size="1" color="gray">· {timeAgo(c.created_at)}</Text>
+                        <Text size="1" color="gray">
+                          by{" "}
+                          {c.founder?.full_name ||
+                            c.founder?.username ||
+                            "Unknown"}
+                        </Text>
+                        <Text size="1" color="gray">
+                          · {timeAgo(c.created_at)}
+                        </Text>
                         {(c.tags || []).slice(0, 3).map((tag, i) => (
-                          <ClickableTag key={i} tag={tag} size="1" stopPropagation />
+                          <ClickableTag
+                            key={i}
+                            tag={tag}
+                            size="1"
+                            stopPropagation
+                          />
                         ))}
                       </Flex>
                     </div>
@@ -549,16 +647,20 @@ export function Forum() {
         open={showNewDiscussion}
         onOpenChange={setShowNewDiscussion}
         onCreated={refresh}
+        communities={communities}
       />
       <NewEventDialog
         open={showNewEvent}
         onOpenChange={setShowNewEvent}
         onCreated={refresh}
+        communities={communities}
       />
       <NewCommunityDialog
         open={showNewCommunity}
         onOpenChange={setShowNewCommunity}
-        onCreated={(c) => { navigate(`/forum/communities/${c._id}`); }}
+        onCreated={(c) => {
+          navigate(`/forum/communities/${c._id}`);
+        }}
       />
     </div>
   );
@@ -567,21 +669,31 @@ function NewDiscussionDialog({
   open,
   onOpenChange,
   onCreated,
+  communities,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   onCreated: () => void;
+  communities: Community[];
 }) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [tags, setTags] = useState<TagEntity[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [discussionCommunityId, setDiscussionCommunityId] =
+    useState<string>("");
+  const [discussionImageUrls, setDiscussionImageUrls] = useState<string[]>([]);
+  const [discussionImageUploading, setDiscussionImageUploading] =
+    useState(false);
   const reset = () => {
     setTitle("");
     setBody("");
     setTags([]);
     setError("");
+    setDiscussionCommunityId("");
+    setDiscussionImageUrls([]);
+    setDiscussionImageUploading(false);
   };
   const handleSubmit = async () => {
     if (!title.trim() || !body.trim()) {
@@ -590,7 +702,14 @@ function NewDiscussionDialog({
     }
     setSubmitting(true);
     try {
-      await forumApi.createDiscussion({ title, body, tags });
+      await forumApi.createDiscussion({
+        title,
+        body,
+        tags,
+        community_id: discussionCommunityId || undefined,
+        image_urls:
+          discussionImageUrls.length > 0 ? discussionImageUrls : undefined,
+      });
       reset();
       onOpenChange(false);
       onCreated();
@@ -608,7 +727,7 @@ function NewDiscussionDialog({
         if (!o) reset();
       }}
     >
-      <Dialog.Content className="max-w-2xl" aria-describedby={undefined}>
+      <Dialog.Content className="max-w-4xl" aria-describedby={undefined}>
         <Dialog.Title>New Discussion</Dialog.Title>
         <Form.Root
           onSubmit={(e) => {
@@ -648,6 +767,86 @@ function NewDiscussionDialog({
               }
             />
           </Form.Field>
+          <Box className="space-y-2">
+            <Text size="2" weight="medium" className="block">
+              Discussion image (optional)
+            </Text>
+            {discussionImageUrls.length === 0 && (
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  disabled={discussionImageUploading}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setDiscussionImageUploading(true);
+                    try {
+                      const res = await uploadApi.uploadDiscussionImage(file);
+                      setDiscussionImageUrls([res.data.url]);
+                    } catch {
+                      // ignore upload errors
+                    } finally {
+                      setDiscussionImageUploading(false);
+                    }
+                  }}
+                />
+                <span className="flex items-center justify-center gap-2 border rounded-lg p-2 hover-card text-center cursor-pointer font-medium text-sm w-full">
+                  <PlusIcon className="w-4 h-4" />
+                  {discussionImageUploading ? "Uploading..." : "Add image"}
+                </span>
+              </label>
+            )}
+            {discussionImageUrls.length > 0 && (
+              <Flex gap="2" wrap="wrap" className="border rounded-lg p-2">
+                <Box className="relative">
+                  <img
+                    src={
+                      getImageUrl(discussionImageUrls[0]) ??
+                      discussionImageUrls[0]
+                    }
+                    alt="Preview"
+                    className="w-20 h-20 object-cover rounded"
+                  />
+                  <button
+                    type="button"
+                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs"
+                    onClick={() => setDiscussionImageUrls([])}
+                  >
+                    x
+                  </button>
+                </Box>
+              </Flex>
+            )}
+          </Box>
+          {communities.length > 0 && (
+            <Form.Field name="discussion-community" className="space-y-1">
+              <Form.Label className="text-sm font-medium">
+                Related Community (optional)
+              </Form.Label>
+              <Box mt="1">
+                <select
+                  value={discussionCommunityId}
+                  onChange={(e) => setDiscussionCommunityId(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "6px 8px",
+                    borderRadius: 6,
+                    border: "1px solid var(--gray-6)",
+                    fontSize: 13,
+                  }}
+                >
+                  <option value="">None</option>
+                  {communities.map((c) => (
+                    <option key={c._id} value={c._id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </Box>
+            </Form.Field>
+          )}
           {error && (
             <Text size="2" color="red">
               {error}
@@ -663,7 +862,10 @@ function NewDiscussionDialog({
               Cancel
             </Button>
             <Form.Submit asChild>
-              <Button type="submit" disabled={submitting}>
+              <Button
+                type="submit"
+                disabled={submitting || discussionImageUploading}
+              >
                 {submitting ? "Creating..." : "Create Discussion"}
               </Button>
             </Form.Submit>
@@ -677,10 +879,12 @@ function NewEventDialog({
   open,
   onOpenChange,
   onCreated,
+  communities,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   onCreated: () => void;
+  communities: Community[];
 }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -703,6 +907,7 @@ function NewEventDialog({
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const [imageUploading, setImageUploading] = useState(false);
+  const [eventCommunityId, setEventCommunityId] = useState<string>("");
   const reset = () => {
     setTitle("");
     setDescription("");
@@ -716,6 +921,7 @@ function NewEventDialog({
     imagePreviewUrls.forEach((url) => URL.revokeObjectURL(url));
     setImageFiles([]);
     setImagePreviewUrls([]);
+    setEventCommunityId("");
   };
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -730,7 +936,7 @@ function NewEventDialog({
     setImagePreviewUrls((prev) => [...prev, URL.createObjectURL(file)]);
     e.target.value = "";
   };
-const handleSubmit = async () => {
+  const handleSubmit = async () => {
     if (!title.trim() || !description.trim() || !eventDate || !eventTime) {
       setError("Title, description, date, and time are required");
       return;
@@ -776,6 +982,7 @@ const handleSubmit = async () => {
         service_id:
           serviceId && serviceId !== "__none__" ? serviceId : undefined,
         image_urls: uploadedUrls,
+        community_id: eventCommunityId || undefined,
       });
       reset();
       onOpenChange(false);
@@ -794,7 +1001,7 @@ const handleSubmit = async () => {
         if (!o) reset();
       }}
     >
-      <Dialog.Content className="max-w-2xl" aria-describedby={undefined}>
+      <Dialog.Content className="max-w-4xl" aria-describedby={undefined}>
         <Dialog.Title>New Event</Dialog.Title>
         <Form.Root
           onSubmit={(e) => {
@@ -920,7 +1127,9 @@ const handleSubmit = async () => {
                       onClick={() => {
                         URL.revokeObjectURL(url);
                         setImageFiles((prev) => prev.filter((_, j) => j !== i));
-                        setImagePreviewUrls((prev) => prev.filter((_, j) => j !== i));
+                        setImagePreviewUrls((prev) =>
+                          prev.filter((_, j) => j !== i),
+                        );
                       }}
                     >
                       x
@@ -930,6 +1139,33 @@ const handleSubmit = async () => {
               </Flex>
             )}
           </Box>
+          {communities.length > 0 && (
+            <Form.Field name="event-community" className="space-y-1">
+              <Form.Label className="text-sm font-medium">
+                Related Community (optional)
+              </Form.Label>
+              <Box mt="1">
+                <select
+                  value={eventCommunityId}
+                  onChange={(e) => setEventCommunityId(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "6px 8px",
+                    borderRadius: 6,
+                    border: "1px solid var(--gray-6)",
+                    fontSize: 13,
+                  }}
+                >
+                  <option value="">None</option>
+                  {communities.map((c) => (
+                    <option key={c._id} value={c._id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </Box>
+            </Form.Field>
+          )}
           {error && (
             <Text size="2" color="red">
               {error}
@@ -949,8 +1185,8 @@ const handleSubmit = async () => {
                 {imageUploading
                   ? "Uploading..."
                   : submitting
-                  ? "Creating..."
-                  : "Create Event"}
+                    ? "Creating..."
+                    : "Create Event"}
               </Button>
             </Form.Submit>
           </Flex>
@@ -1000,7 +1236,12 @@ function NewCommunityDialog({
     }
     setSubmitting(true);
     try {
-      const res = await communityApi.createCommunity({ name, description, rules, tags });
+      const res = await communityApi.createCommunity({
+        name,
+        description,
+        rules,
+        tags,
+      });
       reset();
       onOpenChange(false);
       onCreated(res.data);
@@ -1019,7 +1260,7 @@ function NewCommunityDialog({
         if (!o) reset();
       }}
     >
-      <Dialog.Content className="max-w-2xl" aria-describedby={undefined}>
+      <Dialog.Content className="max-w-4xl" aria-describedby={undefined}>
         <Dialog.Title>Create New Community</Dialog.Title>
         <Form.Root
           onSubmit={(e) => {
@@ -1029,7 +1270,9 @@ function NewCommunityDialog({
           className="space-y-4 mt-4"
         >
           <Form.Field name="name" className="space-y-2">
-            <Form.Label className="text-sm font-medium">Community Name *</Form.Label>
+            <Form.Label className="text-sm font-medium">
+              Community Name *
+            </Form.Label>
             <Form.Control asChild>
               <TextField.Root
                 placeholder="e.g. Sustainable Living"
@@ -1039,7 +1282,9 @@ function NewCommunityDialog({
             </Form.Control>
           </Form.Field>
           <Form.Field name="description" className="space-y-2">
-            <Form.Label className="text-sm font-medium">Description *</Form.Label>
+            <Form.Label className="text-sm font-medium">
+              Description *
+            </Form.Label>
             <MarkdownEditor
               placeholder="What is this community about?"
               value={description}
@@ -1052,7 +1297,9 @@ function NewCommunityDialog({
             <TagAutocomplete
               tags={tags}
               onTagAdd={(t) => setTags([...tags, t])}
-              onTagRemove={(t) => setTags(tags.filter((x) => x.label !== t.label))}
+              onTagRemove={(t) =>
+                setTags(tags.filter((x) => x.label !== t.label))
+              }
             />
           </Form.Field>
           <div className="space-y-2">
@@ -1089,7 +1336,12 @@ function NewCommunityDialog({
                   }}
                   className="flex-1"
                 />
-                <Button type="button" size="2" variant="soft" onClick={handleAddRule}>
+                <Button
+                  type="button"
+                  size="2"
+                  variant="soft"
+                  onClick={handleAddRule}
+                >
                   Add
                 </Button>
               </Flex>

@@ -4,11 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hive.hive_app.data.api.dto.ChatRoomResponse
 import com.hive.hive_app.data.api.dto.MessageResponse
+import com.hive.hive_app.data.api.dto.ServiceResponse
 import com.hive.hive_app.data.api.dto.TransactionResponse
 import com.hive.hive_app.data.api.dto.UserResponse
 import com.hive.hive_app.data.repository.AuthRepository
 import com.hive.hive_app.data.repository.ChatRepository
 import com.hive.hive_app.data.repository.RatingsRepository
+import com.hive.hive_app.data.repository.ServicesRepository
 import com.hive.hive_app.data.repository.TransactionsRepository
 import com.hive.hive_app.data.repository.UsersRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,7 +26,8 @@ class ChatRoomViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val usersRepository: UsersRepository,
     private val transactionsRepository: TransactionsRepository,
-    private val ratingsRepository: RatingsRepository
+    private val ratingsRepository: RatingsRepository,
+    private val servicesRepository: ServicesRepository
 ) : ViewModel() {
 
     data class ChatRoomState(
@@ -34,6 +37,7 @@ class ChatRoomViewModel @Inject constructor(
         val currentUserId: String? = null,
         val otherUser: UserResponse? = null,
         val transaction: TransactionResponse? = null,
+        val transactionService: ServiceResponse? = null,
         val alreadyRatedTransaction: Boolean = false
     )
 
@@ -80,21 +84,32 @@ class ChatRoomViewModel @Inject constructor(
 
     fun loadMessages(roomId: String, room: ChatRoomResponse) {
         viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null, otherUser = null, transaction = null, alreadyRatedTransaction = false)
+            _state.value = _state.value.copy(
+                isLoading = true,
+                error = null,
+                otherUser = null,
+                transaction = null,
+                transactionService = null,
+                alreadyRatedTransaction = false
+            )
             val userResult = authRepository.getCurrentUser()
             val userId = userResult.getOrNull()?._id
             chatRepository.getMessages(roomId, page = 1, limit = 100).fold(
                 onSuccess = { response ->
-                    val otherId = room.participants?.firstOrNull { it._id != userId }?._id
+                    val otherId = room.participants?.firstOrNull { it.userId != userId }?.userId
                     var otherUser: UserResponse? = null
                     if (otherId != null) {
                         usersRepository.getUser(otherId).onSuccess { otherUser = it }
                     }
                     var transaction: TransactionResponse? = null
+                    var transactionService: ServiceResponse? = null
                     var alreadyRated = false
                     val txId = room.transactionId ?: room.transaction?._id
                     if (txId != null) {
                         transactionsRepository.getTransaction(txId).getOrNull()?.let { transaction = it }
+                        transaction?.serviceId?.let { serviceId ->
+                            servicesRepository.getService(serviceId).getOrNull()?.let { transactionService = it }
+                        }
                         ratingsRepository.getTransactionRatings(txId).getOrNull()?.let { ratings ->
                             alreadyRated = ratings.any { it.raterId == userId }
                         }
@@ -106,11 +121,12 @@ class ChatRoomViewModel @Inject constructor(
                         currentUserId = userId,
                         otherUser = otherUser,
                         transaction = transaction,
+                        transactionService = transactionService,
                         alreadyRatedTransaction = alreadyRated
                     )
                 },
                 onFailure = {
-                    val otherId = room.participants?.firstOrNull { it._id != userId }?._id
+                    val otherId = room.participants?.firstOrNull { it.userId != userId }?.userId
                     var otherUser: UserResponse? = null
                     if (otherId != null) {
                         usersRepository.getUser(otherId).onSuccess { otherUser = it }

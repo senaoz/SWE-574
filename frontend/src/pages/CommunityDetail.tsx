@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Card, Text, Flex, Avatar, Button, Heading,
-  Badge, Dialog, TextField,
+  Badge, Dialog, TextField, Box,
 } from "@radix-ui/themes";
 import { Form } from "radix-ui";
 import {
@@ -12,7 +12,7 @@ import {
 import { MessageCircleIcon, UsersIcon, PinIcon } from "lucide-react";
 import { communityApi, getImageUrl } from "@/services/api";
 import { useUser } from "@/App";
-import { Community, CommunityPost, TagEntity } from "@/types";
+import { Community, CommunityPost, TagEntity, ForumEvent, ForumDiscussion } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import { UpvoteButton } from "@/components/ui/UpvoteButton";
 import { MarkdownEditor } from "@/components/forms/MarkdownEditor";
@@ -49,6 +49,8 @@ export function CommunityDetail() {
   const [showEditCommunity, setShowEditCommunity] = useState(false);
   const [showDeleteCommunity, setShowDeleteCommunity] = useState(false);
   const [membershipLoading, setMembershipLoading] = useState(false);
+  const [communityEvents, setCommunityEvents] = useState<ForumEvent[]>([]);
+  const [communityDiscussions, setCommunityDiscussions] = useState<ForumDiscussion[]>([]);
 
   const isMember = !!community?.user_membership;
   const isMod = community?.user_membership === "founder" || community?.user_membership === "moderator";
@@ -57,6 +59,8 @@ export function CommunityDetail() {
   useEffect(() => {
     if (!id) return;
     loadCommunity();
+    communityApi.getEventsByCommunity(id).then(r => setCommunityEvents(r.data.events)).catch(() => {});
+    communityApi.getDiscussionsByCommunity(id).then(r => setCommunityDiscussions(r.data.discussions)).catch(() => {});
   }, [id]);
 
   useEffect(() => {
@@ -300,6 +304,44 @@ export function CommunityDetail() {
             </Card>
           ))}
         </div>
+      )}
+
+      {/* Related Events */}
+      {communityEvents.length > 0 && (
+        <Box mt="5">
+          <Heading size="3" mb="3">Related Events</Heading>
+          <Flex direction="column" gap="2">
+            {communityEvents.map(ev => (
+              <Card key={ev._id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/forum/events/${ev._id}`)}>
+                <Flex justify="between" align="start">
+                  <Box>
+                    <Text weight="bold" size="2">{ev.title}</Text>
+                    <Text size="1" color="gray" ml="2">{new Date(ev.event_at).toLocaleDateString('en-GB')}</Text>
+                  </Box>
+                  <Badge color="blue" variant="soft" size="1">{ev.attendee_count} attending</Badge>
+                </Flex>
+              </Card>
+            ))}
+          </Flex>
+        </Box>
+      )}
+
+      {/* Related Discussions */}
+      {communityDiscussions.length > 0 && (
+        <Box mt="5">
+          <Heading size="3" mb="3">Related Discussions</Heading>
+          <Flex direction="column" gap="2">
+            {communityDiscussions.map(d => (
+              <Card key={d._id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/forum/discussions/${d._id}`)}>
+                <Text weight="bold" size="2">{d.title}</Text>
+                <Flex gap="2" mt="1">
+                  <Text size="1" color="gray">{d.comment_count} comments</Text>
+                  <Text size="1" color="gray">{d.upvote_count} upvotes</Text>
+                </Flex>
+              </Card>
+            ))}
+          </Flex>
+        </Box>
       )}
 
       {/* Dialogs */}

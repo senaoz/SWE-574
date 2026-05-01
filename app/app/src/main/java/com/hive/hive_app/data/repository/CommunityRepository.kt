@@ -7,6 +7,7 @@ import com.hive.hive_app.data.api.dto.CommunityPostCreate
 import com.hive.hive_app.data.api.dto.CommunityPostListResponse
 import com.hive.hive_app.data.api.dto.CommunityPostResponse
 import com.hive.hive_app.data.api.dto.CommunityResponse
+import com.hive.hive_app.data.api.dto.ForumUserEmbed
 import com.hive.hive_app.data.api.dto.UpvoteResponse
 import retrofit2.HttpException
 import javax.inject.Inject
@@ -68,5 +69,12 @@ class CommunityRepository @Inject constructor(
     suspend fun upvotePost(communityId: String, postId: String): Result<UpvoteResponse> = runCatching {
         val resp = communityApi.upvotePost(communityId, postId)
         if (resp.isSuccessful) resp.body()!! else throw HttpException(resp)
+    }
+
+    suspend fun getCommunityMembers(communityId: String): Result<List<ForumUserEmbed>> = runCatching {
+        val resp = communityApi.getCommunityMembers(communityId)
+        if (!resp.isSuccessful) throw HttpException(resp)
+        val body = resp.body()
+        body?.members?.mapNotNull { it.user } ?: emptyList()
     }
 }
