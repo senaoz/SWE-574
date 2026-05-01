@@ -3,12 +3,14 @@ package com.hive.hive_app.ui.main
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hive.hive_app.data.api.dto.BadgesResponse
+import com.hive.hive_app.data.api.dto.CommunityResponse
 import com.hive.hive_app.data.api.dto.RatingListResponse
 import com.hive.hive_app.data.api.dto.RatingResponse
 import com.hive.hive_app.data.api.dto.TimeBankResponse
 import com.hive.hive_app.data.api.dto.UserResponse
 import com.hive.hive_app.data.api.dto.UserSettingsUpdate
 import com.hive.hive_app.data.api.dto.UserUpdate
+import com.hive.hive_app.data.repository.CommunityRepository
 import com.hive.hive_app.data.repository.RatingsRepository
 import com.hive.hive_app.data.repository.UsersRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,7 +23,8 @@ import javax.inject.Inject
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val usersRepository: UsersRepository,
-    private val ratingsRepository: RatingsRepository
+    private val ratingsRepository: RatingsRepository,
+    private val communityRepository: CommunityRepository
 ) : ViewModel() {
 
     private val _profile = MutableStateFlow<UserResponse?>(null)
@@ -42,6 +45,9 @@ class ProfileViewModel @Inject constructor(
 
     private val _availableInterests = MutableStateFlow<List<String>>(emptyList())
     val availableInterests: StateFlow<List<String>> = _availableInterests.asStateFlow()
+
+    private val _communities = MutableStateFlow<List<CommunityResponse>>(emptyList())
+    val communities: StateFlow<List<CommunityResponse>> = _communities.asStateFlow()
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -64,6 +70,9 @@ class ProfileViewModel @Inject constructor(
             usersRepository.getTimeBank().onSuccess { _timeBank.value = it }.onFailure { }
             usersRepository.getMyBadges().onSuccess { _badges.value = it }.onFailure { }
             usersRepository.getAvailableInterests().onSuccess { _availableInterests.value = it }.onFailure { }
+            communityRepository.listCommunities(page = 1, limit = 50, myOnly = true)
+                .onSuccess { _communities.value = it.communities }
+                .onFailure { _communities.value = emptyList() }
             _isLoading.value = false
         }
     }

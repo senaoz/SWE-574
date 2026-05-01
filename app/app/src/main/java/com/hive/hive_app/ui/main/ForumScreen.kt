@@ -115,6 +115,8 @@ import androidx.compose.foundation.layout.FlowRow
 fun ForumScreen(
     modifier: Modifier = Modifier,
     onOpenUserProfile: (String) -> Unit = {},
+    initialCommunityId: String? = null,
+    onInitialCommunityConsumed: () -> Unit = {},
     viewModel: ForumViewModel = hiltViewModel()
 ) {
     var selectedDiscussionId by remember { mutableStateOf<String?>(null) }
@@ -124,6 +126,14 @@ fun ForumScreen(
     var showCreateEvent by remember { mutableStateOf(false) }
     var showCreateCommunity by remember { mutableStateOf(false) }
     val selectedTab by viewModel.selectedTab.collectAsState()
+
+    LaunchedEffect(initialCommunityId) {
+        if (!initialCommunityId.isNullOrBlank()) {
+            viewModel.setSelectedTab(ForumTab.COMMUNITIES)
+            selectedCommunityId = initialCommunityId
+            onInitialCommunityConsumed()
+        }
+    }
 
     if (showCreateEvent) {
         ForumCreateEventContent(

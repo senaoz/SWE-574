@@ -60,6 +60,7 @@ fun MainScaffold(
     var currentDestination by rememberSaveable { mutableStateOf(MainDestinations.MAP) }
     var mapReselectNonce by rememberSaveable { mutableStateOf(0) }
     var openChatRoomId by remember { mutableStateOf<String?>(null) }
+    var openForumCommunityId by remember { mutableStateOf<String?>(null) }
     var openCreateGroupSheet by remember { mutableStateOf(false) }
     var overlayStack by remember { mutableStateOf<List<OverlayRoute>>(emptyList()) }
     var showSavedServices by remember { mutableStateOf(false) }
@@ -329,7 +330,9 @@ fun MainScaffold(
                 )
                 MainDestinations.COMMON -> ForumScreen(
                     modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = navBarTotalHeight),
-                    onOpenUserProfile = onOpenUserProfile
+                    onOpenUserProfile = onOpenUserProfile,
+                    initialCommunityId = openForumCommunityId,
+                    onInitialCommunityConsumed = { openForumCommunityId = null }
                 )
                 MainDestinations.PROFILE -> ProfileScreen(
                     onLogout = onLogout,
@@ -338,7 +341,11 @@ fun MainScaffold(
                     onOpenNotifications = { showNotifications = true },
                     onOpenActive = { showActiveItems = true },
                     onOpenRatings = onOpenRatings,
-                    onOpenEditProfile = { showEditProfile = true }
+                    onOpenEditProfile = { showEditProfile = true },
+                    onOpenCommunity = { communityId ->
+                        openForumCommunityId = communityId
+                        currentDestination = MainDestinations.COMMON
+                    }
                 )
             }
         }
