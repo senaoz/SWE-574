@@ -35,7 +35,9 @@ data class CommunityCreate(
     val name: String,
     val description: String,
     val rules: List<String> = emptyList(),
-    val tags: List<TagDto>? = null
+    val tags: List<TagDto>? = null,
+    @Json(name = "cover_image_url") val coverImageUrl: String? = null,
+    @Json(name = "avatar_url") val avatarUrl: String? = null
 )
 
 @JsonClass(generateAdapter = true)

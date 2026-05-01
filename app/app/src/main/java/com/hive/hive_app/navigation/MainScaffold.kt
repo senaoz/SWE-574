@@ -60,12 +60,16 @@ fun MainScaffold(
     var currentDestination by rememberSaveable { mutableStateOf(MainDestinations.MAP) }
     var mapReselectNonce by rememberSaveable { mutableStateOf(0) }
     var openChatRoomId by remember { mutableStateOf<String?>(null) }
+    var openForumCommunityId by remember { mutableStateOf<String?>(null) }
     var openCreateGroupSheet by remember { mutableStateOf(false) }
     var overlayStack by remember { mutableStateOf<List<OverlayRoute>>(emptyList()) }
     var showSavedServices by remember { mutableStateOf(false) }
     var showNotifications by remember { mutableStateOf(false) }
     var showEditProfile by remember { mutableStateOf(false) }
     var showCreateService by remember { mutableStateOf(false) }
+    var showCreateDiscussion by remember { mutableStateOf(false) }
+    var showCreateEvent by remember { mutableStateOf(false) }
+    var showCreateCommunity by remember { mutableStateOf(false) }
     var showCommonSheet by remember { mutableStateOf(false) }
     var showActiveItems by remember { mutableStateOf(false) }
 
@@ -85,7 +89,8 @@ fun MainScaffold(
 
     BackHandler(
         enabled = overlayStack.isNotEmpty() || showSavedServices || showNotifications ||
-                showEditProfile || showCreateService || showActiveItems || showCommonSheet ||
+                showEditProfile || showCreateService || showCreateDiscussion || showCreateEvent ||
+                showCreateCommunity || showActiveItems || showCommonSheet ||
                 currentDestination != MainDestinations.MAP
     ) {
         when {
@@ -97,6 +102,9 @@ fun MainScaffold(
             }
             showEditProfile -> showEditProfile = false
             showCreateService -> showCreateService = false
+            showCreateDiscussion -> showCreateDiscussion = false
+            showCreateEvent -> showCreateEvent = false
+            showCreateCommunity -> showCreateCommunity = false
             showCommonSheet -> showCommonSheet = false
             showActiveItems -> showActiveItems = false
             currentDestination != MainDestinations.MAP -> {
@@ -216,6 +224,18 @@ fun MainScaffold(
                 showCommonSheet = false
                 showCreateService = true
             },
+            onCreateDiscussion = {
+                showCommonSheet = false
+                showCreateDiscussion = true
+            },
+            onCreateEvent = {
+                showCommonSheet = false
+                showCreateEvent = true
+            },
+            onCreateCommunity = {
+                showCommonSheet = false
+                showCreateCommunity = true
+            },
             onCreateChat = {
                 showCommonSheet = false
                 currentDestination = MainDestinations.CHAT
@@ -233,6 +253,37 @@ fun MainScaffold(
             onRefreshLocation = { },
             onBack = { showCreateService = false },
             onCreated = { showCreateService = false }
+        )
+        return
+    }
+
+    if (showCreateDiscussion) {
+        CreateDiscussionScreen(
+            modifier = Modifier.fillMaxSize(),
+            onBack = { showCreateDiscussion = false },
+            onCreated = { showCreateDiscussion = false }
+        )
+        return
+    }
+
+    if (showCreateEvent) {
+        CreateEventScreen(
+            modifier = Modifier.fillMaxSize(),
+            userLat = null,
+            userLon = null,
+            locationPermissionGranted = false,
+            onRequestLocationPermission = { },
+            onBack = { showCreateEvent = false },
+            onCreated = { showCreateEvent = false }
+        )
+        return
+    }
+
+    if (showCreateCommunity) {
+        CreateCommunityScreen(
+            modifier = Modifier.fillMaxSize(),
+            onBack = { showCreateCommunity = false },
+            onCreated = { showCreateCommunity = false }
         )
         return
     }
@@ -279,7 +330,9 @@ fun MainScaffold(
                 )
                 MainDestinations.COMMON -> ForumScreen(
                     modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = navBarTotalHeight),
-                    onOpenUserProfile = onOpenUserProfile
+                    onOpenUserProfile = onOpenUserProfile,
+                    initialCommunityId = openForumCommunityId,
+                    onInitialCommunityConsumed = { openForumCommunityId = null }
                 )
                 MainDestinations.PROFILE -> ProfileScreen(
                     onLogout = onLogout,
@@ -288,7 +341,11 @@ fun MainScaffold(
                     onOpenNotifications = { showNotifications = true },
                     onOpenActive = { showActiveItems = true },
                     onOpenRatings = onOpenRatings,
-                    onOpenEditProfile = { showEditProfile = true }
+                    onOpenEditProfile = { showEditProfile = true },
+                    onOpenCommunity = { communityId ->
+                        openForumCommunityId = communityId
+                        currentDestination = MainDestinations.COMMON
+                    }
                 )
             }
         }
@@ -415,29 +472,15 @@ private fun BottomNavItem(
 fun CommonCreateSheet(
     onDismiss: () -> Unit,
     onCreateService: () -> Unit,
+    onCreateDiscussion: () -> Unit,
+    onCreateEvent: () -> Unit,
+    onCreateCommunity: () -> Unit,
     onCreateChat: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val forumViewModel: ForumViewModel = hiltViewModel()
 
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Service", "Common")
-
-    // Common sub-states
-    var commonStep by remember { mutableStateOf<String?>(null) } // null | "discussion" | "event" | "community"
-
-    // Discussion form state
-    var discussionTitle by remember { mutableStateOf("") }
-    var discussionBody by remember { mutableStateOf("") }
-    var discussionError by remember { mutableStateOf("") }
-
-    // Community form state  
-    var communityName by remember { mutableStateOf("") }
-    var communityDesc by remember { mutableStateOf("") }
-    var communityError by remember { mutableStateOf("") }
-
-    val createCommunityState by forumViewModel.createCommunityState.collectAsState()
-    val createDiscussionState by forumViewModel.createState.collectAsState()
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -455,10 +498,7 @@ fun CommonCreateSheet(
                 tabs.forEachIndexed { index, title ->
                     Tab(
                         selected = selectedTab == index,
-                        onClick = {
-                            selectedTab = index
-                            commonStep = null
-                        },
+                        onClick = { selectedTab = index },
                         text = { Text(title, fontWeight = FontWeight.Medium) }
                     )
                 }
@@ -497,123 +537,80 @@ fun CommonCreateSheet(
 
             // ── Common tab ──
             if (selectedTab == 1) {
-                when (commonStep) {
-                    null -> {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(24.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        "Create in Common",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onCreateDiscussion,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                "Create in Common",
-                                style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.padding(bottom = 4.dp)
-                            )
-                            Card(modifier = Modifier.fillMaxWidth(), onClick = { commonStep = "discussion" }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                                Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Filled.Forum, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                    Column {
-                                        Text("Discussion", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                                        Text("Start a conversation with the community", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                }
-                            }
-                            Card(modifier = Modifier.fillMaxWidth(), onClick = { commonStep = "event" }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                                Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Filled.CalendarToday, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                    Column {
-                                        Text("Event", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                                        Text("Organize a community gathering", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                }
-                            }
-                            Card(modifier = Modifier.fillMaxWidth(), onClick = { commonStep = "community" }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                                Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Filled.Group, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                    Column {
-                                        Text("Community", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                                        Text("Create a group around a shared interest", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                }
-                            }
-                            Card(modifier = Modifier.fillMaxWidth(), onClick = onCreateChat, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                                Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                    Column {
-                                        Text("Chat", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                                        Text("Start a new group chat", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                }
+                            Icon(Icons.Filled.Forum, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Column {
+                                Text("Discussion", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                Text("Start a tagged conversation with optional photos", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
-
-                    "discussion" -> {
-                        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            TextButton(onClick = { commonStep = null }) { Text("← Back") }
-                            Text("New Discussion", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            OutlinedTextField(value = discussionTitle, onValueChange = { discussionTitle = it }, label = { Text("Title *") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                            OutlinedTextField(value = discussionBody, onValueChange = { discussionBody = it }, label = { Text("Body *") }, modifier = Modifier.fillMaxWidth(), minLines = 4, maxLines = 8)
-                            if (discussionError.isNotBlank()) Text(discussionError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                            Button(
-                                onClick = {
-                                    if (discussionTitle.isBlank() || discussionBody.isBlank()) { discussionError = "Title and body are required"; return@Button }
-                                    forumViewModel.setCreateTitle(discussionTitle)
-                                    forumViewModel.setCreateBody(discussionBody)
-                                    forumViewModel.createDiscussion { onDismiss() }
-                                },
-                                enabled = !createDiscussionState.isSubmitting,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(if (createDiscussionState.isSubmitting) "Creating…" else "Create Discussion")
-                            }
-                            if (createDiscussionState.error != null) Text(createDiscussionState.error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-
-                    "event" -> {
-                        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextButton(onClick = { commonStep = null }) { Text("← Back") }
-                            Text("New Event", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text("To create an event with images and location, please use the web app.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            HorizontalDivider()
-                            val createEventState by forumViewModel.createEventState.collectAsState()
-                            OutlinedTextField(value = createEventState.title, onValueChange = { forumViewModel.setCreateEventTitle(it) }, label = { Text("Title *") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                            OutlinedTextField(value = createEventState.description, onValueChange = { forumViewModel.setCreateEventDescription(it) }, label = { Text("Description *") }, modifier = Modifier.fillMaxWidth(), minLines = 3, maxLines = 6)
-                            OutlinedTextField(value = createEventState.eventAt, onValueChange = { forumViewModel.setCreateEventAt(it) }, label = { Text("Date & Time (ISO) *") }, placeholder = { Text("e.g. 2026-06-01T18:00:00") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                androidx.compose.material3.Switch(checked = createEventState.isRemote, onCheckedChange = { forumViewModel.setCreateEventIsRemote(it) })
-                                Text("Remote / Online event")
-                            }
-                            if (createEventState.error != null) Text(createEventState.error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                            Button(
-                                onClick = { forumViewModel.createEvent { onDismiss() } },
-                                enabled = !createEventState.isSubmitting,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(if (createEventState.isSubmitting) "Creating…" else "Create Event")
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onCreateEvent,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Filled.CalendarToday, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Column {
+                                Text("Event", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                Text("Plan date/time, location, tags, and photos", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
-
-                    "community" -> {
-                        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            TextButton(onClick = { commonStep = null }) { Text("← Back") }
-                            Text("New Community", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            OutlinedTextField(value = communityName, onValueChange = { communityName = it }, label = { Text("Name *") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                            OutlinedTextField(value = communityDesc, onValueChange = { communityDesc = it }, label = { Text("Description *") }, modifier = Modifier.fillMaxWidth(), minLines = 3, maxLines = 6)
-                            if (communityError.isNotBlank()) Text(communityError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                            if (createCommunityState.error != null) Text(createCommunityState.error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                            Button(
-                                onClick = {
-                                    if (communityName.isBlank() || communityDesc.isBlank()) { communityError = "Name and description are required"; return@Button }
-                                    forumViewModel.setCreateCommunityName(communityName)
-                                    forumViewModel.setCreateCommunityDescription(communityDesc)
-                                    forumViewModel.createCommunity { onDismiss() }
-                                },
-                                enabled = !createCommunityState.isSubmitting,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(if (createCommunityState.isSubmitting) "Creating…" else "Create Community")
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onCreateCommunity,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Filled.Group, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Column {
+                                Text("Community", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                Text("Set rules, tags, and intro images for new groups", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onCreateChat,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Column {
+                                Text("Chat", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                Text("Start a new group chat", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
