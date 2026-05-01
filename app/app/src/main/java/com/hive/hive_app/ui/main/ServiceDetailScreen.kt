@@ -786,6 +786,8 @@ fun ServiceDetailScreen(
                             )
                         }
                     }
+                    // Clearance so the floating + FAB never overlaps the map
+                    Spacer(modifier = Modifier.height(96.dp))
                 }
                 }
             }

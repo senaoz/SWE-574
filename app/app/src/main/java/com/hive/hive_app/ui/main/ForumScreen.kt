@@ -1284,6 +1284,10 @@ fun ForumEventDetailContent(
                             }
                         }
                     }
+                    // Clearance so the floating + FAB never overlaps the content
+                    item {
+                        Spacer(modifier = Modifier.height(96.dp))
+                    }
                 }
             }
         }
