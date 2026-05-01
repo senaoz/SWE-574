@@ -56,6 +56,7 @@ import { HandShakeModal } from "@/components/ui/HandShakeModal";
 import { CommentSection, CommentItem } from "@/components/ui/CommentSection";
 import { ParticipantAvatars } from "@/components/ui/ParticipantAvatars";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { ServiceStatusBar } from "@/components/ui/ServiceStatusBar";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import { ReportDialog } from "@/components/ui/ReportDialog";
 import { EditServiceDialog } from "@/components/forms/EditServiceDialog";
@@ -1079,6 +1080,8 @@ export function ServiceDetail() {
               sticky={false}
             />
           )}
+
+          <ServiceStatusBar status={service.status as "active" | "in_progress" | "completed" | "cancelled" | "expired"} />
 
           {linkedEvents.length > 0 && (
             <Card className="p-4">
