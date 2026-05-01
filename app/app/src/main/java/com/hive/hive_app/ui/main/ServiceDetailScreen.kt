@@ -507,11 +507,44 @@ fun ServiceDetailScreen(
                     DetailSection(title = "Capacity") {
                         val max = service.maxParticipants ?: 1
                         val acceptedCount = service.matchedUserIds?.size ?: 0
-                        Text(
-                            text = "$acceptedCount / $max participants",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        val remaining = max - acceptedCount
+                        val isFull = max > 0 && remaining <= 0
+                        val isNearlyFull = !isFull && max >= 3 && remaining <= (if (max == 3) 1 else 2)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "$acceptedCount / $max participants",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            if (isFull) {
+                                androidx.compose.material3.Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = MaterialTheme.colorScheme.errorContainer
+                                ) {
+                                    Text(
+                                        text = "Capacity full",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            } else if (isNearlyFull) {
+                                androidx.compose.material3.Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = Color(0xFFFFECB3)
+                                ) {
+                                    Text(
+                                        text = if (remaining == 1) "Only 1 spot left!" else "Only $remaining spots left!",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color(0xFF7B5800),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     // Accepted users (if any)

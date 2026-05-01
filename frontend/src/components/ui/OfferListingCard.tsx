@@ -9,7 +9,7 @@ import {
   HeartFilledIcon,
   StarFilledIcon,
 } from "@radix-ui/react-icons";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, UsersIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { usersApi, ratingsApi, getImageUrl } from "@/services/api";
 import { StatusBadge } from "./StatusBadge";
@@ -90,6 +90,15 @@ export function OfferListingCard({
   const handleCardClick = () => {
     navigate(`/service/${service._id}`);
   };
+
+  const filled = service.matched_user_ids?.length ?? 0;
+  const capacity = service.max_participants ?? 0;
+  const remaining = capacity - filled;
+  const isFull = capacity > 0 && remaining <= 0;
+  const isNearlyFull =
+    !isFull &&
+    capacity >= 3 &&
+    remaining <= (capacity === 3 ? 1 : 2);
 
   const handleSavedBadgeClick = async (
     event: React.MouseEvent | React.KeyboardEvent,
@@ -177,6 +186,18 @@ export function OfferListingCard({
             >
               {service?.service_type === "offer" ? "OFFER" : "NEED"}
             </Badge>
+            {isFull && (
+              <Badge color="red" variant="soft" size="1">
+                <UsersIcon className="w-3 h-3 mr-0.5" />
+                Full
+              </Badge>
+            )}
+            {isNearlyFull && (
+              <Badge color="amber" variant="soft" size="1">
+                <UsersIcon className="w-3 h-3 mr-0.5" />
+                {remaining === 1 ? "1 spot left" : `${remaining} spots left`}
+              </Badge>
+            )}
           </Flex>
           {ownerMeta}
         </div>

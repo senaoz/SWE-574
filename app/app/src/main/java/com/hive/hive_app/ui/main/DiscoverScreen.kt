@@ -445,6 +445,9 @@ private fun DiscoverServiceCard(
     val accepted = service.matchedUserIds?.size ?: 0
     val max = service.maxParticipants ?: 1
     val capacityText = "$accepted/$max"
+    val remaining = max - accepted
+    val isFull = max > 0 && remaining <= 0
+    val isNearlyFull = !isFull && max >= 3 && remaining <= (if (max == 3) 1 else 2)
     val locationText = if (isRemote) null else (service.location?.address?.takeIf { it.isNotBlank() }
         ?: service.location?.let { "%.4f, %.4f".format(it.latitude, it.longitude) }
         ?: "—")
@@ -583,6 +586,31 @@ private fun DiscoverServiceCard(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (isFull) {
+                        androidx.compose.material3.Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.errorContainer
+                        ) {
+                            Text(
+                                text = "Full",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    } else if (isNearlyFull) {
+                        androidx.compose.material3.Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color(0xFFFFECB3)
+                        ) {
+                            Text(
+                                text = if (remaining == 1) "1 spot left" else "$remaining spots left",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF7B5800),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                     Text(
                         text = formatDurationHours(service.estimatedDuration) + " • " + service.status.replace("_", " "),
                         style = MaterialTheme.typography.labelSmall,
