@@ -22,6 +22,7 @@ import {
   type ServiceTypeFilter,
 } from "@/components/map/ServiceMap";
 import { getCityOptions } from "@/constants/turkishCities";
+import { HERO_TEXTS } from "@/constants/heroTexts.ts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -248,7 +249,7 @@ function ForYouExplanationContent({
               as="div"
               size="1"
               weight="medium"
-              className="uppercase tracking-[0.18em] text-lime-950/65 dark:text-lime-50/70"
+              className="uppercase tracking-[0.18em]"
             >
               For You
             </Text>
@@ -277,11 +278,7 @@ function ForYouExplanationContent({
           size="2"
           className="leading-6 text-[var(--gray-11)]"
         >
-          We rank these suggestions using the interests on your profile, your
-          city or distance filters, and activity signals like saved or
-          completed exchanges. If we do not have enough signals yet, we may
-          temporarily show nearby posts instead. Update your Interests to make
-          the next recommendations more relevant.
+          { HERO_TEXTS.forYouDescription }
         </Text>
 
         <Button

@@ -132,6 +132,9 @@ export function Home() {
         </Button>
       </Section>
 
+      <HowRecommendationsSection />
+      <HowSearchWorksSection />
+
       {/* Community Values Section */}
       <Section className="py-16">
         <div className="max-w-6xl mx-auto">
@@ -548,6 +551,413 @@ export function Home() {
     </div>
   );
 }
+
+const searchFeatures = [
+  {
+    icon: "🔤",
+    title: "Tokenized Matching",
+    description:
+      "Your query is split into tokens and matched across service titles, descriptions, categories, WikiData tags, and location — all at once.",
+  },
+  {
+    icon: "🏷️",
+    title: "Tag-Aware Search",
+    description:
+      "Services are tagged with WikiData concepts. Search matches both tag labels and entity IDs, so related terms surface the right results.",
+  },
+  {
+    icon: "🔬",
+    title: "Faceted Filters",
+    description:
+      "Narrow results by service type, category, city, availability (today / this week / recurring), or remote vs. in-person — all combinable.",
+  },
+  {
+    icon: "🗄️",
+    title: "MongoDB-Backed",
+    description:
+      "All services are stored in MongoDB and queried in real time — new listings are immediately searchable the moment they're posted.",
+  },
+];
+
+const HowSearchWorksSection = () => {
+  return (
+    <Box style={{ background: "var(--gray-a2)" }}>
+      <Section size="3">
+        <Container size="4">
+          <Flex direction="column" align="center" gap="3" mb="8">
+            <Badge color="indigo" variant="soft" radius="full">
+              How Search Works
+            </Badge>
+            <Heading size="7" align="center">
+              Precision Search, Engineered for Depth
+            </Heading>
+            <Text size="4" color="gray" align="center" style={{ maxWidth: 560 }}>
+              Type anything and we search across every field — title, description,
+              category, WikiData tags, and address — returning only active, relevant
+              listings instantly.
+            </Text>
+          </Flex>
+
+          <Grid columns={{ initial: "1", sm: "2", lg: "4" }} gap="4" mb="9">
+            {searchFeatures.map((f) => (
+              <Card key={f.title} variant="surface">
+                <Flex direction="column" gap="2" p="2">
+                  <Text size="6">{f.icon}</Text>
+                  <Heading size="3">{f.title}</Heading>
+                  <Text size="2" color="gray">
+                    {f.description}
+                  </Text>
+                </Flex>
+              </Card>
+            ))}
+          </Grid>
+
+          <SearchPipelineDiagram />
+        </Container>
+      </Section>
+    </Box>
+  );
+};
+
+const SearchPipelineDiagram = () => {
+  const steps = [
+    { label: "Query", sub: "User types", color: "var(--indigo-9)" },
+    { label: "Tokenize", sub: "Split tokens", color: "var(--violet-9)" },
+    { label: "Match", sub: "6 fields", color: "var(--purple-9)" },
+    { label: "Filter", sub: "Type/tags/city", color: "var(--plum-9)" },
+    { label: "Results", sub: "Active listings", color: "var(--lime-9)" },
+  ];
+
+  return (
+    <Box style={{ overflowX: "auto" }}>
+      <Flex
+        align="center"
+        justify="center"
+        py="6"
+        style={{ minWidth: "max-content" }}
+      >
+        {steps.map((step, i) => (
+          <Flex key={step.label} align="center">
+            <Flex
+              direction="column"
+              align="center"
+              style={{
+                animation: "fadeSlideIn 0.5s ease both",
+                animationDelay: `${i * 0.12}s`,
+              }}
+            >
+              <Box
+                style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: "var(--radius-full)",
+                  background: step.color,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "var(--shadow-3)",
+                }}
+              >
+                <Text size="2" weight="bold" style={{ color: "white" }}>
+                  {step.label}
+                </Text>
+              </Box>
+              <Text size="1" color="gray" mt="2" align="center">
+                {step.sub}
+              </Text>
+            </Flex>
+
+            {i < steps.length - 1 && (
+              <Box
+                style={{
+                  animation: "fadeSlideIn 0.5s ease both",
+                  animationDelay: `${i * 0.12 + 0.06}s`,
+                  marginBottom: 22,
+                }}
+              >
+                <Box
+                  style={{
+                    width: 60,
+                    height: 2,
+                    background: `linear-gradient(90deg, ${step.color}, ${steps[i + 1].color})`,
+                    position: "relative",
+                  }}
+                >
+                </Box>
+              </Box>
+            )}
+          </Flex>
+        ))}
+      </Flex>
+      <style>{`
+        @keyframes fadeSlideIn {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+    </Box>
+  );
+};
+
+const recommendationPrinciples = [
+  {
+    title: "Tag & Category Similarity",
+    description:
+      "Tags (45%) and category (20%) are the strongest signals. Services that share WikiData tags or the same category with what you care about rank highest.",
+  },
+  {
+    title: "Keyword Overlap",
+    description:
+      "Titles, descriptions, and categories are tokenized and compared using Jaccard similarity — services with more shared vocabulary score higher.",
+  },
+  {
+    title: "Proximity & Recency",
+    description:
+      "Geographic distance (15%) and how recently a service was posted (5%) are factored in, so local and fresh listings naturally surface.",
+  },
+  {
+    title: "Your Activity Profile",
+    description:
+      "Your saved services and completed exchanges build an interest profile. When active, it shifts the final score by up to 15%, pulling results closer to your history.",
+  },
+];
+
+const HowRecommendationsSection = () => {
+  return (
+    <Section size="3">
+      <Container size="4">
+        <Grid columns={{ initial: "1", lg: "2" }} gap="9" align="center">
+          <Flex direction="column" gap="5">
+            <Box>
+              <Badge color="lime" variant="soft" radius="full" mb="3">
+                How Recommendations Work
+              </Badge>
+              <Heading size="7" mb="3">
+                Discovered Because It Was Made for You
+              </Heading>
+              <Text size="4" color="gray" as="p">
+                Each recommendation is a weighted score built from tag overlap,
+                category match, keyword similarity, proximity, and your own past
+                activity — no black box, just transparent signals.
+              </Text>
+            </Box>
+
+            <Flex direction="column" gap="4">
+              {recommendationPrinciples.map((p, i) => (
+                <Card key={p.title} variant="surface">
+                  <Flex gap="4" p="2" align="start">
+                    <Box
+                      flexShrink="0"
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: "var(--radius-full)",
+                        background: "var(--accent-indicator)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginTop: 2,
+                      }}
+                    >
+                      <Text size="2" weight="bold">
+                        {i + 1}
+                      </Text>
+                    </Box>
+                    <Flex direction="column" gap="1">
+                      <Heading size="3">{p.title}</Heading>
+                      <Text size="2" color="gray">
+                        {p.description}
+                      </Text>
+                    </Flex>
+                  </Flex>
+                </Card>
+              ))}
+            </Flex>
+          </Flex>
+
+          <Flex align="center" justify="center">
+            <RecommendationGraph />
+          </Flex>
+        </Grid>
+      </Container>
+    </Section>
+  );
+};
+
+const RecommendationGraph = () => {
+  const centerX = 200;
+  const centerY = 200;
+  const radius = 120;
+  const nodes = [
+    { id: "you", label: "You", x: centerX, y: centerY, r: 28, primary: true },
+    {
+      id: "n1",
+      label: "Similar\nUser",
+      x: centerX + radius * Math.cos((-90 * Math.PI) / 180),
+      y: centerY + radius * Math.sin((-90 * Math.PI) / 180),
+      r: 20,
+      primary: false,
+    },
+    {
+      id: "n2",
+      label: "Similar\nUser",
+      x: centerX + radius * Math.cos((-30 * Math.PI) / 180),
+      y: centerY + radius * Math.sin((-30 * Math.PI) / 180),
+      r: 20,
+      primary: false,
+    },
+    {
+      id: "n3",
+      label: "Service A",
+      x: centerX + radius * Math.cos((30 * Math.PI) / 180),
+      y: centerY + radius * Math.sin((30 * Math.PI) / 180),
+      r: 18,
+      primary: false,
+      isService: true,
+    },
+    {
+      id: "n4",
+      label: "Service B",
+      x: centerX + radius * Math.cos((90 * Math.PI) / 180),
+      y: centerY + radius * Math.sin((90 * Math.PI) / 180),
+      r: 18,
+      primary: false,
+      isService: true,
+    },
+    {
+      id: "n5",
+      label: "Tag:\nCoding",
+      x: centerX + radius * Math.cos((150 * Math.PI) / 180),
+      y: centerY + radius * Math.sin((150 * Math.PI) / 180),
+      r: 16,
+      primary: false,
+      isTag: true,
+    },
+    {
+      id: "n6",
+      label: "Tag:\nDesign",
+      x: centerX + radius * Math.cos((210 * Math.PI) / 180),
+      y: centerY + radius * Math.sin((210 * Math.PI) / 180),
+      r: 16,
+      primary: false,
+      isTag: true,
+    },
+  ];
+  const edges = [
+    ["you", "n1"],
+    ["you", "n2"],
+    ["you", "n3"],
+    ["you", "n4"],
+    ["you", "n5"],
+    ["you", "n6"],
+    ["n1", "n3"],
+    ["n2", "n4"],
+    ["n5", "n3"],
+    ["n6", "n4"],
+  ];
+  const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
+
+  return (
+    <>
+      <svg
+          viewBox="0 0 400 400"
+          width={500}
+          height={500}
+          style={{ display: "block" }}
+      >
+        <defs>
+          <radialGradient id="youGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="var(--indigo-9)" />
+            <stop offset="100%" stopColor="var(--violet-9)" />
+          </radialGradient>
+        </defs>
+
+        {edges.map(([a, b], i) => {
+          const na = byId[a];
+          const nb = byId[b];
+          return (
+              <line
+                  key={i}
+                  x1={na.x}
+                  y1={na.y}
+                  x2={nb.x}
+                  y2={nb.y}
+                  stroke="var(--indigo-a6)"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 3"
+                  style={{
+                    animation: `dash 3s linear infinite`,
+                    animationDelay: `${i * 0.25}s`,
+                  }}
+              />
+          );
+        })}
+
+        {nodes.map((n) => (
+            <g key={n.id}>
+              <circle
+                  cx={n.x}
+                  cy={n.y}
+                  r={n.r + 4}
+                  fill={
+                    n.primary
+                        ? "var(--indigo-a3)"
+                        : (n as { isService?: boolean }).isService
+                            ? "var(--lime-a3)"
+                            : (n as { isTag?: boolean }).isTag
+                                ? "var(--violet-a3)"
+                                : "var(--gray-a3)"
+                  }
+              />
+              <circle
+                  cx={n.x}
+                  cy={n.y}
+                  r={n.r}
+                  fill={
+                    n.primary
+                        ? "url(#youGrad)"
+                        : (n as { isService?: boolean }).isService
+                            ? "var(--lime-9)"
+                            : (n as { isTag?: boolean }).isTag
+                                ? "var(--violet-9)"
+                                : "var(--gray-8)"
+                  }
+              />
+              {n.label.split("\n").map((line, li, arr) => (
+                  <text
+                      key={li}
+                      x={n.x}
+                      y={n.y + (li - (arr.length - 1) / 2) * 11}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fill="white"
+                      fontSize={n.primary ? 11 : 8}
+                      fontWeight={n.primary ? 700 : 500}
+                  >
+                    {line}
+                  </text>
+              ))}
+            </g>
+        ))}
+
+        <text
+            x={centerX}
+            y={380}
+            textAnchor="middle"
+            fontSize={10}
+            fill="var(--gray-9)"
+        >
+          Simplified recommendation graph
+        </text>
+      </svg>
+      <style>{`
+        @keyframes dash {
+          to { stroke-dashoffset: -28; }
+        }
+      `}</style>
+    </>
+  );
+};
 
 const HighlightsSection = () => {
   return (
