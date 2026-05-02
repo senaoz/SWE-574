@@ -57,6 +57,69 @@ async def _add_ratings(mock_db, user_id, count):
         })
 
 
+async def _add_true_bee_activities(mock_db, user_id, include_community=True):
+    uid = ObjectId(user_id)
+    other_id = ObjectId()
+    now = datetime.utcnow()
+
+    await mock_db.transactions.insert_one({
+        "provider_id": uid,
+        "requester_id": other_id,
+        "status": "completed",
+        "timebank_hours": 1.0,
+        "created_at": now,
+        "updated_at": now,
+    })
+    await mock_db.transactions.insert_one({
+        "provider_id": other_id,
+        "requester_id": uid,
+        "status": "completed",
+        "timebank_hours": 1.0,
+        "created_at": now,
+        "updated_at": now,
+    })
+    await mock_db.forum_events.insert_one({
+        "user_id": uid,
+        "attendee_ids": [uid],
+        "created_at": now,
+        "updated_at": now,
+    })
+    await mock_db.forum_discussions.insert_one({
+        "user_id": uid,
+        "created_at": now,
+        "updated_at": now,
+    })
+    if include_community:
+        await mock_db.communities.insert_one({
+            "founder_id": uid,
+            "created_at": now,
+            "updated_at": now,
+        })
+
+
+async def _add_active_memberships(mock_db, user_id, community_ids):
+    uid = ObjectId(user_id)
+    for community_id in community_ids:
+        await mock_db.community_memberships.insert_one({
+            "community_id": community_id,
+            "user_id": uid,
+            "role": "member",
+            "status": "active",
+            "joined_at": datetime.utcnow(),
+        })
+
+
+async def _add_community_post(mock_db, user_id, community_id):
+    await mock_db.community_posts.insert_one({
+        "community_id": community_id,
+        "user_id": ObjectId(user_id),
+        "title": "Badge test post",
+        "body": "This post makes the membership active for badge metrics.",
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
+    })
+
+
 class TestComputeMetrics:
 
     @pytest.mark.asyncio
@@ -113,6 +176,70 @@ class TestComputeMetrics:
         user_doc = await mock_db.users.find_one({"_id": ObjectId(str(user.id))})
         metrics = await svc._compute_metrics(str(user.id), user_doc)
         assert metrics["profile_tags_count"] == 3
+
+    @pytest.mark.asyncio
+    async def test_true_bee_metric_earned_when_all_six_activities_completed(self, mock_db):
+        user = await _make_user(mock_db)
+        uid = str(user.id)
+        await _add_true_bee_activities(mock_db, uid)
+
+        svc = BadgeService(mock_db)
+        user_doc = await mock_db.users.find_one({"_id": ObjectId(uid)})
+        metrics = await svc._compute_metrics(uid, user_doc)
+        badges = await svc.evaluate_badges(uid)
+
+        true_bee = next(b for b in badges if b["key"] == "true_bee")
+        assert metrics["true_bee_all_six"] == 1
+        assert true_bee["earned"] is True
+        assert true_bee["progress"] == {"current": 1, "target": 1}
+
+    @pytest.mark.asyncio
+    async def test_true_bee_metric_not_earned_when_one_activity_missing(self, mock_db):
+        user = await _make_user(mock_db)
+        uid = str(user.id)
+        await _add_true_bee_activities(mock_db, uid, include_community=False)
+
+        svc = BadgeService(mock_db)
+        user_doc = await mock_db.users.find_one({"_id": ObjectId(uid)})
+        metrics = await svc._compute_metrics(uid, user_doc)
+        badges = await svc.evaluate_badges(uid)
+
+        true_bee = next(b for b in badges if b["key"] == "true_bee")
+        assert metrics["true_bee_all_six"] == 0
+        assert true_bee["earned"] is False
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("posted_indexes", "expected_metric", "expected_earned"),
+        [
+            ((0, 1), 2, True),
+            ((0,), 1, False),
+            ((), 0, False),
+        ],
+        ids=[
+            "member-and-post-in-both",
+            "member-in-both-post-in-one",
+            "member-in-both-no-posts",
+        ],
+    )
+    async def test_cross_pollinator_counts_member_communities_with_posts(
+        self, mock_db, posted_indexes, expected_metric, expected_earned
+    ):
+        user = await _make_user(mock_db)
+        uid = str(user.id)
+        community_ids = [ObjectId(), ObjectId()]
+        await _add_active_memberships(mock_db, uid, community_ids)
+        for index in posted_indexes:
+            await _add_community_post(mock_db, uid, community_ids[index])
+
+        svc = BadgeService(mock_db)
+        user_doc = await mock_db.users.find_one({"_id": ObjectId(uid)})
+        metrics = await svc._compute_metrics(uid, user_doc)
+        badges = await svc.evaluate_badges(uid)
+
+        cross_pollinator = next(b for b in badges if b["key"] == "cross_pollinator")
+        assert metrics["cross_pollinator_communities"] == expected_metric
+        assert cross_pollinator["earned"] is expected_earned
 
 
 class TestEvaluateBadges:

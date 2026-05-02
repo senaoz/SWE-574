@@ -198,9 +198,14 @@ class BadgeService:
             cid = m.get("community_id")
             if cid is None:
                 continue
+            community_ids = [cid]
+            if ObjectId.is_valid(str(cid)):
+                oid = ObjectId(str(cid))
+                if oid not in community_ids:
+                    community_ids.append(oid)
             post_count = await self.db.community_posts.count_documents({
                 "user_id": uid,
-                "community_id": cid,
+                "community_id": {"$in": community_ids},
             })
             if post_count >= 1:
                 cross_pollinator_communities += 1
