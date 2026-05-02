@@ -115,7 +115,7 @@ export function Home() {
     <div className="">
       {/* Hero Section */}
       <Section className="mx-auto max-w-4xl grid text-center">
-        <Heading size="8" className="mb-6 ">
+        <Heading size="9" className="mb-6 ">
           A Neighborhood TimeBank for Sharing Skills
         </Heading>
         <Text size="5" className=" mb-8 max-w-2xl mx-auto">
