@@ -118,6 +118,7 @@ class MembershipResponse(BaseModel):
     status: MemberStatus
     joined_at: datetime
     user: Optional[dict] = None
+    mutual_community_count: Optional[int] = None
 
     class Config:
         populate_by_name = True

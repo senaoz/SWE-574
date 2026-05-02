@@ -148,10 +148,12 @@ async def leave_community(
 @router.get("/{community_id}/members", response_model=MembershipListResponse)
 async def get_members(
     community_id: str,
+    current_user: Optional[UserResponse] = Depends(get_optional_current_user),
     db=Depends(get_database),
 ):
     svc = _svc(db)
-    members, total = await svc.get_members(community_id)
+    user_id = str(current_user.id) if current_user else None
+    members, total = await svc.get_members(community_id, user_id)
     return MembershipListResponse(members=members, total=total)
 
 

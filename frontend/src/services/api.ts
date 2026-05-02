@@ -96,6 +96,16 @@ export const uploadApi = {
       }],
     });
   },
+  uploadCommunityImage: (file: File): Promise<AxiosResponse<{ url: string }>> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/upload/community-image', formData, {
+      transformRequest: [(data: unknown, headers?: Record<string, string>) => {
+        if (headers) delete headers['Content-Type'];
+        return data;
+      }],
+    });
+  },
   uploadRatingImage: (file: File): Promise<AxiosResponse<{ url: string }>> => {
     const formData = new FormData();
     formData.append('file', file);

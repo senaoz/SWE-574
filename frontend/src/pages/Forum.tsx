@@ -579,11 +579,11 @@ export function Forum() {
                   size="3"
                   onClick={() => navigate(`/forum/communities/${c._id}`)}
                 >
-                  {c.avatar_url && (
-                    <Inset clip="padding-box" side="top" pb="current">
+                  <Inset clip="padding-box" side="top" pb="current">
+                    {c.cover_image_url ? (
                       <img
-                        src={getImageUrl(c.avatar_url) ?? c.avatar_url}
-                        alt={c.name}
+                        src={getImageUrl(c.cover_image_url) ?? c.cover_image_url}
+                        alt={`${c.name} banner`}
                         loading="lazy"
                         style={{
                           display: "block",
@@ -593,17 +593,33 @@ export function Forum() {
                           backgroundColor: "var(--gray-5)",
                         }}
                       />
-                    </Inset>
-                  )}
+                    ) : (
+                      <div className="flex h-40 w-full items-center justify-center bg-[var(--grass-3)]">
+                        <UsersIcon className="h-10 w-10 text-[var(--grass-9)]" />
+                      </div>
+                    )}
+                  </Inset>
+                  <Flex justify="between" align="end" gap="3" className="-mt-8 mb-3">
+                    <Avatar
+                      size="5"
+                      src={getImageUrl(c.avatar_url)}
+                      fallback={c.name[0]}
+                      radius="full"
+                      className="ring-4 ring-[var(--color-background)]"
+                    />
+                    <Flex gap="2" align="center" className="mb-1">
+                      <Badge size="1" variant="soft" color="gray">
+                        <UsersIcon className="w-3 h-3" />
+                        {c.member_count}
+                      </Badge>
+                      <Badge size="1" variant="soft" color="gray">
+                        <MessageCircleIcon className="w-3 h-3" />
+                        {c.post_count}
+                      </Badge>
+                    </Flex>
+                  </Flex>
                   <Flex justify="between" align="start" wrap="wrap" gap="2">
                     <Flex align="center" gap="2">
-                      {!c.avatar_url && (
-                        <Avatar
-                          size="2"
-                          fallback={c.name[0]}
-                          radius="full"
-                        />
-                      )}
                       <Text size="3" weight="bold" className="line-clamp-1">
                         {c.name}
                       </Text>
@@ -614,18 +630,8 @@ export function Forum() {
                             : c.user_membership === "moderator"
                               ? "Mod"
                               : "Member"}
-                        </Badge>
+                          </Badge>
                       )}
-                    </Flex>
-                    <Flex gap="2" align="center">
-                      <Badge size="1" variant="soft" color="gray">
-                        <UsersIcon className="w-3 h-3" />
-                        {c.member_count}
-                      </Badge>
-                      <Badge size="1" variant="soft" color="gray">
-                        <MessageCircleIcon className="w-3 h-3" />
-                        {c.post_count}
-                      </Badge>
                     </Flex>
                   </Flex>
                   <Text size="2" color="gray" className="line-clamp-2">
@@ -870,7 +876,10 @@ function NewDiscussionDialog({
               type="button"
               variant="soft"
               color="gray"
-              onClick={() => onOpenChange(false)}
+              onClick={() => {
+                reset();
+                onOpenChange(false);
+              }}
             >
               Cancel
             </Button>
@@ -1189,7 +1198,10 @@ function NewEventDialog({
               type="button"
               variant="soft"
               color="gray"
-              onClick={() => onOpenChange(false)}
+              onClick={() => {
+                reset();
+                onOpenChange(false);
+              }}
             >
               Cancel
             </Button>
@@ -1224,6 +1236,10 @@ function NewCommunityDialog({
   const [tags, setTags] = useState<TagEntity[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
 
   const reset = () => {
     setName("");
@@ -1232,6 +1248,12 @@ function NewCommunityDialog({
     setNewRule("");
     setTags([]);
     setError("");
+    if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
+    if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
+    setAvatarFile(null);
+    setCoverFile(null);
+    setAvatarPreviewUrl(null);
+    setCoverPreviewUrl(null);
   };
 
   const handleAddRule = () => {
@@ -1242,18 +1264,50 @@ function NewCommunityDialog({
     }
   };
 
+  const handleCommunityImageChange = (
+    file: File | undefined,
+    type: "avatar" | "cover",
+  ) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Image must be under 5 MB");
+      return;
+    }
+    const previewUrl = URL.createObjectURL(file);
+    setError("");
+    if (type === "avatar") {
+      if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
+      setAvatarFile(file);
+      setAvatarPreviewUrl(previewUrl);
+    } else {
+      if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
+      setCoverFile(file);
+      setCoverPreviewUrl(previewUrl);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!name.trim() || !description.trim()) {
       setError("Name and description are required");
       return;
     }
+    if (!avatarFile || !coverFile) {
+      setError("Community photo and banner image are required");
+      return;
+    }
     setSubmitting(true);
     try {
+      const [avatarRes, coverRes] = await Promise.all([
+        uploadApi.uploadCommunityImage(avatarFile),
+        uploadApi.uploadCommunityImage(coverFile),
+      ]);
       const res = await communityApi.createCommunity({
         name,
         description,
         rules,
         tags,
+        avatar_url: avatarRes.data.url,
+        cover_image_url: coverRes.data.url,
       });
       reset();
       onOpenChange(false);
@@ -1305,6 +1359,64 @@ function NewCommunityDialog({
               rows={5}
             />
           </Form.Field>
+          <div className="grid gap-3 md:grid-cols-2">
+            <Box className="space-y-2">
+              <Text size="2" weight="medium" className="block">
+                Community photo *
+              </Text>
+              <label className="block cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="sr-only"
+                  disabled={submitting}
+                  onChange={(e) => {
+                    handleCommunityImageChange(e.target.files?.[0], "avatar");
+                    e.target.value = "";
+                  }}
+                />
+                {avatarPreviewUrl ? (
+                  <img
+                    src={avatarPreviewUrl}
+                    alt="Community photo preview"
+                    className="h-32 w-32 rounded-full object-cover ring-1 ring-[var(--gray-6)]"
+                  />
+                ) : (
+                  <span className="flex h-32 w-32 items-center justify-center rounded-full border border-dashed border-[var(--gray-7)] text-sm font-medium text-[var(--gray-11)]">
+                    Choose photo
+                  </span>
+                )}
+              </label>
+            </Box>
+            <Box className="space-y-2">
+              <Text size="2" weight="medium" className="block">
+                Banner image *
+              </Text>
+              <label className="block cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="sr-only"
+                  disabled={submitting}
+                  onChange={(e) => {
+                    handleCommunityImageChange(e.target.files?.[0], "cover");
+                    e.target.value = "";
+                  }}
+                />
+                {coverPreviewUrl ? (
+                  <img
+                    src={coverPreviewUrl}
+                    alt="Community banner preview"
+                    className="h-32 w-full rounded-lg object-cover ring-1 ring-[var(--gray-6)]"
+                  />
+                ) : (
+                  <span className="flex h-32 w-full items-center justify-center rounded-lg border border-dashed border-[var(--gray-7)] text-sm font-medium text-[var(--gray-11)]">
+                    Choose banner
+                  </span>
+                )}
+              </label>
+            </Box>
+          </div>
           <Form.Field name="tags" className="space-y-1">
             <Form.Label className="text-sm font-medium">Tags</Form.Label>
             <TagAutocomplete
@@ -1370,7 +1482,10 @@ function NewCommunityDialog({
               type="button"
               variant="soft"
               color="gray"
-              onClick={() => onOpenChange(false)}
+              onClick={() => {
+                reset();
+                onOpenChange(false);
+              }}
             >
               Cancel
             </Button>
