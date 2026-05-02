@@ -754,6 +754,8 @@ export interface Community {
   updated_at: string;
   founder?: ForumAuthor;
   user_membership?: MemberRole | null;
+  target_membership?: MemberRole | null;
+  is_mutual?: boolean;
 }
 
 export interface CommunityListResponse {
@@ -761,6 +763,12 @@ export interface CommunityListResponse {
   total: number;
   page: number;
   limit: number;
+}
+
+export interface UserCommunityListResponse {
+  communities: Community[];
+  total: number;
+  mutual_count: number;
 }
 
 export interface CommunityForm {

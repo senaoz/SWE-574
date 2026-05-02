@@ -64,3 +64,31 @@ async def test_get_members_includes_mutual_community_count(mock_db):
     assert listed_member["mutual_community_count"] == 2
     assert viewer_member["mutual_community_count"] == 3
     assert listed_member["user"]["username"] == "member"
+
+
+@pytest.mark.asyncio
+async def test_get_communities_for_user_includes_memberships_and_mutual_count(mock_db):
+    viewer_id = str(ObjectId())
+    profile_user_id = str(ObjectId())
+    await mock_db.users.insert_one(make_user_doc(viewer_id, "viewer"))
+    await mock_db.users.insert_one(make_user_doc(profile_user_id, "profileuser"))
+
+    svc = CommunityService(mock_db)
+    shared = await create_community(svc, "Shared Club", profile_user_id)
+    await svc.join_community(str(shared["_id"]), viewer_id)
+
+    target_only = await create_community(svc, "Target Only Club", profile_user_id)
+    viewer_only = await create_community(svc, "Viewer Only Club", viewer_id)
+
+    result = await svc.get_communities_for_user(profile_user_id, viewer_id)
+
+    assert result["total"] == 2
+    assert result["mutual_count"] == 1
+    community_by_id = {str(c["_id"]): c for c in result["communities"]}
+    assert str(shared["_id"]) in community_by_id
+    assert str(target_only["_id"]) in community_by_id
+    assert str(viewer_only["_id"]) not in community_by_id
+    assert community_by_id[str(shared["_id"])]["target_membership"] == "founder"
+    assert community_by_id[str(shared["_id"])]["user_membership"] == "member"
+    assert community_by_id[str(shared["_id"])]["is_mutual"] is True
+    assert community_by_id[str(target_only["_id"])]["is_mutual"] is False

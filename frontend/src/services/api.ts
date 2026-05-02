@@ -183,6 +183,9 @@ export const usersApi = {
   getUserById: (id: string): Promise<AxiosResponse<User>> =>
     api.get(`/users/${id}`),
 
+  getUserCommunities: (id: string): Promise<AxiosResponse<import('../types').UserCommunityListResponse>> =>
+    api.get(`/users/${id}/communities`),
+
   /** Update a user's TimeBank balance (admin or moderator only). */
   updateUserTimebank: (userId: string, data: { balance: number }): Promise<AxiosResponse<User>> =>
     api.put(`/users/${userId}/timebank`, data),

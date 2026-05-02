@@ -18,7 +18,7 @@ import {
   ArrowLeftIcon,
 } from "@radix-ui/react-icons";
 import { useQuery } from "@tanstack/react-query";
-import { User, Service, RatingDetailed } from "@/types";
+import { Community, User, Service, RatingDetailed } from "@/types";
 import { servicesApi, usersApi, ratingsApi, getImageUrl } from "@/services/api";
 import { useUser } from "@/App";
 import { ReportDialog } from "@/components/ui/ReportDialog";
@@ -88,6 +88,16 @@ export function UserDetail() {
   const detailedRatings: RatingDetailed[] =
     detailedRatingsData?.data?.ratings ?? [];
 
+  const { data: userCommunitiesData, isLoading: userCommunitiesLoading } =
+    useQuery({
+      queryKey: ["user-communities", userId],
+      queryFn: () => usersApi.getUserCommunities(userId!),
+      enabled: !!userId,
+    });
+  const userCommunities: Community[] =
+    userCommunitiesData?.data?.communities ?? [];
+  const mutualCommunityCount = userCommunitiesData?.data?.mutual_count ?? 0;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -107,6 +117,7 @@ export function UserDetail() {
   const servicesProvided = services.filter((s) => s.service_type === "offer");
   const servicesReceived = services.filter((s) => s.service_type === "need");
   const completedServices = services.filter((s) => s.status === "completed");
+  const showMutualCommunities = !!currentUserId && currentUserId !== userId;
 
   return (
     <div className="space-y-6">
@@ -300,14 +311,6 @@ export function UserDetail() {
                 </div>
               )}
 
-              {/* Location */}
-              {user.location && (
-                <Flex align="center" gap="2">
-                  <Crosshair1Icon className="w-4 h-4" />
-                  <Text size="2">{user.location}</Text>
-                </Flex>
-              )}
-
               {/* Interests */}
               {(user.interests?.length || 0) > 0 && (
                 <div>
@@ -325,6 +328,74 @@ export function UserDetail() {
                     ))}
                   </Flex>
                 </div>
+              )}
+
+              {/* Communities */}
+              {(userCommunitiesLoading || userCommunities.length > 0) && (
+                <div>
+                  <Flex align="center" gap="2" className="mb-2">
+                    <Text size="2" weight="bold">
+                      Communities
+                    </Text>
+                    {!userCommunitiesLoading && (
+                      <Text size="1" color="gray">
+                        {userCommunities.length}
+                      </Text>
+                    )}
+                    {showMutualCommunities && !userCommunitiesLoading && (
+                      <Badge size="1" variant="soft" color="violet">
+                        {mutualCommunityCount} common
+                      </Badge>
+                    )}
+                  </Flex>
+                  {userCommunitiesLoading ? (
+                    <Text size="1" color="gray">
+                      Loading communities...
+                    </Text>
+                  ) : (
+                    <Flex gap="2" wrap="wrap">
+                      {userCommunities.slice(0, 12).map((community) => (
+                        <button
+                          key={community._id}
+                          type="button"
+                          title={community.name}
+                          aria-label={`Open ${community.name}`}
+                          onClick={() =>
+                            navigate(`/forum/communities/${community._id}`)
+                          }
+                          className={`rounded-full transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[var(--grass-8)] ${
+                            community.is_mutual
+                              ? "ring-2 ring-[var(--violet-7)]"
+                              : "ring-1 ring-[var(--gray-6)]"
+                          }`}
+                        >
+                          <Avatar
+                            size="3"
+                            src={getImageUrl(community.avatar_url)}
+                            fallback={community.name[0]}
+                            radius="full"
+                          />
+                        </button>
+                      ))}
+                      {userCommunities.length > 12 && (
+                        <span
+                          title={`${userCommunities.length - 12} more communities`}
+                          className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--gray-3)] text-sm font-medium text-[var(--gray-11)] ring-1 ring-[var(--gray-6)]"
+                        >
+                          +{userCommunities.length - 12}
+                        </span>
+                      )}
+                    </Flex>
+                  )}
+                </div>
+              )}
+
+              {/* Location */}
+              {user.location && (
+                <Flex align="center" gap="2">
+                  <Crosshair1Icon className="w-4 h-4" />
+                  <Text size="2">{user.location}</Text>
+                </Flex>
               )}
 
               {/* Stats */}
