@@ -190,7 +190,7 @@ class BadgeService:
         })
 
         # Cross-Pollinator: communities where user is active member AND has >= 1 post
-        memberships = await self.db["community_memberships"].find(
+        memberships = await self.db.community_memberships.find(
             {"user_id": uid, "status": "active"}
         ).to_list(None)
         cross_pollinator_communities = 0
@@ -198,7 +198,7 @@ class BadgeService:
             cid = m.get("community_id")
             if cid is None:
                 continue
-            post_count = await self.db["community_posts"].count_documents({
+            post_count = await self.db.community_posts.count_documents({
                 "user_id": uid,
                 "community_id": cid,
             })
@@ -219,7 +219,7 @@ class BadgeService:
         discussion_created = await self.db.forum_discussions.count_documents(
             {"user_id": uid}
         ) >= 1
-        community_created = await self.db["communities"].count_documents(
+        community_created = await self.db.communities.count_documents(
             {"founder_id": uid}
         ) >= 1
         true_bee_all_six = 1 if all([

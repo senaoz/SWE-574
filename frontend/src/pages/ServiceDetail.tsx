@@ -1195,7 +1195,7 @@ export const StartChatButton = ({
       }
       const allParticipants = [currentUserId, ...otherUserIds];
       await chatApi
-        .createOrGetChatRoom(allParticipants)
+        .createChatRoom({ participant_ids: allParticipants, service_id, transaction_id })
         .then((response) => {
           navigate(
             response.data._id
