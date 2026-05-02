@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import {
   DashboardFilterBar,
   DashboardFilters,
@@ -20,16 +21,18 @@ function renderBar(
   onOpenForYouSettings = vi.fn(),
 ) {
   return render(
-    <DashboardFilterBar
-      filters={filters}
-      onFiltersChange={onFiltersChange}
-      availableTags={[
-        { entityId: "Q1", label: "cooking", description: "" },
-        { entityId: "Q2", label: "music", description: "" },
-      ]}
-      hasLocation={false}
-      onOpenForYouSettings={onOpenForYouSettings}
-    />,
+    <MemoryRouter>
+      <DashboardFilterBar
+        filters={filters}
+        onFiltersChange={onFiltersChange}
+        availableTags={[
+          { entityId: "Q1", label: "cooking", description: "" },
+          { entityId: "Q2", label: "music", description: "" },
+        ]}
+        hasLocation={false}
+        onOpenForYouSettings={onOpenForYouSettings}
+      />
+    </MemoryRouter>,
   );
 }
 
