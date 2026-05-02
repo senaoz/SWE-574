@@ -195,6 +195,9 @@ class AsyncMockDatabase:
     def __init__(self, sync_db):
         self._sync_db = sync_db
         self.client = sync_db.client
+
+    def __getitem__(self, name):
+        return AsyncMockCollection(self._sync_db[name])
     
     def __getattr__(self, name):
         if name.startswith('_'):

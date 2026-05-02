@@ -10,9 +10,9 @@ import {
   TrashIcon, ChevronUpIcon,
 } from "@radix-ui/react-icons";
 import { MessageCircleIcon, UsersIcon, PinIcon } from "lucide-react";
-import { communityApi, getImageUrl } from "@/services/api";
+import { communityApi, getImageUrl, uploadApi } from "@/services/api";
 import { useUser } from "@/App";
-import { Community, CommunityPost, TagEntity, ForumEvent, ForumDiscussion } from "@/types";
+import { Community, CommunityMember, CommunityPost, TagEntity, ForumEvent, ForumDiscussion } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import { UpvoteButton } from "@/components/ui/UpvoteButton";
 import { MarkdownEditor } from "@/components/forms/MarkdownEditor";
@@ -49,6 +49,10 @@ export function CommunityDetail() {
   const [showEditCommunity, setShowEditCommunity] = useState(false);
   const [showDeleteCommunity, setShowDeleteCommunity] = useState(false);
   const [membershipLoading, setMembershipLoading] = useState(false);
+  const [showMembers, setShowMembers] = useState(false);
+  const [members, setMembers] = useState<CommunityMember[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [membersError, setMembersError] = useState("");
   const [communityEvents, setCommunityEvents] = useState<ForumEvent[]>([]);
   const [communityDiscussions, setCommunityDiscussions] = useState<ForumDiscussion[]>([]);
 
@@ -124,6 +128,26 @@ export function CommunityDetail() {
     navigate("/forum?tab=communities");
   };
 
+  const loadMembers = async () => {
+    if (!id) return;
+    setMembersLoading(true);
+    setMembersError("");
+    try {
+      const res = await communityApi.getMembers(id);
+      setMembers(res.data.members);
+    } catch (e: any) {
+      setMembers([]);
+      setMembersError(e?.response?.data?.detail || "Failed to load members");
+    } finally {
+      setMembersLoading(false);
+    }
+  };
+
+  const openMembersDialog = () => {
+    setShowMembers(true);
+    void loadMembers();
+  };
+
   if (loading) {
     return <Card className="p-8 text-center"><Text color="gray">Loading...</Text></Card>;
   }
@@ -139,15 +163,19 @@ export function CommunityDetail() {
       </Button>
 
       {/* Community header */}
-      {community.cover_image_url && (
-        <div className="w-full h-40 rounded-xl overflow-hidden mb-4">
+      <div className="w-full h-40 rounded-xl overflow-hidden mb-4 bg-[var(--grass-3)]">
+        {community.cover_image_url ? (
           <img
             src={getImageUrl(community.cover_image_url) ?? community.cover_image_url}
-            alt="Cover"
+            alt={`${community.name} banner`}
             className="w-full h-full object-cover"
           />
-        </div>
-      )}
+        ) : (
+          <div className="flex h-full w-full items-center justify-center">
+            <UsersIcon className="h-12 w-12 text-[var(--grass-9)]" />
+          </div>
+        )}
+      </div>
 
       <Card className="p-6 mb-6">
         <Flex gap="4" align="start">
@@ -169,9 +197,9 @@ export function CommunityDetail() {
                 </Flex>
               </div>
               <Flex gap="2" align="center">
-                <Badge size="2" variant="soft" color="gray">
+                <Button size="2" variant="soft" color="gray" onClick={openMembersDialog}>
                   <UsersIcon className="w-3 h-3 mr-1" /> {community.member_count} members
-                </Badge>
+                </Button>
                 <Badge size="2" variant="soft" color="gray">
                   <MessageCircleIcon className="w-3 h-3 mr-1" /> {community.post_count} posts
                 </Badge>
@@ -345,6 +373,18 @@ export function CommunityDetail() {
       )}
 
       {/* Dialogs */}
+      <CommunityMembersDialog
+        open={showMembers}
+        onOpenChange={setShowMembers}
+        members={members}
+        loading={membersLoading}
+        error={membersError}
+        currentUserId={currentUserId}
+        onOpenUser={(userId) => {
+          setShowMembers(false);
+          navigate(`/user/${userId}`);
+        }}
+      />
       <NewPostDialog
         open={showNewPost}
         onOpenChange={setShowNewPost}
@@ -368,6 +408,102 @@ export function CommunityDetail() {
         onConfirm={handleDeleteCommunity}
       />
     </div>
+  );
+}
+
+// ─── Members Dialog ───────────────────────────────────────────
+
+function CommunityMembersDialog({
+  open,
+  onOpenChange,
+  members,
+  loading,
+  error,
+  currentUserId,
+  onOpenUser,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  members: CommunityMember[];
+  loading: boolean;
+  error: string;
+  currentUserId: string | null;
+  onOpenUser: (userId: string) => void;
+}) {
+  const mutualText = (member: CommunityMember) => {
+    const isCurrentUser = member.user_id === currentUserId || member.user?.id === currentUserId;
+    if (isCurrentUser) return "You";
+    const count = member.mutual_community_count ?? 0;
+    return `${count} common ${count === 1 ? "community" : "communities"}`;
+  };
+
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Content className="max-w-lg" aria-describedby={undefined}>
+        <Dialog.Title>Community Members</Dialog.Title>
+        <div className="mt-4 space-y-3">
+          {loading ? (
+            <Card className="p-6 text-center">
+              <Text color="gray">Loading members...</Text>
+            </Card>
+          ) : error ? (
+            <Card className="p-6 text-center">
+              <Text color="red">{error}</Text>
+            </Card>
+          ) : members.length === 0 ? (
+            <Card className="p-6 text-center">
+              <Text color="gray">No members found.</Text>
+            </Card>
+          ) : (
+            members.map((member) => {
+              const userId = member.user?.id || member.user_id;
+              const displayName =
+                member.user?.full_name || member.user?.username || "Unknown member";
+              return (
+                <Card
+                  key={member._id}
+                  className={userId ? "hover-card cursor-pointer" : ""}
+                  onClick={() => userId && onOpenUser(userId)}
+                >
+                  <Flex gap="3" align="center" justify="between">
+                    <Flex gap="3" align="center" className="min-w-0">
+                      <Avatar
+                        size="3"
+                        src={getImageUrl(member.user?.profile_picture)}
+                        fallback={displayName[0] || "?"}
+                        radius="full"
+                      />
+                      <div className="min-w-0">
+                        <Text size="2" weight="bold" className="block truncate">
+                          {displayName}
+                        </Text>
+                        <Flex gap="2" align="center" wrap="wrap">
+                          {member.user?.username && (
+                            <Text size="1" color="gray">
+                              @{member.user.username}
+                            </Text>
+                          )}
+                          <Text size="1" color="gray">
+                            {mutualText(member)}
+                          </Text>
+                        </Flex>
+                      </div>
+                    </Flex>
+                    <Badge size="1" variant="soft" color={member.role === "founder" ? "violet" : "gray"}>
+                      {member.role === "founder"
+                        ? "Founder"
+                        : member.role === "moderator"
+                          ? "Mod"
+                          : "Member"}
+                    </Badge>
+                  </Flex>
+                </Card>
+              );
+            })
+          )}
+        </div>
+      </Dialog.Content>
+    </Dialog.Root>
   );
 }
 
@@ -464,6 +600,10 @@ function EditCommunityDialog({
   const [tags, setTags] = useState<TagEntity[]>(community.tags ?? []);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -471,15 +611,64 @@ function EditCommunityDialog({
       setDescription(community.description);
       setRules(community.rules ?? []);
       setTags(community.tags ?? []);
+      setAvatarFile(null);
+      setCoverFile(null);
+      setAvatarPreviewUrl(null);
+      setCoverPreviewUrl(null);
       setError("");
     }
   }, [open, community]);
+
+  const resetImageSelections = () => {
+    if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
+    if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
+    setAvatarFile(null);
+    setCoverFile(null);
+    setAvatarPreviewUrl(null);
+    setCoverPreviewUrl(null);
+  };
+
+  const handleCommunityImageChange = (
+    file: File | undefined,
+    type: "avatar" | "cover",
+  ) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Image must be under 5 MB");
+      return;
+    }
+    const previewUrl = URL.createObjectURL(file);
+    setError("");
+    if (type === "avatar") {
+      if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
+      setAvatarFile(file);
+      setAvatarPreviewUrl(previewUrl);
+    } else {
+      if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
+      setCoverFile(file);
+      setCoverPreviewUrl(previewUrl);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!name.trim() || !description.trim()) { setError("Name and description are required"); return; }
     setSubmitting(true);
     try {
-      const res = await communityApi.updateCommunity(community._id, { name, description, rules, tags });
+      const avatarUrl = avatarFile
+        ? (await uploadApi.uploadCommunityImage(avatarFile)).data.url
+        : community.avatar_url;
+      const coverUrl = coverFile
+        ? (await uploadApi.uploadCommunityImage(coverFile)).data.url
+        : community.cover_image_url;
+      const res = await communityApi.updateCommunity(community._id, {
+        name,
+        description,
+        rules,
+        tags,
+        avatar_url: avatarUrl,
+        cover_image_url: coverUrl,
+      });
+      resetImageSelections();
       onUpdated(res.data);
       onOpenChange(false);
     } catch (e: any) {
@@ -490,7 +679,7 @@ function EditCommunityDialog({
   };
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog.Root open={open} onOpenChange={(o) => { if (!o) resetImageSelections(); onOpenChange(o); }}>
       <Dialog.Content className="max-w-2xl" aria-describedby={undefined}>
         <Dialog.Title>Edit Community</Dialog.Title>
         <Form.Root onSubmit={(e) => { e.preventDefault(); void handleSubmit(); }} className="space-y-4 mt-4">
@@ -504,6 +693,56 @@ function EditCommunityDialog({
             <Form.Label className="text-sm font-medium">Description *</Form.Label>
             <MarkdownEditor value={description} onChange={(v) => setDescription(v)} rows={5} />
           </Form.Field>
+          <div className="grid gap-3 md:grid-cols-2">
+            <Box className="space-y-2">
+              <Text size="2" weight="medium" className="block">Community photo</Text>
+              <label className="block cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="sr-only"
+                  disabled={submitting}
+                  onChange={(e) => {
+                    handleCommunityImageChange(e.target.files?.[0], "avatar");
+                    e.target.value = "";
+                  }}
+                />
+                <Avatar
+                  size="6"
+                  src={avatarPreviewUrl || getImageUrl(community.avatar_url)}
+                  fallback={name[0] || community.name[0]}
+                  radius="full"
+                  className="ring-1 ring-[var(--gray-6)]"
+                />
+              </label>
+            </Box>
+            <Box className="space-y-2">
+              <Text size="2" weight="medium" className="block">Banner image</Text>
+              <label className="block cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="sr-only"
+                  disabled={submitting}
+                  onChange={(e) => {
+                    handleCommunityImageChange(e.target.files?.[0], "cover");
+                    e.target.value = "";
+                  }}
+                />
+                {coverPreviewUrl || community.cover_image_url ? (
+                  <img
+                    src={coverPreviewUrl || getImageUrl(community.cover_image_url) || community.cover_image_url}
+                    alt="Community banner preview"
+                    className="h-28 w-full rounded-lg object-cover ring-1 ring-[var(--gray-6)]"
+                  />
+                ) : (
+                  <span className="flex h-28 w-full items-center justify-center rounded-lg border border-dashed border-[var(--gray-7)] text-sm font-medium text-[var(--gray-11)]">
+                    Choose banner
+                  </span>
+                )}
+              </label>
+            </Box>
+          </div>
           <Form.Field name="tags" className="space-y-1">
             <Form.Label className="text-sm font-medium">Tags</Form.Label>
             <TagAutocomplete tags={tags} onTagAdd={(t) => setTags([...tags, t])} onTagRemove={(t) => setTags(tags.filter((x) => x.label !== t.label))} />
@@ -527,7 +766,7 @@ function EditCommunityDialog({
           </div>
           {error && <Text size="2" color="red">{error}</Text>}
           <Flex justify="end" gap="3">
-            <Button type="button" variant="soft" color="gray" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="button" variant="soft" color="gray" onClick={() => { resetImageSelections(); onOpenChange(false); }}>Cancel</Button>
             <Form.Submit asChild>
               <Button type="submit" disabled={submitting}>{submitting ? "Saving..." : "Save Changes"}</Button>
             </Form.Submit>

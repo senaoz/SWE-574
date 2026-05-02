@@ -780,6 +780,7 @@ export interface CommunityMember {
   status: MemberStatus;
   joined_at: string;
   user?: ForumAuthor;
+  mutual_community_count?: number | null;
 }
 
 export interface CommunityMemberListResponse {
