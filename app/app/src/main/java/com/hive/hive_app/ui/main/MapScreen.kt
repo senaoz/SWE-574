@@ -721,7 +721,8 @@ fun MapScreen(
             DiscoverScreen(
                 modifier = Modifier.fillMaxSize(),
                 onStartChat = onStartChat,
-                onOpenUserProfile = onOpenUserProfile
+                onOpenUserProfile = onOpenUserProfile,
+                searchBarEndPadding = 64.dp
             )
         } else {
         // Map first so it stays behind the bar
@@ -1038,62 +1039,10 @@ fun MapScreen(
                         ),
                         textStyle = MaterialTheme.typography.bodyMedium
                     )
-                    if (state.locationPermissionGranted) {
-                        IconButton(
-                            onClick = {
-                                viewModel.requestFreshLocationForCenter()
-                                nearMeCenterNonce++
-                            }
-                        ) {
-                            Icon(Icons.Filled.MyLocation, contentDescription = "Near me")
-                        }
-                    }
-                    IconButton(onClick = { showFilters = true }) {
-                        Icon(Icons.Filled.Tune, contentDescription = "Filters")
-                    }
-                }
-
-                val filterSummary = remember(state.filterTimeOfDay, state.filterDate, state.filterType) {
-                    val typeLabel = when (state.filterType) {
-                        null -> "All"
-                        "offer" -> "Offer"
-                        "need" -> "Need"
-                        "event" -> "Event"
-                        else -> "All"
-                    }
-                    val timeLabel = when (state.filterTimeOfDay) {
-                        MapViewModel.TimeOfDayFilter.ANYTIME -> "Any time"
-                        MapViewModel.TimeOfDayFilter.MORNING -> "Morning"
-                        MapViewModel.TimeOfDayFilter.AFTERNOON -> "Afternoon"
-                        MapViewModel.TimeOfDayFilter.EVENING -> "Evening"
-                        MapViewModel.TimeOfDayFilter.NIGHT -> "Night"
-                    }
-                    val dateLabel = when (val df = state.filterDate) {
-                        MapViewModel.DateFilter.ANYTIME -> "Anytime"
-                        MapViewModel.DateFilter.TODAY -> "Today"
-                        MapViewModel.DateFilter.TOMORROW -> "Tomorrow"
-                        MapViewModel.DateFilter.WEEKEND -> "Weekend"
-                        MapViewModel.DateFilter.NEXT_WEEKEND -> "Next weekend"
-                        is MapViewModel.DateFilter.SPECIFIC -> df.date.toString()
-                    }
-                    "Type: $typeLabel   Date: $dateLabel   Time of day: $timeLabel"
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = filterSummary,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { showFilters = true }
-                    )
+                    // List view toggle
                     IconButton(
                         onClick = { showListView = !showListView },
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
                             imageVector = if (showListView) Icons.Outlined.Map else Icons.Outlined.FormatListBulleted,
@@ -1103,8 +1052,100 @@ fun MapScreen(
                             modifier = Modifier.size(20.dp)
                         )
                     }
+                    // Filter icon — side by side with list icon
+                    IconButton(
+                        onClick = { showFilters = true },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        val anyFilterActive = state.filterType != null ||
+                            state.filterDate !is MapViewModel.DateFilter.ANYTIME ||
+                            state.filterTimeOfDay != MapViewModel.TimeOfDayFilter.ANYTIME
+                        Icon(
+                            Icons.Filled.Tune,
+                            contentDescription = "Filters",
+                            tint = if (anyFilterActive) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                // Filter summary chips row — 3 equal-width, non-clickable
+                val typeIsDefault = state.filterType == null
+                val dateIsDefault = state.filterDate is MapViewModel.DateFilter.ANYTIME
+                val timeIsDefault = state.filterTimeOfDay == MapViewModel.TimeOfDayFilter.ANYTIME
+
+                val typeLabel = when (state.filterType) {
+                    null -> "All"
+                    "offer" -> "Offer"
+                    "need" -> "Need"
+                    "event" -> "Event"
+                    else -> "All"
+                }
+                val timeLabel = when (state.filterTimeOfDay) {
+                    MapViewModel.TimeOfDayFilter.ANYTIME -> "Any time"
+                    MapViewModel.TimeOfDayFilter.MORNING -> "Morning"
+                    MapViewModel.TimeOfDayFilter.AFTERNOON -> "Afternoon"
+                    MapViewModel.TimeOfDayFilter.EVENING -> "Evening"
+                    MapViewModel.TimeOfDayFilter.NIGHT -> "Night"
+                }
+                val dateLabel = when (val df = state.filterDate) {
+                    MapViewModel.DateFilter.ANYTIME -> "Anytime"
+                    MapViewModel.DateFilter.TODAY -> "Today"
+                    MapViewModel.DateFilter.TOMORROW -> "Tomorrow"
+                    MapViewModel.DateFilter.WEEKEND -> "Weekend"
+                    MapViewModel.DateFilter.NEXT_WEEKEND -> "Next weekend"
+                    is MapViewModel.DateFilter.SPECIFIC -> df.date.toString()
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    FilterSummaryChip(
+                        icon = Icons.Outlined.Search,
+                        label = typeLabel,
+                        isActive = !typeIsDefault,
+                        modifier = Modifier.weight(1f)
+                    )
+                    FilterSummaryChip(
+                        icon = Icons.Outlined.Schedule,
+                        label = dateLabel,
+                        isActive = !dateIsDefault,
+                        modifier = Modifier.weight(1f)
+                    )
+                    FilterSummaryChip(
+                        icon = Icons.Outlined.WbCloudy,
+                        label = timeLabel,
+                        isActive = !timeIsDefault,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
                 }
+            }
+        }
+
+        // Location FAB — floats over the map at top-right, below the top bar
+        if (state.locationPermissionGranted) {
+            androidx.compose.material3.SmallFloatingActionButton(
+                onClick = {
+                    viewModel.requestFreshLocationForCenter()
+                    nearMeCenterNonce++
+                },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(top = 130.dp, end = 12.dp),
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                elevation = androidx.compose.material3.FloatingActionButtonDefaults.loweredElevation()
+            ) {
+                Icon(
+                    Icons.Filled.MyLocation,
+                    contentDescription = "Near me",
+                    modifier = Modifier.size(18.dp)
+                )
             }
         }
 
@@ -1203,6 +1244,66 @@ fun MapScreen(
             ) {
                 IconButton(onClick = { showListView = false }) {
                     Icon(Icons.Outlined.Map, contentDescription = "Map View")
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Non-interactive summary chip shown below the search bar.
+ * Displays the current value of a single filter with a leading icon.
+ * Active (non-default) chips are highlighted with the primary colour.
+ */
+@Composable
+private fun FilterSummaryChip(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    isActive: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val containerColor = if (isActive)
+        MaterialTheme.colorScheme.primaryContainer
+    else
+        MaterialTheme.colorScheme.surfaceVariant
+    val contentColor = if (isActive)
+        MaterialTheme.colorScheme.onPrimaryContainer
+    else
+        MaterialTheme.colorScheme.onSurfaceVariant
+
+    androidx.compose.material3.Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(50),
+        color = containerColor,
+        contentColor = contentColor,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(12.dp),
+                tint = contentColor
+            )
+            androidx.compose.foundation.layout.Spacer(Modifier.width(4.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = contentColor,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
+            if (isActive) {
+                androidx.compose.foundation.layout.Spacer(Modifier.width(3.dp))
+                androidx.compose.foundation.Canvas(modifier = Modifier.size(5.dp)) {
+                    drawCircle(color = contentColor)
                 }
             }
         }

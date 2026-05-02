@@ -507,11 +507,44 @@ fun ServiceDetailScreen(
                     DetailSection(title = "Capacity") {
                         val max = service.maxParticipants ?: 1
                         val acceptedCount = service.matchedUserIds?.size ?: 0
-                        Text(
-                            text = "$acceptedCount / $max participants",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        val remaining = max - acceptedCount
+                        val isFull = max > 0 && remaining <= 0
+                        val isNearlyFull = !isFull && max >= 3 && remaining <= (if (max == 3) 1 else 2)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "$acceptedCount / $max participants",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            if (isFull) {
+                                androidx.compose.material3.Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = MaterialTheme.colorScheme.errorContainer
+                                ) {
+                                    Text(
+                                        text = "Capacity full",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            } else if (isNearlyFull) {
+                                androidx.compose.material3.Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = Color(0xFFFFECB3)
+                                ) {
+                                    Text(
+                                        text = if (remaining == 1) "Only 1 spot left!" else "Only $remaining spots left!",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color(0xFF7B5800),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     // Accepted users (if any)
@@ -605,6 +638,9 @@ fun ServiceDetailScreen(
                             }
                         }
                     }
+
+                    // Service Status Bar
+                    ServiceStatusBar(status = service.status ?: "active")
 
                     // Comments
                     if (viewModel != null) {
@@ -750,6 +786,8 @@ fun ServiceDetailScreen(
                             )
                         }
                     }
+                    // Clearance so the floating + FAB never overlaps the map
+                    Spacer(modifier = Modifier.height(96.dp))
                 }
                 }
             }
@@ -1075,5 +1113,135 @@ private fun LabelValue(label: String, value: String) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface
         )
+    }
+}
+
+@Composable
+private fun ServiceStatusBar(status: String) {
+    data class Step(val key: String, val label: String)
+    val steps = listOf(
+        Step("active", "Active"),
+        Step("in_progress", "In Progress"),
+        Step("completed", "Completed")
+    )
+
+    val currentIndex = when (status.lowercase()) {
+        "active" -> 0
+        "in_progress", "in progress" -> 1
+        "completed" -> 2
+        "cancelled" -> 1
+        "expired" -> 1
+        else -> 0
+    }
+
+    val isCancelled = status.lowercase() == "cancelled"
+    val isExpired = status.lowercase() == "expired"
+
+    val activeColor = HiveTheme.semanticColors.active
+    val cancelledColor = HiveTheme.semanticColors.cancelled
+    val expiredColor = HiveTheme.semanticColors.expired
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "SERVICE STATUS",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top
+            ) {
+                steps.forEachIndexed { index, step ->
+                    val isCompleted = index < currentIndex && !isCancelled && !isExpired
+                    val isCurrent = index == currentIndex
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        // Circle icon
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(32.dp)
+                                .then(
+                                    if (isCompleted) Modifier.background(activeColor, CircleShape)
+                                    else if (isCurrent && isCancelled) Modifier.background(cancelledColor, CircleShape)
+                                    else if (isCurrent && isExpired) Modifier.background(expiredColor, CircleShape)
+                                    else if (isCurrent) Modifier.border(2.dp, activeColor, CircleShape)
+                                    else Modifier.border(2.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                                )
+                        ) {
+                            when {
+                                isCompleted -> Icon(
+                                    imageVector = Icons.Default.Star,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                isCurrent && isCancelled -> Text(
+                                    text = "✕",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                isCurrent && isExpired -> Text(
+                                    text = "!",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                else -> Text(
+                                    text = "${index + 1}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (isCurrent) activeColor else MaterialTheme.colorScheme.outlineVariant,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        // Label
+                        val labelText = when {
+                            index == 1 && isCancelled -> "Cancelled"
+                            index == 1 && isExpired -> "Expired"
+                            else -> step.label
+                        }
+                        val labelColor = when {
+                            isCurrent && isCancelled -> cancelledColor
+                            isCurrent && isExpired -> expiredColor
+                            isCurrent || isCompleted -> activeColor
+                            else -> MaterialTheme.colorScheme.outlineVariant
+                        }
+                        Text(
+                            text = labelText,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = labelColor,
+                            fontWeight = if (isCurrent || isCompleted) FontWeight.SemiBold else FontWeight.Normal
+                        )
+                    }
+
+                    // Connector line between steps
+                    if (index < steps.size - 1) {
+                        val lineColor = if (index < currentIndex && !isCancelled && !isExpired)
+                            activeColor else MaterialTheme.colorScheme.outlineVariant
+                        Box(
+                            modifier = Modifier
+                                .weight(0.5f)
+                                .height(2.dp)
+                                .padding(top = 15.dp)
+                                .background(lineColor)
+                        )
+                    }
+                }
+            }
+        }
     }
 }
