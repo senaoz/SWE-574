@@ -173,13 +173,18 @@ export function Forum() {
   };
   return (
     <div>
-      <Flex justify="between" align="center" className="mb-6">
-        <div>
-          <Heading size="7">Community Forum</Heading>
-          <Text size="3" color="gray">
-            Share ideas, discuss topics, and discover community events
-          </Text>
-        </div>
+      <Flex direction="column" justify="between" align="center" className="m-12">
+        <Heading size="8" className={"max-w-lg"} align="center">
+          The 🤾‍♂️ people platform.<br />
+          Where 🏈 interests<br />
+          become 🎻 friendships.
+        </Heading>
+        <Text size="3" color="gray" className={"max-w-3xl mt-6 mb-3"} align="center">
+          Whatever your interest, from hiking and reading to networking and skill sharing, there are thousands of people who share it on Hive. Events are happening every day—sign up to join the fun.
+        </Text>
+        <Button onClick={() => setTab('communities')}>
+          See Communities
+        </Button>
       </Flex>
       <Flex gap="3" className="mb-6" wrap="wrap">
         <TextField.Root
@@ -205,6 +210,10 @@ export function Forum() {
       </Flex>
       <Tabs.Root value={tab} onValueChange={setTab}>
         <Tabs.List>
+          <Tabs.Trigger value="communities">
+            <UsersIcon className="mr-1 w-4 h-4" /> Communities (
+            {communitiesTotal})
+          </Tabs.Trigger>
           <Tabs.Trigger value="discussions">
             <MessageCircleIcon className="mr-1 w-4 h-4" /> Discussions (
             {discussionsTotal})
@@ -212,10 +221,6 @@ export function Forum() {
           <Tabs.Trigger value="events">
             <CalendarClockIcon className="mr-1 w-4 h-4" /> Events ({eventsTotal}
             )
-          </Tabs.Trigger>
-          <Tabs.Trigger value="communities">
-            <UsersIcon className="mr-1 w-4 h-4" /> Communities (
-            {communitiesTotal})
           </Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="discussions" className="pt-4">
@@ -389,7 +394,7 @@ export function Forum() {
               <Text color="gray">No events yet. Create one!</Text>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {events.map((ev) => (
                 <Card
                   key={ev._id}
@@ -566,7 +571,7 @@ export function Forum() {
               </Text>
             </Card>
           ) : (
-            <div className="grid gap-4">
+            <div className="grid gap-4 md:grid-cols-2">
               {communities.map((c) => (
                 <Card
                   key={c._id}
@@ -574,68 +579,76 @@ export function Forum() {
                   size="3"
                   onClick={() => navigate(`/forum/communities/${c._id}`)}
                 >
-                  <Flex gap="3" align="start">
-                    <Avatar
-                      size="4"
-                      src={getImageUrl(c.avatar_url) ?? undefined}
-                      fallback={c.name[0]}
-                      radius="full"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <Flex justify="between" align="start" wrap="wrap" gap="2">
-                        <div>
-                          <Text size="3" weight="bold">
-                            {c.name}
-                          </Text>
-                          {c.user_membership && (
-                            <Badge
-                              size="1"
-                              variant="soft"
-                              color="violet"
-                              className="ml-2"
-                            >
-                              {c.user_membership === "founder"
-                                ? "Founder"
-                                : c.user_membership === "moderator"
-                                  ? "Mod"
-                                  : "Member"}
-                            </Badge>
-                          )}
-                        </div>
-                        <Flex gap="2" align="center">
-                          <Badge size="1" variant="soft" color="gray">
-                            <UsersIcon className="w-3 h-3 mr-1" />
-                            {c.member_count} members
-                          </Badge>
-                          <Badge size="1" variant="soft" color="gray">
-                            <MessageCircleIcon className="w-3 h-3 mr-1" />
-                            {c.post_count} posts
-                          </Badge>
-                        </Flex>
-                      </Flex>
-                      <Text size="2" color="gray" className="mt-1 line-clamp-2">
-                        {c.description}
+                  {c.avatar_url && (
+                    <Inset clip="padding-box" side="top" pb="current">
+                      <img
+                        src={getImageUrl(c.avatar_url) ?? c.avatar_url}
+                        alt={c.name}
+                        loading="lazy"
+                        style={{
+                          display: "block",
+                          objectFit: "cover",
+                          width: "100%",
+                          height: 160,
+                          backgroundColor: "var(--gray-5)",
+                        }}
+                      />
+                    </Inset>
+                  )}
+                  <Flex justify="between" align="start" wrap="wrap" gap="2">
+                    <Flex align="center" gap="2">
+                      {!c.avatar_url && (
+                        <Avatar
+                          size="2"
+                          fallback={c.name[0]}
+                          radius="full"
+                        />
+                      )}
+                      <Text size="3" weight="bold" className="line-clamp-1">
+                        {c.name}
                       </Text>
-                      <Flex gap="2" align="center" className="mt-2" wrap="wrap">
-                        <Text size="1" color="gray">
-                          by{" "}
-                          {c.founder?.full_name ||
-                            c.founder?.username ||
-                            "Unknown"}
-                        </Text>
-                        <Text size="1" color="gray">
-                          · {timeAgo(c.created_at)}
-                        </Text>
-                        {(c.tags || []).slice(0, 3).map((tag, i) => (
-                          <ClickableTag
-                            key={i}
-                            tag={tag}
-                            size="1"
-                            stopPropagation
-                          />
-                        ))}
-                      </Flex>
-                    </div>
+                      {c.user_membership && (
+                        <Badge size="1" variant="soft" color="violet">
+                          {c.user_membership === "founder"
+                            ? "Founder"
+                            : c.user_membership === "moderator"
+                              ? "Mod"
+                              : "Member"}
+                        </Badge>
+                      )}
+                    </Flex>
+                    <Flex gap="2" align="center">
+                      <Badge size="1" variant="soft" color="gray">
+                        <UsersIcon className="w-3 h-3" />
+                        {c.member_count}
+                      </Badge>
+                      <Badge size="1" variant="soft" color="gray">
+                        <MessageCircleIcon className="w-3 h-3" />
+                        {c.post_count}
+                      </Badge>
+                    </Flex>
+                  </Flex>
+                  <Text size="2" color="gray" className="line-clamp-2">
+                    {c.description}
+                  </Text>
+                  <Flex gap="2" align="center" className="mt-2" wrap="wrap">
+                    <Text size="1" color="gray">
+                      by{" "}
+                      {c.founder?.full_name ||
+                        c.founder?.username ||
+                        "Unknown"}
+                    </Text>
+                    <Text size="1" color="gray">
+                      · {timeAgo(c.created_at)}
+                    </Text>
+                    {(c.tags || []).slice(0, 3).map((tag, i) => (
+                      <ClickableTag
+                        key={i}
+                        tag={tag}
+                        size="1"
+                        stopPropagation
+                      />
+                    ))}
                   </Flex>
                 </Card>
               ))}
