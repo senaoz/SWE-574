@@ -54,6 +54,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.hive.hive_app.data.api.dto.ServiceResponse
@@ -74,7 +75,8 @@ fun DiscoverScreen(
     modifier: Modifier = Modifier,
     viewModel: DiscoverViewModel = hiltViewModel(),
     onStartChat: ((String) -> Unit)? = null,
-    onOpenUserProfile: ((String) -> Unit)? = null
+    onOpenUserProfile: ((String) -> Unit)? = null,
+    searchBarEndPadding: Dp = 16.dp
 ) {
     var selectedServiceId by remember { mutableStateOf<String?>(null) }
     var manageRequestsServiceId by remember { mutableStateOf<String?>(null) }
@@ -227,7 +229,7 @@ fun DiscoverScreen(
                 onValueChange = { viewModel.setSearchQuery(it) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(start = 16.dp, end = searchBarEndPadding, top = 8.dp, bottom = 8.dp),
                 placeholder = { Text("Search services…") },
                 leadingIcon = {
                     Icon(

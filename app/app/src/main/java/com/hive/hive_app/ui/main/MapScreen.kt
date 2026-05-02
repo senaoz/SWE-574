@@ -721,7 +721,8 @@ fun MapScreen(
             DiscoverScreen(
                 modifier = Modifier.fillMaxSize(),
                 onStartChat = onStartChat,
-                onOpenUserProfile = onOpenUserProfile
+                onOpenUserProfile = onOpenUserProfile,
+                searchBarEndPadding = 64.dp
             )
         } else {
         // Map first so it stays behind the bar
