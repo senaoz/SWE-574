@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 
 from .core.config import settings
 from .core.database import connect_to_mongo, close_mongo_connection
-from .api import auth, users, services, admin, comments, join_requests, transactions, chat, wikidata, ratings, forum, upload, reports, notifications
+from .api import auth, users, services, admin, comments, join_requests, transactions, chat, wikidata, ratings, forum, upload, reports, notifications, community
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
     await connect_to_mongo()
     # Ensure upload directories exist
     upload_dir = settings.upload_dir
-    for sub in ("profile", "services", "comments"):
+    for sub in ("profile", "services", "communities", "ratings", "comments", "forum-events", "discussions"):
         path = os.path.join(upload_dir, sub)
         os.makedirs(path, exist_ok=True)
     logger.info("Application startup complete")
@@ -62,11 +62,12 @@ app.include_router(forum.router)
 app.include_router(upload.router)
 app.include_router(reports.router)
 app.include_router(notifications.router)
+app.include_router(community.router)
 
 # Ensure upload directory exists before mounting (StaticFiles requires it at init)
 upload_dir = settings.upload_dir
 os.makedirs(upload_dir, exist_ok=True)
-for sub in ("profile", "services", "comments"):
+for sub in ("profile", "services", "communities", "ratings", "comments", "forum-events", "discussions"):
     os.makedirs(os.path.join(upload_dir, sub), exist_ok=True)
 
 # Mount static files for uploaded images (must be after routes to avoid shadowing)

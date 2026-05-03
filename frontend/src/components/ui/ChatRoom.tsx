@@ -232,7 +232,7 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
       </Flex>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 flex flex-col max-h-[calc(75vh-125px)]">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 flex flex-col">
         {messages.length === 0 ? (
           <div className="text-center opacity-50 py-8">
             <Text>No messages yet. Start the conversation!</Text>
@@ -326,7 +326,7 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
 
       {/* Message Input */}
       <form onSubmit={handleSendMessage}>
-        <Flex gap="2" className="pt-4">
+        <Flex gap="2" className="pt-4 pb-2">
           <TextField.Root
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}

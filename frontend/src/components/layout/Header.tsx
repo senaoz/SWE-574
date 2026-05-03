@@ -116,7 +116,7 @@ export function Header() {
                     <HomeIcon className="w-4 h-4" />
                   </IconButton>
                 </Tooltip>
-                <Tooltip content="Forum">
+                <Tooltip content="Commons">
                   <IconButton onClick={() => navigate("/forum")}>
                     <GlobeIcon className="w-4 h-4" />
                   </IconButton>

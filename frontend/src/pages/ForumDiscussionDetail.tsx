@@ -9,16 +9,13 @@ import {
   Heading,
   Dialog,
   TextField,
+  Box,
 } from "@radix-ui/themes";
 import { Form } from "radix-ui";
-import {
-  ArrowLeftIcon,
-  Pencil1Icon,
-  TrashIcon,
-} from "@radix-ui/react-icons";
-import { forumApi, getImageUrl } from "@/services/api";
+import { ArrowLeftIcon, Pencil1Icon, TrashIcon } from "@radix-ui/react-icons";
+import { forumApi, getImageUrl, communityApi } from "@/services/api";
 import { useUser } from "@/App";
-import { ForumDiscussion, TagEntity } from "@/types";
+import { ForumDiscussion, TagEntity, Community } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import { UpvoteButton } from "@/components/ui/UpvoteButton";
 import { MarkdownEditor } from "@/components/forms/MarkdownEditor";
@@ -140,10 +137,7 @@ export function ForumDiscussionDetail() {
                   upvoted={discussion.user_upvoted}
                   onUpvote={
                     currentUserId
-                      ? () =>
-                          forumApi
-                            .upvoteDiscussion(id!)
-                            .then((r) => r.data)
+                      ? () => forumApi.upvoteDiscussion(id!).then((r) => r.data)
                       : undefined
                   }
                   disabled={!currentUserId}
@@ -173,12 +167,31 @@ export function ForumDiscussionDetail() {
                 {discussion.body}
               </ReactMarkdown>
             </div>
+            {discussion.image_urls && discussion.image_urls.length > 0 && (
+              <Flex gap="2" mt="2" wrap="wrap">
+                {discussion.image_urls.map((url, i) => (
+                  <img
+                    key={i}
+                    src={getImageUrl(url) ?? url}
+                    alt=""
+                    style={{
+                      maxHeight: 300,
+                      borderRadius: 8,
+                      objectFit: "cover",
+                    }}
+                  />
+                ))}
+              </Flex>
+            )}
             {discussion.tags && discussion.tags.length > 0 && (
               <Flex gap="2" className="mt-4" wrap="wrap">
                 {discussion.tags.map((tag, i) => (
                   <ClickableTag key={i} tag={tag} size="1" />
                 ))}
               </Flex>
+            )}
+            {discussion.community_id && (
+              <RelatedCommunityBlock communityId={discussion.community_id} />
             )}
           </div>
         </Flex>
@@ -246,6 +259,65 @@ export function ForumDiscussionDetail() {
   );
 }
 
+function RelatedCommunityBlock({ communityId }: { communityId: string }) {
+  const navigate = useNavigate();
+  const [community, setCommunity] = useState<Community | null>(null);
+
+  useEffect(() => {
+    communityApi
+      .getCommunity(communityId)
+      .then((r) => setCommunity(r.data))
+      .catch(() => {});
+  }, [communityId]);
+
+  if (!community) return null;
+
+  return (
+    <Card
+      mt="4"
+      className="hover-card cursor-pointer"
+      onClick={() => navigate(`/forum/communities/${community._id}`)}
+    >
+      <Flex gap="3" align="center">
+        <Avatar
+          src={
+            community.avatar_url
+              ? (getImageUrl(community.avatar_url) ?? undefined)
+              : undefined
+          }
+          fallback={community.name[0]}
+          size="3"
+          radius="full"
+        />
+        <Box flexGrow="1">
+          <div className="flex flex-col mb-2">
+            <Text size="1" color="gray">
+              Related Community
+            </Text>
+            <Text weight="bold" size="3">
+              {community.name}
+            </Text>
+          </div>
+          {community.description && (
+            <Text
+              size="1"
+              color="gray"
+              style={{
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }}
+            >
+              {community.description}
+            </Text>
+          )}
+        </Box>
+      </Flex>
+    </Card>
+  );
+}
+
 function EditDiscussionDialog({
   open,
   onOpenChange,
@@ -295,7 +367,7 @@ function EditDiscussionDialog({
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Content className="max-w-2xl" aria-describedby={undefined}>
+      <Dialog.Content className="max-w-4xl" aria-describedby={undefined}>
         <Dialog.Title>Edit Discussion</Dialog.Title>
         <Form.Root
           onSubmit={(e) => {

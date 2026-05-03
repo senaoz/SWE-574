@@ -74,6 +74,7 @@ export interface RatingDetailed {
     timebank_hours: number;
     completed_at?: string;
     created_at?: string;
+    rated_user_role?: "provider" | "taker";
   };
   service?: {
     id: string;
@@ -319,6 +320,7 @@ export interface ServiceFormErrors {
   specific_time?: string;
   recurring_pattern?: string | { days: string[]; time: string; error: string };
   open_availability?: string;
+  images?: string;
 }
 
 export interface Comment {
@@ -569,6 +571,8 @@ export interface ForumDiscussion {
   comment_count: number;
   upvote_count: number;
   user_upvoted?: boolean;
+  image_urls?: string[];
+  community_id?: string;
 }
 
 export interface ForumDiscussionListResponse {
@@ -582,6 +586,8 @@ export interface ForumDiscussionForm {
   title: string;
   body: string;
   tags: TagEntity[];
+  image_urls?: string[];
+  community_id?: string;
 }
 
 export interface ForumEvent {
@@ -610,6 +616,7 @@ export interface ForumEvent {
   upvote_count: number;
   user_upvoted?: boolean;
   image_urls?: string[];
+  community_id?: string;
 }
 
 export interface ForumEventListResponse {
@@ -630,12 +637,13 @@ export interface ForumEventForm {
   tags: TagEntity[];
   service_id?: string;
   image_urls?: string[];
+  community_id?: string;
 }
 
 export interface ForumComment {
   _id: string;
   user_id: string;
-  target_type: 'discussion' | 'event';
+  target_type: 'discussion' | 'event' | 'community_post';
   target_id: string;
   content: string;
   image_urls?: string[];
@@ -722,4 +730,99 @@ export interface NotificationListResponse {
   page: number;
   limit: number;
   unread_count: number;
+}
+
+// ===================== Community =====================
+
+export type MemberRole = 'founder' | 'moderator' | 'member';
+export type MemberStatus = 'active' | 'banned';
+export type CommunityPostType = 'post' | 'announcement';
+
+export interface Community {
+  _id: string;
+  name: string;
+  slug: string;
+  description: string;
+  rules: string[];
+  founder_id: string;
+  tags: TagEntity[];
+  cover_image_url?: string;
+  avatar_url?: string;
+  member_count: number;
+  post_count: number;
+  created_at: string;
+  updated_at: string;
+  founder?: ForumAuthor;
+  user_membership?: MemberRole | null;
+  target_membership?: MemberRole | null;
+  is_mutual?: boolean;
+}
+
+export interface CommunityListResponse {
+  communities: Community[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface UserCommunityListResponse {
+  communities: Community[];
+  total: number;
+  mutual_count: number;
+}
+
+export interface CommunityForm {
+  name: string;
+  description: string;
+  rules?: string[];
+  tags?: TagEntity[];
+  cover_image_url?: string;
+  avatar_url?: string;
+}
+
+export interface CommunityMember {
+  _id: string;
+  community_id: string;
+  user_id: string;
+  role: MemberRole;
+  status: MemberStatus;
+  joined_at: string;
+  user?: ForumAuthor;
+  mutual_community_count?: number | null;
+}
+
+export interface CommunityMemberListResponse {
+  members: CommunityMember[];
+  total: number;
+}
+
+export interface CommunityPost {
+  _id: string;
+  community_id: string;
+  user_id: string;
+  title: string;
+  body: string;
+  tags: TagEntity[];
+  post_type: CommunityPostType;
+  is_pinned: boolean;
+  upvote_count: number;
+  user_upvoted?: boolean;
+  comment_count: number;
+  created_at: string;
+  updated_at: string;
+  user?: ForumAuthor;
+}
+
+export interface CommunityPostListResponse {
+  posts: CommunityPost[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface CommunityPostForm {
+  title: string;
+  body: string;
+  tags?: TagEntity[];
+  post_type?: CommunityPostType;
 }

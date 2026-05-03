@@ -31,8 +31,9 @@ import {
   AccountDeletionForm,
   SocialLinks,
   RatingDetailed,
+  TimeBankResponse,
 } from "@/types";
-import { usersApi, ratingsApi, uploadApi, getImageUrl } from "@/services/api";
+import { usersApi, ratingsApi, uploadApi, getImageUrl, servicesApi, joinRequestsApi } from "@/services/api";
 import { ReviewCard } from "@/components/ui/ReviewCard";
 import { useUser } from "@/contexts/UserContext";
 import { MyServices } from "./MyServices";
@@ -225,6 +226,38 @@ export function Profile() {
     });
   const detailedRatings: RatingDetailed[] =
     detailedRatingsData?.data?.ratings ?? [];
+
+  const { data: userCommunitiesData, isLoading: userCommunitiesLoading } =
+    useQuery({
+      queryKey: ["my-communities-profile", user?._id],
+      queryFn: () => usersApi.getUserCommunities(user!._id),
+      enabled: !!user?._id,
+      staleTime: 2 * 60 * 1000,
+    });
+  const userCommunities = userCommunitiesData?.data?.communities ?? [];
+
+  const { data: eagerTimebankData } = useQuery({
+    queryKey: ["my-timebank"],
+    queryFn: () => usersApi.getTimeBank().then((r) => r.data as TimeBankResponse),
+    enabled: !!user?._id,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const { data: eagerStatsData } = useQuery({
+    queryKey: ["profile-header-stats", user?._id],
+    queryFn: async () => {
+      const [servicesRes, requestsRes] = await Promise.all([
+        servicesApi.getServices({ user_id: user!._id, page: 1, limit: 1 }),
+        joinRequestsApi.getMyRequests(1, 1),
+      ]);
+      return {
+        services: servicesRes.data.total ?? 0,
+        requests: requestsRes.data.total ?? 0,
+      };
+    },
+    enabled: !!user?._id,
+    staleTime: 2 * 60 * 1000,
+  });
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -449,28 +482,69 @@ export function Profile() {
           <Tabs.Trigger value="services">
             <LucideBriefcase className="w-4 h-4 mr-2" />
             My Services
-            {myservicesCounts.services ? ` (${myservicesCounts.services})` : ""}
           </Tabs.Trigger>
           <Tabs.Trigger value="applications">
             <LucideList className="w-4 h-4 mr-2" />
             My Applications
-            {myservicesCounts.requests ? ` (${myservicesCounts.requests})` : ""}
           </Tabs.Trigger>
           <Tabs.Trigger value="timebank">
             <ClockIcon className="w-4 h-4 mr-2" />
             Timebank Logs
-            {myservicesCounts.timebank ? ` (${myservicesCounts.timebank})` : ""}
           </Tabs.Trigger>
           <Tabs.Trigger value="saved">
             <BookmarkIcon className="w-4 h-4 mr-2" />
             Saved Items
-            {myservicesCounts.saved ? ` (${myservicesCounts.saved})` : ""}
           </Tabs.Trigger>
           <Tabs.Trigger value="chat">
             <LucideMessageCircle className="w-4 h-4 mr-2" />
             Chat
           </Tabs.Trigger>
         </Tabs.List>
+
+        {/* Stats strip — visible on every tab, populated from eager queries */}
+        <Flex
+          gap="4"
+          align="center"
+          wrap="wrap"
+          py="3"
+          px="1"
+          style={{ borderBottom: "1px solid var(--gray-4)" }}
+        >
+          <Flex align="center" gap="2">
+            <ClockIcon className="w-4 h-4 stroke-2" style={{ color: "var(--accent-11)" }} />
+            <Text size="2" color="gray">Balance</Text>
+            <Text size="3" weight="bold" style={{ color: "var(--accent-11)" }}>
+              {user.timebank_balance.toFixed(1)} hrs
+            </Text>
+          </Flex>
+          {(eagerStatsData?.services ?? myservicesCounts.services) > 0 && (
+            <Flex align="center" gap="2">
+              <Text size="2" color="gray">·</Text>
+              <Text size="2" color="gray">Services</Text>
+              <Text size="2" weight="bold">
+                {eagerStatsData?.services ?? myservicesCounts.services}
+              </Text>
+            </Flex>
+          )}
+          {(eagerStatsData?.requests ?? myservicesCounts.requests) > 0 && (
+            <Flex align="center" gap="2">
+              <Text size="2" color="gray">·</Text>
+              <Text size="2" color="gray">Applications</Text>
+              <Text size="2" weight="bold">
+                {eagerStatsData?.requests ?? myservicesCounts.requests}
+              </Text>
+            </Flex>
+          )}
+          {(eagerTimebankData?.transactions.length ?? myservicesCounts.timebank) > 0 && (
+            <Flex align="center" gap="2">
+              <Text size="2" color="gray">·</Text>
+              <Text size="2" color="gray">Transactions</Text>
+              <Text size="2" weight="bold">
+                {eagerTimebankData?.transactions.length ?? myservicesCounts.timebank}
+              </Text>
+            </Flex>
+          )}
+        </Flex>
 
         <Box pt="5">
           {/* ── Profile Tab ── */}
@@ -1000,6 +1074,59 @@ export function Profile() {
 
                       <Separator />
 
+                      {/* Communities */}
+                      {(userCommunitiesLoading || userCommunities.length > 0) && (
+                        <div>
+                          <Flex align="center" gap="2" className="mb-2">
+                            <Text size="2" weight="bold">
+                              Communities
+                            </Text>
+                            {!userCommunitiesLoading && (
+                              <Text size="1" color="gray">
+                                {userCommunities.length}
+                              </Text>
+                            )}
+                          </Flex>
+                          {userCommunitiesLoading ? (
+                            <Text size="1" color="gray">
+                              Loading communities...
+                            </Text>
+                          ) : (
+                            <Flex gap="2" wrap="wrap">
+                              {userCommunities.slice(0, 12).map((community) => (
+                                <button
+                                  key={community._id}
+                                  type="button"
+                                  title={community.name}
+                                  aria-label={`Open ${community.name}`}
+                                  onClick={() =>
+                                    navigate(`/forum/communities/${community._id}`)
+                                  }
+                                  className="rounded-full ring-1 ring-[var(--gray-6)] transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[var(--grass-8)]"
+                                >
+                                  <Avatar
+                                    size="3"
+                                    src={getImageUrl(community.avatar_url)}
+                                    fallback={community.name[0]}
+                                    radius="full"
+                                  />
+                                </button>
+                              ))}
+                              {userCommunities.length > 12 && (
+                                <span
+                                  title={`${userCommunities.length - 12} more communities`}
+                                  className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--gray-3)] text-sm font-medium text-[var(--gray-11)] ring-1 ring-[var(--gray-6)]"
+                                >
+                                  +{userCommunities.length - 12}
+                                </span>
+                              )}
+                            </Flex>
+                          )}
+                        </div>
+                      )}
+
+                      <Separator />
+
                       {/* Stats */}
                       <div className="space-y-2">
                         <Flex justify="between" align="center">
@@ -1213,26 +1340,61 @@ export function Profile() {
               <BadgeDisplay />
 
               {/* Reviews Section */}
-              <div className="space-y-4">
-                <Heading size="5">Services which you have reviewed</Heading>
+              <div className="space-y-6">
+                <Heading size="5">Reviews Received</Heading>
                 {detailedRatingsLoading ? (
                   <Card className="p-6 text-center">
-                    <Text color="gray">
-                      Loading services which you have reviewed...
-                    </Text>
+                    <Text color="gray">Loading reviews...</Text>
                   </Card>
-                ) : detailedRatings.length > 0 ? (
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {detailedRatings.map((rating) => (
-                      <ReviewCard key={rating._id} rating={rating} />
-                    ))}
-                  </div>
-                ) : (
+                ) : detailedRatings.length === 0 ? (
                   <Card className="p-6 text-center">
-                    <Text color="gray">
-                      No services which you have reviewed yet
-                    </Text>
+                    <Text color="gray">No reviews received yet</Text>
                   </Card>
+                ) : (
+                  <>
+                    {(() => {
+                      const providerRatings = detailedRatings.filter(
+                        (r) => r.transaction?.rated_user_role === "provider"
+                      );
+                      const takerRatings = detailedRatings.filter(
+                        (r) => r.transaction?.rated_user_role === "taker"
+                      );
+                      const unknownRatings = detailedRatings.filter(
+                        (r) => !r.transaction?.rated_user_role
+                      );
+                      return (
+                        <>
+                          {providerRatings.length > 0 && (
+                            <div className="space-y-3">
+                              <Heading size="3" color="gray">As Service Provider</Heading>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                {providerRatings.map((rating) => (
+                                  <ReviewCard key={rating._id} rating={rating} />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {takerRatings.length > 0 && (
+                            <div className="space-y-3">
+                              <Heading size="3" color="gray">As Service Taker</Heading>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                {takerRatings.map((rating) => (
+                                  <ReviewCard key={rating._id} rating={rating} />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {unknownRatings.length > 0 && (
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                              {unknownRatings.map((rating) => (
+                                <ReviewCard key={rating._id} rating={rating} />
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </>
                 )}
               </div>
             </div>

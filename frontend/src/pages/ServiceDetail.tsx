@@ -91,6 +91,17 @@ const jaccardSimilarity = (left: Set<string>, right: Set<string>) => {
   return union.size ? intersectionSize / union.size : 0;
 };
 
+const getCapacityStatus = (service: Service) => {
+  const filled = service.matched_user_ids?.length ?? 0;
+  const capacity = service.max_participants ?? 0;
+  const remaining = capacity - filled;
+  if (capacity <= 0) return null;
+  if (remaining <= 0) return { type: "full" as const, remaining: 0 };
+  if (capacity >= 3 && remaining <= (capacity === 3 ? 1 : 2))
+    return { type: "nearly_full" as const, remaining };
+  return null;
+};
+
 const buildLocalPotentialMatches = (
   currentService: Service,
   services: Service[],
@@ -557,7 +568,7 @@ export function ServiceDetail() {
         <ArrowLeftIcon className="w-4 h-4 mr-2" />
         Back
       </Button>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 mb-10">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 mb-24">
         {/* Main content */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-start justify-between mb-4">
@@ -604,12 +615,29 @@ export function ServiceDetail() {
                 {formatDurationShort(service.estimated_duration)}
               </Text>
             </Flex>
-            <Flex align="center" gap="2">
+            <Flex align="center" gap="2" wrap="wrap">
               <PersonIcon className="w-5 h-5" color="gray" />
               <Text size="3" weight="medium">
                 Max participants:
               </Text>
               <Text size="3">{service.max_participants ?? "No limit"}</Text>
+              {(() => {
+                const status = getCapacityStatus({ ...service, matched_user_ids: service.matched_user_ids?.length ? service.matched_user_ids : participants.map(p => p._id) });
+                if (!status) return null;
+                if (status.type === "full")
+                  return (
+                    <Badge color="red" variant="soft" size="2">
+                      Capacity full
+                    </Badge>
+                  );
+                return (
+                  <Badge color="amber" variant="soft" size="2">
+                    {status.remaining === 1
+                      ? "Only 1 spot left!"
+                      : `Only ${status.remaining} spots left!`}
+                  </Badge>
+                );
+              })()}
             </Flex>
             <Flex align="center" gap="2">
               <Crosshair1Icon className="w-5 h-5" color="gray" />
@@ -1167,17 +1195,11 @@ export const StartChatButton = ({
       }
       const allParticipants = [currentUserId, ...otherUserIds];
       await chatApi
-        .createChatRoom({
-          participant_ids: allParticipants,
-          service_id: service_id,
-          transaction_id: transaction_id,
-        })
+        .createChatRoom({ participant_ids: allParticipants, service_id, transaction_id })
         .then((response) => {
-          queryClient.invalidateQueries({ queryKey: ["chat-rooms"] });
-          const roomId = response.data._id;
           navigate(
-            roomId
-              ? `/profile?tab=chat&room_id=${roomId}`
+            response.data._id
+              ? `/chat/${response.data._id}`
               : "/profile?tab=chat",
           );
         })

@@ -96,6 +96,16 @@ export const uploadApi = {
       }],
     });
   },
+  uploadCommunityImage: (file: File): Promise<AxiosResponse<{ url: string }>> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/upload/community-image', formData, {
+      transformRequest: [(data: unknown, headers?: Record<string, string>) => {
+        if (headers) delete headers['Content-Type'];
+        return data;
+      }],
+    });
+  },
   uploadRatingImage: (file: File): Promise<AxiosResponse<{ url: string }>> => {
     const formData = new FormData();
     formData.append('file', file);
@@ -120,6 +130,16 @@ export const uploadApi = {
     const formData = new FormData();
     formData.append('file', file);
     return api.post('/upload/forum-event-image', formData, {
+      transformRequest: [(data: unknown, headers?: Record<string, string>) => {
+        if (headers) delete headers['Content-Type'];
+        return data;
+      }],
+    });
+  },
+  uploadDiscussionImage: (file: File): Promise<AxiosResponse<{ url: string }>> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/upload/discussion-image', formData, {
       transformRequest: [(data: unknown, headers?: Record<string, string>) => {
         if (headers) delete headers['Content-Type'];
         return data;
@@ -162,6 +182,9 @@ export const usersApi = {
   
   getUserById: (id: string): Promise<AxiosResponse<User>> =>
     api.get(`/users/${id}`),
+
+  getUserCommunities: (id: string): Promise<AxiosResponse<import('../types').UserCommunityListResponse>> =>
+    api.get(`/users/${id}/communities`),
 
   /** Update a user's TimeBank balance (admin or moderator only). */
   updateUserTimebank: (userId: string, data: { balance: number }): Promise<AxiosResponse<User>> =>
@@ -481,6 +504,75 @@ export const notificationsApi = {
 
   deleteNotification: (notificationId: string): Promise<AxiosResponse<{ deleted: boolean }>> =>
     api.delete(`/notifications/${notificationId}`),
+};
+
+// Community API
+export const communityApi = {
+  // Communities
+  getCommunities: (params?: { page?: number; limit?: number; q?: string; tag?: string; my_only?: boolean; sort_by?: string }): Promise<AxiosResponse<import('../types').CommunityListResponse>> =>
+    api.get('/communities', { params }),
+
+  getMyCommunities: (): Promise<AxiosResponse<import('../types').CommunityListResponse>> =>
+    api.get('/communities/my'),
+
+  getCommunity: (id: string): Promise<AxiosResponse<import('../types').Community>> =>
+    api.get(`/communities/${id}`),
+
+  createCommunity: (data: import('../types').CommunityForm): Promise<AxiosResponse<import('../types').Community>> =>
+    api.post('/communities', data),
+
+  updateCommunity: (id: string, data: Partial<import('../types').CommunityForm>): Promise<AxiosResponse<import('../types').Community>> =>
+    api.put(`/communities/${id}`, data),
+
+  deleteCommunity: (id: string): Promise<AxiosResponse<void>> =>
+    api.delete(`/communities/${id}`),
+
+  // Membership
+  joinCommunity: (id: string): Promise<AxiosResponse<import('../types').Community>> =>
+    api.post(`/communities/${id}/join`),
+
+  leaveCommunity: (id: string): Promise<AxiosResponse<import('../types').Community>> =>
+    api.delete(`/communities/${id}/leave`),
+
+  getMembers: (id: string): Promise<AxiosResponse<import('../types').CommunityMemberListResponse>> =>
+    api.get(`/communities/${id}/members`),
+
+  updateMemberRole: (communityId: string, userId: string, role: import('../types').MemberRole): Promise<AxiosResponse<{ message: string }>> =>
+    api.put(`/communities/${communityId}/members/${userId}/role`, { role }),
+
+  banMember: (communityId: string, userId: string): Promise<AxiosResponse<{ message: string }>> =>
+    api.delete(`/communities/${communityId}/members/${userId}/ban`),
+
+  removeMember: (communityId: string, userId: string): Promise<AxiosResponse<{ message: string }>> =>
+    api.delete(`/communities/${communityId}/members/${userId}`),
+
+  // Posts
+  getPosts: (communityId: string, params?: { page?: number; limit?: number; q?: string; sort_by?: string }): Promise<AxiosResponse<import('../types').CommunityPostListResponse>> =>
+    api.get(`/communities/${communityId}/posts`, { params }),
+
+  getPost: (communityId: string, postId: string): Promise<AxiosResponse<import('../types').CommunityPost>> =>
+    api.get(`/communities/${communityId}/posts/${postId}`),
+
+  createPost: (communityId: string, data: import('../types').CommunityPostForm): Promise<AxiosResponse<import('../types').CommunityPost>> =>
+    api.post(`/communities/${communityId}/posts`, data),
+
+  updatePost: (communityId: string, postId: string, data: Partial<import('../types').CommunityPostForm>): Promise<AxiosResponse<import('../types').CommunityPost>> =>
+    api.put(`/communities/${communityId}/posts/${postId}`, data),
+
+  deletePost: (communityId: string, postId: string): Promise<AxiosResponse<void>> =>
+    api.delete(`/communities/${communityId}/posts/${postId}`),
+
+  pinPost: (communityId: string, postId: string, pinned: boolean): Promise<AxiosResponse<import('../types').CommunityPost>> =>
+    api.put(`/communities/${communityId}/posts/${postId}/pin`, null, { params: { pinned } }),
+
+  upvotePost: (communityId: string, postId: string): Promise<AxiosResponse<{ upvote_count: number; user_upvoted: boolean }>> =>
+    api.post(`/communities/${communityId}/posts/${postId}/upvote`),
+
+  getEventsByCommunity: (communityId: string): Promise<AxiosResponse<import('../types').ForumEventListResponse>> =>
+    api.get(`/communities/${communityId}/events`),
+
+  getDiscussionsByCommunity: (communityId: string): Promise<AxiosResponse<import('../types').ForumDiscussionListResponse>> =>
+    api.get(`/communities/${communityId}/discussions`),
 };
 
 export default api;

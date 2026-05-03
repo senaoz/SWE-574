@@ -68,4 +68,9 @@ class UsersRepository @Inject constructor(
         val r = api.getUserBadges(userId)
         if (r.isSuccessful) r.body() else throw retrofit2.HttpException(r)
     }
+
+    suspend fun searchUsers(query: String, limit: Int? = null): Result<List<UserResponse>> = runCatching {
+        val r = api.searchUsers(query = query, limit = limit)
+        if (r.isSuccessful && r.body() != null) r.body()!! else throw retrofit2.HttpException(r)
+    }
 }

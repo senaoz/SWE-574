@@ -128,6 +128,9 @@ class RatingService:
                 {"_id": doc["transaction_id"]}
             )
             if transaction:
+                rated_user_id_str = str(doc["rated_user_id"])
+                provider_id_str = str(transaction.get("provider_id", ""))
+                rated_user_role = "provider" if rated_user_id_str == provider_id_str else "taker"
                 doc["transaction"] = {
                     "id": str(transaction["_id"]),
                     "timebank_hours": float(
@@ -138,6 +141,7 @@ class RatingService:
                     ),
                     "completed_at": transaction.get("completed_at"),
                     "created_at": transaction.get("created_at"),
+                    "rated_user_role": rated_user_role,
                 }
 
                 service_id = transaction.get("service_id")

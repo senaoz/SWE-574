@@ -15,6 +15,8 @@ import { AdminPanel } from "@/pages/AdminPanel";
 import { Forum } from "@/pages/Forum";
 import { ForumDiscussionDetail } from "@/pages/ForumDiscussionDetail";
 import { ForumEventDetail } from "@/pages/ForumEventDetail";
+import { CommunityDetail } from "@/pages/CommunityDetail";
+import { CommunityPostDetail } from "@/pages/CommunityPostDetail";
 import { Layout } from "@/components/layout/Layout";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -156,6 +158,28 @@ function App() {
                         fallbackPath="/?login=true"
                       >
                         <ForumEventDetail />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/forum/communities/:id"
+                    element={
+                      <ProtectedRoute
+                        requiredRole="user"
+                        fallbackPath="/?login=true"
+                      >
+                        <CommunityDetail />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/forum/communities/:id/posts/:postId"
+                    element={
+                      <ProtectedRoute
+                        requiredRole="user"
+                        fallbackPath="/?login=true"
+                      >
+                        <CommunityPostDetail />
                       </ProtectedRoute>
                     }
                   />

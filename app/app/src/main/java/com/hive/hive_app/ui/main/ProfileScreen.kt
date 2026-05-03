@@ -26,9 +26,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Public
@@ -83,6 +86,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.hive.hive_app.BuildConfig
 import com.hive.hive_app.data.api.dto.BadgesResponse
+import com.hive.hive_app.data.api.dto.CommunityResponse
 import com.hive.hive_app.data.api.dto.RatingListResponse
 import com.hive.hive_app.data.api.dto.SocialLinks
 import com.hive.hive_app.data.api.dto.TimeBankResponse
@@ -98,8 +102,10 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel(),
     onOpenSaved: (() -> Unit)? = null,
     onOpenNotifications: (() -> Unit)? = null,
+    onOpenActive: (() -> Unit)? = null,
     onOpenRatings: (userId: String) -> Unit = { },
-    onOpenEditProfile: () -> Unit = {}
+    onOpenEditProfile: () -> Unit = {},
+    onOpenCommunity: (communityId: String) -> Unit = {}
 ) {
     val profile by viewModel.profile.collectAsState()
     val timeBank by viewModel.timeBank.collectAsState()
@@ -107,6 +113,7 @@ fun ProfileScreen(
     val ratingsSummary by viewModel.ratingsSummary.collectAsState()
     val ratingTopTags by viewModel.ratingTopTags.collectAsState()
     val availableInterests by viewModel.availableInterests.collectAsState()
+    val communities by viewModel.communities.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
@@ -176,6 +183,7 @@ fun ProfileScreen(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(scrollState)
+                    .padding(bottom = 88.dp)
             ) {
                 profile?.let { user ->
                     Spacer(Modifier.height(12.dp))
@@ -193,6 +201,42 @@ fun ProfileScreen(
                             }
                         }
                     )
+
+                    // Active items (if callback provided)
+                    if (onOpenActive != null) {
+                        Spacer(Modifier.height(12.dp))
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClick = onOpenActive),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.DateRange,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = "Active",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
 
                     // Saved services (if callback provided)
                     if (onOpenSaved != null) {
@@ -306,7 +350,14 @@ fun ProfileScreen(
                         BadgesCard(badges = badges)
                     }
 
-                    // 8. Settings – clickable card to open and modify
+                    // 8. Communities card (always show)
+                    Spacer(Modifier.height(12.dp))
+                    CommunitiesCard(
+                        communities = communities,
+                        onOpenCommunity = onOpenCommunity
+                    )
+
+                    // 9. Settings – clickable card to open and modify
                     Spacer(Modifier.height(12.dp))
                     SettingsClickableCard(user = user, onClick = { showSettings = true })
 
@@ -331,6 +382,111 @@ fun ProfileScreen(
                 }
                 Spacer(Modifier.height(24.dp))
             }
+        }
+    }
+}
+
+@Composable
+private fun CommunitiesCard(
+    communities: List<CommunityResponse>,
+    onOpenCommunity: (communityId: String) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Groups,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "Communities",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            if (communities.isEmpty()) {
+                Text(
+                    text = "You have not joined any communities yet.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                communities.forEachIndexed { index, community ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { onOpenCommunity(community.id) }
+                            .padding(horizontal = 4.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CommunityRowAvatar(community = community)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = community.name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "${community.memberCount} members",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Filled.KeyboardArrowRight,
+                            contentDescription = "Open community",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (index < communities.lastIndex) {
+                        Spacer(Modifier.height(8.dp))
+                        HorizontalDivider()
+                        Spacer(Modifier.height(8.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CommunityRowAvatar(community: CommunityResponse) {
+    val context = LocalContext.current
+    if (!community.avatarUrl.isNullOrBlank()) {
+        AsyncImage(
+            model = buildImageRequest(context, community.avatarUrl),
+            contentDescription = null,
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape),
+            contentScale = ContentScale.Crop
+        )
+    } else {
+        val initial = community.name.trim().firstOrNull()?.uppercase() ?: "C"
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = initial,
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }

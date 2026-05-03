@@ -275,6 +275,32 @@ class ForumService:
             results.append(ForumEventResponse(**doc))
         return results
 
+    async def get_events_for_community(self, community_id: str, limit: int = 20) -> List[ForumEventResponse]:
+        """Return events associated with a given community."""
+        query = {"community_id": community_id}
+        cursor = self.events.find(query).sort("event_at", -1).limit(limit)
+        results = []
+        async for doc in cursor:
+            doc = await self._enrich_user(doc)
+            doc = await self._enrich_service(doc)
+            doc["comment_count"] = await self._comment_count("event", doc["_id"])
+            doc = self._populate_attendee_fields(doc)
+            doc = self._upvote_fields(doc, None)
+            results.append(ForumEventResponse(**doc))
+        return results
+
+    async def get_discussions_for_community(self, community_id: str, limit: int = 20) -> List[ForumDiscussionResponse]:
+        """Return discussions associated with a given community."""
+        query = {"community_id": community_id}
+        cursor = self.discussions.find(query).sort("created_at", -1).limit(limit)
+        results = []
+        async for doc in cursor:
+            doc = await self._enrich_user(doc)
+            doc["comment_count"] = await self._comment_count("discussion", doc["_id"])
+            doc = self._upvote_fields(doc, None)
+            results.append(ForumDiscussionResponse(**doc))
+        return results
+
     # ---- Attendance ----
 
     async def attend_event(self, event_id: str, user_id: str) -> ForumEventResponse:
@@ -364,8 +390,10 @@ class ForumService:
         target_id = ObjectId(data.target_id)
         if data.target_type == "discussion":
             target = await self.discussions.find_one({"_id": target_id})
-        else:
+        elif data.target_type == "event":
             target = await self.events.find_one({"_id": target_id})
+        else:  # community_post
+            target = await self.db["community_posts"].find_one({"_id": target_id})
         if not target:
             raise ValueError(f"{data.target_type.capitalize()} not found")
 

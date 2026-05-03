@@ -2,6 +2,7 @@ package com.hive.hive_app.ui.main
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -95,6 +97,7 @@ import com.hive.hive_app.ui.theme.HiveTheme
 import com.hive.hive_app.ui.theme.SurfaceVariantLight
 import com.hive.hive_app.util.formatDurationHours
 import com.hive.hive_app.util.formatApplicationDate
+import com.hive.hive_app.util.formatLongOrdinalDate
 import com.hive.hive_app.util.badgeIcon
 import com.hive.hive_app.util.getHighestPriorityBadge
 import org.osmdroid.config.Configuration
@@ -191,14 +194,14 @@ fun ServiceDetailScreen(
                 )
             }
             val scrollState = rememberScrollState()
-            val showBottomBar = viewModel != null &&
+            val showActionRow = viewModel != null &&
                 service.status in listOf("active", "in_progress")
             Box(modifier = modifier.fillMaxSize()) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                        .statusBarsPadding()
                         .verticalScroll(scrollState)
-                        .padding(bottom = if (showBottomBar) 88.dp else 0.dp)
                 ) {
                 // Top bar
                 Row(
@@ -441,15 +444,107 @@ fun ServiceDetailScreen(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
+                    // Action row: Request to Join / Manage — between description and capacity
+                    if (showActionRow) {
+                        if (isOwner && onManageJoinRequests != null) {
+                            Button(
+                                onClick = onManageJoinRequests,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Manage service (${joinRequests.size})")
+                            }
+                        } else if (!isOwner) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (myJoinRequest != null) {
+                                    StatusChip(status = myJoinRequest!!.status)
+                                    Spacer(modifier = Modifier.weight(1f))
+                                    if (creator != null && onStartChat != null) {
+                                        IconButton(onClick = {
+                                            viewModel?.startChat(service._id, creator._id) { result ->
+                                                result.getOrNull()?.let { roomId -> onStartChat(roomId) }
+                                            }
+                                        }) {
+                                            Icon(
+                                                Icons.Default.Chat,
+                                                contentDescription = "Start chat",
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    val buttonLabel =
+                                        if (service.serviceType == "need") "Offer Help" else "Request Service"
+                                    Button(
+                                        onClick = { showApplyDialog = true },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(buttonLabel)
+                                    }
+                                    if (creator != null && onStartChat != null) {
+                                        IconButton(onClick = {
+                                            viewModel?.startChat(service._id, creator._id) { result ->
+                                                result.getOrNull()?.let { roomId -> onStartChat(roomId) }
+                                            }
+                                        }) {
+                                            Icon(
+                                                Icons.Default.Chat,
+                                                contentDescription = "Start chat",
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(20.dp))
+                    }
+
                     // Capacity & accepted
                     DetailSection(title = "Capacity") {
                         val max = service.maxParticipants ?: 1
                         val acceptedCount = service.matchedUserIds?.size ?: 0
-                        Text(
-                            text = "$acceptedCount / $max participants",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        val remaining = max - acceptedCount
+                        val isFull = max > 0 && remaining <= 0
+                        val isNearlyFull = !isFull && max >= 3 && remaining <= (if (max == 3) 1 else 2)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "$acceptedCount / $max participants",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            if (isFull) {
+                                androidx.compose.material3.Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = MaterialTheme.colorScheme.errorContainer
+                                ) {
+                                    Text(
+                                        text = "Capacity full",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            } else if (isNearlyFull) {
+                                androidx.compose.material3.Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = Color(0xFFFFECB3)
+                                ) {
+                                    Text(
+                                        text = if (remaining == 1) "Only 1 spot left!" else "Only $remaining spots left!",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color(0xFF7B5800),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     // Accepted users (if any)
@@ -512,7 +607,10 @@ fun ServiceDetailScreen(
                             service.schedulingType?.let { type ->
                                 LabelValue("Type", type.replaceFirstChar { it.uppercase() })
                             }
-                            service.specificDate?.let { LabelValue("Date", it) }
+                            service.specificDate?.let { raw ->
+                                val formatted = formatLongOrdinalDate(raw).ifBlank { raw }
+                                LabelValue("Date", formatted)
+                            }
                             service.specificTime?.let { LabelValue("Time", it) }
                             service.recurringPattern?.let { rp ->
                                 if (rp.days.isNotEmpty()) {
@@ -523,7 +621,10 @@ fun ServiceDetailScreen(
                                 }
                             }
                             service.openAvailability?.let { LabelValue("Availability", it) }
-                            service.deadline?.let { LabelValue("Deadline", it) }
+                            service.deadline?.let { raw ->
+                                val formatted = formatLongOrdinalDate(raw).ifBlank { raw }
+                                LabelValue("Deadline", formatted)
+                            }
                             LabelValue("Duration", formatDurationHours(service.estimatedDuration))
                             if (service.schedulingType == null && service.specificDate == null &&
                                 service.specificTime == null && service.recurringPattern == null &&
@@ -571,7 +672,10 @@ fun ServiceDetailScreen(
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     comments.forEach { comment ->
-                                        ServiceCommentItem(comment = comment)
+                                        ServiceCommentItem(
+                                            comment = comment,
+                                            onOpenUserProfile = onOpenUserProfile
+                                        )
                                     }
                                 }
                             }
@@ -632,7 +736,7 @@ fun ServiceDetailScreen(
                     // Meta (created / updated)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Created ${service.createdAt}",
+                        text = "Created ${formatLongOrdinalDate(service.createdAt).ifBlank { service.createdAt.take(10) }}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -648,12 +752,29 @@ fun ServiceDetailScreen(
                             )
                         } else {
                             val loc = service.location
+                            val locationLabel = loc.address?.takeIf { it.isNotBlank() }
+                                ?: "Approximate: %.4f, %.4f".format(loc.latitude, loc.longitude)
                             Text(
-                                text = loc.address?.takeIf { it.isNotBlank() }
-                                    ?: "Approximate: %.4f, %.4f".format(loc.latitude, loc.longitude),
+                                text = locationLabel,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.padding(bottom = 12.dp)
+                                modifier = Modifier
+                                    .padding(bottom = 12.dp)
+                                    .clickable {
+                                        val query =
+                                            loc.address?.takeIf { it.isNotBlank() }
+                                                ?: "${loc.latitude},${loc.longitude}"
+                                        val url =
+                                            "https://www.google.com/maps/search/?api=1&query=${Uri.encode(query)}"
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        try {
+                                            context.startActivity(intent)
+                                        } catch (_: Exception) {
+                                            // no-op: if no handler exists, ignore click
+                                        }
+                                    }
                             )
                             ServiceDetailMap(
                                 latitude = loc.latitude,
@@ -665,79 +786,9 @@ fun ServiceDetailScreen(
                             )
                         }
                     }
+                    // Clearance so the floating + FAB never overlaps the map
+                    Spacer(modifier = Modifier.height(96.dp))
                 }
-                }
-                if (showBottomBar) {
-                    Surface(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .navigationBarsPadding(),
-                        tonalElevation = 6.dp,
-                        shadowElevation = 8.dp,
-                        color = MaterialTheme.colorScheme.surface
-                    ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                            if (isOwner && viewModel != null && onManageJoinRequests != null) {
-                                Button(
-                                    onClick = onManageJoinRequests,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text("Manage service (${joinRequests.size})")
-                                }
-                            } else if (!isOwner) {
-                                if (myJoinRequest != null) {
-                                    StatusChip(status = myJoinRequest!!.status)
-                                    Spacer(modifier = Modifier.weight(1f))
-                                    if (creator != null && onStartChat != null) {
-                                        IconButton(
-                                            onClick = {
-                                                viewModel.startChat(service._id, creator._id) { result ->
-                                                    result.getOrNull()?.let { roomId -> onStartChat(roomId) }
-                                                }
-                                            }
-                                        ) {
-                                            Icon(
-                                                Icons.Default.Chat,
-                                                contentDescription = "Start chat",
-                                                tint = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
-                                    }
-                                } else {
-                                    val buttonLabel =
-                                        if (service.serviceType == "need") "Offer Help" else "Request Service"
-                                    Button(
-                                        onClick = { showApplyDialog = true },
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Text(buttonLabel)
-                                    }
-                                    if (creator != null && onStartChat != null) {
-                                        IconButton(
-                                            onClick = {
-                                                viewModel.startChat(service._id, creator._id) { result ->
-                                                    result.getOrNull()?.let { roomId -> onStartChat(roomId) }
-                                                }
-                                            }
-                                        ) {
-                                            Icon(
-                                                Icons.Default.Chat,
-                                                contentDescription = "Start chat",
-                                                tint = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -795,10 +846,20 @@ private fun BadgeInfoInlineBox(
 }
 
 @Composable
-private fun ServiceCommentItem(comment: CommentResponse) {
+private fun ServiceCommentItem(
+    comment: CommentResponse,
+    onOpenUserProfile: ((String) -> Unit)? = null
+) {
     val author = comment.user?.username ?: comment.user?.fullName ?: "Unknown"
+    val authorId = comment.user?.resolvedId ?: comment.userId
+    val context = LocalContext.current
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (onOpenUserProfile != null) Modifier.clickable { onOpenUserProfile(authorId) }
+                else Modifier
+            ),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
@@ -810,18 +871,29 @@ private fun ServiceCommentItem(comment: CommentResponse) {
             verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = serviceCommentInitials(comment.user),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+            val profilePicture = comment.user?.profilePicture
+            if (!profilePicture.isNullOrBlank()) {
+                AsyncImage(
+                    model = buildImageRequest(context, profilePicture),
+                    contentDescription = "Profile photo",
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
                 )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = serviceCommentInitials(comment.user),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(

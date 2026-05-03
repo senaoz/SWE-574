@@ -9,14 +9,16 @@ import com.squareup.moshi.JsonClass
 data class ForumDiscussionCreate(
     val title: String,
     val body: String,
-    val tags: List<TagDto>? = null
+    val tags: List<TagDto>? = null,
+    @Json(name = "community_id") val communityId: String? = null
 )
 
 @JsonClass(generateAdapter = true)
 data class ForumDiscussionUpdate(
     val title: String? = null,
     val body: String? = null,
-    val tags: List<TagDto>? = null
+    val tags: List<TagDto>? = null,
+    @Json(name = "community_id") val communityId: String? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -26,6 +28,7 @@ data class ForumDiscussionResponse(
     val title: String,
     val body: String,
     val tags: List<TagDto>? = null,
+    @Json(name = "community_id") val communityId: String? = null,
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "updated_at") val updatedAt: String,
     val user: ForumUserEmbed? = null,
@@ -81,6 +84,7 @@ data class ForumEventCreate(
     val title: String,
     val description: String,
     @Json(name = "event_at") val eventAt: String,
+    @Json(name = "community_id") val communityId: String? = null,
     val location: String? = null,
     val latitude: Double? = null,
     val longitude: Double? = null,
@@ -94,6 +98,7 @@ data class ForumEventUpdate(
     val title: String? = null,
     val description: String? = null,
     @Json(name = "event_at") val eventAt: String? = null,
+    @Json(name = "community_id") val communityId: String? = null,
     val location: String? = null,
     val latitude: Double? = null,
     val longitude: Double? = null,
@@ -109,6 +114,7 @@ data class ForumEventResponse(
     val title: String,
     val description: String,
     @Json(name = "event_at") val eventAt: String,
+    @Json(name = "community_id") val communityId: String? = null,
     val location: String? = null,
     val latitude: Double? = null,
     val longitude: Double? = null,
@@ -137,7 +143,12 @@ data class ForumEventListResponse(
 @JsonClass(generateAdapter = true)
 data class ForumUserEmbed(
     @Json(name = "_id") val id: String? = null,
+    // Some endpoints may return `id` instead of `_id`.
+    @Json(name = "id") val idAlt: String? = null,
     val username: String? = null,
     @Json(name = "full_name") val fullName: String? = null,
     @Json(name = "profile_picture") val profilePicture: String? = null
-)
+) {
+    val resolvedId: String?
+        get() = id ?: idAlt
+}

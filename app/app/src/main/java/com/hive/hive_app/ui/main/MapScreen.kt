@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsTopHeight
@@ -27,6 +29,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.FormatListBulleted
+import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.WbCloudy
@@ -46,6 +50,12 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -60,7 +70,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -384,6 +396,60 @@ private fun distanceKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): 
     return r * c
 }
 
+@Composable
+private fun MapLoadingOverlay(
+    visible: Boolean,
+    modifier: Modifier = Modifier,
+    label: String = "Loading map"
+) {
+    if (!visible) return
+
+    val t = rememberInfiniteTransition(label = "map-loading")
+    val pulse by t.animateFloat(
+        initialValue = 0.85f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 900, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
+    val dotsPhase by t.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1100, easing = LinearEasing)
+        ),
+        label = "dots"
+    )
+    val dots = when ((dotsPhase * 3f).toInt() % 4) {
+        0 -> ""
+        1 -> "."
+        2 -> ".."
+        else -> "..."
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color.White.copy(alpha = 0.72f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(44.dp).alpha(pulse),
+                color = MaterialTheme.colorScheme.primary,
+                strokeWidth = 4.dp
+            )
+            Text(
+                text = "$label$dots",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
 /**
  * Web-aligned vector icon centered in a solid colored circle (marker icon). No outer stroke.
  * Privacy radius on the map is drawn separately as a [Polygon] overlay.
@@ -435,6 +501,7 @@ private fun privacyRadiusPolygon(lat: Double, lon: Double, density: Float, kind:
 @Composable
 fun MapScreen(
     modifier: Modifier = Modifier,
+    resetNonce: Int = 0,
     viewModel: MapViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
     onServiceSelected: ((String) -> Unit)? = null,
     onStartChat: ((String) -> Unit)? = null,
@@ -465,6 +532,19 @@ fun MapScreen(
     var showFilters by remember { mutableStateOf(false) }
     var didInitialCenter by remember { mutableStateOf(false) }
     var nearMeCenterNonce by remember { mutableStateOf(0) }
+    var showListView by remember { mutableStateOf(false) }
+
+    LaunchedEffect(resetNonce) {
+        // "Map" tab reselected from bottom bar: return to the map root UI.
+        selectedServiceId = null
+        selectedForumEventId = null
+        showCreateServiceScreen = false
+        editServiceId = null
+        manageRequestsServiceId = null
+        completeServiceRatingArgs = null
+        showFilters = false
+        showListView = false
+    }
 
     BackHandler(
         enabled = completeServiceRatingArgs != null ||
@@ -561,7 +641,7 @@ fun MapScreen(
                 showCreateServiceScreen = false
                 editServiceId = null
                 viewModel.loadServices()
-                selectedServiceId = serviceId
+                if (onServiceSelected != null) onServiceSelected(serviceId) else selectedServiceId = serviceId
             }
         )
         return
@@ -617,7 +697,13 @@ fun MapScreen(
     }
 
     var mapView by remember { mutableStateOf<MapView?>(null) }
+    var mapUiReady by remember { mutableStateOf(false) }
     val activity = LocalActivity.current
+
+    BackHandler(enabled = showListView) {
+        showListView = false
+    }
+
     SideEffect {
         activity?.window?.let { w ->
             w.statusBarColor = android.graphics.Color.WHITE
@@ -631,6 +717,14 @@ fun MapScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
+        if (showListView) {
+            DiscoverScreen(
+                modifier = Modifier.fillMaxSize(),
+                onStartChat = onStartChat,
+                onOpenUserProfile = onOpenUserProfile,
+                searchBarEndPadding = 64.dp
+            )
+        } else {
         // Map first so it stays behind the bar
         AndroidView(
             factory = {
@@ -777,6 +871,15 @@ fun MapScreen(
         )
         val mapViewRef = mapView
 
+        LaunchedEffect(mapViewRef) {
+            mapUiReady = false
+            if (mapViewRef != null) {
+                // Give osmdroid a moment to create layout/first tiles; then fade loader out.
+                delay(400)
+                mapUiReady = true
+            }
+        }
+
         DisposableEffect(mapViewRef, state.userLat, state.userLon) {
             val map = mapViewRef ?: return@DisposableEffect onDispose { }
             val handler = Handler(Looper.getMainLooper())
@@ -891,16 +994,10 @@ fun MapScreen(
             }
         }
 
-        if (state.isLoading && state.services.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        }
+        MapLoadingOverlay(
+            visible = !mapUiReady || (state.isLoading && state.services.isEmpty() && state.events.isEmpty()),
+            label = "Loading map"
+        )
 
         // Top bar drawn on top of map so it never gets covered
         Surface(
@@ -942,55 +1039,113 @@ fun MapScreen(
                         ),
                         textStyle = MaterialTheme.typography.bodyMedium
                     )
-                    if (state.locationPermissionGranted) {
-                        IconButton(
-                            onClick = {
-                                viewModel.requestFreshLocationForCenter()
-                                nearMeCenterNonce++
-                            }
-                        ) {
-                            Icon(Icons.Filled.MyLocation, contentDescription = "Near me")
-                        }
+                    // List view toggle
+                    IconButton(
+                        onClick = { showListView = !showListView },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (showListView) Icons.Outlined.Map else Icons.Outlined.FormatListBulleted,
+                            contentDescription = if (showListView) "Map View" else "List View",
+                            tint = if (showListView) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
-                    IconButton(onClick = { showFilters = true }) {
-                        Icon(Icons.Filled.Tune, contentDescription = "Filters")
+                    // Filter icon — side by side with list icon
+                    IconButton(
+                        onClick = { showFilters = true },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        val anyFilterActive = state.filterType != null ||
+                            state.filterDate !is MapViewModel.DateFilter.ANYTIME ||
+                            state.filterTimeOfDay != MapViewModel.TimeOfDayFilter.ANYTIME
+                        Icon(
+                            Icons.Filled.Tune,
+                            contentDescription = "Filters",
+                            tint = if (anyFilterActive) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
 
-                val filterSummary = remember(state.filterTimeOfDay, state.filterDate, state.filterType) {
-                    val typeLabel = when (state.filterType) {
-                        null -> "All"
-                        "offer" -> "Offer"
-                        "need" -> "Need"
-                        "event" -> "Event"
-                        else -> "All"
-                    }
-                    val timeLabel = when (state.filterTimeOfDay) {
-                        MapViewModel.TimeOfDayFilter.ANYTIME -> "Any time"
-                        MapViewModel.TimeOfDayFilter.MORNING -> "Morning"
-                        MapViewModel.TimeOfDayFilter.AFTERNOON -> "Afternoon"
-                        MapViewModel.TimeOfDayFilter.EVENING -> "Evening"
-                        MapViewModel.TimeOfDayFilter.NIGHT -> "Night"
-                    }
-                    val dateLabel = when (val df = state.filterDate) {
-                        MapViewModel.DateFilter.ANYTIME -> "Anytime"
-                        MapViewModel.DateFilter.TODAY -> "Today"
-                        MapViewModel.DateFilter.TOMORROW -> "Tomorrow"
-                        MapViewModel.DateFilter.WEEKEND -> "Weekend"
-                        MapViewModel.DateFilter.NEXT_WEEKEND -> "Next weekend"
-                        is MapViewModel.DateFilter.SPECIFIC -> df.date.toString()
-                    }
-                    "Type: $typeLabel   Date: $dateLabel   Time of day: $timeLabel"
+                // Filter summary chips row — 3 equal-width, non-clickable
+                val typeIsDefault = state.filterType == null
+                val dateIsDefault = state.filterDate is MapViewModel.DateFilter.ANYTIME
+                val timeIsDefault = state.filterTimeOfDay == MapViewModel.TimeOfDayFilter.ANYTIME
+
+                val typeLabel = when (state.filterType) {
+                    null -> "All"
+                    "offer" -> "Offer"
+                    "need" -> "Need"
+                    "event" -> "Event"
+                    else -> "All"
                 }
-                Text(
-                    text = filterSummary,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showFilters = true }
+                val timeLabel = when (state.filterTimeOfDay) {
+                    MapViewModel.TimeOfDayFilter.ANYTIME -> "Any time"
+                    MapViewModel.TimeOfDayFilter.MORNING -> "Morning"
+                    MapViewModel.TimeOfDayFilter.AFTERNOON -> "Afternoon"
+                    MapViewModel.TimeOfDayFilter.EVENING -> "Evening"
+                    MapViewModel.TimeOfDayFilter.NIGHT -> "Night"
+                }
+                val dateLabel = when (val df = state.filterDate) {
+                    MapViewModel.DateFilter.ANYTIME -> "Anytime"
+                    MapViewModel.DateFilter.TODAY -> "Today"
+                    MapViewModel.DateFilter.TOMORROW -> "Tomorrow"
+                    MapViewModel.DateFilter.WEEKEND -> "Weekend"
+                    MapViewModel.DateFilter.NEXT_WEEKEND -> "Next weekend"
+                    is MapViewModel.DateFilter.SPECIFIC -> df.date.toString()
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    FilterSummaryChip(
+                        icon = Icons.Outlined.Search,
+                        label = typeLabel,
+                        isActive = !typeIsDefault,
+                        modifier = Modifier.weight(1f)
+                    )
+                    FilterSummaryChip(
+                        icon = Icons.Outlined.Schedule,
+                        label = dateLabel,
+                        isActive = !dateIsDefault,
+                        modifier = Modifier.weight(1f)
+                    )
+                    FilterSummaryChip(
+                        icon = Icons.Outlined.WbCloudy,
+                        label = timeLabel,
+                        isActive = !timeIsDefault,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                }
+            }
+        }
+
+        // Location FAB — floats over the map at top-right, below the top bar
+        if (state.locationPermissionGranted) {
+            androidx.compose.material3.SmallFloatingActionButton(
+                onClick = {
+                    viewModel.requestFreshLocationForCenter()
+                    nearMeCenterNonce++
+                },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(top = 130.dp, end = 12.dp),
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                elevation = androidx.compose.material3.FloatingActionButtonDefaults.loweredElevation()
+            ) {
+                Icon(
+                    Icons.Filled.MyLocation,
+                    contentDescription = "Near me",
+                    modifier = Modifier.size(18.dp)
                 )
-                }
             }
         }
 
@@ -999,7 +1154,7 @@ fun MapScreen(
             Card(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(12.dp),
+                    .padding(start = 12.dp, end = 12.dp, bottom = 96.dp, top = 12.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
@@ -1074,6 +1229,84 @@ fun MapScreen(
                 }
             )
         }
+        } // end else - map content
+
+        // When the user switches to discovery/list view, keep an explicit way back to map.
+        if (showListView) {
+            Card(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(top = 10.dp, end = 12.dp),
+                shape = RoundedCornerShape(999.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+            ) {
+                IconButton(onClick = { showListView = false }) {
+                    Icon(Icons.Outlined.Map, contentDescription = "Map View")
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Non-interactive summary chip shown below the search bar.
+ * Displays the current value of a single filter with a leading icon.
+ * Active (non-default) chips are highlighted with the primary colour.
+ */
+@Composable
+private fun FilterSummaryChip(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    isActive: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val containerColor = if (isActive)
+        MaterialTheme.colorScheme.primaryContainer
+    else
+        MaterialTheme.colorScheme.surfaceVariant
+    val contentColor = if (isActive)
+        MaterialTheme.colorScheme.onPrimaryContainer
+    else
+        MaterialTheme.colorScheme.onSurfaceVariant
+
+    androidx.compose.material3.Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(50),
+        color = containerColor,
+        contentColor = contentColor,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(12.dp),
+                tint = contentColor
+            )
+            androidx.compose.foundation.layout.Spacer(Modifier.width(4.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = contentColor,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
+            if (isActive) {
+                androidx.compose.foundation.layout.Spacer(Modifier.width(3.dp))
+                androidx.compose.foundation.Canvas(modifier = Modifier.size(5.dp)) {
+                    drawCircle(color = contentColor)
+                }
+            }
+        }
     }
 }
 
@@ -1121,141 +1354,20 @@ private fun MapFilterSheet(
     var dateFilter by remember { mutableStateOf(selectedDateFilter) }
     var filterType by remember { mutableStateOf(selectedFilterType) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.statusBarsPadding()
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text("Filters", style = MaterialTheme.typography.titleMedium)
 
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Type", style = MaterialTheme.typography.titleSmall)
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    MapLimeOutlinedFilterChip(
-                        selected = filterType == null,
-                        onClick = { filterType = null },
-                        label = { Text("All") }
-                    )
-                    MapLimeOutlinedFilterChip(
-                        selected = filterType == "offer",
-                        onClick = { filterType = "offer" },
-                        label = { Text("Offers ($offerCount)") }
-                    )
-                    MapLimeOutlinedFilterChip(
-                        selected = filterType == "need",
-                        onClick = { filterType = "need" },
-                        label = { Text("Needs ($needCount)") }
-                    )
-                    MapLimeOutlinedFilterChip(
-                        selected = filterType == "event",
-                        onClick = { filterType = "event" },
-                        label = { Text("Events ($eventCount)") }
-                    )
-                }
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Time of day", style = MaterialTheme.typography.titleSmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MapLimeOutlinedFilterChip(
-                        selected = time == MapViewModel.TimeOfDayFilter.ANYTIME,
-                        onClick = { time = MapViewModel.TimeOfDayFilter.ANYTIME },
-                        label = { Text("Any time") },
-                        leadingIcon = { Icon(Icons.Outlined.Schedule, contentDescription = null) }
-                    )
-                    MapLimeOutlinedFilterChip(
-                        selected = time == MapViewModel.TimeOfDayFilter.MORNING,
-                        onClick = { time = MapViewModel.TimeOfDayFilter.MORNING },
-                        label = { Text("Morning") },
-                        leadingIcon = { Icon(Icons.Outlined.WbSunny, contentDescription = null) }
-                    )
-                    MapLimeOutlinedFilterChip(
-                        selected = time == MapViewModel.TimeOfDayFilter.AFTERNOON,
-                        onClick = { time = MapViewModel.TimeOfDayFilter.AFTERNOON },
-                        label = { Text("Afternoon") },
-                        leadingIcon = { Icon(Icons.Outlined.WbCloudy, contentDescription = null) }
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MapLimeOutlinedFilterChip(
-                        selected = time == MapViewModel.TimeOfDayFilter.EVENING,
-                        onClick = { time = MapViewModel.TimeOfDayFilter.EVENING },
-                        label = { Text("Evening") },
-                        leadingIcon = { Icon(Icons.Outlined.Nightlight, contentDescription = null) }
-                    )
-                    MapLimeOutlinedFilterChip(
-                        selected = time == MapViewModel.TimeOfDayFilter.NIGHT,
-                        onClick = { time = MapViewModel.TimeOfDayFilter.NIGHT },
-                        label = { Text("Night") },
-                        leadingIcon = { Icon(Icons.Outlined.DarkMode, contentDescription = null) }
-                    )
-                }
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Date", style = MaterialTheme.typography.titleSmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MapLimeOutlinedFilterChip(
-                        selected = dateFilter is MapViewModel.DateFilter.ANYTIME,
-                        onClick = { dateFilter = MapViewModel.DateFilter.ANYTIME },
-                        label = { Text("Anytime") }
-                    )
-                    MapLimeOutlinedFilterChip(
-                        selected = dateFilter is MapViewModel.DateFilter.TODAY,
-                        onClick = { dateFilter = MapViewModel.DateFilter.TODAY },
-                        label = { Text("Today") }
-                    )
-                    MapLimeOutlinedFilterChip(
-                        selected = dateFilter is MapViewModel.DateFilter.TOMORROW,
-                        onClick = { dateFilter = MapViewModel.DateFilter.TOMORROW },
-                        label = { Text("Tomorrow") }
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MapLimeOutlinedFilterChip(
-                        selected = dateFilter is MapViewModel.DateFilter.WEEKEND,
-                        onClick = { dateFilter = MapViewModel.DateFilter.WEEKEND },
-                        label = { Text("Weekend") }
-                    )
-                    MapLimeOutlinedFilterChip(
-                        selected = dateFilter is MapViewModel.DateFilter.NEXT_WEEKEND,
-                        onClick = { dateFilter = MapViewModel.DateFilter.NEXT_WEEKEND },
-                        label = { Text("Next weekend") }
-                    )
-                }
-                MapLimeOutlinedFilterChip(
-                    selected = dateFilter is MapViewModel.DateFilter.SPECIFIC,
-                    onClick = {
-                        val cal = Calendar.getInstance()
-                        DatePickerDialog(
-                            context,
-                            { _, y, m, d ->
-                                dateFilter = MapViewModel.DateFilter.SPECIFIC(LocalDate.of(y, m + 1, d))
-                            },
-                            cal.get(Calendar.YEAR),
-                            cal.get(Calendar.MONTH),
-                            cal.get(Calendar.DAY_OF_MONTH)
-                        ).show()
-                    },
-                    label = {
-                        val label = when (val df = dateFilter) {
-                            MapViewModel.DateFilter.ANYTIME -> "Pick date"
-                            MapViewModel.DateFilter.TODAY -> "Pick date"
-                            MapViewModel.DateFilter.TOMORROW -> "Pick date"
-                            MapViewModel.DateFilter.WEEKEND -> "Pick date"
-                            MapViewModel.DateFilter.NEXT_WEEKEND -> "Pick date"
-                            is MapViewModel.DateFilter.SPECIFIC -> df.date.toString()
-                        }
-                        Text(label)
-                    }
-                )
-            }
-
+            // Keep primary actions visible without needing to scroll.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1285,7 +1397,133 @@ private fun MapFilterSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.size(1.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Type", style = MaterialTheme.typography.titleSmall)
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    MapLimeOutlinedFilterChip(
+                        selected = filterType == null,
+                        onClick = { filterType = null },
+                        label = { Text("All") }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = filterType == "offer",
+                        onClick = { filterType = "offer" },
+                        label = { Text("Offers ($offerCount)") }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = filterType == "need",
+                        onClick = { filterType = "need" },
+                        label = { Text("Needs ($needCount)") }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = filterType == "event",
+                        onClick = { filterType = "event" },
+                        label = { Text("Events ($eventCount)") }
+                    )
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Time of day", style = MaterialTheme.typography.titleSmall)
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    MapLimeOutlinedFilterChip(
+                        selected = time == MapViewModel.TimeOfDayFilter.ANYTIME,
+                        onClick = { time = MapViewModel.TimeOfDayFilter.ANYTIME },
+                        label = { Text("Any time") },
+                        leadingIcon = { Icon(Icons.Outlined.Schedule, contentDescription = null) }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = time == MapViewModel.TimeOfDayFilter.MORNING,
+                        onClick = { time = MapViewModel.TimeOfDayFilter.MORNING },
+                        label = { Text("Morning") },
+                        leadingIcon = { Icon(Icons.Outlined.WbSunny, contentDescription = null) }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = time == MapViewModel.TimeOfDayFilter.AFTERNOON,
+                        onClick = { time = MapViewModel.TimeOfDayFilter.AFTERNOON },
+                        label = { Text("Afternoon") },
+                        leadingIcon = { Icon(Icons.Outlined.WbCloudy, contentDescription = null) }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = time == MapViewModel.TimeOfDayFilter.EVENING,
+                        onClick = { time = MapViewModel.TimeOfDayFilter.EVENING },
+                        label = { Text("Evening") },
+                        leadingIcon = { Icon(Icons.Outlined.Nightlight, contentDescription = null) }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = time == MapViewModel.TimeOfDayFilter.NIGHT,
+                        onClick = { time = MapViewModel.TimeOfDayFilter.NIGHT },
+                        label = { Text("Night") },
+                        leadingIcon = { Icon(Icons.Outlined.DarkMode, contentDescription = null) }
+                    )
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Date", style = MaterialTheme.typography.titleSmall)
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    MapLimeOutlinedFilterChip(
+                        selected = dateFilter is MapViewModel.DateFilter.ANYTIME,
+                        onClick = { dateFilter = MapViewModel.DateFilter.ANYTIME },
+                        label = { Text("Anytime") }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = dateFilter is MapViewModel.DateFilter.TODAY,
+                        onClick = { dateFilter = MapViewModel.DateFilter.TODAY },
+                        label = { Text("Today") }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = dateFilter is MapViewModel.DateFilter.TOMORROW,
+                        onClick = { dateFilter = MapViewModel.DateFilter.TOMORROW },
+                        label = { Text("Tomorrow") }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = dateFilter is MapViewModel.DateFilter.WEEKEND,
+                        onClick = { dateFilter = MapViewModel.DateFilter.WEEKEND },
+                        label = { Text("Weekend") }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = dateFilter is MapViewModel.DateFilter.NEXT_WEEKEND,
+                        onClick = { dateFilter = MapViewModel.DateFilter.NEXT_WEEKEND },
+                        label = { Text("Next weekend") }
+                    )
+                    MapLimeOutlinedFilterChip(
+                        selected = dateFilter is MapViewModel.DateFilter.SPECIFIC,
+                        onClick = {
+                            val cal = Calendar.getInstance()
+                            DatePickerDialog(
+                                context,
+                                { _, y, m, d ->
+                                    dateFilter = MapViewModel.DateFilter.SPECIFIC(LocalDate.of(y, m + 1, d))
+                                },
+                                cal.get(Calendar.YEAR),
+                                cal.get(Calendar.MONTH),
+                                cal.get(Calendar.DAY_OF_MONTH)
+                            ).show()
+                        },
+                        label = {
+                            val label = when (val df = dateFilter) {
+                                MapViewModel.DateFilter.ANYTIME -> "Pick date"
+                                MapViewModel.DateFilter.TODAY -> "Pick date"
+                                MapViewModel.DateFilter.TOMORROW -> "Pick date"
+                                MapViewModel.DateFilter.WEEKEND -> "Pick date"
+                                MapViewModel.DateFilter.NEXT_WEEKEND -> "Pick date"
+                                is MapViewModel.DateFilter.SPECIFIC -> df.date.toString()
+                            }
+                            Text(label)
+                        }
+                    )
+                }
+            }
         }
     }
 }
@@ -1389,6 +1627,7 @@ private fun MapServiceCarouselCard(
                 AsyncImage(
                     model = imgReq,
                     contentDescription = null,
+                    contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .size(52.dp)
                         .clip(RoundedCornerShape(10.dp))
@@ -1545,6 +1784,7 @@ private fun MapEventCarouselCard(
                 AsyncImage(
                     model = eventImgReq,
                     contentDescription = null,
+                    contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .size(52.dp)
                         .clip(RoundedCornerShape(10.dp))

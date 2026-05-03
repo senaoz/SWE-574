@@ -80,6 +80,18 @@ async def upload_service_image(
     return {"url": url}
 
 
+@router.post("/community-image")
+async def upload_community_image(
+    file: UploadFile = File(...),
+    current_user: UserResponse = Depends(get_current_user),
+):
+    """Upload an image for a community avatar or cover. Returns the URL."""
+    ext = _validate_image(file)
+    filename = f"{uuid.uuid4().hex}{ext}"
+    url = _save_upload(file, "communities", filename)
+    return {"url": url}
+
+
 @router.post("/rating-image")
 async def upload_rating_image(
     file: UploadFile = File(...),
@@ -113,4 +125,16 @@ async def upload_forum_event_image(
     ext = _validate_image(file)
     filename = f"{uuid.uuid4().hex}{ext}"
     url = _save_upload(file, "forum-events", filename)
+    return {"url": url}
+
+
+@router.post("/discussion-image")
+async def upload_discussion_image(
+    file: UploadFile = File(...),
+    current_user: UserResponse = Depends(get_current_user),
+):
+    """Upload an image for a discussion. Returns the URL."""
+    ext = _validate_image(file)
+    filename = f"{uuid.uuid4().hex}{ext}"
+    url = _save_upload(file, "discussions", filename)
     return {"url": url}

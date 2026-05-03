@@ -27,8 +27,10 @@ import {
 } from "@radix-ui/react-icons";
 import { UpvoteButton } from "@/components/ui/UpvoteButton";
 import { MessageCircleIcon, CalendarClockIcon } from "lucide-react";
-import { forumApi, getImageUrl, uploadApi } from "@/services/api";
-import { ForumDiscussion, ForumEvent, TagEntity } from "@/types";
+import { forumApi, getImageUrl, uploadApi, communityApi } from "@/services/api";
+import { ForumDiscussion, ForumEvent, TagEntity, Community } from "@/types";
+import { useUser } from "@/App";
+import { UsersIcon } from "lucide-react";
 import { TagAutocomplete } from "@/components/forms/TagAutocomplete";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import { MarkdownEditor } from "@/components/forms/MarkdownEditor";
@@ -68,6 +70,15 @@ export function Forum() {
   >("event_at");
   const [showNewDiscussion, setShowNewDiscussion] = useState(false);
   const [showNewEvent, setShowNewEvent] = useState(false);
+  const [showNewCommunity, setShowNewCommunity] = useState(false);
+  const [communities, setCommunities] = useState<Community[]>([]);
+  const [communitiesTotal, setCommunitiesTotal] = useState(0);
+  const [communitiesLoading, setCommunitiesLoading] = useState(true);
+  const [communitySort, setCommunitySort] = useState<
+    "member_count" | "created_at" | "post_count"
+  >("member_count");
+  const [communityMyOnly, setCommunityMyOnly] = useState(false);
+  const { currentUserId } = useUser();
   useEffect(() => {
     setSearchParams((p) => {
       p.set("tab", tab);
@@ -110,6 +121,26 @@ export function Forum() {
       }
     })();
   }, [searchQ, tagFilter, eventSort]);
+  useEffect(() => {
+    (async () => {
+      setCommunitiesLoading(true);
+      try {
+        const res = await communityApi.getCommunities({
+          q: searchQ || undefined,
+          tag: tagFilter || undefined,
+          sort_by: communitySort,
+          my_only: communityMyOnly || undefined,
+        });
+        setCommunities(res.data.communities);
+        setCommunitiesTotal(res.data.total);
+      } catch {
+        setCommunities([]);
+      } finally {
+        setCommunitiesLoading(false);
+      }
+    })();
+  }, [searchQ, tagFilter, communitySort, communityMyOnly]);
+
   const refresh = () => {
     setSearchQ((q) => q);
     setTagFilter((t) => t);
@@ -129,16 +160,31 @@ export function Forum() {
         setEvents(r.data.events);
         setEventsTotal(r.data.total);
       });
+    communityApi
+      .getCommunities({
+        q: searchQ || undefined,
+        tag: tagFilter || undefined,
+        sort_by: communitySort,
+      })
+      .then((r) => {
+        setCommunities(r.data.communities);
+        setCommunitiesTotal(r.data.total);
+      });
   };
   return (
     <div>
-      <Flex justify="between" align="center" className="mb-6">
-        <div>
-          <Heading size="7">Community Forum</Heading>
-          <Text size="3" color="gray">
-            Share ideas, discuss topics, and discover community events
-          </Text>
-        </div>
+      <Flex direction="column" justify="between" align="center" className="m-12">
+        <Heading size="8" className={"max-w-lg"} align="center">
+          The 🤾‍♂️ people platform.<br />
+          Where 🏈 interests<br />
+          become 🎻 friendships.
+        </Heading>
+        <Text size="3" color="gray" className={"max-w-3xl mt-6 mb-3"} align="center">
+          Whatever your interest, from hiking and reading to networking and skill sharing, there are thousands of people who share it on Hive. Events are happening every day—sign up to join the fun.
+        </Text>
+        <Button onClick={() => setTab('communities')}>
+          See Communities
+        </Button>
       </Flex>
       <Flex gap="3" className="mb-6" wrap="wrap">
         <TextField.Root
@@ -164,6 +210,10 @@ export function Forum() {
       </Flex>
       <Tabs.Root value={tab} onValueChange={setTab}>
         <Tabs.List>
+          <Tabs.Trigger value="communities">
+            <UsersIcon className="mr-1 w-4 h-4" /> Communities (
+            {communitiesTotal})
+          </Tabs.Trigger>
           <Tabs.Trigger value="discussions">
             <MessageCircleIcon className="mr-1 w-4 h-4" /> Discussions (
             {discussionsTotal})
@@ -274,6 +324,27 @@ export function Forum() {
                             stopPropagation
                           />
                         ))}
+                        {d.community_id &&
+                          communities.find((c) => c._id === d.community_id) && (
+                            <Badge
+                              color="violet"
+                              variant="soft"
+                              size="1"
+                              style={{ cursor: "pointer" }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(
+                                  `/forum/communities/${d.community_id}`,
+                                );
+                              }}
+                            >
+                              {
+                                communities.find(
+                                  (c) => c._id === d.community_id,
+                                )?.name
+                              }
+                            </Badge>
+                          )}
                       </Flex>
                     </div>
                   </Flex>
@@ -323,7 +394,7 @@ export function Forum() {
               <Text color="gray">No events yet. Create one!</Text>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {events.map((ev) => (
                 <Card
                   key={ev._id}
@@ -421,6 +492,169 @@ export function Forum() {
                         stopPropagation
                       />
                     ))}
+                    {ev.community_id &&
+                      communities.find((c) => c._id === ev.community_id) && (
+                        <Badge
+                          color="violet"
+                          variant="soft"
+                          size="1"
+                          style={{ cursor: "pointer" }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/forum/communities/${ev.community_id}`);
+                          }}
+                        >
+                          {
+                            communities.find((c) => c._id === ev.community_id)
+                              ?.name
+                          }
+                        </Badge>
+                      )}
+                  </Flex>
+                </Card>
+              ))}
+            </div>
+          )}
+        </Tabs.Content>
+        <Tabs.Content value="communities" className="pt-4">
+          <Flex justify="between" align="center" className="mb-4">
+            <Flex gap="2" align="center" wrap="wrap">
+              <Text size="2" color="gray">
+                Sort:
+              </Text>
+              <Button
+                size="1"
+                variant={communitySort === "member_count" ? "solid" : "soft"}
+                onClick={() => setCommunitySort("member_count")}
+              >
+                <UsersIcon className="w-3 h-3" /> Members
+              </Button>
+              <Button
+                size="1"
+                variant={communitySort === "post_count" ? "solid" : "soft"}
+                onClick={() => setCommunitySort("post_count")}
+              >
+                Posts
+              </Button>
+              <Button
+                size="1"
+                variant={communitySort === "created_at" ? "solid" : "soft"}
+                onClick={() => setCommunitySort("created_at")}
+              >
+                Latest
+              </Button>
+              {currentUserId && (
+                <Button
+                  size="1"
+                  variant={communityMyOnly ? "solid" : "soft"}
+                  color="violet"
+                  onClick={() => setCommunityMyOnly(!communityMyOnly)}
+                >
+                  My Communities
+                </Button>
+              )}
+            </Flex>
+            {currentUserId && (
+              <Button onClick={() => setShowNewCommunity(true)}>
+                <PlusIcon /> New Community
+              </Button>
+            )}
+          </Flex>
+          {communitiesLoading ? (
+            <Card className="p-8 text-center">
+              <Text color="gray">Loading...</Text>
+            </Card>
+          ) : communities.length === 0 ? (
+            <Card className="p-8 text-center">
+              <Text color="gray">
+                No communities yet. Create the first one!
+              </Text>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {communities.map((c) => (
+                <Card
+                  key={c._id}
+                  className="hover-card cursor-pointer"
+                  size="3"
+                  onClick={() => navigate(`/forum/communities/${c._id}`)}
+                >
+                  <Inset clip="padding-box" side="top" pb="current">
+                    {c.cover_image_url ? (
+                      <img
+                        src={getImageUrl(c.cover_image_url) ?? c.cover_image_url}
+                        alt={`${c.name} banner`}
+                        loading="lazy"
+                        style={{
+                          display: "block",
+                          objectFit: "cover",
+                          width: "100%",
+                          height: 160,
+                          backgroundColor: "var(--gray-5)",
+                        }}
+                      />
+                    ) : (
+                      <div className="flex h-40 w-full items-center justify-center bg-[var(--grass-3)]">
+                        <UsersIcon className="h-10 w-10 text-[var(--grass-9)]" />
+                      </div>
+                    )}
+                  </Inset>
+                  <Flex justify="between" align="end" gap="3" className="-mt-8 mb-3">
+                    <Avatar
+                      size="5"
+                      src={getImageUrl(c.avatar_url)}
+                      fallback={c.name[0]}
+                      radius="full"
+                      className="ring-4 ring-[var(--color-background)]"
+                    />
+                    <Flex gap="2" align="center" className="mb-1">
+                      <Badge size="1" variant="soft" color="gray">
+                        <UsersIcon className="w-3 h-3" />
+                        {c.member_count}
+                      </Badge>
+                      <Badge size="1" variant="soft" color="gray">
+                        <MessageCircleIcon className="w-3 h-3" />
+                        {c.post_count}
+                      </Badge>
+                    </Flex>
+                  </Flex>
+                  <Flex justify="between" align="start" wrap="wrap" gap="2">
+                    <Flex align="center" gap="2">
+                      <Text size="3" weight="bold" className="line-clamp-1">
+                        {c.name}
+                      </Text>
+                      {c.user_membership && (
+                        <Badge size="1" variant="soft" color="violet">
+                          {c.user_membership === "founder"
+                            ? "Founder"
+                            : c.user_membership === "moderator"
+                              ? "Mod"
+                              : "Member"}
+                          </Badge>
+                      )}
+                    </Flex>
+                  </Flex>
+                  <Text size="2" color="gray" className="line-clamp-2">
+                    {c.description}
+                  </Text>
+                  <Flex gap="2" align="center" className="mt-2" wrap="wrap">
+                    <Text size="1" color="gray">
+                      by{" "}
+                      {c.founder?.full_name ||
+                        c.founder?.username ||
+                        "Unknown"}
+                    </Text>
+                    <Text size="1" color="gray">
+                      · {timeAgo(c.created_at)}
+                    </Text>
+                    {(c.tags || []).slice(0, 3).map((tag, i) => (
+                      <ClickableTag
+                        key={i}
+                        tag={tag}
+                        size="1"
+                        stopPropagation
+                      />
+                    ))}
                   </Flex>
                 </Card>
               ))}
@@ -432,11 +666,20 @@ export function Forum() {
         open={showNewDiscussion}
         onOpenChange={setShowNewDiscussion}
         onCreated={refresh}
+        communities={communities}
       />
       <NewEventDialog
         open={showNewEvent}
         onOpenChange={setShowNewEvent}
         onCreated={refresh}
+        communities={communities}
+      />
+      <NewCommunityDialog
+        open={showNewCommunity}
+        onOpenChange={setShowNewCommunity}
+        onCreated={(c) => {
+          navigate(`/forum/communities/${c._id}`);
+        }}
       />
     </div>
   );
@@ -445,21 +688,31 @@ function NewDiscussionDialog({
   open,
   onOpenChange,
   onCreated,
+  communities,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   onCreated: () => void;
+  communities: Community[];
 }) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [tags, setTags] = useState<TagEntity[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [discussionCommunityId, setDiscussionCommunityId] =
+    useState<string>("");
+  const [discussionImageUrls, setDiscussionImageUrls] = useState<string[]>([]);
+  const [discussionImageUploading, setDiscussionImageUploading] =
+    useState(false);
   const reset = () => {
     setTitle("");
     setBody("");
     setTags([]);
     setError("");
+    setDiscussionCommunityId("");
+    setDiscussionImageUrls([]);
+    setDiscussionImageUploading(false);
   };
   const handleSubmit = async () => {
     if (!title.trim() || !body.trim()) {
@@ -468,7 +721,14 @@ function NewDiscussionDialog({
     }
     setSubmitting(true);
     try {
-      await forumApi.createDiscussion({ title, body, tags });
+      await forumApi.createDiscussion({
+        title,
+        body,
+        tags,
+        community_id: discussionCommunityId || undefined,
+        image_urls:
+          discussionImageUrls.length > 0 ? discussionImageUrls : undefined,
+      });
       reset();
       onOpenChange(false);
       onCreated();
@@ -486,7 +746,7 @@ function NewDiscussionDialog({
         if (!o) reset();
       }}
     >
-      <Dialog.Content className="max-w-2xl" aria-describedby={undefined}>
+      <Dialog.Content className="max-w-4xl" aria-describedby={undefined}>
         <Dialog.Title>New Discussion</Dialog.Title>
         <Form.Root
           onSubmit={(e) => {
@@ -526,6 +786,86 @@ function NewDiscussionDialog({
               }
             />
           </Form.Field>
+          <Box className="space-y-2">
+            <Text size="2" weight="medium" className="block">
+              Discussion image (optional)
+            </Text>
+            {discussionImageUrls.length === 0 && (
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  disabled={discussionImageUploading}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setDiscussionImageUploading(true);
+                    try {
+                      const res = await uploadApi.uploadDiscussionImage(file);
+                      setDiscussionImageUrls([res.data.url]);
+                    } catch {
+                      // ignore upload errors
+                    } finally {
+                      setDiscussionImageUploading(false);
+                    }
+                  }}
+                />
+                <span className="flex items-center justify-center gap-2 border rounded-lg p-2 hover-card text-center cursor-pointer font-medium text-sm w-full">
+                  <PlusIcon className="w-4 h-4" />
+                  {discussionImageUploading ? "Uploading..." : "Add image"}
+                </span>
+              </label>
+            )}
+            {discussionImageUrls.length > 0 && (
+              <Flex gap="2" wrap="wrap" className="border rounded-lg p-2">
+                <Box className="relative">
+                  <img
+                    src={
+                      getImageUrl(discussionImageUrls[0]) ??
+                      discussionImageUrls[0]
+                    }
+                    alt="Preview"
+                    className="w-20 h-20 object-cover rounded"
+                  />
+                  <button
+                    type="button"
+                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs"
+                    onClick={() => setDiscussionImageUrls([])}
+                  >
+                    x
+                  </button>
+                </Box>
+              </Flex>
+            )}
+          </Box>
+          {communities.length > 0 && (
+            <Form.Field name="discussion-community" className="space-y-1">
+              <Form.Label className="text-sm font-medium">
+                Related Community (optional)
+              </Form.Label>
+              <Box mt="1">
+                <select
+                  value={discussionCommunityId}
+                  onChange={(e) => setDiscussionCommunityId(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "6px 8px",
+                    borderRadius: 6,
+                    border: "1px solid var(--gray-6)",
+                    fontSize: 13,
+                  }}
+                >
+                  <option value="">None</option>
+                  {communities.map((c) => (
+                    <option key={c._id} value={c._id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </Box>
+            </Form.Field>
+          )}
           {error && (
             <Text size="2" color="red">
               {error}
@@ -536,12 +876,18 @@ function NewDiscussionDialog({
               type="button"
               variant="soft"
               color="gray"
-              onClick={() => onOpenChange(false)}
+              onClick={() => {
+                reset();
+                onOpenChange(false);
+              }}
             >
               Cancel
             </Button>
             <Form.Submit asChild>
-              <Button type="submit" disabled={submitting}>
+              <Button
+                type="submit"
+                disabled={submitting || discussionImageUploading}
+              >
                 {submitting ? "Creating..." : "Create Discussion"}
               </Button>
             </Form.Submit>
@@ -555,10 +901,12 @@ function NewEventDialog({
   open,
   onOpenChange,
   onCreated,
+  communities,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   onCreated: () => void;
+  communities: Community[];
 }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -581,6 +929,7 @@ function NewEventDialog({
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const [imageUploading, setImageUploading] = useState(false);
+  const [eventCommunityId, setEventCommunityId] = useState<string>("");
   const reset = () => {
     setTitle("");
     setDescription("");
@@ -594,6 +943,7 @@ function NewEventDialog({
     imagePreviewUrls.forEach((url) => URL.revokeObjectURL(url));
     setImageFiles([]);
     setImagePreviewUrls([]);
+    setEventCommunityId("");
   };
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -607,11 +957,6 @@ function NewEventDialog({
     setImageFiles((prev) => [...prev, file]);
     setImagePreviewUrls((prev) => [...prev, URL.createObjectURL(file)]);
     e.target.value = "";
-  };
-  const removeImage = (index: number) => {
-    URL.revokeObjectURL(imagePreviewUrls[index]);
-    setImageFiles((prev) => prev.filter((_, i) => i !== index));
-    setImagePreviewUrls((prev) => prev.filter((_, i) => i !== index));
   };
   const handleSubmit = async () => {
     if (!title.trim() || !description.trim() || !eventDate || !eventTime) {
@@ -659,6 +1004,7 @@ function NewEventDialog({
         service_id:
           serviceId && serviceId !== "__none__" ? serviceId : undefined,
         image_urls: uploadedUrls,
+        community_id: eventCommunityId || undefined,
       });
       reset();
       onOpenChange(false);
@@ -677,7 +1023,7 @@ function NewEventDialog({
         if (!o) reset();
       }}
     >
-      <Dialog.Content className="max-w-2xl" aria-describedby={undefined}>
+      <Dialog.Content className="max-w-4xl" aria-describedby={undefined}>
         <Dialog.Title>New Event</Dialog.Title>
         <Form.Root
           onSubmit={(e) => {
@@ -794,24 +1140,54 @@ function NewEventDialog({
                   <Box key={i} className="relative">
                     <img
                       src={url}
-                      alt={`Preview ${i + 1}`}
-                      className="rounded-lg object-cover h-24 w-24"
+                      alt={"Preview " + String(i + 1)}
+                      className="w-20 h-20 object-cover rounded"
                     />
-                    <Button
+                    <button
                       type="button"
-                      size="1"
-                      variant="solid"
-                      color="red"
-                      className="!absolute top-1 right-1 !p-1 w-5 h-5 cursor-pointer"
-                      onClick={() => removeImage(i)}
+                      className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs"
+                      onClick={() => {
+                        URL.revokeObjectURL(url);
+                        setImageFiles((prev) => prev.filter((_, j) => j !== i));
+                        setImagePreviewUrls((prev) =>
+                          prev.filter((_, j) => j !== i),
+                        );
+                      }}
                     >
-                      ×
-                    </Button>
+                      x
+                    </button>
                   </Box>
                 ))}
               </Flex>
             )}
           </Box>
+          {communities.length > 0 && (
+            <Form.Field name="event-community" className="space-y-1">
+              <Form.Label className="text-sm font-medium">
+                Related Community (optional)
+              </Form.Label>
+              <Box mt="1">
+                <select
+                  value={eventCommunityId}
+                  onChange={(e) => setEventCommunityId(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "6px 8px",
+                    borderRadius: 6,
+                    border: "1px solid var(--gray-6)",
+                    fontSize: 13,
+                  }}
+                >
+                  <option value="">None</option>
+                  {communities.map((c) => (
+                    <option key={c._id} value={c._id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </Box>
+            </Form.Field>
+          )}
           {error && (
             <Text size="2" color="red">
               {error}
@@ -822,7 +1198,10 @@ function NewEventDialog({
               type="button"
               variant="soft"
               color="gray"
-              onClick={() => onOpenChange(false)}
+              onClick={() => {
+                reset();
+                onOpenChange(false);
+              }}
             >
               Cancel
             </Button>
@@ -833,6 +1212,286 @@ function NewEventDialog({
                   : submitting
                     ? "Creating..."
                     : "Create Event"}
+              </Button>
+            </Form.Submit>
+          </Flex>
+        </Form.Root>
+      </Dialog.Content>
+    </Dialog.Root>
+  );
+}
+function NewCommunityDialog({
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  onCreated: (community: import("@/types").Community) => void;
+}) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [rules, setRules] = useState<string[]>([]);
+  const [newRule, setNewRule] = useState("");
+  const [tags, setTags] = useState<TagEntity[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
+
+  const reset = () => {
+    setName("");
+    setDescription("");
+    setRules([]);
+    setNewRule("");
+    setTags([]);
+    setError("");
+    if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
+    if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
+    setAvatarFile(null);
+    setCoverFile(null);
+    setAvatarPreviewUrl(null);
+    setCoverPreviewUrl(null);
+  };
+
+  const handleAddRule = () => {
+    const r = newRule.trim();
+    if (r && rules.length < 10) {
+      setRules([...rules, r]);
+      setNewRule("");
+    }
+  };
+
+  const handleCommunityImageChange = (
+    file: File | undefined,
+    type: "avatar" | "cover",
+  ) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Image must be under 5 MB");
+      return;
+    }
+    const previewUrl = URL.createObjectURL(file);
+    setError("");
+    if (type === "avatar") {
+      if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
+      setAvatarFile(file);
+      setAvatarPreviewUrl(previewUrl);
+    } else {
+      if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
+      setCoverFile(file);
+      setCoverPreviewUrl(previewUrl);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!name.trim() || !description.trim()) {
+      setError("Name and description are required");
+      return;
+    }
+    if (!avatarFile || !coverFile) {
+      setError("Community photo and banner image are required");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const [avatarRes, coverRes] = await Promise.all([
+        uploadApi.uploadCommunityImage(avatarFile),
+        uploadApi.uploadCommunityImage(coverFile),
+      ]);
+      const res = await communityApi.createCommunity({
+        name,
+        description,
+        rules,
+        tags,
+        avatar_url: avatarRes.data.url,
+        cover_image_url: coverRes.data.url,
+      });
+      reset();
+      onOpenChange(false);
+      onCreated(res.data);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || "Failed to create community");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog.Root
+      open={open}
+      onOpenChange={(o) => {
+        onOpenChange(o);
+        if (!o) reset();
+      }}
+    >
+      <Dialog.Content className="max-w-4xl" aria-describedby={undefined}>
+        <Dialog.Title>Create New Community</Dialog.Title>
+        <Form.Root
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleSubmit();
+          }}
+          className="space-y-4 mt-4"
+        >
+          <Form.Field name="name" className="space-y-2">
+            <Form.Label className="text-sm font-medium">
+              Community Name *
+            </Form.Label>
+            <Form.Control asChild>
+              <TextField.Root
+                placeholder="e.g. Sustainable Living"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </Form.Control>
+          </Form.Field>
+          <Form.Field name="description" className="space-y-2">
+            <Form.Label className="text-sm font-medium">
+              Description *
+            </Form.Label>
+            <MarkdownEditor
+              placeholder="What is this community about?"
+              value={description}
+              onChange={(v) => setDescription(v)}
+              rows={5}
+            />
+          </Form.Field>
+          <div className="grid gap-3 md:grid-cols-2">
+            <Box className="space-y-2">
+              <Text size="2" weight="medium" className="block">
+                Community photo *
+              </Text>
+              <label className="block cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="sr-only"
+                  disabled={submitting}
+                  onChange={(e) => {
+                    handleCommunityImageChange(e.target.files?.[0], "avatar");
+                    e.target.value = "";
+                  }}
+                />
+                {avatarPreviewUrl ? (
+                  <img
+                    src={avatarPreviewUrl}
+                    alt="Community photo preview"
+                    className="h-32 w-32 rounded-full object-cover ring-1 ring-[var(--gray-6)]"
+                  />
+                ) : (
+                  <span className="flex h-32 w-32 items-center justify-center rounded-full border border-dashed border-[var(--gray-7)] text-sm font-medium text-[var(--gray-11)]">
+                    Choose photo
+                  </span>
+                )}
+              </label>
+            </Box>
+            <Box className="space-y-2">
+              <Text size="2" weight="medium" className="block">
+                Banner image *
+              </Text>
+              <label className="block cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="sr-only"
+                  disabled={submitting}
+                  onChange={(e) => {
+                    handleCommunityImageChange(e.target.files?.[0], "cover");
+                    e.target.value = "";
+                  }}
+                />
+                {coverPreviewUrl ? (
+                  <img
+                    src={coverPreviewUrl}
+                    alt="Community banner preview"
+                    className="h-32 w-full rounded-lg object-cover ring-1 ring-[var(--gray-6)]"
+                  />
+                ) : (
+                  <span className="flex h-32 w-full items-center justify-center rounded-lg border border-dashed border-[var(--gray-7)] text-sm font-medium text-[var(--gray-11)]">
+                    Choose banner
+                  </span>
+                )}
+              </label>
+            </Box>
+          </div>
+          <Form.Field name="tags" className="space-y-1">
+            <Form.Label className="text-sm font-medium">Tags</Form.Label>
+            <TagAutocomplete
+              tags={tags}
+              onTagAdd={(t) => setTags([...tags, t])}
+              onTagRemove={(t) =>
+                setTags(tags.filter((x) => x.label !== t.label))
+              }
+            />
+          </Form.Field>
+          <div className="space-y-2">
+            <Text size="2" weight="medium" className="block">
+              Community Rules
+            </Text>
+            {rules.map((rule, i) => (
+              <Flex key={i} gap="2" align="center">
+                <Text size="2" className="flex-1">
+                  {i + 1}. {rule}
+                </Text>
+                <Button
+                  type="button"
+                  size="1"
+                  variant="ghost"
+                  color="red"
+                  onClick={() => setRules(rules.filter((_, j) => j !== i))}
+                >
+                  <Cross2Icon />
+                </Button>
+              </Flex>
+            ))}
+            {rules.length < 10 && (
+              <Flex gap="2">
+                <TextField.Root
+                  placeholder="Add a rule..."
+                  value={newRule}
+                  onChange={(e) => setNewRule(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddRule();
+                    }
+                  }}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  size="2"
+                  variant="soft"
+                  onClick={handleAddRule}
+                >
+                  Add
+                </Button>
+              </Flex>
+            )}
+          </div>
+          {error && (
+            <Text size="2" color="red">
+              {error}
+            </Text>
+          )}
+          <Flex justify="end" gap="3">
+            <Button
+              type="button"
+              variant="soft"
+              color="gray"
+              onClick={() => {
+                reset();
+                onOpenChange(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Form.Submit asChild>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "Creating..." : "Create Community"}
               </Button>
             </Form.Submit>
           </Flex>
