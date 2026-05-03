@@ -23,6 +23,7 @@ import {
 } from "@/components/map/ServiceMap";
 import { getCityOptions } from "@/constants/turkishCities";
 import { HERO_TEXTS } from "@/constants/heroTexts.ts";
+import { useNavigate } from "react-router-dom";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -177,7 +178,7 @@ function FilterPill({
             ${
               isActive
                 ? "border-current font-semibold filter-pill-active"
-                : "border-[var(--gray-6)] text-[var(--gray-11)]"
+                : "text-[var(--gray-11)]"
             }
           `}
         >
@@ -307,6 +308,8 @@ export function DashboardFilterBar({
   onOpenForYouSettings,
 }: DashboardFilterBarProps) {
   const activeTagCount = filters.selectedTags.length;
+
+  const navigate = useNavigate();
 
   const tagsLabel = useMemo(() => {
     if (activeTagCount === 0) return "Tags";
@@ -729,6 +732,21 @@ export function DashboardFilterBar({
           )}
         </Flex>
       </FilterPill>
+
+      <button
+          className={`
+                filter-pill inline-flex items-center gap-1.5 whitespace-nowrap
+                text-[var(--gray-11)]
+                rounded-full border px-4 py-2 text-sm font-medium
+                transition-all duration-200 hover:shadow-sm 
+              `}
+          onClick={() => navigate("/forum?tab=communities") }
+      >
+        Communities & Events
+        <span className={"text-[var(--accent-a11)]"}>
+          • New
+        </span>
+      </button>
 
       {/* Clear all */}
       {!isDefault(filters) && (

@@ -227,6 +227,15 @@ export function Profile() {
   const detailedRatings: RatingDetailed[] =
     detailedRatingsData?.data?.ratings ?? [];
 
+  const { data: userCommunitiesData, isLoading: userCommunitiesLoading } =
+    useQuery({
+      queryKey: ["my-communities-profile", user?._id],
+      queryFn: () => usersApi.getUserCommunities(user!._id),
+      enabled: !!user?._id,
+      staleTime: 2 * 60 * 1000,
+    });
+  const userCommunities = userCommunitiesData?.data?.communities ?? [];
+
   const { data: eagerTimebankData } = useQuery({
     queryKey: ["my-timebank"],
     queryFn: () => usersApi.getTimeBank().then((r) => r.data as TimeBankResponse),
@@ -1062,6 +1071,59 @@ export function Profile() {
                           </button>
                         )}
                       </div>
+
+                      <Separator />
+
+                      {/* Communities */}
+                      {(userCommunitiesLoading || userCommunities.length > 0) && (
+                        <div>
+                          <Flex align="center" gap="2" className="mb-2">
+                            <Text size="2" weight="bold">
+                              Communities
+                            </Text>
+                            {!userCommunitiesLoading && (
+                              <Text size="1" color="gray">
+                                {userCommunities.length}
+                              </Text>
+                            )}
+                          </Flex>
+                          {userCommunitiesLoading ? (
+                            <Text size="1" color="gray">
+                              Loading communities...
+                            </Text>
+                          ) : (
+                            <Flex gap="2" wrap="wrap">
+                              {userCommunities.slice(0, 12).map((community) => (
+                                <button
+                                  key={community._id}
+                                  type="button"
+                                  title={community.name}
+                                  aria-label={`Open ${community.name}`}
+                                  onClick={() =>
+                                    navigate(`/forum/communities/${community._id}`)
+                                  }
+                                  className="rounded-full ring-1 ring-[var(--gray-6)] transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[var(--grass-8)]"
+                                >
+                                  <Avatar
+                                    size="3"
+                                    src={getImageUrl(community.avatar_url)}
+                                    fallback={community.name[0]}
+                                    radius="full"
+                                  />
+                                </button>
+                              ))}
+                              {userCommunities.length > 12 && (
+                                <span
+                                  title={`${userCommunities.length - 12} more communities`}
+                                  className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--gray-3)] text-sm font-medium text-[var(--gray-11)] ring-1 ring-[var(--gray-6)]"
+                                >
+                                  +{userCommunities.length - 12}
+                                </span>
+                              )}
+                            </Flex>
+                          )}
+                        </div>
+                      )}
 
                       <Separator />
 

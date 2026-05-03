@@ -4,6 +4,7 @@ import { Service } from "@/types";
 
 interface ServicesSummaryCardProps {
   services: Service[];
+  takenServices?: Service[];
   searchQuery: string;
   onSearchChange: (q: string) => void;
 }
@@ -40,6 +41,7 @@ function getLastMonths(n: number) {
 
 export function ServicesSummaryCard({
   services,
+  takenServices,
   searchQuery,
   onSearchChange,
 }: ServicesSummaryCardProps) {
@@ -50,6 +52,11 @@ export function ServicesSummaryCard({
     (sum, s) => sum + (s.estimated_duration || 0),
     0,
   );
+
+  const takenTotal = takenServices?.length ?? 0;
+  const takenHours = takenServices?.reduce((sum, s) => sum + (s.estimated_duration || 0), 0) ?? 0;
+  const takenCompleted = takenServices?.filter((s) => s.status === "completed").length ?? 0;
+  const hasTaken = takenTotal > 0;
 
   // Status breakdown
   const statusOrder = [
@@ -109,63 +116,66 @@ export function ServicesSummaryCard({
     <Card className="p-5">
       <Flex direction="column" gap="5">
         {/* Stat pills */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: "Total", value: total, color: "var(--gray-12)" },
-            { label: "Offers", value: offers, color: "var(--blue-9)" },
-            { label: "Needs", value: needs, color: "var(--amber-9)" },
-            {
-              label: "Hours",
-              value: `${totalHours}h`,
-              color: "var(--green-9)",
-            },
-          ].map(({ label, value, color }) => (
-            <div
-              key={label}
+        <div className={`grid gap-3 grid-cols-2`}>
+          <div
               className="rounded-lg px-4 py-3"
               style={{ background: "var(--gray-a2)" }}
-            >
-              <Text size="1" color="gray" className="block mb-1">
-                {label}
-              </Text>
-              <Text size="5" weight="bold" style={{ color }}>
-                {value}
-              </Text>
-            </div>
-          ))}
-        </div>
-
-        {/* Status stacked bar */}
-        {statusSegments.length > 0 && (
-          <div>
-            <Text size="1" color="gray" className="block mb-2">
-              Status breakdown
+          >
+            <Text size="1" color="gray" className="block mb-1">
+              Services Given
             </Text>
-            <div className="flex h-3 rounded-full overflow-hidden gap-px">
-              {statusSegments.map(({ status, pct, count, label, color }) => (
-                <div
-                  key={status}
-                  title={`${label}: ${count}`}
-                  style={{ width: `${pct}%`, background: color }}
-                  className="transition-all duration-300"
-                />
-              ))}
-            </div>
-            <Flex gap="3" wrap="wrap" className="mt-2">
-              {statusSegments.map(({ status, count, label, color }) => (
-                <Flex key={status} align="center" gap="1">
-                  <div
-                    className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ background: color }}
-                  />
-                  <Text size="1" color="gray">
-                    {label} ({count})
-                  </Text>
+            <Text size="5" weight="bold" color="gray">
+              {totalHours} Hours •
+              <span className={'mx-1 text-yellow-400'}>{offers} Offers</span>
+              •
+              <span className={'mx-1 text-blue-400'}>{needs} Needs</span>
+            </Text>
+            {statusSegments.length > 0 && (
+                <Flex gap="3" wrap="wrap" className="mt-2">
+                  {statusSegments.map(({ status, count, label, color }) => (
+                      <Flex key={status} align="center" gap="1">
+                        <div
+                            className="w-2 h-2 rounded-full flex-shrink-0"
+                            style={{ background: color }}
+                        />
+                        <Text size="1" color="gray">
+                          {label} ({count})
+                        </Text>
+                      </Flex>
+                  ))}
                 </Flex>
-              ))}
-            </Flex>
+            )}
           </div>
-        )}
+
+          <div
+              className="rounded-lg px-4 py-3"
+              style={{ background: "var(--gray-a2)" }}
+          >
+            <Text size="1" color="gray" className="block mb-1">
+              Services Taken
+            </Text>
+            <Text size="5" weight="bold" color="gray">
+              {takenHours} Hours •
+              <span className={'mx-1 text-lime-400'}>{takenTotal} Services</span>
+            </Text>
+
+            {/* Taken services summary */}
+            {hasTaken && (
+                <Flex gap="3" wrap="wrap" className={"mt-2"}>
+                  {[
+                    { label: "Completed", count: takenCompleted, color: "var(--green-9)" },
+                    { label: "In Progress", count: takenServices!.filter(s => s.status === "in_progress").length, color: "var(--amber-9)" },
+                    { label: "Active", count: takenServices!.filter(s => s.status === "active").length, color: "var(--blue-9)" },
+                  ].filter(({ count }) => count > 0).map(({ label, count, color }) => (
+                      <Flex key={label} align="center" gap="1">
+                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
+                        <Text size="1" color="gray">{label} ({count})</Text>
+                      </Flex>
+                  ))}
+                </Flex>
+            )}
+          </div>
+        </div>
 
         {/* Monthly activity + Top tags — side by side */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

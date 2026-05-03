@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Card, Text, Flex, Avatar, Button, Heading,
-  Badge, Dialog, TextField, Box,
+  Badge, Dialog, TextField, Box, Inset,
 } from "@radix-ui/themes";
 import { Form } from "radix-ui";
 import {
@@ -338,19 +338,94 @@ export function CommunityDetail() {
       {communityEvents.length > 0 && (
         <Box mt="5">
           <Heading size="3" mb="3">Related Events</Heading>
-          <Flex direction="column" gap="2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {communityEvents.map(ev => (
-              <Card key={ev._id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/forum/events/${ev._id}`)}>
-                <Flex justify="between" align="start">
-                  <Box>
-                    <Text weight="bold" size="2">{ev.title}</Text>
-                    <Text size="1" color="gray" ml="2">{new Date(ev.event_at).toLocaleDateString('en-GB')}</Text>
-                  </Box>
-                  <Badge color="blue" variant="soft" size="1">{ev.attendee_count} attending</Badge>
+              <Card
+                key={ev._id}
+                className="hover-card cursor-pointer"
+                size="3"
+                onClick={() => navigate(`/forum/events/${ev._id}`)}
+              >
+                {ev.image_urls && ev.image_urls.length > 0 && (
+                  <Inset clip="padding-box" side="top" pb="current">
+                    <img
+                      src={getImageUrl(ev.image_urls[0]) ?? ev.image_urls[0]}
+                      alt={ev.title}
+                      loading="lazy"
+                      style={{
+                        display: "block",
+                        objectFit: "cover",
+                        width: "100%",
+                        height: 160,
+                        backgroundColor: "var(--gray-5)",
+                      }}
+                    />
+                  </Inset>
+                )}
+                <Flex justify="between" align="start" wrap="wrap" gap="2">
+                  <Text size="3" weight="bold" className="line-clamp-1">
+                    {ev.title}
+                  </Text>
+                  <Badge size="1" variant="soft" color="purple">
+                    <CalendarClockIcon className="w-3 h-3" />
+                    {new Date(ev.event_at).toLocaleDateString("en-GB", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </Badge>
+                </Flex>
+                <div className="prose-content card-description">
+                  <ReactMarkdown
+                    components={{
+                      a: ({ node: _node, ...props }) => (
+                        <a {...props} target="_blank" rel="noopener noreferrer">
+                          {props.children}
+                        </a>
+                      ),
+                    }}
+                  >
+                    {ev.description}
+                  </ReactMarkdown>
+                </div>
+                <Flex gap="2" align="center" className="mt-2" wrap="wrap">
+                  <Text size="1" color="gray">
+                    by {ev.user?.full_name || ev.user?.username || "Unknown"}
+                  </Text>
+                  {ev.is_remote ? (
+                    <Badge size="1" variant="soft" color="blue">
+                      <GlobeIcon className="w-3 h-3" /> Remote
+                    </Badge>
+                  ) : ev.location ? (
+                    <Badge size="1" variant="soft" color="gray">
+                      {ev.location}
+                    </Badge>
+                  ) : null}
+                  {ev.service && (
+                    <Badge size="1" variant="soft" color="green">
+                      Linked: {ev.service.title}
+                    </Badge>
+                  )}
+                  {ev.attendee_count > 0 && (
+                    <Badge size="1" variant="soft" color="purple">
+                      <UsersIcon className="w-3 h-3 mr-1" />
+                      {ev.attendee_count} attending
+                    </Badge>
+                  )}
+                  <Badge size="1" variant="soft" color="gray">
+                    <MessageCircleIcon className="w-3 h-3 mr-1" />
+                    {ev.comment_count}
+                  </Badge>
+                  <UpvoteButton count={ev.upvote_count ?? 0} upvoted={ev.user_upvoted} />
+                  {(ev.tags || []).slice(0, 3).map((tag, i) => (
+                    <ClickableTag key={i} tag={tag} size="1" stopPropagation />
+                  ))}
                 </Flex>
               </Card>
             ))}
-          </Flex>
+          </div>
         </Box>
       )}
 
