@@ -86,7 +86,17 @@ export function CustomBadge({
 }) {
   const IconComponent = ICON_MAP[badge.icon] || Award;
   return (
-    <Tooltip content={badge.name} side="right">
+    <Tooltip
+      content={
+        <Flex direction="column" gap="1">
+          <Text size="2" weight="bold">{badge.name}</Text>
+          {badge.description && (
+            <Text size="1" style={{ color: "var(--gray-11)" }}>{badge.description}</Text>
+          )}
+        </Flex>
+      }
+      side="right"
+    >
       <Box
         className={`p-2 custom-badge-icon ${className}`}
         data-badge-key={badge.key}

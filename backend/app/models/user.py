@@ -203,6 +203,8 @@ class TimeBankResponse(BaseModel):
     max_balance: float = 10.0
     can_earn: bool = True
     requires_need_creation: bool = False
+    effective_max_balance: float = 0.0
+    effective_min_balance: float = 0.0
 
     @field_validator('balance', mode='before')
     @classmethod

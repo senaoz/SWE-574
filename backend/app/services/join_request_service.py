@@ -1,3 +1,4 @@
+import logging
 from typing import List, Tuple, Optional
 from datetime import datetime
 from bson import ObjectId
@@ -5,6 +6,8 @@ from bson import ObjectId
 from ..models.join_request import JoinRequestCreate, JoinRequestUpdate, JoinRequestResponse, JoinRequestStatus
 from ..models.notification import NotificationType, NotificationRelatedType
 from ..core.database import get_database
+
+logger = logging.getLogger(__name__)
 
 
 class JoinRequestService:
@@ -38,12 +41,51 @@ class JoinRequestService:
             from .user_service import UserService
             user_service = UserService(self.db)
             service_hours = float(service.get("estimated_duration", 0.0))
+            service_type = service.get("service_type")
 
-            if service.get("service_type") == "need":
+            if service_type == "need":
                 # User is applying to fulfill a need → they will EARN hours (provider role)
                 # Block if this would push their effective max balance over 10 hours
+                user = await user_service.get_user_by_id(user_id)
+                current_balance = float(user.timebank_balance) if user else 0.0
+
+                # Breakdown components
+                active_offers = await user_service.db.services.find({
+                    "user_id": ObjectId(user_id), "service_type": "offer", "status": "active"
+                }).to_list(None)
+                active_offer_hours = sum(float(o.get("estimated_duration", 0.0)) for o in active_offers)
+
+                pending_jrs = await user_service.db.join_requests.find({
+                    "user_id": ObjectId(user_id), "status": "pending"
+                }).to_list(None)
+                pending_need_jr_hours = 0.0
+                for jr in pending_jrs:
+                    svc = await user_service.db.services.find_one({"_id": jr["service_id"]})
+                    if svc and svc.get("service_type") == "need":
+                        pending_need_jr_hours += float(svc.get("estimated_duration", 0.0))
+
                 effective_max = await user_service.get_effective_max_balance(user_id)
+                approved_tx_hours = effective_max - current_balance - active_offer_hours - pending_need_jr_hours
                 projected = effective_max + service_hours
+
+                logger.info(
+                    "[TIMEBANK] user=%s applying to NEED service=%s (%.1f hrs)\n"
+                    "  current_balance     = %.2f hrs\n"
+                    "  + active_offer_hrs  = %.2f hrs  (%d active offers)\n"
+                    "  + pending_need_jrs  = %.2f hrs  (%d pending applications)\n"
+                    "  + approved_tx_hrs   = %.2f hrs\n"
+                    "  = effective_max     = %.2f hrs  (limit: 10.0)\n"
+                    "  projected after     = %.2f hrs  → %s",
+                    user_id, request_data.service_id, service_hours,
+                    current_balance,
+                    active_offer_hours, len(active_offers),
+                    pending_need_jr_hours, sum(1 for jr in pending_jrs if True),
+                    approved_tx_hours,
+                    effective_max,
+                    projected,
+                    "BLOCKED ❌" if projected > 10.0 else "ALLOWED ✅"
+                )
+
                 if projected > 10.0:
                     raise ValueError(
                         f"You cannot apply to this need. Your projected maximum balance would reach "
@@ -51,11 +93,49 @@ class JoinRequestService:
                         f"Wait for your active offers or applications to complete or be cancelled."
                     )
 
-            if service.get("service_type") == "offer":
+            if service_type == "offer":
                 # User is applying to receive an offer → they will SPEND hours (requester role)
                 # Block if this would push their effective min balance below 0
+                user = await user_service.get_user_by_id(user_id)
+                current_balance = float(user.timebank_balance) if user else 0.0
+
+                # Breakdown components
+                active_needs = await user_service.db.services.find({
+                    "user_id": ObjectId(user_id), "service_type": "need", "status": "active"
+                }).to_list(None)
+                active_need_hours = sum(float(n.get("estimated_duration", 0.0)) for n in active_needs)
+
+                pending_jrs = await user_service.db.join_requests.find({
+                    "user_id": ObjectId(user_id), "status": "pending"
+                }).to_list(None)
+                pending_offer_jr_hours = 0.0
+                for jr in pending_jrs:
+                    svc = await user_service.db.services.find_one({"_id": jr["service_id"]})
+                    if svc and svc.get("service_type") == "offer":
+                        pending_offer_jr_hours += float(svc.get("estimated_duration", 0.0))
+
                 effective_min = await user_service.get_effective_min_balance(user_id)
+                approved_spend_tx_hours = current_balance - active_need_hours - pending_offer_jr_hours - effective_min
                 projected = effective_min - service_hours
+
+                logger.info(
+                    "[TIMEBANK] user=%s applying to OFFER service=%s (%.1f hrs)\n"
+                    "  current_balance       = %.2f hrs\n"
+                    "  - active_need_hrs     = %.2f hrs  (%d active needs)\n"
+                    "  - pending_offer_jrs   = %.2f hrs  (%d pending applications)\n"
+                    "  - approved_spend_txs  = %.2f hrs\n"
+                    "  = effective_min       = %.2f hrs  (floor: 0.0)\n"
+                    "  projected after       = %.2f hrs  → %s",
+                    user_id, request_data.service_id, service_hours,
+                    current_balance,
+                    active_need_hours, len(active_needs),
+                    pending_offer_jr_hours, sum(1 for jr in pending_jrs if True),
+                    approved_spend_tx_hours,
+                    effective_min,
+                    projected,
+                    "BLOCKED ❌" if projected < 0 else "ALLOWED ✅"
+                )
+
                 if projected < 0:
                     raise ValueError(
                         f"You cannot apply to this offer. Your projected minimum balance would drop to "
