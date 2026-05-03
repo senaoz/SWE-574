@@ -147,6 +147,21 @@ export function ForumEventDetail() {
         <ArrowLeftIcon /> Back to Forum
       </Button>
 
+      {/* Event banner */}
+      {(event.banner_image_url || (event.image_urls && event.image_urls.length > 0)) && (
+        <div className="w-full h-40 rounded-xl overflow-hidden mb-4">
+          <img
+            src={
+              event.banner_image_url
+                ? (getImageUrl(event.banner_image_url) ?? event.banner_image_url)
+                : (getImageUrl(event.image_urls![0]) ?? event.image_urls![0])
+            }
+            alt="Event banner"
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
+
       {/* Event content */}
       <Card className="p-6 mb-6">
         <div className="flex justify-between">
@@ -488,6 +503,11 @@ function EditEventDialog({
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const [imageUploading, setImageUploading] = useState(false);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreviewUrl, setBannerPreviewUrl] = useState<string>("");
+  const [existingBannerUrl, setExistingBannerUrl] = useState<string>(
+    event.banner_image_url ?? "",
+  );
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -526,6 +546,10 @@ function EditEventDialog({
       imagePreviewUrls.forEach((url) => URL.revokeObjectURL(url));
       setImageFiles([]);
       setImagePreviewUrls([]);
+      if (bannerPreviewUrl) URL.revokeObjectURL(bannerPreviewUrl);
+      setBannerFile(null);
+      setBannerPreviewUrl("");
+      setExistingBannerUrl(event.banner_image_url ?? "");
       setError("");
     }
   }, [open, event]);
@@ -537,9 +561,23 @@ function EditEventDialog({
     }
     const eventAt = new Date(`${eventDate}T${eventTime}`).toISOString();
     setSubmitting(true);
+    setImageUploading(true);
+    // Upload new banner if provided
+    let finalBannerUrl: string | undefined = existingBannerUrl || undefined;
+    if (bannerFile) {
+      try {
+        const bannerRes = await uploadApi.uploadForumEventImage(bannerFile);
+        finalBannerUrl = bannerRes.data.url;
+      } catch (err: any) {
+        setError(err?.response?.data?.detail || "Banner upload failed");
+        setImageUploading(false);
+        setSubmitting(false);
+        return;
+      }
+    }
+    // Upload new gallery images
     const uploadedUrls: string[] = [];
     if (imageFiles.length > 0) {
-      setImageUploading(true);
       try {
         for (const file of imageFiles) {
           const res = await uploadApi.uploadForumEventImage(file);
@@ -551,8 +589,8 @@ function EditEventDialog({
         setSubmitting(false);
         return;
       }
-      setImageUploading(false);
     }
+    setImageUploading(false);
     try {
       const res = await forumApi.updateEvent(event._id, {
         title,
@@ -569,6 +607,7 @@ function EditEventDialog({
             : locationValue.longitude,
         is_remote: isRemote,
         tags,
+        banner_image_url: finalBannerUrl,
         image_urls: [...existingImageUrls, ...uploadedUrls],
       });
       onUpdated(res.data);
@@ -670,9 +709,80 @@ function EditEventDialog({
               }
             />
           </Form.Field>
+          {/* Banner image */}
           <Box className="space-y-2">
             <Text size="2" weight="medium" className="block">
-              Event images
+              Banner image
+            </Text>
+            {existingBannerUrl && !bannerFile ? (
+              <Box className="relative">
+                <img
+                  src={getImageUrl(existingBannerUrl) ?? existingBannerUrl}
+                  alt="Current banner"
+                  className="w-full h-32 object-cover rounded-lg"
+                />
+                <Button
+                  type="button"
+                  size="1"
+                  variant="solid"
+                  color="red"
+                  className="!absolute top-1 right-1 !p-1 w-5 h-5 cursor-pointer"
+                  onClick={() => setExistingBannerUrl("")}
+                >
+                  ×
+                </Button>
+              </Box>
+            ) : bannerFile ? (
+              <Box className="relative">
+                <img
+                  src={bannerPreviewUrl}
+                  alt="Banner preview"
+                  className="w-full h-32 object-cover rounded-lg"
+                />
+                <button
+                  type="button"
+                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                  onClick={() => {
+                    URL.revokeObjectURL(bannerPreviewUrl);
+                    setBannerFile(null);
+                    setBannerPreviewUrl("");
+                  }}
+                >
+                  x
+                </button>
+              </Box>
+            ) : (
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  disabled={imageUploading}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (file.size > 5 * 1024 * 1024) {
+                      setError("Banner must be under 5 MB");
+                      return;
+                    }
+                    setError("");
+                    if (bannerPreviewUrl) URL.revokeObjectURL(bannerPreviewUrl);
+                    setBannerFile(file);
+                    setBannerPreviewUrl(URL.createObjectURL(file));
+                    e.target.value = "";
+                  }}
+                />
+                <span className="flex items-center justify-center gap-2 border rounded-lg p-2 hover-card text-center cursor-pointer font-medium text-sm w-full">
+                  <PlusIcon className="w-4 h-4" />
+                  Add banner image
+                </span>
+              </label>
+            )}
+          </Box>
+          {/* Gallery images */}
+          <Box className="space-y-2">
+            <Text size="2" weight="medium" className="block">
+              Gallery images (optional, max 3)
             </Text>
             {existingImageUrls.length + imageFiles.length < 3 && (
               <label className="cursor-pointer">
