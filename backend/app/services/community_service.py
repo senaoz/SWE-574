@@ -320,6 +320,57 @@ class CommunityService:
                     })
         return docs, total
 
+    async def get_communities_for_user(
+        self,
+        target_user_id: str,
+        current_user_id: Optional[str] = None,
+    ) -> dict:
+        target_memberships = await self.memberships.find({
+            "user_id": ObjectId(target_user_id),
+            "status": MemberStatus.ACTIVE,
+        }).sort("joined_at", -1).to_list(length=500)
+        target_community_ids = [ObjectId(str(m["community_id"])) for m in target_memberships]
+
+        current_memberships = []
+        if current_user_id:
+            current_memberships = await self.memberships.find({
+                "user_id": ObjectId(current_user_id),
+                "status": MemberStatus.ACTIVE,
+            }).to_list(length=500)
+        current_membership_by_community = {
+            str(m["community_id"]): m for m in current_memberships
+        }
+        current_community_ids = set(current_membership_by_community.keys())
+        target_community_id_set = {str(cid) for cid in target_community_ids}
+
+        if not target_community_ids:
+            return {"communities": [], "total": 0, "mutual_count": 0}
+
+        docs = await self.communities.find({
+            "_id": {"$in": target_community_ids}
+        }).to_list(length=500)
+        community_by_id = {str(doc["_id"]): doc for doc in docs}
+
+        communities = []
+        for membership in target_memberships:
+            community_id = str(membership["community_id"])
+            doc = community_by_id.get(community_id)
+            if not doc:
+                continue
+            doc = await self._enrich_user(doc)
+            doc["target_membership"] = membership["role"]
+            current_membership = current_membership_by_community.get(community_id)
+            doc["user_membership"] = current_membership["role"] if current_membership else None
+            doc["is_mutual"] = community_id in current_community_ids
+            communities.append(doc)
+
+        mutual_count = len(target_community_id_set & current_community_ids)
+        return {
+            "communities": communities,
+            "total": len(communities),
+            "mutual_count": mutual_count,
+        }
+
     async def update_member_role(self, community_id: str, target_user_id: str, role: MemberRole, requester_id: str):
         await self._require_founder(community_id, requester_id)
         m = await self.memberships.find_one({
