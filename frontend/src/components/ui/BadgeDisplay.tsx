@@ -8,6 +8,7 @@ import {
   Star,
   TrendingUp,
   Heart,
+  CheckCircle,
   Shield,
   Award,
   Clock,
@@ -53,7 +54,7 @@ export function getHighestPriorityBadge(badges: BadgeType[]): BadgeType | null {
   );
 }
 
-const ICON_MAP: Record<string, React.ElementType> = {
+export const ICON_MAP: Record<string, React.ElementType> = {
   "user-plus": UserPlus,
   image: Image,
   tag: Tag,
@@ -61,6 +62,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   star: Star,
   "trending-up": TrendingUp,
   heart: Heart,
+  "check-circle": CheckCircle,
   handshake: Activity,
   shield: Shield,
   award: Award,

@@ -276,13 +276,32 @@ class CommunityService:
         )
         return await self.get_community_by_id(community_id, user_id)
 
-    async def get_members(self, community_id: str) -> Tuple[List[dict], int]:
+    async def get_members(
+        self,
+        community_id: str,
+        current_user_id: Optional[str] = None,
+    ) -> Tuple[List[dict], int]:
         query = {"community_id": ObjectId(community_id), "status": MemberStatus.ACTIVE}
         total = await self.memberships.count_documents(query)
         cursor = self.memberships.find(query).sort("joined_at", 1)
         docs = await cursor.to_list(length=500)
+
+        current_user_community_ids = None
+        current_user_community_object_ids = []
+        if current_user_id:
+            current_user_memberships = await self.memberships.find({
+                "user_id": ObjectId(current_user_id),
+                "status": MemberStatus.ACTIVE,
+            }).to_list(length=500)
+            current_user_community_ids = {
+                str(m["community_id"]) for m in current_user_memberships
+            }
+            current_user_community_object_ids = [
+                ObjectId(cid) for cid in current_user_community_ids
+            ]
+
         for doc in docs:
-            user = await self.users.find_one({"_id": doc["user_id"]})
+            user = await self.users.find_one({"_id": ObjectId(str(doc["user_id"]))})
             if user:
                 doc["user"] = {
                     "id": str(user["_id"]),
@@ -290,7 +309,67 @@ class CommunityService:
                     "full_name": user.get("full_name"),
                     "profile_picture": user.get("profile_picture"),
                 }
+            if current_user_community_ids is not None:
+                if str(doc["user_id"]) == current_user_id:
+                    doc["mutual_community_count"] = len(current_user_community_ids)
+                else:
+                    doc["mutual_community_count"] = await self.memberships.count_documents({
+                        "user_id": ObjectId(str(doc["user_id"])),
+                        "status": MemberStatus.ACTIVE,
+                        "community_id": {"$in": current_user_community_object_ids},
+                    })
         return docs, total
+
+    async def get_communities_for_user(
+        self,
+        target_user_id: str,
+        current_user_id: Optional[str] = None,
+    ) -> dict:
+        target_memberships = await self.memberships.find({
+            "user_id": ObjectId(target_user_id),
+            "status": MemberStatus.ACTIVE,
+        }).sort("joined_at", -1).to_list(length=500)
+        target_community_ids = [ObjectId(str(m["community_id"])) for m in target_memberships]
+
+        current_memberships = []
+        if current_user_id:
+            current_memberships = await self.memberships.find({
+                "user_id": ObjectId(current_user_id),
+                "status": MemberStatus.ACTIVE,
+            }).to_list(length=500)
+        current_membership_by_community = {
+            str(m["community_id"]): m for m in current_memberships
+        }
+        current_community_ids = set(current_membership_by_community.keys())
+        target_community_id_set = {str(cid) for cid in target_community_ids}
+
+        if not target_community_ids:
+            return {"communities": [], "total": 0, "mutual_count": 0}
+
+        docs = await self.communities.find({
+            "_id": {"$in": target_community_ids}
+        }).to_list(length=500)
+        community_by_id = {str(doc["_id"]): doc for doc in docs}
+
+        communities = []
+        for membership in target_memberships:
+            community_id = str(membership["community_id"])
+            doc = community_by_id.get(community_id)
+            if not doc:
+                continue
+            doc = await self._enrich_user(doc)
+            doc["target_membership"] = membership["role"]
+            current_membership = current_membership_by_community.get(community_id)
+            doc["user_membership"] = current_membership["role"] if current_membership else None
+            doc["is_mutual"] = community_id in current_community_ids
+            communities.append(doc)
+
+        mutual_count = len(target_community_id_set & current_community_ids)
+        return {
+            "communities": communities,
+            "total": len(communities),
+            "mutual_count": mutual_count,
+        }
 
     async def update_member_role(self, community_id: str, target_user_id: str, role: MemberRole, requester_id: str):
         await self._require_founder(community_id, requester_id)

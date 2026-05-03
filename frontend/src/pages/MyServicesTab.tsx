@@ -35,6 +35,7 @@ import { useNavigate } from "react-router-dom";
 
 interface MyServicesTabProps {
   services: Service[];
+  takenServices?: Service[];
   serviceTransactions: Record<string, Transaction[]>;
   currentUserId: string | null;
   requiresNeedCreation?: boolean;
@@ -64,6 +65,7 @@ interface MyServicesTabProps {
 
 export function MyServicesTab({
   services,
+  takenServices,
   serviceTransactions,
   currentUserId,
   requiresNeedCreation = false,
@@ -230,6 +232,7 @@ export function MyServicesTab({
     <div className="space-y-6">
       <ServicesSummaryCard
         services={services}
+        takenServices={takenServices}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
       />

@@ -96,6 +96,16 @@ export const uploadApi = {
       }],
     });
   },
+  uploadCommunityImage: (file: File): Promise<AxiosResponse<{ url: string }>> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/upload/community-image', formData, {
+      transformRequest: [(data: unknown, headers?: Record<string, string>) => {
+        if (headers) delete headers['Content-Type'];
+        return data;
+      }],
+    });
+  },
   uploadRatingImage: (file: File): Promise<AxiosResponse<{ url: string }>> => {
     const formData = new FormData();
     formData.append('file', file);
@@ -172,6 +182,9 @@ export const usersApi = {
   
   getUserById: (id: string): Promise<AxiosResponse<User>> =>
     api.get(`/users/${id}`),
+
+  getUserCommunities: (id: string): Promise<AxiosResponse<import('../types').UserCommunityListResponse>> =>
+    api.get(`/users/${id}/communities`),
 
   /** Update a user's TimeBank balance (admin or moderator only). */
   updateUserTimebank: (userId: string, data: { balance: number }): Promise<AxiosResponse<User>> =>

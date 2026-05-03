@@ -91,6 +91,8 @@ class CommunityResponse(BaseModel):
     # Enriched fields
     founder: Optional[dict] = None
     user_membership: Optional[str] = None  # "founder" | "moderator" | "member" | None
+    target_membership: Optional[str] = None
+    is_mutual: bool = False
 
     class Config:
         populate_by_name = True
@@ -108,6 +110,15 @@ class CommunityListResponse(BaseModel):
         json_encoders = {ObjectId: str}
 
 
+class UserCommunityListResponse(BaseModel):
+    communities: List[CommunityResponse]
+    total: int
+    mutual_count: int
+
+    class Config:
+        json_encoders = {ObjectId: str}
+
+
 # ─────────────────────────── Membership ───────────────────────────
 
 class MembershipResponse(BaseModel):
@@ -118,6 +129,7 @@ class MembershipResponse(BaseModel):
     status: MemberStatus
     joined_at: datetime
     user: Optional[dict] = None
+    mutual_community_count: Optional[int] = None
 
     class Config:
         populate_by_name = True

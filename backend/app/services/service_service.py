@@ -287,16 +287,19 @@ class ServiceService:
             {"tags.entityId": {"$in": tags}},
         ]
 
+    @staticmethod
+    def _tokenize_query(query: str) -> List[str]:
+        tokens = [t for t in query.split() if len(t) >= 2]
+        return tokens if tokens else [query.strip()]
+
     def _build_search_conditions(self, query_text: str) -> List[dict]:
-        escaped = re.escape(query_text)
-        return [
-            {"title": {"$regex": escaped, "$options": "i"}},
-            {"description": {"$regex": escaped, "$options": "i"}},
-            {"category": {"$regex": escaped, "$options": "i"}},
-            {"tags.label": {"$regex": escaped, "$options": "i"}},
-            {"tags.entityId": {"$regex": escaped, "$options": "i"}},
-            {"location.address": {"$regex": escaped, "$options": "i"}},
-        ]
+        fields = ["title", "description", "category", "tags.label", "tags.entityId", "location.address"]
+        conditions = []
+        for token in self._tokenize_query(query_text):
+            escaped = re.escape(token)
+            for field in fields:
+                conditions.append({field: {"$regex": escaped, "$options": "i"}})
+        return conditions
 
     def _build_recommendation_query(
         self,
@@ -1037,7 +1040,10 @@ class ServiceService:
 
             address_text = self._normalize_text_value(location.get("address"))
             city_match = bool(normalized_city and normalized_city in address_text)
-            search_match = bool(search_text and search_text in content_blob)
+            search_tokens = search_text.split() if search_text else []
+            matched_token_count = sum(1 for t in search_tokens if t in content_blob)
+            search_match = matched_token_count > 0
+            search_score = matched_token_count / len(search_tokens) if search_tokens else 0.0
 
             has_recommendation_signal = (
                 active_service_match_score >= 0.2
@@ -1081,7 +1087,7 @@ class ServiceService:
                 + saved_similarity * 3.4
                 + transaction_similarity * 3.0
                 + (0.8 if city_match else 0.0)
-                + (0.8 if search_match else 0.0)
+                + 0.8 * search_score
                 + self._calculate_recency_score(service_doc) * 0.5
             )
 
@@ -1257,13 +1263,7 @@ class ServiceService:
 
             # Handle free-text search
             if filters.q:
-                escaped = re.escape(filters.q)
-                search_or = [
-                    {"title": {"$regex": escaped, "$options": "i"}},
-                    {"description": {"$regex": escaped, "$options": "i"}},
-                    {"category": {"$regex": escaped, "$options": "i"}},
-                    {"tags.label": {"$regex": escaped, "$options": "i"}},
-                ]
+                search_or = self._build_search_conditions(filters.q)
                 if "$or" in query:
                     query["$and"] = [{"$or": query.pop("$or")}, {"$or": search_or}]
                 else:
@@ -1305,13 +1305,7 @@ class ServiceService:
 
                 # Handle free-text search in geo pipeline
                 if filters.q:
-                    escaped = re.escape(filters.q)
-                    search_or = [
-                        {"title": {"$regex": escaped, "$options": "i"}},
-                        {"description": {"$regex": escaped, "$options": "i"}},
-                        {"category": {"$regex": escaped, "$options": "i"}},
-                        {"tags.label": {"$regex": escaped, "$options": "i"}},
-                    ]
+                    search_or = self._build_search_conditions(filters.q)
                     if "$or" in match_stage:
                         match_stage["$and"] = [{"$or": match_stage.pop("$or")}, {"$or": search_or}]
                     else:

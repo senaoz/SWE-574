@@ -173,13 +173,18 @@ export function Forum() {
   };
   return (
     <div>
-      <Flex justify="between" align="center" className="mb-6">
-        <div>
-          <Heading size="7">Community Forum</Heading>
-          <Text size="3" color="gray">
-            Share ideas, discuss topics, and discover community events
-          </Text>
-        </div>
+      <Flex direction="column" justify="between" align="center" className="m-12">
+        <Heading size="8" className={"max-w-lg"} align="center">
+          The 🤾‍♂️ people platform.<br />
+          Where 🏈 interests<br />
+          become 🎻 friendships.
+        </Heading>
+        <Text size="3" color="gray" className={"max-w-3xl mt-6 mb-3"} align="center">
+          Whatever your interest, from hiking and reading to networking and skill sharing, there are thousands of people who share it on Hive. Events are happening every day—sign up to join the fun.
+        </Text>
+        <Button onClick={() => setTab('communities')}>
+          See Communities
+        </Button>
       </Flex>
       <Flex gap="3" className="mb-6" wrap="wrap">
         <TextField.Root
@@ -205,6 +210,10 @@ export function Forum() {
       </Flex>
       <Tabs.Root value={tab} onValueChange={setTab}>
         <Tabs.List>
+          <Tabs.Trigger value="communities">
+            <UsersIcon className="mr-1 w-4 h-4" /> Communities (
+            {communitiesTotal})
+          </Tabs.Trigger>
           <Tabs.Trigger value="discussions">
             <MessageCircleIcon className="mr-1 w-4 h-4" /> Discussions (
             {discussionsTotal})
@@ -212,10 +221,6 @@ export function Forum() {
           <Tabs.Trigger value="events">
             <CalendarClockIcon className="mr-1 w-4 h-4" /> Events ({eventsTotal}
             )
-          </Tabs.Trigger>
-          <Tabs.Trigger value="communities">
-            <UsersIcon className="mr-1 w-4 h-4" /> Communities (
-            {communitiesTotal})
           </Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="discussions" className="pt-4">
@@ -389,7 +394,7 @@ export function Forum() {
               <Text color="gray">No events yet. Create one!</Text>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {events.map((ev) => (
                 <Card
                   key={ev._id}
@@ -570,7 +575,7 @@ export function Forum() {
               </Text>
             </Card>
           ) : (
-            <div className="grid gap-4">
+            <div className="grid gap-4 md:grid-cols-2">
               {communities.map((c) => (
                 <Card
                   key={c._id}
@@ -869,7 +874,10 @@ function NewDiscussionDialog({
               type="button"
               variant="soft"
               color="gray"
-              onClick={() => onOpenChange(false)}
+              onClick={() => {
+                reset();
+                onOpenChange(false);
+              }}
             >
               Cancel
             </Button>
@@ -1259,7 +1267,10 @@ function NewEventDialog({
               type="button"
               variant="soft"
               color="gray"
-              onClick={() => onOpenChange(false)}
+              onClick={() => {
+                reset();
+                onOpenChange(false);
+              }}
             >
               Cancel
             </Button>
@@ -1294,6 +1305,10 @@ function NewCommunityDialog({
   const [tags, setTags] = useState<TagEntity[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
 
   const reset = () => {
     setName("");
@@ -1302,6 +1317,12 @@ function NewCommunityDialog({
     setNewRule("");
     setTags([]);
     setError("");
+    if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
+    if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
+    setAvatarFile(null);
+    setCoverFile(null);
+    setAvatarPreviewUrl(null);
+    setCoverPreviewUrl(null);
   };
 
   const handleAddRule = () => {
@@ -1312,18 +1333,50 @@ function NewCommunityDialog({
     }
   };
 
+  const handleCommunityImageChange = (
+    file: File | undefined,
+    type: "avatar" | "cover",
+  ) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Image must be under 5 MB");
+      return;
+    }
+    const previewUrl = URL.createObjectURL(file);
+    setError("");
+    if (type === "avatar") {
+      if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
+      setAvatarFile(file);
+      setAvatarPreviewUrl(previewUrl);
+    } else {
+      if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
+      setCoverFile(file);
+      setCoverPreviewUrl(previewUrl);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!name.trim() || !description.trim()) {
       setError("Name and description are required");
       return;
     }
+    if (!avatarFile || !coverFile) {
+      setError("Community photo and banner image are required");
+      return;
+    }
     setSubmitting(true);
     try {
+      const [avatarRes, coverRes] = await Promise.all([
+        uploadApi.uploadCommunityImage(avatarFile),
+        uploadApi.uploadCommunityImage(coverFile),
+      ]);
       const res = await communityApi.createCommunity({
         name,
         description,
         rules,
         tags,
+        avatar_url: avatarRes.data.url,
+        cover_image_url: coverRes.data.url,
       });
       reset();
       onOpenChange(false);
@@ -1375,6 +1428,64 @@ function NewCommunityDialog({
               rows={5}
             />
           </Form.Field>
+          <div className="grid gap-3 md:grid-cols-2">
+            <Box className="space-y-2">
+              <Text size="2" weight="medium" className="block">
+                Community photo *
+              </Text>
+              <label className="block cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="sr-only"
+                  disabled={submitting}
+                  onChange={(e) => {
+                    handleCommunityImageChange(e.target.files?.[0], "avatar");
+                    e.target.value = "";
+                  }}
+                />
+                {avatarPreviewUrl ? (
+                  <img
+                    src={avatarPreviewUrl}
+                    alt="Community photo preview"
+                    className="h-32 w-32 rounded-full object-cover ring-1 ring-[var(--gray-6)]"
+                  />
+                ) : (
+                  <span className="flex h-32 w-32 items-center justify-center rounded-full border border-dashed border-[var(--gray-7)] text-sm font-medium text-[var(--gray-11)]">
+                    Choose photo
+                  </span>
+                )}
+              </label>
+            </Box>
+            <Box className="space-y-2">
+              <Text size="2" weight="medium" className="block">
+                Banner image *
+              </Text>
+              <label className="block cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="sr-only"
+                  disabled={submitting}
+                  onChange={(e) => {
+                    handleCommunityImageChange(e.target.files?.[0], "cover");
+                    e.target.value = "";
+                  }}
+                />
+                {coverPreviewUrl ? (
+                  <img
+                    src={coverPreviewUrl}
+                    alt="Community banner preview"
+                    className="h-32 w-full rounded-lg object-cover ring-1 ring-[var(--gray-6)]"
+                  />
+                ) : (
+                  <span className="flex h-32 w-full items-center justify-center rounded-lg border border-dashed border-[var(--gray-7)] text-sm font-medium text-[var(--gray-11)]">
+                    Choose banner
+                  </span>
+                )}
+              </label>
+            </Box>
+          </div>
           <Form.Field name="tags" className="space-y-1">
             <Form.Label className="text-sm font-medium">Tags</Form.Label>
             <TagAutocomplete
@@ -1440,7 +1551,10 @@ function NewCommunityDialog({
               type="button"
               variant="soft"
               color="gray"
-              onClick={() => onOpenChange(false)}
+              onClick={() => {
+                reset();
+                onOpenChange(false);
+              }}
             >
               Cancel
             </Button>
