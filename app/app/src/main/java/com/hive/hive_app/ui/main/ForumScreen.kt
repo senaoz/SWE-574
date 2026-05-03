@@ -1864,8 +1864,6 @@ fun CommunityCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                CommunityAvatar(name = community.name, avatarUrl = community.avatarUrl, size = 48.dp)
-
                 Column(modifier = Modifier.weight(1f)) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,

@@ -402,10 +402,14 @@ export function Forum() {
                   size="3"
                   onClick={() => navigate(`/forum/events/${ev._id}`)}
                 >
-                  {ev.image_urls && ev.image_urls.length > 0 && (
+                  {(ev.banner_image_url || (ev.image_urls && ev.image_urls.length > 0)) && (
                     <Inset clip="padding-box" side="top" pb="current">
                       <img
-                        src={getImageUrl(ev.image_urls[0]) ?? ev.image_urls[0]}
+                        src={
+                          ev.banner_image_url
+                            ? (getImageUrl(ev.banner_image_url) ?? ev.banner_image_url)
+                            : (getImageUrl(ev.image_urls![0]) ?? ev.image_urls![0])
+                        }
                         alt={ev.title}
                         loading="lazy"
                         style={{
@@ -579,83 +583,77 @@ export function Forum() {
                   size="3"
                   onClick={() => navigate(`/forum/communities/${c._id}`)}
                 >
-                  <Inset clip="padding-box" side="top" pb="current">
-                    {c.cover_image_url ? (
+                  {c.cover_image_url && (
+                    <Inset clip="padding-box" side="top" pb="current">
                       <img
                         src={getImageUrl(c.cover_image_url) ?? c.cover_image_url}
-                        alt={`${c.name} banner`}
+                        alt={c.name}
                         loading="lazy"
                         style={{
                           display: "block",
                           objectFit: "cover",
                           width: "100%",
-                          height: 160,
+                          height: 140,
                           backgroundColor: "var(--gray-5)",
                         }}
                       />
-                    ) : (
-                      <div className="flex h-40 w-full items-center justify-center bg-[var(--grass-3)]">
-                        <UsersIcon className="h-10 w-10 text-[var(--grass-9)]" />
-                      </div>
-                    )}
-                  </Inset>
-                  <Flex justify="between" align="end" gap="3" className="-mt-8 mb-3">
-                    <Avatar
-                      size="5"
-                      src={getImageUrl(c.avatar_url)}
-                      fallback={c.name[0]}
-                      radius="full"
-                      className="ring-4 ring-[var(--color-background)]"
-                    />
-                    <Flex gap="2" align="center" className="mb-1">
-                      <Badge size="1" variant="soft" color="gray">
-                        <UsersIcon className="w-3 h-3" />
-                        {c.member_count}
-                      </Badge>
-                      <Badge size="1" variant="soft" color="gray">
-                        <MessageCircleIcon className="w-3 h-3" />
-                        {c.post_count}
-                      </Badge>
-                    </Flex>
-                  </Flex>
-                  <Flex justify="between" align="start" wrap="wrap" gap="2">
-                    <Flex align="center" gap="2">
-                      <Text size="3" weight="bold" className="line-clamp-1">
-                        {c.name}
-                      </Text>
-                      {c.user_membership && (
-                        <Badge size="1" variant="soft" color="violet">
-                          {c.user_membership === "founder"
-                            ? "Founder"
-                            : c.user_membership === "moderator"
-                              ? "Mod"
-                              : "Member"}
+                    </Inset>
+                  )}
+                  <div>
+                    <Flex justify="between" align="start" wrap="wrap" gap="2">
+                      <div>
+                        <Text size="3" weight="bold">
+                          {c.name}
+                        </Text>
+                        {c.user_membership && (
+                          <Badge
+                            size="1"
+                            variant="soft"
+                            color="violet"
+                            className="ml-2"
+                          >
+                            {c.user_membership === "founder"
+                              ? "Founder"
+                              : c.user_membership === "moderator"
+                                ? "Mod"
+                                : "Member"}
                           </Badge>
-                      )}
+                        )}
+                      </div>
+                      <Flex gap="2" align="center">
+                        <Badge size="1" variant="soft" color="gray">
+                          <UsersIcon className="w-3 h-3 mr-1" />
+                          {c.member_count} members
+                        </Badge>
+                        <Badge size="1" variant="soft" color="gray">
+                          <MessageCircleIcon className="w-3 h-3 mr-1" />
+                          {c.post_count} posts
+                        </Badge>
+                      </Flex>
                     </Flex>
-                  </Flex>
-                  <Text size="2" color="gray" className="line-clamp-2">
-                    {c.description}
-                  </Text>
-                  <Flex gap="2" align="center" className="mt-2" wrap="wrap">
-                    <Text size="1" color="gray">
-                      by{" "}
-                      {c.founder?.full_name ||
-                        c.founder?.username ||
-                        "Unknown"}
+                    <Text size="2" color="gray" className="mt-1 line-clamp-2">
+                      {c.description}
                     </Text>
-                    <Text size="1" color="gray">
-                      · {timeAgo(c.created_at)}
-                    </Text>
-                    {(c.tags || []).slice(0, 3).map((tag, i) => (
-                      <ClickableTag
-                        key={i}
-                        tag={tag}
-                        size="1"
-                        stopPropagation
-                      />
-                    ))}
-                  </Flex>
+                    <Flex gap="2" align="center" className="mt-2" wrap="wrap">
+                      <Text size="1" color="gray">
+                        by{" "}
+                        {c.founder?.full_name ||
+                          c.founder?.username ||
+                          "Unknown"}
+                      </Text>
+                      <Text size="1" color="gray">
+                        · {timeAgo(c.created_at)}
+                      </Text>
+                      {(c.tags || []).slice(0, 3).map((tag, i) => (
+                        <ClickableTag
+                          key={i}
+                          tag={tag}
+                          size="1"
+                          stopPropagation
+                        />
+                      ))}
+                    </Flex>
+                  </div>
                 </Card>
               ))}
             </div>
@@ -856,7 +854,7 @@ function NewDiscussionDialog({
                     fontSize: 13,
                   }}
                 >
-                  <option value="">None</option>
+                  <option value="">No Community</option>
                   {communities.map((c) => (
                     <option key={c._id} value={c._id}>
                       {c.name}
@@ -929,6 +927,8 @@ function NewEventDialog({
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const [imageUploading, setImageUploading] = useState(false);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreviewUrl, setBannerPreviewUrl] = useState<string>("");
   const [eventCommunityId, setEventCommunityId] = useState<string>("");
   const reset = () => {
     setTitle("");
@@ -943,6 +943,9 @@ function NewEventDialog({
     imagePreviewUrls.forEach((url) => URL.revokeObjectURL(url));
     setImageFiles([]);
     setImagePreviewUrls([]);
+    if (bannerPreviewUrl) URL.revokeObjectURL(bannerPreviewUrl);
+    setBannerFile(null);
+    setBannerPreviewUrl("");
     setEventCommunityId("");
   };
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -963,15 +966,27 @@ function NewEventDialog({
       setError("Title, description, date, and time are required");
       return;
     }
-    if (imageFiles.length === 0) {
-      setError("Please upload at least one image for the event");
+    if (!bannerFile) {
+      setError("Please upload a banner image for the event");
       return;
     }
     const eventAt = new Date(`${eventDate}T${eventTime}`).toISOString();
     setSubmitting(true);
+    // Upload banner
+    let uploadedBannerUrl: string | undefined;
+    try {
+      setImageUploading(true);
+      const bannerRes = await uploadApi.uploadForumEventImage(bannerFile);
+      uploadedBannerUrl = bannerRes.data.url;
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || "Banner upload failed");
+      setImageUploading(false);
+      setSubmitting(false);
+      return;
+    }
+    // Upload gallery images
     const uploadedUrls: string[] = [];
     if (imageFiles.length > 0) {
-      setImageUploading(true);
       try {
         for (const file of imageFiles) {
           const res = await uploadApi.uploadForumEventImage(file);
@@ -983,8 +998,8 @@ function NewEventDialog({
         setSubmitting(false);
         return;
       }
-      setImageUploading(false);
     }
+    setImageUploading(false);
     try {
       await forumApi.createEvent({
         title,
@@ -1003,7 +1018,8 @@ function NewEventDialog({
         tags,
         service_id:
           serviceId && serviceId !== "__none__" ? serviceId : undefined,
-        image_urls: uploadedUrls,
+        banner_image_url: uploadedBannerUrl,
+        image_urls: uploadedUrls.length > 0 ? uploadedUrls : undefined,
         community_id: eventCommunityId || undefined,
       });
       reset();
@@ -1115,9 +1131,62 @@ function NewEventDialog({
               }
             />
           </Form.Field>
+          {/* Banner image upload */}
           <Box className="space-y-2">
             <Text size="2" weight="medium" className="block">
-              Event image *
+              Banner image *
+            </Text>
+            {!bannerFile ? (
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  disabled={imageUploading}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (file.size > 5 * 1024 * 1024) {
+                      setError("Banner must be under 5 MB");
+                      return;
+                    }
+                    setError("");
+                    if (bannerPreviewUrl) URL.revokeObjectURL(bannerPreviewUrl);
+                    setBannerFile(file);
+                    setBannerPreviewUrl(URL.createObjectURL(file));
+                    e.target.value = "";
+                  }}
+                />
+                <span className="flex items-center justify-center gap-2 border rounded-lg p-2 hover-card text-center cursor-pointer font-medium text-sm w-full">
+                  <PlusIcon className="w-4 h-4" />
+                  Add banner image
+                </span>
+              </label>
+            ) : (
+              <Box className="relative">
+                <img
+                  src={bannerPreviewUrl}
+                  alt="Banner preview"
+                  className="w-full h-32 object-cover rounded-lg"
+                />
+                <button
+                  type="button"
+                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                  onClick={() => {
+                    URL.revokeObjectURL(bannerPreviewUrl);
+                    setBannerFile(null);
+                    setBannerPreviewUrl("");
+                  }}
+                >
+                  x
+                </button>
+              </Box>
+            )}
+          </Box>
+          {/* Gallery images upload */}
+          <Box className="space-y-2">
+            <Text size="2" weight="medium" className="block">
+              Gallery images (optional, max 3)
             </Text>
             {imageFiles.length < 3 && (
               <label className="cursor-pointer">
@@ -1178,7 +1247,7 @@ function NewEventDialog({
                     fontSize: 13,
                   }}
                 >
-                  <option value="">None</option>
+                  <option value="">No Community</option>
                   {communities.map((c) => (
                     <option key={c._id} value={c._id}>
                       {c.name}

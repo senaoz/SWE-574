@@ -111,6 +111,7 @@ class ForumEventCreate(BaseModel):
     tags: List[dict] = Field(default_factory=list, max_length=10)
     service_id: Optional[str] = None
     image_urls: Optional[List[str]] = None
+    banner_image_url: Optional[str] = None
     community_id: Optional[str] = None
 
     @model_validator(mode='before')
@@ -143,6 +144,7 @@ class ForumEventUpdate(BaseModel):
     tags: Optional[List[dict]] = Field(None, max_length=10)
     service_id: Optional[str] = None
     image_urls: Optional[List[str]] = None
+    banner_image_url: Optional[str] = None
     community_id: Optional[str] = None
 
     class Config:
@@ -171,6 +173,7 @@ class ForumEventResponse(BaseModel):
     upvote_count: int = 0
     user_upvoted: bool = False
     image_urls: List[str] = Field(default_factory=list)
+    banner_image_url: Optional[str] = None
     community_id: Optional[str] = None
 
     @field_validator("image_urls", mode="before")

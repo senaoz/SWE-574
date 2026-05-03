@@ -345,12 +345,12 @@ fun CommunitySelectorSection(
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Public (no community)",
+                        text = "No Community",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "No community selected",
+                        text = "Visible to everyone",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -434,11 +434,11 @@ fun CommunitySelectorDialog(
                     )
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Public (no community)",
+                            text = "No Community",
                             style = MaterialTheme.typography.bodyMedium
                         )
                         Text(
-                            text = "Visible without community context",
+                            text = "Visible to everyone",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

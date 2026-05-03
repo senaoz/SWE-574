@@ -618,6 +618,7 @@ export interface ForumEvent {
   upvote_count: number;
   user_upvoted?: boolean;
   image_urls?: string[];
+  banner_image_url?: string;
   community_id?: string;
 }
 
@@ -639,6 +640,7 @@ export interface ForumEventForm {
   tags: TagEntity[];
   service_id?: string;
   image_urls?: string[];
+  banner_image_url?: string;
   community_id?: string;
 }
 
