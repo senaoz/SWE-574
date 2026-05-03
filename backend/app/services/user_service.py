@@ -108,6 +108,7 @@ class UserService:
             
             # Check if user can earn more (based on effective max balance)
             effective_max = await self.get_effective_max_balance(user_id)
+            effective_min = await self.get_effective_min_balance(user_id)
             can_earn = effective_max < 10.0
 
             # Require Need creation when effective max balance hits 10 hours and user has no needs
@@ -118,12 +119,14 @@ class UserService:
                     "service_type": "need",
                 })
             requires_need_creation = effective_max >= 10.0 and need_count == 0
-            
+
             return TimeBankResponse(
                 balance=user.timebank_balance,
                 transactions=transactions,
                 can_earn=can_earn,
                 requires_need_creation=requires_need_creation,
+                effective_max_balance=round(effective_max, 2),
+                effective_min_balance=round(effective_min, 2),
             )
         except Exception as e:
             raise ValueError(f"Error getting TimeBank balance: {str(e)}")

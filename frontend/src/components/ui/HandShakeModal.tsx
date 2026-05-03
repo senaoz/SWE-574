@@ -8,7 +8,7 @@ import {
   TextArea,
   Callout,
 } from "@radix-ui/themes";
-import { joinRequestsApi } from "@/services/api";
+import { joinRequestsApi, usersApi } from "@/services/api";
 import { AxiosError } from "axios";
 
 // @ts-ignore
@@ -106,8 +106,34 @@ export function HandShakeModal({
 
   if (!service?.service_type) return null;
 
+  const handleOpenChange = async (open: boolean) => {
+    setIsOpen(open);
+    if (open) {
+      try {
+        const res = await usersApi.getTimeBank();
+        const tb = res.data;
+        const serviceHours = service.estimated_duration ?? 0;
+        const projectedMax = tb.effective_max_balance + serviceHours;
+        const projectedMin = tb.effective_min_balance - serviceHours;
+        console.group(`%c[TIMEBANK CHECK] ${service.title}`, "color: #f59e0b; font-weight: bold;");
+        console.log(`Service type  : ${service.service_type.toUpperCase()} (${serviceHours} hrs)`);
+        console.log(`Current balance    : ${tb.balance.toFixed(2)} hrs`);
+        if (service.service_type === "need") {
+          console.log(`Effective MAX      : ${tb.effective_max_balance.toFixed(2)} hrs  (limit: 10.0)`);
+          console.log(`Projected MAX after: ${projectedMax.toFixed(2)} hrs  →  ${projectedMax > 10 ? "❌ WOULD BE BLOCKED" : "✅ OK"}`);
+        } else {
+          console.log(`Effective MIN      : ${tb.effective_min_balance.toFixed(2)} hrs  (floor: 0.0)`);
+          console.log(`Projected MIN after: ${projectedMin.toFixed(2)} hrs  →  ${projectedMin < 0 ? "❌ WOULD BE BLOCKED" : "✅ OK"}`);
+        }
+        console.groupEnd();
+      } catch {
+        // sessizce geç, log için kritik değil
+      }
+    }
+  };
+
   return (
-    <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog.Root open={isOpen} onOpenChange={handleOpenChange}>
       <Dialog.Trigger>
         <Button
           size="3"

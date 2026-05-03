@@ -164,11 +164,15 @@ fun ServiceDetailScreen(
                 ?: remember { mutableStateOf("") }
             val focusManager = LocalFocusManager.current
             var showApplyDialog by remember { mutableStateOf(false) }
+            var applyError by remember { mutableStateOf<String?>(null) }
             var showBadgeInfo by remember { mutableStateOf(false) }
             if (showApplyDialog && viewModel != null) {
                 var message by remember { mutableStateOf("") }
                 AlertDialog(
-                    onDismissRequest = { showApplyDialog = false },
+                    onDismissRequest = {
+                        showApplyDialog = false
+                        applyError = null
+                    },
                     title = { Text("Apply") },
                     text = {
                         Column {
@@ -181,16 +185,34 @@ fun ServiceDetailScreen(
                                 minLines = 2,
                                 shape = RoundedCornerShape(12.dp)
                             )
+                            applyError?.let { err ->
+                                Text(
+                                    text = err,
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(top = 8.dp)
+                                )
+                            }
                         }
                     },
                     confirmButton = {
                         Button(onClick = {
-                            viewModel.createJoinRequest(service._id, message.takeIf { it.isNotBlank() }) { _, _ ->
-                                showApplyDialog = false
+                            applyError = null
+                            viewModel.createJoinRequest(service._id, message.takeIf { it.isNotBlank() }) { success, errorMsg ->
+                                if (success) {
+                                    showApplyDialog = false
+                                } else {
+                                    applyError = errorMsg ?: "Application failed. Please try again."
+                                }
                             }
                         }) { Text("Submit") }
                     },
-                    dismissButton = { TextButton(onClick = { showApplyDialog = false }) { Text("Cancel") } }
+                    dismissButton = {
+                        TextButton(onClick = {
+                            showApplyDialog = false
+                            applyError = null
+                        }) { Text("Cancel") }
+                    }
                 )
             }
             val scrollState = rememberScrollState()

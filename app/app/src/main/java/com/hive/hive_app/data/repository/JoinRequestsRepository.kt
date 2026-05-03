@@ -5,6 +5,7 @@ import com.hive.hive_app.data.api.dto.JoinRequestCreate
 import com.hive.hive_app.data.api.dto.JoinRequestListResponse
 import com.hive.hive_app.data.api.dto.JoinRequestResponse
 import com.hive.hive_app.data.api.dto.JoinRequestUpdate
+import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -12,11 +13,23 @@ import javax.inject.Singleton
 class JoinRequestsRepository @Inject constructor(
     private val api: JoinRequestsApi
 ) {
+    /** Tries to extract the FastAPI `detail` string from a non-2xx response body. */
+    private fun parseErrorDetail(response: retrofit2.Response<*>): Exception {
+        return try {
+            val body = response.errorBody()?.string()
+            val detail = if (!body.isNullOrBlank()) JSONObject(body).optString("detail") else null
+            if (!detail.isNullOrBlank()) Exception(detail)
+            else retrofit2.HttpException(response)
+        } catch (_: Exception) {
+            retrofit2.HttpException(response)
+        }
+    }
+
     suspend fun create(serviceId: String, message: String? = null): Result<JoinRequestResponse> {
         return try {
             val response = api.create(JoinRequestCreate(serviceId = serviceId, message = message))
             if (response.isSuccessful && response.body() != null) Result.success(response.body()!!)
-            else Result.failure(retrofit2.HttpException(response))
+            else Result.failure(parseErrorDetail(response))
         } catch (e: Exception) {
             Result.failure(e)
         }

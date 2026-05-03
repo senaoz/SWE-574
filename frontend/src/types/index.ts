@@ -210,6 +210,8 @@ export interface TimeBankResponse {
   max_balance: number;
   can_earn: boolean;
   requires_need_creation?: boolean;
+  effective_max_balance: number;
+  effective_min_balance: number;
 }
 
 export interface ServiceFilters {
