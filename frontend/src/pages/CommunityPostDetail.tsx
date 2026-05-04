@@ -34,7 +34,7 @@ function timeAgo(dateStr: string) {
 export function CommunityPostDetail() {
   const { id: communityId, postId } = useParams<{ id: string; postId: string }>();
   const navigate = useNavigate();
-  const { currentUserId } = useUser();
+  const { currentUserId, user } = useUser();
 
   const [community, setCommunity] = useState<Community | null>(null);
   const [post, setPost] = useState<CommunityPost | null>(null);
@@ -45,6 +45,7 @@ export function CommunityPostDetail() {
   const isMember = !!community?.user_membership;
   const isMod = community?.user_membership === "founder" || community?.user_membership === "moderator";
   const isOwner = !!currentUserId && post?.user_id === currentUserId;
+  const isAdmin = user?.role === "admin";
 
   useEffect(() => {
     if (!communityId || !postId) return;
@@ -123,12 +124,12 @@ export function CommunityPostDetail() {
                     <PinIcon className="w-3 h-3" /> {post.is_pinned ? "Unpin" : "Pin"}
                   </Button>
                 )}
-                {isOwner && (
+                {(isOwner || isAdmin) && (
                   <Button variant="soft" color="gray" size="1" onClick={() => setShowEdit(true)}>
                     <Pencil1Icon /> Edit
                   </Button>
                 )}
-                {(isOwner || isMod) && (
+                {(isOwner || isMod || isAdmin) && (
                   <Button variant="soft" color="red" size="1" onClick={() => setShowDelete(true)}>
                     <TrashIcon /> Delete
                   </Button>

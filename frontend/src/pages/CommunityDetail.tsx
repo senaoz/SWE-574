@@ -37,7 +37,7 @@ function timeAgo(dateStr: string) {
 export function CommunityDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentUserId } = useUser();
+  const { currentUserId, user } = useUser();
 
   const [community, setCommunity] = useState<Community | null>(null);
   const [posts, setPosts] = useState<CommunityPost[]>([]);
@@ -59,6 +59,7 @@ export function CommunityDetail() {
   const isMember = !!community?.user_membership;
   const isMod = community?.user_membership === "founder" || community?.user_membership === "moderator";
   const isFounder = community?.user_membership === "founder";
+  const isAdmin = user?.role === "admin";
 
   useEffect(() => {
     if (!id) return;
@@ -214,8 +215,8 @@ export function CommunityDetail() {
                     {membershipLoading ? "Leaving..." : "Leave"}
                   </Button>
                 )}
-                {/* Founder controls */}
-                {isFounder && (
+                {/* Founder or admin controls */}
+                {(isFounder || isAdmin) && (
                   <>
                     <Button size="2" variant="soft" color="gray" onClick={() => setShowEditCommunity(true)}>
                       <Pencil1Icon /> Edit

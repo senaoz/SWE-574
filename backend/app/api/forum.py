@@ -74,8 +74,9 @@ async def update_discussion(
     db=Depends(get_database),
 ):
     svc = _forum(db)
+    is_admin = current_user.role == "admin"
     try:
-        result = await svc.update_discussion(discussion_id, data, str(current_user.id))
+        result = await svc.update_discussion(discussion_id, data, str(current_user.id), is_admin=is_admin)
         if not result:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Update failed")
         return result
@@ -90,8 +91,9 @@ async def delete_discussion(
     db=Depends(get_database),
 ):
     svc = _forum(db)
+    is_admin = current_user.role == "admin"
     try:
-        await svc.delete_discussion(discussion_id, str(current_user.id))
+        await svc.delete_discussion(discussion_id, str(current_user.id), is_admin=is_admin)
         return {"message": "Discussion deleted"}
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -151,8 +153,9 @@ async def update_event(
     db=Depends(get_database),
 ):
     svc = _forum(db)
+    is_admin = current_user.role == "admin"
     try:
-        result = await svc.update_event(event_id, data, str(current_user.id))
+        result = await svc.update_event(event_id, data, str(current_user.id), is_admin=is_admin)
         if not result:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Update failed")
         return result
@@ -167,8 +170,9 @@ async def delete_event(
     db=Depends(get_database),
 ):
     svc = _forum(db)
+    is_admin = current_user.role == "admin"
     try:
-        await svc.delete_event(event_id, str(current_user.id))
+        await svc.delete_event(event_id, str(current_user.id), is_admin=is_admin)
         return {"message": "Event deleted"}
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -252,8 +256,9 @@ async def update_comment(
     db=Depends(get_database),
 ):
     svc = _forum(db)
+    is_admin = current_user.role == "admin"
     try:
-        result = await svc.update_comment(comment_id, data, str(current_user.id))
+        result = await svc.update_comment(comment_id, data, str(current_user.id), is_admin=is_admin)
         if not result:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Update failed")
         return result
@@ -268,8 +273,9 @@ async def delete_comment(
     db=Depends(get_database),
 ):
     svc = _forum(db)
+    is_admin = current_user.role == "admin"
     try:
-        await svc.delete_comment(comment_id, str(current_user.id))
+        await svc.delete_comment(comment_id, str(current_user.id), is_admin=is_admin)
         return {"message": "Comment deleted"}
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

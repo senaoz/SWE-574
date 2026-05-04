@@ -97,8 +97,7 @@ def days(n):
 
 async def clear_seed_data(db):
     collections = [
-        "users", "communities", "community_memberships",
-        "services", "forum_events",
+        "users", "communities", "services", "forum_events",
     ]
     for col in collections:
         result = await db[col].delete_many({"seed_marker": True})
@@ -356,47 +355,12 @@ async def seed_communities(db, users: dict) -> dict:
     await db["communities"].insert_many(communities)
     print(f"  inserted {len(communities)} communities")
 
-    repair_id   = communities[0]["_id"]
-    language_id = communities[1]["_id"]
-    garden_id   = communities[2]["_id"]
-    film_id     = communities[3]["_id"]
-    running_id  = communities[4]["_id"]
-
-    memberships = [
-        # Istanbul Repair Cooperative
-        {"_id": ObjectId(), "community_id": repair_id, "user_id": alice,  "role": "founder",   "status": "active", "joined_at": now(), "seed_marker": SEED_MARKER},
-        {"_id": ObjectId(), "community_id": repair_id, "user_id": bob,    "role": "moderator", "status": "active", "joined_at": now(), "seed_marker": SEED_MARKER},
-        {"_id": ObjectId(), "community_id": repair_id, "user_id": ceren,  "role": "member",    "status": "active", "joined_at": now(), "seed_marker": SEED_MARKER},
-        {"_id": ObjectId(), "community_id": repair_id, "user_id": david,  "role": "member",    "status": "active", "joined_at": now(), "seed_marker": SEED_MARKER},
-        # Language Exchange Hub
-        {"_id": ObjectId(), "community_id": language_id, "user_id": elif_, "role": "founder",  "status": "active", "joined_at": now(), "seed_marker": SEED_MARKER},
-        {"_id": ObjectId(), "community_id": language_id, "user_id": david, "role": "member",   "status": "active", "joined_at": now(), "seed_marker": SEED_MARKER},
-        {"_id": ObjectId(), "community_id": language_id, "user_id": bob,   "role": "member",   "status": "active", "joined_at": now(), "seed_marker": SEED_MARKER},
-        # Kadikoy Garden Collective
-        {"_id": ObjectId(), "community_id": garden_id, "user_id": david,  "role": "founder",   "status": "active", "joined_at": now(), "seed_marker": SEED_MARKER},
-        {"_id": ObjectId(), "community_id": garden_id, "user_id": alice,  "role": "member",    "status": "active", "joined_at": now(), "seed_marker": SEED_MARKER},
-        {"_id": ObjectId(), "community_id": garden_id, "user_id": bob,    "role": "member",    "status": "active", "joined_at": now(), "seed_marker": SEED_MARKER},
-        {"_id": ObjectId(), "community_id": garden_id, "user_id": ceren,  "role": "member",    "status": "active", "joined_at": now(), "seed_marker": SEED_MARKER},
-        # Moda Film Club
-        {"_id": ObjectId(), "community_id": film_id, "user_id": elif_,   "role": "founder",    "status": "active", "joined_at": now(), "seed_marker": SEED_MARKER},
-        {"_id": ObjectId(), "community_id": film_id, "user_id": ceren,   "role": "moderator",  "status": "active", "joined_at": now(), "seed_marker": SEED_MARKER},
-        {"_id": ObjectId(), "community_id": film_id, "user_id": alice,   "role": "member",     "status": "active", "joined_at": now(), "seed_marker": SEED_MARKER},
-        {"_id": ObjectId(), "community_id": film_id, "user_id": bob,     "role": "member",     "status": "active", "joined_at": now(), "seed_marker": SEED_MARKER},
-        # Bosphorus Trail Runners
-        {"_id": ObjectId(), "community_id": running_id, "user_id": david, "role": "founder",   "status": "active", "joined_at": now(), "seed_marker": SEED_MARKER},
-        {"_id": ObjectId(), "community_id": running_id, "user_id": bob,   "role": "member",    "status": "active", "joined_at": now(), "seed_marker": SEED_MARKER},
-        {"_id": ObjectId(), "community_id": running_id, "user_id": elif_, "role": "member",    "status": "active", "joined_at": now(), "seed_marker": SEED_MARKER},
-    ]
-
-    await db["community_memberships"].insert_many(memberships)
-    print(f"  inserted {len(memberships)} memberships")
-
     return {
-        "repair":   repair_id,
-        "language": language_id,
-        "garden":   garden_id,
-        "film":     film_id,
-        "running":  running_id,
+        "repair":   communities[0]["_id"],
+        "language": communities[1]["_id"],
+        "garden":   communities[2]["_id"],
+        "film":     communities[3]["_id"],
+        "running":  communities[4]["_id"],
     }
 
 
