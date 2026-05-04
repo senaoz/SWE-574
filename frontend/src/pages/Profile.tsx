@@ -48,6 +48,7 @@ import {
   UserIcon,
   LucideBriefcase,
   LucideMessageCircle,
+  ActivityIcon,
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -100,6 +101,7 @@ export function Profile() {
     "timebank",
     "saved",
     "chat",
+    "activity",
   ] as const;
   const profileTab = allowedTabs.includes(profileTabFromUrl as any)
     ? profileTabFromUrl
@@ -345,6 +347,10 @@ export function Profile() {
           <Tabs.Trigger value="profile">
             <UserIcon className="w-4 h-4 mr-2" />
             Profile
+          </Tabs.Trigger>
+          <Tabs.Trigger value="activity">
+            <ActivityIcon className="w-4 h-4 mr-2" />
+            Activity
           </Tabs.Trigger>
           <Tabs.Trigger value="services">
             <LucideBriefcase className="w-4 h-4 mr-2" />
@@ -1023,13 +1029,6 @@ export function Profile() {
               </Box>
 
               <BadgeDisplay />
-
-              <ActivitySummarySection
-                transactions={myTransactionsData?.transactions ?? []}
-                ratings={detailedRatings}
-                currentUserId={user._id}
-                isLoading={detailedRatingsLoading || transactionsLoading}
-              />
             </div>
           </Tabs.Content>
 
@@ -1072,6 +1071,17 @@ export function Profile() {
 
           <Tabs.Content value="chat">
             {visitedTabs.has("chat") && <Chat />}
+          </Tabs.Content>
+
+          <Tabs.Content value="activity">
+            {visitedTabs.has("activity") && (
+              <ActivitySummarySection
+                transactions={myTransactionsData?.transactions ?? []}
+                ratings={detailedRatings}
+                currentUserId={user._id}
+                isLoading={detailedRatingsLoading || transactionsLoading}
+              />
+            )}
           </Tabs.Content>
         </Box>
       </Tabs.Root>

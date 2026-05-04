@@ -7,9 +7,9 @@ import {
 import { Form } from "radix-ui";
 import {
   ArrowLeftIcon, PlusIcon, Pencil1Icon,
-  TrashIcon, ChevronUpIcon,
+  TrashIcon, ChevronUpIcon, GlobeIcon,
 } from "@radix-ui/react-icons";
-import { MessageCircleIcon, UsersIcon, PinIcon } from "lucide-react";
+import { MessageCircleIcon, UsersIcon, PinIcon, CalendarClockIcon } from "lucide-react";
 import { communityApi, getImageUrl, uploadApi } from "@/services/api";
 import { useUser } from "@/App";
 import { Community, CommunityMember, CommunityPost, TagEntity, ForumEvent, ForumDiscussion } from "@/types";
