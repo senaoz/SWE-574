@@ -114,28 +114,6 @@ async def confirm_transaction_completion(
             detail=str(e)
         )
 
-@router.get("/{transaction_id}", response_model=TransactionResponse)
-async def get_transaction(
-    transaction_id: str,
-    current_user: UserResponse = Depends(get_current_user),
-    db=Depends(get_database)
-):
-    """Get a specific transaction by ID"""
-    transaction_service = TransactionService(db)
-    try:
-        transaction = await transaction_service.get_transaction_by_id(transaction_id)
-        if not transaction:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Transaction not found"
-            )
-        return transaction
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-
 @router.get("/admin/all", response_model=TransactionListResponse)
 async def get_all_transactions_admin(
     page: int = Query(1, ge=1),
@@ -153,6 +131,28 @@ async def get_all_transactions_admin(
             page=page,
             limit=limit
         )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+@router.get("/{transaction_id}", response_model=TransactionResponse)
+async def get_transaction(
+    transaction_id: str,
+    current_user: UserResponse = Depends(get_current_user),
+    db=Depends(get_database)
+):
+    """Get a specific transaction by ID"""
+    transaction_service = TransactionService(db)
+    try:
+        transaction = await transaction_service.get_transaction_by_id(transaction_id)
+        if not transaction:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Transaction not found"
+            )
+        return transaction
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

@@ -43,10 +43,23 @@ class TransactionService:
                 raise ValueError("No approved join request found for this service and user")
 
             raw = transaction_data.dict()
+            service_oid = ObjectId(raw["service_id"])
+            provider_oid = ObjectId(raw["provider_id"])
+            requester_oid = ObjectId(raw["requester_id"])
+
+            existing_transaction = await self.transactions_collection.find_one({
+                "service_id": {"$in": [service_oid, str(service_oid)]},
+                "provider_id": {"$in": [provider_oid, str(provider_oid)]},
+                "requester_id": {"$in": [requester_oid, str(requester_oid)]},
+                "status": {"$ne": TransactionStatus.CANCELLED},
+            })
+            if existing_transaction:
+                raise ValueError("Transaction already exists for this service and requester")
+
             transaction_doc = {
-                "service_id": ObjectId(raw["service_id"]),
-                "provider_id": ObjectId(raw["provider_id"]),
-                "requester_id": ObjectId(raw["requester_id"]),
+                "service_id": service_oid,
+                "provider_id": provider_oid,
+                "requester_id": requester_oid,
                 "timebank_hours": raw["timebank_hours"],
                 "description": raw.get("description"),
                 "status": TransactionStatus.PENDING,
@@ -312,9 +325,15 @@ class TransactionService:
             
             if not is_provider and not is_requester:
                 raise ValueError("You are not authorized to confirm this transaction")
+
+            already_completed = transaction.get("status") == TransactionStatus.COMPLETED
             
+            # Completed transactions are idempotent: an extra confirmation should
+            # return the current record without applying TimeBank changes again.
+            if already_completed:
+                updated_transaction = transaction
             # Provider cannot confirm (give help) when they must create a Need first
-            if is_provider:
+            elif is_provider:
                 from .user_service import UserService
                 user_service = UserService(self.db)
                 if await user_service.requires_need_creation(current_user_id):
@@ -322,8 +341,9 @@ class TransactionService:
                         "You must create a Need before you can give help. "
                         "You've reached the 10-hour surplus limit."
                     )
+
             # Requester cannot confirm completion if they cannot spend required hours
-            if is_requester:
+            if not already_completed and is_requester:
                 from .user_service import UserService
                 user_service = UserService(self.db)
                 requester_user = await user_service.get_user_by_id(current_user_id)
@@ -334,45 +354,46 @@ class TransactionService:
                     raise ValueError("Insufficient TimeBank balance to confirm completion")
             
             # Update the appropriate confirmation
-            update_fields = {"updated_at": datetime.utcnow()}
-            if is_provider:
-                update_fields["provider_confirmed"] = True
-            if is_requester:
-                update_fields["requester_confirmed"] = True
-                # Also add requester to service.receiver_confirmed_ids (handle null/legacy docs)
-                requester_oid = transaction["requester_id"]
-                if isinstance(requester_oid, str) and ObjectId.is_valid(requester_oid):
-                    requester_oid = ObjectId(requester_oid)
-                service_doc = await self.services_collection.find_one(
-                    {"_id": ObjectId(transaction["service_id"])}
-                )
-                current_ids = service_doc.get("receiver_confirmed_ids") if service_doc else None
-                if not isinstance(current_ids, list):
-                    current_ids = []
-                if requester_oid not in current_ids:
-                    current_ids.append(requester_oid)
-                await self.services_collection.update_one(
-                    {"_id": ObjectId(transaction["service_id"])},
-                    {"$set": {
-                        "receiver_confirmed_ids": current_ids,
-                        "updated_at": datetime.utcnow(),
-                    }},
+            if not already_completed:
+                update_fields = {"updated_at": datetime.utcnow()}
+                if is_provider:
+                    update_fields["provider_confirmed"] = True
+                if is_requester:
+                    update_fields["requester_confirmed"] = True
+                    # Also add requester to service.receiver_confirmed_ids (handle null/legacy docs)
+                    requester_oid = transaction["requester_id"]
+                    if isinstance(requester_oid, str) and ObjectId.is_valid(requester_oid):
+                        requester_oid = ObjectId(requester_oid)
+                    service_doc = await self.services_collection.find_one(
+                        {"_id": ObjectId(transaction["service_id"])}
+                    )
+                    current_ids = service_doc.get("receiver_confirmed_ids") if service_doc else None
+                    if not isinstance(current_ids, list):
+                        current_ids = []
+                    if requester_oid not in current_ids:
+                        current_ids.append(requester_oid)
+                    await self.services_collection.update_one(
+                        {"_id": ObjectId(transaction["service_id"])},
+                        {"$set": {
+                            "receiver_confirmed_ids": current_ids,
+                            "updated_at": datetime.utcnow(),
+                        }},
+                    )
+
+                await self.transactions_collection.update_one(
+                    {"_id": ObjectId(transaction_id)},
+                    {"$set": update_fields}
                 )
 
-            await self.transactions_collection.update_one(
-                {"_id": ObjectId(transaction_id)},
-                {"$set": update_fields}
-            )
-            
-            # Check if both parties have confirmed
-            updated_transaction = await self.transactions_collection.find_one({"_id": ObjectId(transaction_id)})
-            provider_confirmed = updated_transaction.get("provider_confirmed", False)
-            requester_confirmed = updated_transaction.get("requester_confirmed", False)
-            
-            if provider_confirmed and requester_confirmed:
-                # Both confirmed - finalize transaction and create TimeBank logs
-                await self._finalize_transaction(transaction_id, updated_transaction)
+                # Check if both parties have confirmed
                 updated_transaction = await self.transactions_collection.find_one({"_id": ObjectId(transaction_id)})
+                provider_confirmed = updated_transaction.get("provider_confirmed", False)
+                requester_confirmed = updated_transaction.get("requester_confirmed", False)
+                
+                if provider_confirmed and requester_confirmed:
+                    # Both confirmed - finalize transaction and create TimeBank logs
+                    await self._finalize_transaction(transaction_id, updated_transaction)
+                    updated_transaction = await self.transactions_collection.find_one({"_id": ObjectId(transaction_id)})
             
             # Populate service/provider/requester info
             service = await self.services_collection.find_one({"_id": updated_transaction["service_id"]})
@@ -420,6 +441,9 @@ class TransactionService:
     async def _finalize_transaction(self, transaction_id: str, transaction) -> bool:
         """Finalize transaction and create TimeBank transaction logs (called when both parties confirm)"""
         try:
+            if transaction.get("status") == TransactionStatus.COMPLETED:
+                return True
+
             # TimeBank is updated only when both parties confirm (this method).
             # Service completion no longer updates TimeBank.
             svc_oid = ObjectId(str(transaction["service_id"]))
