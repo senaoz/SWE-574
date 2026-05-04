@@ -18,12 +18,12 @@ import {
   PotentialMatchItem,
 } from "@/types";
 import {
-  chatApi,
   servicesApi,
   usersApi,
   joinRequestsApi,
   forumApi,
   commentsApi,
+  chatApi,
 } from "@/services/api";
 import { ImageGallery } from "@/components/ui/ImageGallery";
 import { useUser } from "@/App";
@@ -420,6 +420,19 @@ export function ServiceDetail() {
       </div>
     );
   }
+
+  const handleStartChat = async () => {
+    if (!currentUserId || !service) return;
+    try {
+      const { data } = await chatApi.createChatRoom({
+        participant_ids: [currentUserId, service.user_id],
+        service_id: service._id,
+      });
+      navigate(data?._id ? `/profile?tab=chat&room_id=${data._id}` : "/profile?tab=chat");
+    } catch (error) {
+      console.error("Error starting chat:", error);
+    }
+  };
 
   const formatTimeString = (timeString: string) => {
     const [hours, minutes] = timeString.split(":");
@@ -819,12 +832,16 @@ export function ServiceDetail() {
                 You're joining
               </Button>
             )}
-            <StartChatButton
-              disabled={isServingUser}
-              otherUserIds={[service.user_id]}
-              service_id={service._id}
-              transaction_id={undefined}
-            />
+            {currentUserId && service.user_id !== currentUserId && (
+              <Button
+                variant="soft"
+                size="3"
+                onClick={handleStartChat}
+              >
+                <MessageCircleIcon className="w-4 h-4" />
+                Message
+              </Button>
+            )}
             <Button
               variant={isSaved ? "solid" : "soft"}
               color={isSaved ? "red" : undefined}
@@ -1173,60 +1190,3 @@ export function ServiceDetail() {
     </>
   );
 }
-export const StartChatButton = ({
-  disabled,
-  otherUserIds,
-  service_id = undefined,
-  transaction_id = undefined,
-}: {
-  disabled: boolean;
-  otherUserIds: string[];
-  service_id: string | undefined;
-  transaction_id: string | undefined;
-}) => {
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const { currentUserId } = useUser();
-  const handleStartChat = async () => {
-    try {
-      if (!currentUserId) {
-        console.error("No current user ID found");
-        return;
-      }
-      const allParticipants = [currentUserId, ...otherUserIds];
-      await chatApi
-        .createChatRoom({ participant_ids: allParticipants, service_id, transaction_id })
-        .then((response) => {
-          navigate(
-            response.data._id
-              ? `/chat/${response.data._id}`
-              : "/profile?tab=chat",
-          );
-        })
-        .catch((error) => {
-          console.error("Error starting chat:", error);
-          if (
-            error.response?.data?.detail?.includes(
-              "Chat room already exists for these participants:",
-            )
-          ) {
-            queryClient.invalidateQueries({ queryKey: ["chat-rooms"] });
-            navigate("/profile?tab=chat");
-          }
-        });
-    } catch (error) {
-      console.error("Error starting chat:", error);
-    }
-  };
-  return (
-    <Button
-      variant="soft"
-      size="3"
-      onClick={handleStartChat}
-      disabled={disabled}
-    >
-      <MessageCircleIcon className="w-4 h-4" />
-      Start Chat
-    </Button>
-  );
-};
