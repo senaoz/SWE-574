@@ -33,8 +33,8 @@ import {
   RatingDetailed,
   TimeBankResponse,
 } from "@/types";
-import { usersApi, ratingsApi, uploadApi, getImageUrl, servicesApi, joinRequestsApi } from "@/services/api";
-import { ReviewCard } from "@/components/ui/ReviewCard";
+import { usersApi, ratingsApi, uploadApi, getImageUrl, servicesApi, joinRequestsApi, transactionsApi } from "@/services/api";
+import { ActivitySummarySection } from "@/components/ui/ActivitySummarySection";
 import { useUser } from "@/contexts/UserContext";
 import { MyServices } from "./MyServices";
 import { BadgeDisplay } from "@/components/ui/BadgeDisplay";
@@ -255,6 +255,13 @@ export function Profile() {
         requests: requestsRes.data.total ?? 0,
       };
     },
+    enabled: !!user?._id,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const { data: myTransactionsData, isLoading: transactionsLoading } = useQuery({
+    queryKey: ["my-transactions-activity", user?._id],
+    queryFn: () => transactionsApi.getMyTransactions(1, 100).then((r) => r.data),
     enabled: !!user?._id,
     staleTime: 2 * 60 * 1000,
   });
@@ -1339,64 +1346,12 @@ export function Profile() {
               </Grid>
               <BadgeDisplay />
 
-              {/* Reviews Section */}
-              <div className="space-y-6">
-                <Heading size="5">Reviews Received</Heading>
-                {detailedRatingsLoading ? (
-                  <Card className="p-6 text-center">
-                    <Text color="gray">Loading reviews...</Text>
-                  </Card>
-                ) : detailedRatings.length === 0 ? (
-                  <Card className="p-6 text-center">
-                    <Text color="gray">No reviews received yet</Text>
-                  </Card>
-                ) : (
-                  <>
-                    {(() => {
-                      const providerRatings = detailedRatings.filter(
-                        (r) => r.transaction?.rated_user_role === "provider"
-                      );
-                      const takerRatings = detailedRatings.filter(
-                        (r) => r.transaction?.rated_user_role === "taker"
-                      );
-                      const unknownRatings = detailedRatings.filter(
-                        (r) => !r.transaction?.rated_user_role
-                      );
-                      return (
-                        <>
-                          {providerRatings.length > 0 && (
-                            <div className="space-y-3">
-                              <Heading size="3" color="gray">As Service Provider</Heading>
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                {providerRatings.map((rating) => (
-                                  <ReviewCard key={rating._id} rating={rating} />
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          {takerRatings.length > 0 && (
-                            <div className="space-y-3">
-                              <Heading size="3" color="gray">As Service Taker</Heading>
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                {takerRatings.map((rating) => (
-                                  <ReviewCard key={rating._id} rating={rating} />
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          {unknownRatings.length > 0 && (
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                              {unknownRatings.map((rating) => (
-                                <ReviewCard key={rating._id} rating={rating} />
-                              ))}
-                            </div>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </>
-                )}
-              </div>
+              <ActivitySummarySection
+                transactions={myTransactionsData?.transactions ?? []}
+                ratings={detailedRatings}
+                currentUserId={user._id}
+                isLoading={detailedRatingsLoading || transactionsLoading}
+              />
             </div>
           </Tabs.Content>
 

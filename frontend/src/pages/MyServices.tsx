@@ -385,7 +385,6 @@ export function MyServices({
         <div className="mb-8 grid">
           <MyServicesTab
             services={services}
-            takenServices={applicationServices}
             serviceTransactions={serviceTransactions}
             currentUserId={currentUserId}
             requiresNeedCreation={timebankData?.requires_need_creation ?? false}
