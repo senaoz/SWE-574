@@ -63,7 +63,7 @@ type Attendee = {
 export function ForumEventDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentUserId } = useUser();
+  const { currentUserId, user } = useUser();
   const [event, setEvent] = useState<ForumEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [attendees, setAttendees] = useState<Attendee[]>([]);
@@ -75,6 +75,7 @@ export function ForumEventDetail() {
   const isAttending =
     event?.attendee_ids?.includes(currentUserId || "") ?? false;
   const isOwner = !!currentUserId && event?.user_id === currentUserId;
+  const isAdmin = user?.role === "admin";
 
   useEffect(() => {
     if (!id) return;
@@ -167,7 +168,7 @@ export function ForumEventDetail() {
         <div className="flex justify-between">
           <Heading size="5">{event.title}</Heading>
           <Flex gap="2" align="center">
-            {isOwner && (
+            {(isOwner || isAdmin) && (
               <>
                 <Button
                   variant="soft"

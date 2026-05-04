@@ -41,13 +41,14 @@ function timeAgo(dateStr: string) {
 export function ForumDiscussionDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentUserId } = useUser();
+  const { currentUserId, user } = useUser();
   const [discussion, setDiscussion] = useState<ForumDiscussion | null>(null);
   const [loading, setLoading] = useState(true);
   const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
 
   const isOwner = !!currentUserId && discussion?.user_id === currentUserId;
+  const isAdmin = user?.role === "admin";
 
   useEffect(() => {
     if (!id) return;
@@ -112,7 +113,7 @@ export function ForumDiscussionDetail() {
             <div className="flex justify-between">
               <Heading size="5">{discussion.title}</Heading>
               <Flex gap="2" align="center">
-                {isOwner && (
+                {(isOwner || isAdmin) && (
                   <>
                     <Button
                       variant="soft"
