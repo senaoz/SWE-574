@@ -71,7 +71,6 @@ export function Chat() {
     <>
       <div
         className="grid grid-cols-1 lg:grid-cols-3"
-        style={{ height: `${chatHeight}px` }}
       >
         {/* Chat Rooms List */}
         <ChatRoomsList
@@ -80,7 +79,7 @@ export function Chat() {
         />
         {/* Chat Room */}
         <div className="lg:col-span-2">
-          <Card className="h-full">
+          <Card className="h-full max-h-[75vh]">
             {selectedRoom ? (
               <ChatRoomComponent
                 room={selectedRoom}

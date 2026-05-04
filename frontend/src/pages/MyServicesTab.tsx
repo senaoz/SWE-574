@@ -70,7 +70,6 @@ export function MyServicesTab({
   onSetServiceInProgress,
   onDeleteService,
   onCancelService,
-  onStartChat,
   onCreateGroupChat,
   onCancelTransaction,
   onConfirmTransactionCompletion,
@@ -547,6 +546,27 @@ export function MyServicesTab({
                                         </Text>
                                       </Flex>
 
+                                      {transaction.status === "pending" && (
+                                          <Flex gap="2">
+                                            <Button
+                                                size="1"
+                                                color="red"
+                                                variant="outline"
+                                                disabled={
+                                                    transaction.provider_confirmed &&
+                                                    transaction.requester_confirmed
+                                                }
+                                                onClick={() =>
+                                                    onCancelTransaction(
+                                                        transaction._id,
+                                                    )
+                                                }
+                                            >
+                                              Remove Confirmation
+                                            </Button>
+                                          </Flex>
+                                      )}
+
                                       {/* Rating display: show when user has confirmed */}
                                       {myRating && (
                                         <Flex direction="column" gap="1">
@@ -632,36 +652,6 @@ export function MyServicesTab({
                                               )}
                                           </>
                                         )}
-                                      {transaction.status === "pending" && (
-                                        <Flex gap="2">
-                                          <Button
-                                            size="1"
-                                            color="blue"
-                                            variant="outline"
-                                            onClick={() =>
-                                              onStartChat(transaction._id)
-                                            }
-                                          >
-                                            Start Chat
-                                          </Button>
-                                          <Button
-                                            size="1"
-                                            color="red"
-                                            variant="outline"
-                                            disabled={
-                                              transaction.provider_confirmed &&
-                                              transaction.requester_confirmed
-                                            }
-                                            onClick={() =>
-                                              onCancelTransaction(
-                                                transaction._id,
-                                              )
-                                            }
-                                          >
-                                            Cancel
-                                          </Button>
-                                        </Flex>
-                                      )}
                                     </Flex>
                                   );
                                 },
