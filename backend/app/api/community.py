@@ -93,8 +93,9 @@ async def update_community(
     db=Depends(get_database),
 ):
     svc = _svc(db)
+    is_admin = current_user.role == "admin"
     try:
-        result = await svc.update_community(community_id, data, str(current_user.id))
+        result = await svc.update_community(community_id, data, str(current_user.id), is_admin=is_admin)
         if not result:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Community not found")
         return result
@@ -109,8 +110,9 @@ async def delete_community(
     db=Depends(get_database),
 ):
     svc = _svc(db)
+    is_admin = current_user.role == "admin"
     try:
-        await svc.delete_community(community_id, str(current_user.id))
+        await svc.delete_community(community_id, str(current_user.id), is_admin=is_admin)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
@@ -261,8 +263,9 @@ async def update_post(
     db=Depends(get_database),
 ):
     svc = _svc(db)
+    is_admin = current_user.role == "admin"
     try:
-        result = await svc.update_post(community_id, post_id, data, str(current_user.id))
+        result = await svc.update_post(community_id, post_id, data, str(current_user.id), is_admin=is_admin)
         if not result:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
         return result
@@ -278,8 +281,9 @@ async def delete_post(
     db=Depends(get_database),
 ):
     svc = _svc(db)
+    is_admin = current_user.role == "admin"
     try:
-        await svc.delete_post(community_id, post_id, str(current_user.id))
+        await svc.delete_post(community_id, post_id, str(current_user.id), is_admin=is_admin)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
@@ -293,8 +297,9 @@ async def pin_post(
     db=Depends(get_database),
 ):
     svc = _svc(db)
+    is_admin = current_user.role == "admin"
     try:
-        return await svc.pin_post(community_id, post_id, str(current_user.id), pinned)
+        return await svc.pin_post(community_id, post_id, str(current_user.id), pinned, is_admin=is_admin)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 

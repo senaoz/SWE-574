@@ -118,12 +118,12 @@ class ForumService:
         return ForumDiscussionResponse(**doc)
 
     async def update_discussion(
-        self, discussion_id: str, data: ForumDiscussionUpdate, user_id: str
+        self, discussion_id: str, data: ForumDiscussionUpdate, user_id: str, is_admin: bool = False
     ) -> Optional[ForumDiscussionResponse]:
         existing = await self.discussions.find_one({"_id": ObjectId(discussion_id)})
         if not existing:
             raise ValueError("Discussion not found")
-        if str(existing["user_id"]) != user_id:
+        if str(existing["user_id"]) != user_id and not is_admin:
             raise ValueError("Not authorized to update this discussion")
 
         update_data = {k: v for k, v in data.dict().items() if v is not None}
@@ -131,11 +131,11 @@ class ForumService:
         await self.discussions.update_one({"_id": ObjectId(discussion_id)}, {"$set": update_data})
         return await self.get_discussion_by_id(discussion_id)
 
-    async def delete_discussion(self, discussion_id: str, user_id: str) -> bool:
+    async def delete_discussion(self, discussion_id: str, user_id: str, is_admin: bool = False) -> bool:
         existing = await self.discussions.find_one({"_id": ObjectId(discussion_id)})
         if not existing:
             raise ValueError("Discussion not found")
-        if str(existing["user_id"]) != user_id:
+        if str(existing["user_id"]) != user_id and not is_admin:
             raise ValueError("Not authorized to delete this discussion")
         result = await self.discussions.delete_one({"_id": ObjectId(discussion_id)})
         if result.deleted_count:
@@ -225,12 +225,12 @@ class ForumService:
         return ForumEventResponse(**doc)
 
     async def update_event(
-        self, event_id: str, data: ForumEventUpdate, user_id: str
+        self, event_id: str, data: ForumEventUpdate, user_id: str, is_admin: bool = False
     ) -> Optional[ForumEventResponse]:
         existing = await self.events.find_one({"_id": ObjectId(event_id)})
         if not existing:
             raise ValueError("Event not found")
-        if str(existing["user_id"]) != user_id:
+        if str(existing["user_id"]) != user_id and not is_admin:
             raise ValueError("Not authorized to update this event")
 
         update_data = {k: v for k, v in data.dict().items() if v is not None}
@@ -243,11 +243,11 @@ class ForumService:
         await self.events.update_one({"_id": ObjectId(event_id)}, {"$set": update_data})
         return await self.get_event_by_id(event_id)
 
-    async def delete_event(self, event_id: str, user_id: str) -> bool:
+    async def delete_event(self, event_id: str, user_id: str, is_admin: bool = False) -> bool:
         existing = await self.events.find_one({"_id": ObjectId(event_id)})
         if not existing:
             raise ValueError("Event not found")
-        if str(existing["user_id"]) != user_id:
+        if str(existing["user_id"]) != user_id and not is_admin:
             raise ValueError("Not authorized to delete this event")
         result = await self.events.delete_one({"_id": ObjectId(event_id)})
         if result.deleted_count:
@@ -431,12 +431,12 @@ class ForumService:
         return results, total
 
     async def update_comment(
-        self, comment_id: str, data: ForumCommentUpdate, user_id: str
+        self, comment_id: str, data: ForumCommentUpdate, user_id: str, is_admin: bool = False
     ) -> Optional[ForumCommentResponse]:
         existing = await self.forum_comments.find_one({"_id": ObjectId(comment_id)})
         if not existing:
             raise ValueError("Comment not found")
-        if str(existing["user_id"]) != user_id:
+        if str(existing["user_id"]) != user_id and not is_admin:
             raise ValueError("Not authorized to update this comment")
 
         update_fields: dict = {"content": data.content, "updated_at": datetime.utcnow()}
@@ -450,11 +450,11 @@ class ForumService:
         updated = await self._enrich_user(updated)
         return ForumCommentResponse(**updated)
 
-    async def delete_comment(self, comment_id: str, user_id: str) -> bool:
+    async def delete_comment(self, comment_id: str, user_id: str, is_admin: bool = False) -> bool:
         existing = await self.forum_comments.find_one({"_id": ObjectId(comment_id)})
         if not existing:
             raise ValueError("Comment not found")
-        if str(existing["user_id"]) != user_id:
+        if str(existing["user_id"]) != user_id and not is_admin:
             raise ValueError("Not authorized to delete this comment")
         result = await self.forum_comments.delete_one({"_id": ObjectId(comment_id)})
         return result.deleted_count > 0
