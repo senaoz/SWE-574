@@ -12,6 +12,7 @@ import { ServiceDetail } from "@/pages/ServiceDetail";
 import { UserDetail } from "@/pages/UserDetail";
 import { Profile } from "@/pages/Profile";
 import { AdminPanel } from "@/pages/AdminPanel";
+import { Settings } from "@/pages/Settings";
 import { Forum } from "@/pages/Forum";
 import { ForumDiscussionDetail } from "@/pages/ForumDiscussionDetail";
 import { ForumEventDetail } from "@/pages/ForumEventDetail";
@@ -180,6 +181,17 @@ function App() {
                         fallbackPath="/?login=true"
                       >
                         <CommunityPostDetail />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/settings"
+                    element={
+                      <ProtectedRoute
+                        requiredRole="user"
+                        fallbackPath="/?login=true"
+                      >
+                        <Settings />
                       </ProtectedRoute>
                     }
                   />
