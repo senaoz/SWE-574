@@ -295,6 +295,31 @@ export function ActivitySummarySection({
       .slice(0, 15);
   }, [ratings]);
 
+  // 52-week heatmap data
+  const heatmapData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const { tx } of enriched) {
+      const d = new Date(tx.created_at);
+      const key = d.toISOString().slice(0, 10);
+      counts[key] = (counts[key] || 0) + 1;
+    }
+    // build 364-day grid starting from the Monday 51 weeks ago
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0=Sun
+    const startOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // align to Mon
+    const start = new Date(today);
+    start.setDate(today.getDate() - 363 - startOffset);
+    const cells: { date: string; count: number; weekIdx: number; dayIdx: number }[] = [];
+    for (let i = 0; i < 364; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const key = d.toISOString().slice(0, 10);
+      cells.push({ date: key, count: counts[key] ?? 0, weekIdx: Math.floor(i / 7), dayIdx: i % 7 });
+    }
+    return cells;
+  }, [enriched]);
+  const heatmapMax = Math.max(...heatmapData.map((c) => c.count), 1);
+
   const inProgressCount = enriched.filter(
     (e) => e.tx.status === "in_progress" || e.tx.status === "pending",
   ).length;
@@ -829,6 +854,56 @@ export function ActivitySummarySection({
               )}
             </div>
           </Flex>
+
+          {/* ── Activity heatmap ── */}
+          <div>
+            <Text size="1" color="gray" className="block mb-2">
+              Activity — last 52 weeks
+            </Text>
+            <div style={{ overflowX: "auto" }}>
+              <div style={{ display: "flex", gap: "2px", minWidth: "fit-content" }}>
+                {Array.from({ length: 52 }, (_, w) => (
+                  <div key={w} style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                    {Array.from({ length: 7 }, (_, d) => {
+                      const cell = heatmapData[w * 7 + d];
+                      if (!cell) return <div key={d} style={{ width: 11, height: 11 }} />;
+                      const intensity = cell.count === 0 ? 0 : 0.2 + (cell.count / heatmapMax) * 0.8;
+                      return (
+                        <div
+                          key={d}
+                          title={cell.count > 0 ? `${cell.date}: ${cell.count} transaction${cell.count !== 1 ? "s" : ""}` : cell.date}
+                          style={{
+                            width: 11,
+                            height: 11,
+                            borderRadius: 2,
+                            background: cell.count === 0
+                              ? "var(--gray-a3)"
+                              : `rgba(var(--green-9-rgb, 48,164,108), ${intensity})`,
+                            backgroundColor: cell.count === 0
+                              ? "var(--gray-a3)"
+                              : intensity > 0.7
+                                ? "var(--green-9)"
+                                : intensity > 0.4
+                                  ? "var(--green-7)"
+                                  : "var(--green-5)",
+                            cursor: cell.count > 0 ? "pointer" : "default",
+                            transition: "opacity 0.1s",
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+              <Flex gap="3" align="center" className="mt-1">
+                <Text size="1" color="gray">Less</Text>
+                {["var(--gray-a3)", "var(--green-5)", "var(--green-7)", "var(--green-9)"].map((bg, i) => (
+                  <div key={i} style={{ width: 11, height: 11, borderRadius: 2, backgroundColor: bg }} />
+                ))}
+                <Text size="1" color="gray">More</Text>
+              </Flex>
+            </div>
+          </div>
 
           {/* ── Filter tabs + active-filter indicator ── */}
           <Flex gap="2" wrap="wrap" align="center">
