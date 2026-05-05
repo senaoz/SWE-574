@@ -12,6 +12,7 @@ import {
   TextArea,
   Grid,
   Tabs,
+  Tooltip,
 } from "@radix-ui/themes";
 import {
   CheckCircledIcon,
@@ -20,12 +21,16 @@ import {
   CheckIcon,
   Cross2Icon,
 } from "@radix-ui/react-icons";
+import { SocialLinks, RatingDetailed, TimeBankResponse } from "@/types";
 import {
-  SocialLinks,
-  RatingDetailed,
-  TimeBankResponse,
-} from "@/types";
-import { usersApi, ratingsApi, uploadApi, getImageUrl, servicesApi, joinRequestsApi, transactionsApi } from "@/services/api";
+  usersApi,
+  ratingsApi,
+  uploadApi,
+  getImageUrl,
+  servicesApi,
+  joinRequestsApi,
+  transactionsApi,
+} from "@/services/api";
 import { ActivitySummarySection } from "@/components/ui/ActivitySummarySection";
 import { useUser } from "@/contexts/UserContext";
 import { MyServices } from "./MyServices";
@@ -202,7 +207,8 @@ export function Profile() {
 
   const { data: eagerTimebankData } = useQuery({
     queryKey: ["my-timebank"],
-    queryFn: () => usersApi.getTimeBank().then((r) => r.data as TimeBankResponse),
+    queryFn: () =>
+      usersApi.getTimeBank().then((r) => r.data as TimeBankResponse),
     enabled: !!user?._id,
     staleTime: 2 * 60 * 1000,
   });
@@ -223,12 +229,15 @@ export function Profile() {
     staleTime: 2 * 60 * 1000,
   });
 
-  const { data: myTransactionsData, isLoading: transactionsLoading } = useQuery({
-    queryKey: ["my-transactions-activity", user?._id],
-    queryFn: () => transactionsApi.getMyTransactions(1, 100).then((r) => r.data),
-    enabled: !!user?._id,
-    staleTime: 2 * 60 * 1000,
-  });
+  const { data: myTransactionsData, isLoading: transactionsLoading } = useQuery(
+    {
+      queryKey: ["my-transactions-activity", user?._id],
+      queryFn: () =>
+        transactionsApi.getMyTransactions(1, 100).then((r) => r.data),
+      enabled: !!user?._id,
+      staleTime: 2 * 60 * 1000,
+    },
+  );
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -323,7 +332,6 @@ export function Profile() {
     });
   };
 
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -383,17 +391,26 @@ export function Profile() {
           px="1"
           style={{ borderBottom: "1px solid var(--gray-4)" }}
         >
-          <Flex align="center" gap="2">
-            <ClockIcon className="w-4 h-4 stroke-2" style={{ color: "var(--accent-11)" }} />
-            <Text size="2" color="gray">Balance</Text>
-            <Text size="3" weight="bold" style={{ color: "var(--accent-11)" }}>
-              {user.timebank_balance.toFixed(1)} hrs
-            </Text>
-          </Flex>
+          <Tooltip content="Your timebank balance in hours.">
+            <Flex
+              align="center"
+              gap="2"
+              className="bg-lime-700 text-white rounded-lg p-2"
+            >
+              <ClockIcon className="w-4 h-4 stroke-2" />
+              <Text size="3" weight="bold">
+                {user.timebank_balance.toFixed(1)} hrs
+              </Text>
+            </Flex>
+          </Tooltip>
           {(eagerStatsData?.services ?? myservicesCounts.services) > 0 && (
             <Flex align="center" gap="2">
-              <Text size="2" color="gray">·</Text>
-              <Text size="2" color="gray">Services</Text>
+              <Text size="2" color="gray">
+                ·
+              </Text>
+              <Text size="2" color="gray">
+                Services
+              </Text>
               <Text size="2" weight="bold">
                 {eagerStatsData?.services ?? myservicesCounts.services}
               </Text>
@@ -401,19 +418,29 @@ export function Profile() {
           )}
           {(eagerStatsData?.requests ?? myservicesCounts.requests) > 0 && (
             <Flex align="center" gap="2">
-              <Text size="2" color="gray">·</Text>
-              <Text size="2" color="gray">Applications</Text>
+              <Text size="2" color="gray">
+                ·
+              </Text>
+              <Text size="2" color="gray">
+                Applications
+              </Text>
               <Text size="2" weight="bold">
                 {eagerStatsData?.requests ?? myservicesCounts.requests}
               </Text>
             </Flex>
           )}
-          {(eagerTimebankData?.transactions.length ?? myservicesCounts.timebank) > 0 && (
+          {(eagerTimebankData?.transactions.length ??
+            myservicesCounts.timebank) > 0 && (
             <Flex align="center" gap="2">
-              <Text size="2" color="gray">·</Text>
-              <Text size="2" color="gray">Transactions</Text>
+              <Text size="2" color="gray">
+                ·
+              </Text>
+              <Text size="2" color="gray">
+                Transactions
+              </Text>
               <Text size="2" weight="bold">
-                {eagerTimebankData?.transactions.length ?? myservicesCounts.timebank}
+                {eagerTimebankData?.transactions.length ??
+                  myservicesCounts.timebank}
               </Text>
             </Flex>
           )}
@@ -427,214 +454,191 @@ export function Profile() {
               <Box>
                 <Card size="4" className="p-6">
                   <Flex
-                      align="center"
-                      justify="between"
-                      className="col-span-2 mb-4"
+                    align="center"
+                    justify="between"
+                    className="col-span-2 mb-4"
                   >
                     <Heading size="5">Profile Information</Heading>
                     {!isEditing ? (
-                        <Button onClick={handleEdit} size="2">
-                          <Pencil1Icon className="w-4 h-4 mr-2" />
-                          Edit Profile
-                        </Button>
+                      <Button onClick={handleEdit} size="2">
+                        <Pencil1Icon className="w-4 h-4 mr-2" />
+                        Edit Profile
+                      </Button>
                     ) : (
-                        <Flex gap="2">
-                          <Button
-                              onClick={handleCancel}
-                              variant="soft"
-                              size="2"
-                          >
-                            <Cross2Icon className="w-4 h-4 mr-2" />
-                            Cancel
-                          </Button>
-                          <Button onClick={handleSave} size="2">
-                            <CheckIcon className="w-4 h-4 mr-2" />
-                            Save Changes
-                          </Button>
-                        </Flex>
+                      <Flex gap="2">
+                        <Button onClick={handleCancel} variant="soft" size="2">
+                          <Cross2Icon className="w-4 h-4 mr-2" />
+                          Cancel
+                        </Button>
+                        <Button onClick={handleSave} size="2">
+                          <CheckIcon className="w-4 h-4 mr-2" />
+                          Save Changes
+                        </Button>
+                      </Flex>
                     )}
                   </Flex>
 
                   {/* Avatar and Basic Info */}
                   <Flex align="center" gap="4">
                     <Avatar
-                        src={
-                          isEditing
-                              ? getImageUrl(editForm.profile_picture) ||
-                              undefined
-                              : getImageUrl(user.profile_picture) || undefined
-                        }
-                        fallback={user.full_name?.[0] || user.username[0]}
-                        size="6"
+                      src={
+                        isEditing
+                          ? getImageUrl(editForm.profile_picture) || undefined
+                          : getImageUrl(user.profile_picture) || undefined
+                      }
+                      fallback={user.full_name?.[0] || user.username[0]}
+                      size="6"
                     />
                     <div className="flex-1">
                       <Flex align="center" gap="2" mb="1">
                         <Heading size="4">
                           {isEditing ? (
-                              <TextField.Root
-                                  value={editForm.full_name}
-                                  onChange={(e) =>
-                                      handleInputChange(
-                                          "full_name",
-                                          e.target.value,
-                                      )
-                                  }
-                                  placeholder="Full Name"
-                                  size="2"
-                              />
+                            <TextField.Root
+                              value={editForm.full_name}
+                              onChange={(e) =>
+                                handleInputChange("full_name", e.target.value)
+                              }
+                              placeholder="Full Name"
+                              size="2"
+                            />
                           ) : (
-                              user.full_name || user.username
+                            user.full_name || user.username
                           )}
                         </Heading>
                         {user.is_verified && (
-                            <CheckCircledIcon className="w-4 h-4 text-green-600" />
+                          <CheckCircledIcon className="w-4 h-4 text-green-600" />
                         )}
                       </Flex>
                       <Text size="3" color="gray">
                         @{user.username}
                       </Text>
                       {user.is_verified && (
-                          <Badge
-                              color="green"
-                              variant="soft"
-                              size="1"
-                              className="ml-2"
-                          >
-                            Verified User
-                          </Badge>
+                        <Badge
+                          color="green"
+                          variant="soft"
+                          size="1"
+                          className="ml-2"
+                        >
+                          Verified User
+                        </Badge>
                       )}
                     </div>
                   </Flex>
 
-
-
-
                   {/* Profile Picture: presets, upload, or URL */}
                   {isEditing && (
-                      <div className="space-y-2">
-                        <Text size="2" weight="bold" className="block">
-                          Profile Picture
-                        </Text>
+                    <div className="space-y-2">
+                      <Text size="2" weight="bold" className="block">
+                        Profile Picture
+                      </Text>
 
-                        {/* Preset avatars */}
-                        <div>
-                          <Text size="1" color="gray" className="block mb-2">
-                            Choose a preset avatar
-                          </Text>
-                          <Grid columns="6" gap="2" className="max-w-md">
-                            {PROFILE_PICTURE_PRESETS.map((preset) => {
-                              const isSelected =
-                                  editForm.profile_picture === preset.url;
-                              return (
-                                  <button
-                                      key={preset.id}
-                                      type="button"
-                                      onClick={() => {
-                                        handleInputChange(
-                                            "profile_picture",
-                                            preset.url,
-                                        );
-                                        setProfilePictureError(null);
-                                      }}
-                                      className={`rounded-full p-0.5 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-9 ${
-                                          isSelected
-                                              ? "ring-2 ring-cyan-9 ring-offset-2 ring-offset-gray-1 dark:ring-offset-gray-2"
-                                              : "hover:opacity-90"
-                                      }`}
-                                      title={preset.name}
-                                  >
-                                    <Avatar
-                                        src={preset.url}
-                                        fallback={preset.name[0]}
-                                        size="3"
-                                        radius="full"
-                                        className="w-full aspect-square"
-                                    />
-                                  </button>
-                              );
-                            })}
-                          </Grid>
-                        </div>
-
-                        <Text size="1" color="gray" className="block mt-6">
-                          Or upload your own:
+                      {/* Preset avatars */}
+                      <div>
+                        <Text size="1" color="gray" className="block mb-2">
+                          Choose a preset avatar
                         </Text>
-                        <Flex gap="2" align="center" wrap="wrap">
-                          <label className="cursor-pointer">
-                            <input
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp"
-                                className="sr-only"
-                                disabled={profilePictureUploading}
-                                onChange={async (e) => {
-                                  const file = e.target.files?.[0];
-                                  if (!file) return;
-                                  const maxMb = 5;
-                                  if (file.size > maxMb * 1024 * 1024) {
-                                    setProfilePictureError(
-                                        `File must be under ${maxMb} MB`,
-                                    );
-                                    return;
-                                  }
-                                  setProfilePictureError(null);
-                                  setProfilePictureUploading(true);
-                                  try {
-                                    const res =
-                                        await uploadApi.uploadProfilePicture(
-                                            file,
-                                        );
-                                    handleInputChange(
-                                        "profile_picture",
-                                        res.data.url,
-                                    );
-                                  } catch (err: any) {
-                                    setProfilePictureError(
-                                        err.response?.data?.detail ||
-                                        "Upload failed",
-                                    );
-                                  } finally {
-                                    setProfilePictureUploading(false);
-                                    e.target.value = "";
-                                  }
-                                }}
-                            />
-                            <Button
+                        <Grid columns="6" gap="2" className="max-w-md">
+                          {PROFILE_PICTURE_PRESETS.map((preset) => {
+                            const isSelected =
+                              editForm.profile_picture === preset.url;
+                            return (
+                              <button
+                                key={preset.id}
                                 type="button"
-                                size="2"
-                                variant="soft"
-                                asChild
-                            >
-                                <span>
-                                  {profilePictureUploading
-                                      ? "Uploading..."
-                                      : "Upload photo"}
-                                </span>
-                            </Button>
-                          </label>
-                          <Text size="2" color="gray">
-                            or paste URL:
-                          </Text>
-                        </Flex>
-                        <TextField.Root
-                            value={editForm.profile_picture}
-                            onChange={(e) => {
-                              handleInputChange(
-                                  "profile_picture",
-                                  e.target.value,
-                              );
-                              setProfilePictureError(null);
-                            }}
-                            placeholder="https://example.com/photo.jpg or /uploads/..."
-                            size="2"
-                        />
-                        {profilePictureError && (
-                            <Text size="2" color="red">
-                              {profilePictureError}
-                            </Text>
-                        )}
+                                onClick={() => {
+                                  handleInputChange(
+                                    "profile_picture",
+                                    preset.url,
+                                  );
+                                  setProfilePictureError(null);
+                                }}
+                                className={`rounded-full p-0.5 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-9 ${
+                                  isSelected
+                                    ? "ring-2 ring-cyan-9 ring-offset-2 ring-offset-gray-1 dark:ring-offset-gray-2"
+                                    : "hover:opacity-90"
+                                }`}
+                                title={preset.name}
+                              >
+                                <Avatar
+                                  src={preset.url}
+                                  fallback={preset.name[0]}
+                                  size="3"
+                                  radius="full"
+                                  className="w-full aspect-square"
+                                />
+                              </button>
+                            );
+                          })}
+                        </Grid>
                       </div>
-                  )}
 
+                      <Text size="1" color="gray" className="block mt-6">
+                        Or upload your own:
+                      </Text>
+                      <Flex gap="2" align="center" wrap="wrap">
+                        <label className="cursor-pointer">
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            className="sr-only"
+                            disabled={profilePictureUploading}
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const maxMb = 5;
+                              if (file.size > maxMb * 1024 * 1024) {
+                                setProfilePictureError(
+                                  `File must be under ${maxMb} MB`,
+                                );
+                                return;
+                              }
+                              setProfilePictureError(null);
+                              setProfilePictureUploading(true);
+                              try {
+                                const res =
+                                  await uploadApi.uploadProfilePicture(file);
+                                handleInputChange(
+                                  "profile_picture",
+                                  res.data.url,
+                                );
+                              } catch (err: any) {
+                                setProfilePictureError(
+                                  err.response?.data?.detail || "Upload failed",
+                                );
+                              } finally {
+                                setProfilePictureUploading(false);
+                                e.target.value = "";
+                              }
+                            }}
+                          />
+                          <Button type="button" size="2" variant="soft" asChild>
+                            <span>
+                              {profilePictureUploading
+                                ? "Uploading..."
+                                : "Upload photo"}
+                            </span>
+                          </Button>
+                        </label>
+                        <Text size="2" color="gray">
+                          or paste URL:
+                        </Text>
+                      </Flex>
+                      <TextField.Root
+                        value={editForm.profile_picture}
+                        onChange={(e) => {
+                          handleInputChange("profile_picture", e.target.value);
+                          setProfilePictureError(null);
+                        }}
+                        placeholder="https://example.com/photo.jpg or /uploads/..."
+                        size="2"
+                      />
+                      {profilePictureError && (
+                        <Text size="2" color="red">
+                          {profilePictureError}
+                        </Text>
+                      )}
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-3">
                     {/* Email */}
@@ -643,16 +647,16 @@ export function Profile() {
                         Email
                       </Text>
                       {isEditing ? (
-                          <TextField.Root
-                              value={editForm.email}
-                              onChange={(e) =>
-                                  handleInputChange("email", e.target.value)
-                              }
-                              placeholder="Email"
-                              size="2"
-                          />
+                        <TextField.Root
+                          value={editForm.email}
+                          onChange={(e) =>
+                            handleInputChange("email", e.target.value)
+                          }
+                          placeholder="Email"
+                          size="2"
+                        />
                       ) : (
-                          <Text size="2">{user.email}</Text>
+                        <Text size="2">{user.email}</Text>
                       )}
                     </div>
 
@@ -662,17 +666,17 @@ export function Profile() {
                         Bio
                       </Text>
                       {isEditing ? (
-                          <TextArea
-                              value={editForm.bio}
-                              onChange={(e) =>
-                                  handleInputChange("bio", e.target.value)
-                              }
-                              placeholder="Tell us about yourself..."
-                              size="2"
-                              rows={3}
-                          />
+                        <TextArea
+                          value={editForm.bio}
+                          onChange={(e) =>
+                            handleInputChange("bio", e.target.value)
+                          }
+                          placeholder="Tell us about yourself..."
+                          size="2"
+                          rows={3}
+                        />
                       ) : (
-                          <Text size="2">{user.bio || "No bio provided"}</Text>
+                        <Text size="2">{user.bio || "No bio provided"}</Text>
                       )}
                     </div>
 
@@ -682,31 +686,31 @@ export function Profile() {
                         Location
                       </Text>
                       {isEditing ? (
-                          <MapLocationPicker
-                              value={editForm.location}
-                              onChange={(loc) =>
-                                  setEditForm((prev) => ({
-                                    ...prev,
-                                    location: {
-                                      latitude: loc.latitude,
-                                      longitude: loc.longitude,
-                                      address: loc.address || "",
-                                    },
-                                  }))
-                              }
-                              height={180}
-                              markerColor="#2563eb"
-                          />
+                        <MapLocationPicker
+                          value={editForm.location}
+                          onChange={(loc) =>
+                            setEditForm((prev) => ({
+                              ...prev,
+                              location: {
+                                latitude: loc.latitude,
+                                longitude: loc.longitude,
+                                address: loc.address || "",
+                              },
+                            }))
+                          }
+                          height={180}
+                          markerColor="#2563eb"
+                        />
                       ) : (
-                          <Flex align="center" gap="2">
-                            <Crosshair1Icon className="w-4 h-4" />
-                            <Text size="2">
-                              {typeof user.location === "string"
-                                  ? user.location || "No location provided"
-                                  : (user.location as any)?.address ||
-                                  "No location provided"}
-                            </Text>
-                          </Flex>
+                        <Flex align="center" gap="2">
+                          <Crosshair1Icon className="w-4 h-4" />
+                          <Text size="2">
+                            {typeof user.location === "string"
+                              ? user.location || "No location provided"
+                              : (user.location as any)?.address ||
+                                "No location provided"}
+                          </Text>
+                        </Flex>
                       )}
                     </div>
 
@@ -716,21 +720,21 @@ export function Profile() {
                         Average Rating
                       </Text>
                       {ratingCount > 0 && averageRating != null ? (
-                          <Flex align="center" gap="2">
-                            <RatingStars
-                                value={Math.round(averageRating * 10) / 10}
-                                readonly
-                                size={18}
-                            />
-                            <Text size="2" color="gray">
-                              {averageRating.toFixed(1)} ({ratingCount} rating
-                              {ratingCount !== 1 ? "s" : ""})
-                            </Text>
-                          </Flex>
-                      ) : (
+                        <Flex align="center" gap="2">
+                          <RatingStars
+                            value={Math.round(averageRating * 10) / 10}
+                            readonly
+                            size={18}
+                          />
                           <Text size="2" color="gray">
-                            No ratings yet
+                            {averageRating.toFixed(1)} ({ratingCount} rating
+                            {ratingCount !== 1 ? "s" : ""})
                           </Text>
+                        </Flex>
+                      ) : (
+                        <Text size="2" color="gray">
+                          No ratings yet
+                        </Text>
                       )}
                     </div>
                     {/* Social Links */}
@@ -739,152 +743,150 @@ export function Profile() {
                         Social Links
                       </Text>
                       {isEditing ? (
-                          <div className="space-y-2">
-                            {(
-                                [
-                                  [
-                                    "linkedin",
-                                    "LinkedIn",
-                                    "https://linkedin.com/in/...",
-                                  ],
-                                  ["github", "GitHub", "https://github.com/..."],
-                                  [
-                                    "twitter",
-                                    "Twitter / X",
-                                    "https://twitter.com/...",
-                                  ],
-                                  [
-                                    "instagram",
-                                    "Instagram",
-                                    "https://instagram.com/...",
-                                  ],
-                                  ["website", "Website", "https://yoursite.com"],
-                                  [
-                                    "portfolio",
-                                    "Portfolio",
-                                    "https://portfolio.com",
-                                  ],
-                                ] as const
-                            ).map(([key, label, placeholder]) => (
-                                <div key={key}>
-                                  <Text
-                                      size="1"
-                                      color="gray"
-                                      className="block mb-0.5"
-                                  >
-                                    {label}
-                                  </Text>
-                                  <TextField.Root
-                                      value={
-                                          (editForm.social_links as any)[key] || ""
-                                      }
-                                      onChange={(e) =>
-                                          handleSocialLinkChange(
-                                              key as keyof SocialLinks,
-                                              e.target.value,
-                                          )
-                                      }
-                                      placeholder={placeholder}
-                                      size="1"
-                                  />
-                                </div>
-                            ))}
-                          </div>
+                        <div className="space-y-2">
+                          {(
+                            [
+                              [
+                                "linkedin",
+                                "LinkedIn",
+                                "https://linkedin.com/in/...",
+                              ],
+                              ["github", "GitHub", "https://github.com/..."],
+                              [
+                                "twitter",
+                                "Twitter / X",
+                                "https://twitter.com/...",
+                              ],
+                              [
+                                "instagram",
+                                "Instagram",
+                                "https://instagram.com/...",
+                              ],
+                              ["website", "Website", "https://yoursite.com"],
+                              [
+                                "portfolio",
+                                "Portfolio",
+                                "https://portfolio.com",
+                              ],
+                            ] as const
+                          ).map(([key, label, placeholder]) => (
+                            <div key={key}>
+                              <Text
+                                size="1"
+                                color="gray"
+                                className="block mb-0.5"
+                              >
+                                {label}
+                              </Text>
+                              <TextField.Root
+                                value={
+                                  (editForm.social_links as any)[key] || ""
+                                }
+                                onChange={(e) =>
+                                  handleSocialLinkChange(
+                                    key as keyof SocialLinks,
+                                    e.target.value,
+                                  )
+                                }
+                                placeholder={placeholder}
+                                size="1"
+                              />
+                            </div>
+                          ))}
+                        </div>
                       ) : (
-                          <Flex gap="3" wrap="wrap">
-                            {user.social_links?.linkedin && (
-                                <a
-                                    href={user.social_links.linkedin}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    title="LinkedIn"
-                                >
-                                  <Linkedin
-                                      size={20}
-                                      className="text-gray-600 hover:text-blue-600 transition-colors"
-                                  />
-                                </a>
+                        <Flex gap="3" wrap="wrap">
+                          {user.social_links?.linkedin && (
+                            <a
+                              href={user.social_links.linkedin}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="LinkedIn"
+                            >
+                              <Linkedin
+                                size={20}
+                                className="text-gray-600 hover:text-blue-600 transition-colors"
+                              />
+                            </a>
+                          )}
+                          {user.social_links?.github && (
+                            <a
+                              href={user.social_links.github}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="GitHub"
+                            >
+                              <Github
+                                size={20}
+                                className="text-gray-600 hover:text-gray-900 transition-colors"
+                              />
+                            </a>
+                          )}
+                          {user.social_links?.twitter && (
+                            <a
+                              href={user.social_links.twitter}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Twitter / X"
+                            >
+                              <Twitter
+                                size={20}
+                                className="text-gray-600 hover:text-sky-500 transition-colors"
+                              />
+                            </a>
+                          )}
+                          {user.social_links?.instagram && (
+                            <a
+                              href={user.social_links.instagram}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Instagram"
+                            >
+                              <Instagram
+                                size={20}
+                                className="text-gray-600 hover:text-pink-500 transition-colors"
+                              />
+                            </a>
+                          )}
+                          {user.social_links?.website && (
+                            <a
+                              href={user.social_links.website}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Website"
+                            >
+                              <Globe
+                                size={20}
+                                className="text-gray-600 hover:text-green-600 transition-colors"
+                              />
+                            </a>
+                          )}
+                          {user.social_links?.portfolio && (
+                            <a
+                              href={user.social_links.portfolio}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Portfolio"
+                            >
+                              <Briefcase
+                                size={20}
+                                className="text-gray-600 hover:text-amber-600 transition-colors"
+                              />
+                            </a>
+                          )}
+                          {!user.social_links?.linkedin &&
+                            !user.social_links?.github &&
+                            !user.social_links?.twitter &&
+                            !user.social_links?.instagram &&
+                            !user.social_links?.website &&
+                            !user.social_links?.portfolio && (
+                              <Text size="2" color="gray">
+                                No social links added
+                              </Text>
                             )}
-                            {user.social_links?.github && (
-                                <a
-                                    href={user.social_links.github}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    title="GitHub"
-                                >
-                                  <Github
-                                      size={20}
-                                      className="text-gray-600 hover:text-gray-900 transition-colors"
-                                  />
-                                </a>
-                            )}
-                            {user.social_links?.twitter && (
-                                <a
-                                    href={user.social_links.twitter}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    title="Twitter / X"
-                                >
-                                  <Twitter
-                                      size={20}
-                                      className="text-gray-600 hover:text-sky-500 transition-colors"
-                                  />
-                                </a>
-                            )}
-                            {user.social_links?.instagram && (
-                                <a
-                                    href={user.social_links.instagram}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    title="Instagram"
-                                >
-                                  <Instagram
-                                      size={20}
-                                      className="text-gray-600 hover:text-pink-500 transition-colors"
-                                  />
-                                </a>
-                            )}
-                            {user.social_links?.website && (
-                                <a
-                                    href={user.social_links.website}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    title="Website"
-                                >
-                                  <Globe
-                                      size={20}
-                                      className="text-gray-600 hover:text-green-600 transition-colors"
-                                  />
-                                </a>
-                            )}
-                            {user.social_links?.portfolio && (
-                                <a
-                                    href={user.social_links.portfolio}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    title="Portfolio"
-                                >
-                                  <Briefcase
-                                      size={20}
-                                      className="text-gray-600 hover:text-amber-600 transition-colors"
-                                  />
-                                </a>
-                            )}
-                            {!user.social_links?.linkedin &&
-                                !user.social_links?.github &&
-                                !user.social_links?.twitter &&
-                                !user.social_links?.instagram &&
-                                !user.social_links?.website &&
-                                !user.social_links?.portfolio && (
-                                    <Text size="2" color="gray">
-                                      No social links added
-                                    </Text>
-                                )}
-                          </Flex>
+                        </Flex>
                       )}
                     </div>
-
-                    
 
                     {/* Interests */}
                     <div>
@@ -893,112 +895,108 @@ export function Profile() {
                           Interests
                         </Text>
                         <Button
-                            size="1"
-                            variant="soft"
-                            color="lime"
-                            className="rounded-full"
-                            onClick={() => setShowInterestSelector(true)}
+                          size="1"
+                          variant="soft"
+                          color="lime"
+                          className="rounded-full"
+                          onClick={() => setShowInterestSelector(true)}
                         >
                           {(user.interests?.length || 0) > 0
-                              ? "Update Interests"
-                              : "Add Interests"}
+                            ? "Update Interests"
+                            : "Add Interests"}
                         </Button>
                       </Flex>
                       {(user.interests?.length || 0) > 0 ? (
-                          <Flex gap="2" wrap="wrap">
-                            {user.interests!.map((interest) => (
-                                <InterestChip
-                                    key={interest}
-                                    name={interest}
-                                    size="sm"
-                                    showIcon
-                                />
-                            ))}
-                          </Flex>
+                        <Flex gap="2" wrap="wrap">
+                          {user.interests!.map((interest) => (
+                            <InterestChip
+                              key={interest}
+                              name={interest}
+                              size="sm"
+                              showIcon
+                            />
+                          ))}
+                        </Flex>
                       ) : (
-                          <button
-                              type="button"
-                              onClick={() => setShowInterestSelector(true)}
-                              className="rounded-xl border-2 border-dashed px-4 py-3 text-left text-sm transition-colors"
-                              style={{
-                                borderColor: "var(--gray-6)",
-                                backgroundColor: "var(--gray-1)",
-                                color: "var(--gray-10)",
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.borderColor =
-                                    "var(--lime-6)";
-                                e.currentTarget.style.backgroundColor =
-                                    "var(--lime-2)";
-                                e.currentTarget.style.color = "var(--lime-11)";
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.borderColor =
-                                    "var(--gray-6)";
-                                e.currentTarget.style.backgroundColor =
-                                    "var(--gray-1)";
-                                e.currentTarget.style.color = "var(--gray-10)";
-                              }}
-                          >
-                            Add interests to help others discover you
-                          </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowInterestSelector(true)}
+                          className="rounded-xl border-2 border-dashed px-4 py-3 text-left text-sm transition-colors"
+                          style={{
+                            borderColor: "var(--gray-6)",
+                            backgroundColor: "var(--gray-1)",
+                            color: "var(--gray-10)",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = "var(--lime-6)";
+                            e.currentTarget.style.backgroundColor =
+                              "var(--lime-2)";
+                            e.currentTarget.style.color = "var(--lime-11)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = "var(--gray-6)";
+                            e.currentTarget.style.backgroundColor =
+                              "var(--gray-1)";
+                            e.currentTarget.style.color = "var(--gray-10)";
+                          }}
+                        >
+                          Add interests to help others discover you
+                        </button>
                       )}
                     </div>
 
-                    
-
                     {/* Communities */}
                     {(userCommunitiesLoading || userCommunities.length > 0) && (
-                        <div>
-                          <Flex align="center" gap="2" className="mb-2">
-                            <Text size="2" weight="bold">
-                              Communities
+                      <div>
+                        <Flex align="center" gap="2" className="mb-2">
+                          <Text size="2" weight="bold">
+                            Communities
+                          </Text>
+                          {!userCommunitiesLoading && (
+                            <Text size="1" color="gray">
+                              {userCommunities.length}
                             </Text>
-                            {!userCommunitiesLoading && (
-                                <Text size="1" color="gray">
-                                  {userCommunities.length}
-                                </Text>
+                          )}
+                        </Flex>
+                        {userCommunitiesLoading ? (
+                          <Text size="1" color="gray">
+                            Loading communities...
+                          </Text>
+                        ) : (
+                          <Flex gap="2" wrap="wrap">
+                            {userCommunities.slice(0, 12).map((community) => (
+                              <button
+                                key={community._id}
+                                type="button"
+                                title={community.name}
+                                aria-label={`Open ${community.name}`}
+                                onClick={() =>
+                                  navigate(
+                                    `/forum/communities/${community._id}`,
+                                  )
+                                }
+                                className="rounded-full ring-1 ring-[var(--gray-6)] transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[var(--grass-8)]"
+                              >
+                                <Avatar
+                                  size="3"
+                                  src={getImageUrl(community.avatar_url)}
+                                  fallback={community.name[0]}
+                                  radius="full"
+                                />
+                              </button>
+                            ))}
+                            {userCommunities.length > 12 && (
+                              <span
+                                title={`${userCommunities.length - 12} more communities`}
+                                className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--gray-3)] text-sm font-medium text-[var(--gray-11)] ring-1 ring-[var(--gray-6)]"
+                              >
+                                +{userCommunities.length - 12}
+                              </span>
                             )}
                           </Flex>
-                          {userCommunitiesLoading ? (
-                              <Text size="1" color="gray">
-                                Loading communities...
-                              </Text>
-                          ) : (
-                              <Flex gap="2" wrap="wrap">
-                                {userCommunities.slice(0, 12).map((community) => (
-                                    <button
-                                        key={community._id}
-                                        type="button"
-                                        title={community.name}
-                                        aria-label={`Open ${community.name}`}
-                                        onClick={() =>
-                                            navigate(`/forum/communities/${community._id}`)
-                                        }
-                                        className="rounded-full ring-1 ring-[var(--gray-6)] transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[var(--grass-8)]"
-                                    >
-                                      <Avatar
-                                          size="3"
-                                          src={getImageUrl(community.avatar_url)}
-                                          fallback={community.name[0]}
-                                          radius="full"
-                                      />
-                                    </button>
-                                ))}
-                                {userCommunities.length > 12 && (
-                                    <span
-                                        title={`${userCommunities.length - 12} more communities`}
-                                        className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--gray-3)] text-sm font-medium text-[var(--gray-11)] ring-1 ring-[var(--gray-6)]"
-                                    >
-                                  +{userCommunities.length - 12}
-                                </span>
-                                )}
-                              </Flex>
-                          )}
-                        </div>
+                        )}
+                      </div>
                     )}
-
-                    
 
                     {/* Stats */}
                     <div className="space-y-2">
@@ -1017,8 +1015,8 @@ export function Profile() {
                       <Flex justify="between" align="center">
                         <Text size="2">Status</Text>
                         <Badge
-                            color={user.is_active ? "green" : "red"}
-                            variant="soft"
+                          color={user.is_active ? "green" : "red"}
+                          variant="soft"
                         >
                           {user.is_active ? "Active" : "Inactive"}
                         </Badge>
@@ -1059,7 +1057,10 @@ export function Profile() {
 
           <Tabs.Content value="timebank">
             {visitedTabs.has("timebank") && (
-              <MyServices activeTab="timebank" onDataLoad={setMyservicesCounts} />
+              <MyServices
+                activeTab="timebank"
+                onDataLoad={setMyservicesCounts}
+              />
             )}
           </Tabs.Content>
 
