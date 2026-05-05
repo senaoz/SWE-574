@@ -9,7 +9,7 @@ import {
   ArrowLeftIcon, PlusIcon, Pencil1Icon,
   TrashIcon, ChevronUpIcon,
 } from "@radix-ui/react-icons";
-import { MessageCircleIcon, UsersIcon, PinIcon } from "lucide-react";
+import { CalendarClockIcon, GlobeIcon, MessageCircleIcon, UsersIcon, PinIcon } from "lucide-react";
 import { communityApi, getImageUrl, uploadApi } from "@/services/api";
 import { useUser } from "@/App";
 import { Community, CommunityMember, CommunityPost, TagEntity, ForumEvent, ForumDiscussion } from "@/types";
@@ -37,7 +37,7 @@ function timeAgo(dateStr: string) {
 export function CommunityDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentUserId } = useUser();
+  const { currentUserId, user: currentUser } = useUser();
 
   const [community, setCommunity] = useState<Community | null>(null);
   const [posts, setPosts] = useState<CommunityPost[]>([]);
@@ -56,8 +56,13 @@ export function CommunityDetail() {
   const [communityEvents, setCommunityEvents] = useState<ForumEvent[]>([]);
   const [communityDiscussions, setCommunityDiscussions] = useState<ForumDiscussion[]>([]);
 
+  const canPinPlatform =
+    currentUser?.role === "admin" || currentUser?.role === "moderator";
   const isMember = !!community?.user_membership;
-  const isMod = community?.user_membership === "founder" || community?.user_membership === "moderator";
+  const isMod =
+    community?.user_membership === "founder" ||
+    community?.user_membership === "moderator" ||
+    canPinPlatform;
   const isFounder = community?.user_membership === "founder";
 
   useEffect(() => {
@@ -128,6 +133,17 @@ export function CommunityDetail() {
     navigate("/forum?tab=communities");
   };
 
+  const handlePinCommunity = async () => {
+    if (!community) return;
+    const res = await communityApi.pinCommunity(community._id, !community.is_pinned);
+    setCommunity(res.data);
+  };
+
+  const handlePinPost = async (post: CommunityPost) => {
+    await communityApi.pinPost(id!, post._id, !post.is_pinned);
+    await loadPosts();
+  };
+
   const loadMembers = async () => {
     if (!id) return;
     setMembersLoading(true);
@@ -188,7 +204,14 @@ export function CommunityDetail() {
           <div className="flex-1">
             <Flex justify="between" align="start" wrap="wrap" gap="2">
               <div>
-                <Heading size="6">{community.name}</Heading>
+                <Flex gap="2" align="center" wrap="wrap">
+                  {community.is_pinned && (
+                    <Badge size="1" variant="soft" color="violet">
+                      <PinIcon className="w-3 h-3 mr-1" /> Pinned by moderator
+                    </Badge>
+                  )}
+                  <Heading size="6">{community.name}</Heading>
+                </Flex>
                 <Flex gap="2" align="center" className="mt-1">
                   <Text size="2" color="gray">
                     Founded by {community.founder?.full_name || community.founder?.username || "Unknown"}
@@ -197,6 +220,17 @@ export function CommunityDetail() {
                 </Flex>
               </div>
               <Flex gap="2" align="center">
+                {canPinPlatform && (
+                  <Button
+                    size="2"
+                    variant="soft"
+                    color={community.is_pinned ? "gray" : "violet"}
+                    onClick={handlePinCommunity}
+                  >
+                    <PinIcon className="w-3 h-3" />
+                    {community.is_pinned ? "Unpin" : "Pin"}
+                  </Button>
+                )}
                 <Button size="2" variant="soft" color="gray" onClick={openMembersDialog}>
                   <UsersIcon className="w-3 h-3 mr-1" /> {community.member_count} members
                 </Button>
@@ -310,7 +344,23 @@ export function CommunityDetail() {
                       )}
                       <Text size="3" weight="bold" className="line-clamp-1">{post.title}</Text>
                     </Flex>
-                    <Text size="1" color="gray" className="whitespace-nowrap">{timeAgo(post.created_at)}</Text>
+                    <Flex gap="2" align="center" className="shrink-0">
+                      {isMod && (
+                        <Button
+                          size="1"
+                          variant="soft"
+                          color={post.is_pinned ? "gray" : "violet"}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handlePinPost(post);
+                          }}
+                        >
+                          <PinIcon className="w-3 h-3" />
+                          {post.is_pinned ? "Unpin" : "Pin"}
+                        </Button>
+                      )}
+                      <Text size="1" color="gray" className="whitespace-nowrap">{timeAgo(post.created_at)}</Text>
+                    </Flex>
                   </Flex>
                   <div className="mt-1 prose-content card-description">
                     <ReactMarkdown>{post.body}</ReactMarkdown>
@@ -363,9 +413,16 @@ export function CommunityDetail() {
                   </Inset>
                 )}
                 <Flex justify="between" align="start" wrap="wrap" gap="2">
-                  <Text size="3" weight="bold" className="line-clamp-1">
-                    {ev.title}
-                  </Text>
+                  <Flex gap="2" align="center" wrap="wrap" className="min-w-0">
+                    {ev.is_pinned && (
+                      <Badge size="1" variant="soft" color="violet">
+                        <PinIcon className="w-3 h-3 mr-1" /> Pinned by moderator
+                      </Badge>
+                    )}
+                    <Text size="3" weight="bold" className="line-clamp-1">
+                      {ev.title}
+                    </Text>
+                  </Flex>
                   <Badge size="1" variant="soft" color="purple">
                     <CalendarClockIcon className="w-3 h-3" />
                     {new Date(ev.event_at).toLocaleDateString("en-GB", {
@@ -436,7 +493,14 @@ export function CommunityDetail() {
           <Flex direction="column" gap="2">
             {communityDiscussions.map(d => (
               <Card key={d._id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/forum/discussions/${d._id}`)}>
-                <Text weight="bold" size="2">{d.title}</Text>
+                <Flex gap="2" align="center" wrap="wrap">
+                  {d.is_pinned && (
+                    <Badge size="1" variant="soft" color="violet">
+                      <PinIcon className="w-3 h-3 mr-1" /> Pinned by moderator
+                    </Badge>
+                  )}
+                  <Text weight="bold" size="2">{d.title}</Text>
+                </Flex>
                 <Flex gap="2" mt="1">
                   <Text size="1" color="gray">{d.comment_count} comments</Text>
                   <Text size="1" color="gray">{d.upvote_count} upvotes</Text>

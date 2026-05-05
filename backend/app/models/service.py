@@ -180,6 +180,9 @@ class ServiceResponse(ServiceBase):
     id: PyObjectId = Field(alias="_id")
     user_id: PyObjectId
     is_saved: bool = False
+    is_pinned: bool = False
+    pinned_by: Optional[PyObjectId] = None
+    pinned_at: Optional[datetime] = None
     status: ServiceStatus = ServiceStatus.ACTIVE
     created_at: datetime
     updated_at: datetime

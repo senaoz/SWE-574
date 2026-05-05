@@ -43,6 +43,7 @@ import {
   AlertOctagonIcon,
   CalendarRangeIcon,
   MessageCircleIcon,
+  PinIcon,
 } from "lucide-react";
 import {
   calculateDistance,
@@ -232,6 +233,8 @@ export function ServiceDetail() {
   const { currentUserId, user: currentUser } = useUser();
   const queryClient = useQueryClient();
   const { savedServiceIds } = useSavedServiceIds();
+  const canPinPlatform =
+    currentUser?.role === "admin" || currentUser?.role === "moderator";
 
   const {
     data: potentialMatchesData,
@@ -484,6 +487,15 @@ export function ServiceDetail() {
       console.error("Error deleting service:", error);
     }
   };
+  const handlePin = async () => {
+    if (!id || !service) return;
+    try {
+      const res = await servicesApi.pinService(id, !service.is_pinned);
+      setService(res.data);
+    } catch (error) {
+      console.error("Error pinning service:", error);
+    }
+  };
   const handleCancelRequest = async () => {
     if (!pendingRequest) return;
     try {
@@ -585,6 +597,12 @@ export function ServiceDetail() {
                 {service.is_remote && (
                   <Badge color="cyan" variant="soft" size="2">
                     REMOTE
+                  </Badge>
+                )}
+                {service.is_pinned && (
+                  <Badge color="violet" variant="soft" size="2">
+                    <PinIcon className="w-3 h-3 mr-1" />
+                    Pinned by moderator
                   </Badge>
                 )}
                 <Text size="2" color="gray">
@@ -720,6 +738,17 @@ export function ServiceDetail() {
             )}
           {/* Action buttons */}
           <div className="flex flex-wrap gap-3">
+            {canPinPlatform && (
+              <Button
+                variant="soft"
+                color={service.is_pinned ? "gray" : "violet"}
+                size="3"
+                onClick={handlePin}
+              >
+                <PinIcon className="w-4 h-4" />
+                {service.is_pinned ? "Unpin" : "Pin"}
+              </Button>
+            )}
             {/* Edit button for owner or admin */}
             {(service.status === "active" &&
               service.user_id === currentUserId) ||

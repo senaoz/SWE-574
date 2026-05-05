@@ -10,6 +10,9 @@ from ..models.community import (
 )
 
 
+PINNED_LIMIT = 2
+
+
 def _utcnow():
     return datetime.now(timezone.utc)
 
@@ -78,6 +81,20 @@ class CommunityService:
             raise ValueError("Only the founder can perform this action")
         return m
 
+    async def _is_platform_moderator(self, user_id: str) -> bool:
+        user = await self.users.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            return False
+        role = user.get("role")
+        role_value = getattr(role, "value", role)
+        return role_value in ("moderator", "admin")
+
+    async def _can_pin_post(self, community_id: str, user_id: str) -> bool:
+        m = await self._membership(community_id, user_id)
+        if m and m["role"] in (MemberRole.FOUNDER, MemberRole.MODERATOR):
+            return True
+        return await self._is_platform_moderator(user_id)
+
     async def _upvote_fields(self, doc: dict, user_id: Optional[str]) -> dict:
         upvoted_by = doc.get("upvoted_by", [])
         doc["upvote_count"] = len(upvoted_by)
@@ -117,6 +134,9 @@ class CommunityService:
             "founder_id": ObjectId(user_id),
             "member_count": 1,
             "post_count": 0,
+            "is_pinned": False,
+            "pinned_by": None,
+            "pinned_at": None,
             "created_at": now,
             "updated_at": now,
         }
@@ -167,7 +187,7 @@ class CommunityService:
 
         total = await self.communities.count_documents(query)
         sort_field = sort_by if sort_by in ("member_count", "created_at", "post_count") else "member_count"
-        cursor = self.communities.find(query).sort(sort_field, -1).skip((page - 1) * limit).limit(limit)
+        cursor = self.communities.find(query).sort([("is_pinned", -1), (sort_field, -1)]).skip((page - 1) * limit).limit(limit)
         docs = await cursor.to_list(length=limit)
 
         results = []
@@ -230,6 +250,34 @@ class CommunityService:
         await self.posts.delete_many({"community_id": oid})
         await self.memberships.delete_many({"community_id": oid})
         await self.communities.delete_one({"_id": oid})
+
+    async def pin_community(self, community_id: str, user_id: str, pinned: bool) -> Optional[dict]:
+        oid = ObjectId(community_id)
+        existing = await self.communities.find_one({"_id": oid})
+        if not existing:
+            raise ValueError("Community not found")
+
+        if pinned and not existing.get("is_pinned"):
+            pinned_count = await self.communities.count_documents({
+                "is_pinned": True,
+                "_id": {"$ne": oid},
+            })
+            if pinned_count >= PINNED_LIMIT:
+                raise ValueError("Only two communities can be pinned at a time")
+
+        now = _utcnow()
+        await self.communities.update_one(
+            {"_id": oid},
+            {
+                "$set": {
+                    "is_pinned": pinned,
+                    "pinned_by": ObjectId(user_id) if pinned else None,
+                    "pinned_at": now if pinned else None,
+                    "updated_at": now,
+                }
+            },
+        )
+        return await self.get_community_by_id(community_id, user_id)
 
     # ──────────────────── Membership ────────────────────
 
@@ -435,6 +483,8 @@ class CommunityService:
             "community_id": ObjectId(community_id),
             "user_id": ObjectId(user_id),
             "is_pinned": False,
+            "pinned_by": None,
+            "pinned_at": None,
             "upvote_count": 0,
             "upvoted_by": [],
             "comment_count": 0,
@@ -516,13 +566,32 @@ class CommunityService:
         )
 
     async def pin_post(self, community_id: str, post_id: str, user_id: str, pinned: bool):
-        await self._require_mod(community_id, user_id)
+        if not await self._can_pin_post(community_id, user_id):
+            raise ValueError("Moderator or founder permission required")
         doc = await self.posts.find_one({"_id": ObjectId(post_id), "community_id": ObjectId(community_id)})
         if not doc:
             raise ValueError("Post not found")
+
+        if pinned and not doc.get("is_pinned"):
+            pinned_count = await self.posts.count_documents({
+                "community_id": ObjectId(community_id),
+                "is_pinned": True,
+                "_id": {"$ne": ObjectId(post_id)},
+            })
+            if pinned_count >= PINNED_LIMIT:
+                raise ValueError("Only two posts can be pinned at a time")
+
+        now = _utcnow()
         await self.posts.update_one(
             {"_id": ObjectId(post_id)},
-            {"$set": {"is_pinned": pinned, "updated_at": _utcnow()}},
+            {
+                "$set": {
+                    "is_pinned": pinned,
+                    "pinned_by": ObjectId(user_id) if pinned else None,
+                    "pinned_at": now if pinned else None,
+                    "updated_at": now,
+                }
+            },
         )
         updated = await self.posts.find_one({"_id": ObjectId(post_id)})
         return await self._enrich_post(updated, user_id)

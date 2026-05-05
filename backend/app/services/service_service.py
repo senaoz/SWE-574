@@ -18,6 +18,9 @@ from ..models.user import UserResponse
 from ..core.database import get_database
 from .content_moderation_service import is_offensive
 
+PINNED_LIMIT = 2
+
+
 def _ensure_non_offensive(value: Optional[str], field_name: str) -> None:
     if isinstance(value, str) and value.strip() and is_offensive(value):
         raise ValueError(f"{field_name} contains offensive language")
@@ -1192,6 +1195,9 @@ class ServiceService:
                 **service_dict,
                 "user_id": ObjectId(user_id),
                 "status": ServiceStatus.ACTIVE,
+                "is_pinned": False,
+                "pinned_by": None,
+                "pinned_at": None,
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow(),
                 "matched_user_ids": [],
@@ -1316,7 +1322,7 @@ class ServiceService:
                 
                 # Add pagination
                 pipeline.extend([
-                    {"$sort": {"created_at": -1}},
+                    {"$sort": {"is_pinned": -1, "created_at": -1}},
                     {"$skip": (page - 1) * limit},
                     {"$limit": limit}
                 ])
@@ -1352,7 +1358,7 @@ class ServiceService:
                 
                 # Get services with pagination
                 skip = (page - 1) * limit
-                cursor = self.services_collection.find(query).skip(skip).limit(limit).sort("created_at", -1)
+                cursor = self.services_collection.find(query).sort([("is_pinned", -1), ("created_at", -1)]).skip(skip).limit(limit)
                 
                 services = []
                 async for service_doc in cursor:
@@ -1365,6 +1371,40 @@ class ServiceService:
                 return services, total
         except Exception as e:
             raise ValueError(f"Error fetching services: {str(e)}")
+
+    async def pin_service(self, service_id: str, user_id: str, pinned: bool) -> Optional[ServiceResponse]:
+        """Pin or unpin a service post. Platform moderator/admin permission is enforced at API layer."""
+        try:
+            oid = ObjectId(service_id)
+            existing = await self.services_collection.find_one({"_id": oid})
+            if not existing:
+                raise ValueError("Service not found")
+
+            if pinned and not existing.get("is_pinned"):
+                pinned_count = await self.services_collection.count_documents({
+                    "is_pinned": True,
+                    "_id": {"$ne": oid},
+                })
+                if pinned_count >= PINNED_LIMIT:
+                    raise ValueError("Only two service posts can be pinned at a time")
+
+            now = datetime.utcnow()
+            await self.services_collection.update_one(
+                {"_id": oid},
+                {
+                    "$set": {
+                        "is_pinned": pinned,
+                        "pinned_by": ObjectId(user_id) if pinned else None,
+                        "pinned_at": now if pinned else None,
+                        "updated_at": now,
+                    }
+                },
+            )
+            return await self.get_service_by_id(service_id, user_id)
+        except ValueError:
+            raise
+        except Exception as e:
+            raise ValueError(f"Error pinning service: {str(e)}")
 
     async def update_service(self, service_id: str, service_update: ServiceUpdate, user_id: Optional[str] = None) -> Optional[ServiceResponse]:
         """Update service"""

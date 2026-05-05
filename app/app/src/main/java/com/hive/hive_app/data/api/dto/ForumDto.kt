@@ -32,7 +32,10 @@ data class ForumDiscussionResponse(
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "updated_at") val updatedAt: String,
     val user: ForumUserEmbed? = null,
-    @Json(name = "comment_count") val commentCount: Int = 0
+    @Json(name = "comment_count") val commentCount: Int = 0,
+    @Json(name = "is_pinned") val isPinned: Boolean = false,
+    @Json(name = "pinned_by") val pinnedBy: String? = null,
+    @Json(name = "pinned_at") val pinnedAt: String? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -127,7 +130,10 @@ data class ForumEventResponse(
     val service: Any? = null,
     @Json(name = "comment_count") val commentCount: Int = 0,
     @Json(name = "attendee_ids") val attendeeIds: List<String>? = null,
-    @Json(name = "attendee_count") val attendeeCount: Int = 0
+    @Json(name = "attendee_count") val attendeeCount: Int = 0,
+    @Json(name = "is_pinned") val isPinned: Boolean = false,
+    @Json(name = "pinned_by") val pinnedBy: String? = null,
+    @Json(name = "pinned_at") val pinnedAt: String? = null
 )
 
 @JsonClass(generateAdapter = true)

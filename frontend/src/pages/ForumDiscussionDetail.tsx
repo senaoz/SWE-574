@@ -6,6 +6,7 @@ import {
   Flex,
   Avatar,
   Button,
+  Badge,
   Heading,
   Dialog,
   TextField,
@@ -13,6 +14,7 @@ import {
 } from "@radix-ui/themes";
 import { Form } from "radix-ui";
 import { ArrowLeftIcon, Pencil1Icon, TrashIcon } from "@radix-ui/react-icons";
+import { PinIcon } from "lucide-react";
 import { forumApi, getImageUrl, communityApi } from "@/services/api";
 import { useUser } from "@/App";
 import { ForumDiscussion, TagEntity, Community } from "@/types";
@@ -41,13 +43,15 @@ function timeAgo(dateStr: string) {
 export function ForumDiscussionDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentUserId } = useUser();
+  const { currentUserId, user: currentUser } = useUser();
   const [discussion, setDiscussion] = useState<ForumDiscussion | null>(null);
   const [loading, setLoading] = useState(true);
   const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
 
   const isOwner = !!currentUserId && discussion?.user_id === currentUserId;
+  const canPinPlatform =
+    currentUser?.role === "admin" || currentUser?.role === "moderator";
 
   useEffect(() => {
     if (!id) return;
@@ -68,6 +72,12 @@ export function ForumDiscussionDetail() {
     if (!id) return;
     await forumApi.deleteDiscussion(id);
     navigate("/forum?tab=discussions");
+  };
+
+  const handlePin = async () => {
+    if (!id || !discussion) return;
+    const res = await forumApi.pinDiscussion(id, !discussion.is_pinned);
+    setDiscussion(res.data);
   };
 
   if (loading) {
@@ -110,8 +120,26 @@ export function ForumDiscussionDetail() {
           />
           <div className="flex-1">
             <div className="flex justify-between">
-              <Heading size="5">{discussion.title}</Heading>
+              <div>
+                {discussion.is_pinned && (
+                  <Badge size="1" variant="soft" color="violet" className="mb-2">
+                    <PinIcon className="w-3 h-3 mr-1" /> Pinned by moderator
+                  </Badge>
+                )}
+                <Heading size="5">{discussion.title}</Heading>
+              </div>
               <Flex gap="2" align="center">
+                {canPinPlatform && (
+                  <Button
+                    variant="soft"
+                    color={discussion.is_pinned ? "gray" : "violet"}
+                    size="1"
+                    onClick={handlePin}
+                  >
+                    <PinIcon className="w-3 h-3" />
+                    {discussion.is_pinned ? "Unpin" : "Pin"}
+                  </Button>
+                )}
                 {isOwner && (
                   <>
                     <Button

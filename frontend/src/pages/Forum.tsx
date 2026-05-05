@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect, type MouseEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Button,
@@ -26,7 +26,7 @@ import {
   ChevronUpIcon,
 } from "@radix-ui/react-icons";
 import { UpvoteButton } from "@/components/ui/UpvoteButton";
-import { MessageCircleIcon, CalendarClockIcon } from "lucide-react";
+import { MessageCircleIcon, CalendarClockIcon, PinIcon } from "lucide-react";
 import { forumApi, getImageUrl, uploadApi, communityApi } from "@/services/api";
 import { ForumDiscussion, ForumEvent, TagEntity, Community } from "@/types";
 import { useUser } from "@/App";
@@ -78,7 +78,62 @@ export function Forum() {
     "member_count" | "created_at" | "post_count"
   >("member_count");
   const [communityMyOnly, setCommunityMyOnly] = useState(false);
-  const { currentUserId } = useUser();
+  const { currentUserId, user: currentUser } = useUser();
+  const canPinPlatform =
+    currentUser?.role === "admin" || currentUser?.role === "moderator";
+
+  const loadDiscussions = useCallback(async () => {
+    setDiscussionsLoading(true);
+    try {
+      const res = await forumApi.getDiscussions({
+        q: searchQ || undefined,
+        tag: tagFilter || undefined,
+        sort_by: discussionSort,
+      });
+      setDiscussions(res.data.discussions);
+      setDiscussionsTotal(res.data.total);
+    } catch {
+      setDiscussions([]);
+    } finally {
+      setDiscussionsLoading(false);
+    }
+  }, [searchQ, tagFilter, discussionSort]);
+
+  const loadEvents = useCallback(async () => {
+    setEventsLoading(true);
+    try {
+      const res = await forumApi.getEvents({
+        q: searchQ || undefined,
+        tag: tagFilter || undefined,
+        sort_by: eventSort,
+      });
+      setEvents(res.data.events);
+      setEventsTotal(res.data.total);
+    } catch {
+      setEvents([]);
+    } finally {
+      setEventsLoading(false);
+    }
+  }, [searchQ, tagFilter, eventSort]);
+
+  const loadCommunities = useCallback(async () => {
+    setCommunitiesLoading(true);
+    try {
+      const res = await communityApi.getCommunities({
+        q: searchQ || undefined,
+        tag: tagFilter || undefined,
+        sort_by: communitySort,
+        my_only: communityMyOnly || undefined,
+      });
+      setCommunities(res.data.communities);
+      setCommunitiesTotal(res.data.total);
+    } catch {
+      setCommunities([]);
+    } finally {
+      setCommunitiesLoading(false);
+    }
+  }, [searchQ, tagFilter, communitySort, communityMyOnly]);
+
   useEffect(() => {
     setSearchParams((p) => {
       p.set("tab", tab);
@@ -86,90 +141,40 @@ export function Forum() {
     });
   }, [tab]);
   useEffect(() => {
-    (async () => {
-      setDiscussionsLoading(true);
-      try {
-        const res = await forumApi.getDiscussions({
-          q: searchQ || undefined,
-          tag: tagFilter || undefined,
-          sort_by: discussionSort,
-        });
-        setDiscussions(res.data.discussions);
-        setDiscussionsTotal(res.data.total);
-      } catch {
-        setDiscussions([]);
-      } finally {
-        setDiscussionsLoading(false);
-      }
-    })();
-  }, [searchQ, tagFilter, discussionSort]);
+    void loadDiscussions();
+  }, [loadDiscussions]);
   useEffect(() => {
-    (async () => {
-      setEventsLoading(true);
-      try {
-        const res = await forumApi.getEvents({
-          q: searchQ || undefined,
-          tag: tagFilter || undefined,
-          sort_by: eventSort,
-        });
-        setEvents(res.data.events);
-        setEventsTotal(res.data.total);
-      } catch {
-        setEvents([]);
-      } finally {
-        setEventsLoading(false);
-      }
-    })();
-  }, [searchQ, tagFilter, eventSort]);
+    void loadEvents();
+  }, [loadEvents]);
   useEffect(() => {
-    (async () => {
-      setCommunitiesLoading(true);
-      try {
-        const res = await communityApi.getCommunities({
-          q: searchQ || undefined,
-          tag: tagFilter || undefined,
-          sort_by: communitySort,
-          my_only: communityMyOnly || undefined,
-        });
-        setCommunities(res.data.communities);
-        setCommunitiesTotal(res.data.total);
-      } catch {
-        setCommunities([]);
-      } finally {
-        setCommunitiesLoading(false);
-      }
-    })();
-  }, [searchQ, tagFilter, communitySort, communityMyOnly]);
+    void loadCommunities();
+  }, [loadCommunities]);
 
   const refresh = () => {
-    setSearchQ((q) => q);
-    setTagFilter((t) => t);
-    forumApi
-      .getDiscussions({ q: searchQ || undefined, tag: tagFilter || undefined })
-      .then((r) => {
-        setDiscussions(r.data.discussions);
-        setDiscussionsTotal(r.data.total);
-      });
-    forumApi
-      .getEvents({
-        q: searchQ || undefined,
-        tag: tagFilter || undefined,
-        sort_by: eventSort,
-      })
-      .then((r) => {
-        setEvents(r.data.events);
-        setEventsTotal(r.data.total);
-      });
-    communityApi
-      .getCommunities({
-        q: searchQ || undefined,
-        tag: tagFilter || undefined,
-        sort_by: communitySort,
-      })
-      .then((r) => {
-        setCommunities(r.data.communities);
-        setCommunitiesTotal(r.data.total);
-      });
+    void loadDiscussions();
+    void loadEvents();
+    void loadCommunities();
+  };
+
+  const handlePinDiscussion = async (
+    e: MouseEvent,
+    discussion: ForumDiscussion,
+  ) => {
+    e.stopPropagation();
+    await forumApi.pinDiscussion(discussion._id, !discussion.is_pinned);
+    await loadDiscussions();
+  };
+
+  const handlePinEvent = async (e: MouseEvent, event: ForumEvent) => {
+    e.stopPropagation();
+    await forumApi.pinEvent(event._id, !event.is_pinned);
+    await loadEvents();
+  };
+
+  const handlePinCommunity = async (e: MouseEvent, community: Community) => {
+    e.stopPropagation();
+    await communityApi.pinCommunity(community._id, !community.is_pinned);
+    await loadCommunities();
   };
   return (
     <div>
@@ -274,17 +279,33 @@ export function Forum() {
                       }
                     />
                     <div className="flex-1 min-w-0">
-                      <Flex justify="between" align="start">
-                        <Text size="3" weight="bold" className="line-clamp-1">
-                          {d.title}
-                        </Text>
-                        <Text
-                          size="1"
-                          color="gray"
-                          className="whitespace-nowrap ml-2"
-                        >
-                          {timeAgo(d.created_at)}
-                        </Text>
+                      <Flex justify="between" align="start" gap="2">
+                        <Flex gap="2" align="center" className="min-w-0" wrap="wrap">
+                          {d.is_pinned && (
+                            <Badge size="1" variant="soft" color="violet">
+                              <PinIcon className="w-3 h-3 mr-1" /> Pinned by moderator
+                            </Badge>
+                          )}
+                          <Text size="3" weight="bold" className="line-clamp-1">
+                            {d.title}
+                          </Text>
+                        </Flex>
+                        <Flex gap="2" align="center" className="shrink-0">
+                          {canPinPlatform && (
+                            <Button
+                              size="1"
+                              variant="soft"
+                              color={d.is_pinned ? "gray" : "violet"}
+                              onClick={(e) => void handlePinDiscussion(e, d)}
+                            >
+                              <PinIcon className="w-3 h-3" />
+                              {d.is_pinned ? "Unpin" : "Pin"}
+                            </Button>
+                          )}
+                          <Text size="1" color="gray" className="whitespace-nowrap">
+                            {timeAgo(d.created_at)}
+                          </Text>
+                        </Flex>
                       </Flex>
                       <div className="mt-1 prose-content card-description">
                         <ReactMarkdown
@@ -422,11 +443,29 @@ export function Forum() {
                       />
                     </Inset>
                   )}
-                  <Flex justify="between" align="start" wrap="wrap">
-                    <Text size="3" weight="bold" className="line-clamp-1">
-                      {ev.title}
-                    </Text>
+                  <Flex justify="between" align="start" wrap="wrap" gap="2">
+                    <Flex gap="2" align="center" className="min-w-0" wrap="wrap">
+                      {ev.is_pinned && (
+                        <Badge size="1" variant="soft" color="violet">
+                          <PinIcon className="w-3 h-3 mr-1" /> Pinned by moderator
+                        </Badge>
+                      )}
+                      <Text size="3" weight="bold" className="line-clamp-1">
+                        {ev.title}
+                      </Text>
+                    </Flex>
                     <Flex gap="2" align="center">
+                      {canPinPlatform && (
+                        <Button
+                          size="1"
+                          variant="soft"
+                          color={ev.is_pinned ? "gray" : "violet"}
+                          onClick={(e) => void handlePinEvent(e, ev)}
+                        >
+                          <PinIcon className="w-3 h-3" />
+                          {ev.is_pinned ? "Unpin" : "Pin"}
+                        </Button>
+                      )}
                       <Badge size="1" variant="soft" color="purple">
                         <CalendarClockIcon className="w-3 h-3" />
                         {new Date(ev.event_at).toLocaleDateString("en-GB", {
@@ -602,9 +641,16 @@ export function Forum() {
                   <div>
                     <Flex justify="between" align="start" wrap="wrap" gap="2">
                       <div>
-                        <Text size="3" weight="bold">
-                          {c.name}
-                        </Text>
+                        <Flex gap="2" align="center" wrap="wrap">
+                          {c.is_pinned && (
+                            <Badge size="1" variant="soft" color="violet">
+                              <PinIcon className="w-3 h-3 mr-1" /> Pinned by moderator
+                            </Badge>
+                          )}
+                          <Text size="3" weight="bold">
+                            {c.name}
+                          </Text>
+                        </Flex>
                         {c.user_membership && (
                           <Badge
                             size="1"
@@ -621,6 +667,17 @@ export function Forum() {
                         )}
                       </div>
                       <Flex gap="2" align="center">
+                        {canPinPlatform && (
+                          <Button
+                            size="1"
+                            variant="soft"
+                            color={c.is_pinned ? "gray" : "violet"}
+                            onClick={(e) => void handlePinCommunity(e, c)}
+                          >
+                            <PinIcon className="w-3 h-3" />
+                            {c.is_pinned ? "Unpin" : "Pin"}
+                          </Button>
+                        )}
                         <Badge size="1" variant="soft" color="gray">
                           <UsersIcon className="w-3 h-3 mr-1" />
                           {c.member_count} members

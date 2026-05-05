@@ -9,7 +9,7 @@ import {
   HeartFilledIcon,
   StarFilledIcon,
 } from "@radix-ui/react-icons";
-import { CalendarIcon, UsersIcon } from "lucide-react";
+import { CalendarIcon, PinIcon, UsersIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { usersApi, ratingsApi, getImageUrl } from "@/services/api";
 import { StatusBadge } from "./StatusBadge";
@@ -186,6 +186,12 @@ export function OfferListingCard({
             >
               {service?.service_type === "offer" ? "OFFER" : "NEED"}
             </Badge>
+            {service.is_pinned && (
+              <Badge color="violet" variant="soft" size="1">
+                <PinIcon className="w-3 h-3 mr-0.5" />
+                Pinned
+              </Badge>
+            )}
             {isFull && (
               <Badge color="red" variant="soft" size="1">
                 <UsersIcon className="w-3 h-3 mr-0.5" />

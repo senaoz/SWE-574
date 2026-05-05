@@ -86,6 +86,9 @@ class CommunityResponse(BaseModel):
     avatar_url: Optional[str] = None
     member_count: int = 0
     post_count: int = 0
+    is_pinned: bool = False
+    pinned_by: Optional[PyObjectId] = None
+    pinned_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
     # Enriched fields
@@ -198,6 +201,8 @@ class CommunityPostResponse(BaseModel):
     tags: List[dict] = Field(default_factory=list)
     post_type: str = "post"
     is_pinned: bool = False
+    pinned_by: Optional[PyObjectId] = None
+    pinned_at: Optional[datetime] = None
     upvote_count: int = 0
     user_upvoted: bool = False
     comment_count: int = 0

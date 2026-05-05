@@ -13,6 +13,7 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -32,6 +33,12 @@ interface CommunityApi {
 
     @GET("communities/{community_id}")
     suspend fun getCommunity(@Path("community_id") communityId: String): Response<CommunityResponse>
+
+    @PUT("communities/{community_id}/pin")
+    suspend fun pinCommunity(
+        @Path("community_id") communityId: String,
+        @Query("pinned") pinned: Boolean
+    ): Response<CommunityResponse>
 
     @POST("communities/{community_id}/join")
     suspend fun joinCommunity(@Path("community_id") communityId: String): Response<CommunityResponse>
@@ -58,6 +65,13 @@ interface CommunityApi {
         @Path("community_id") communityId: String,
         @Path("post_id") postId: String
     ): Response<UpvoteResponse>
+
+    @PUT("communities/{community_id}/posts/{post_id}/pin")
+    suspend fun pinPost(
+        @Path("community_id") communityId: String,
+        @Path("post_id") postId: String,
+        @Query("pinned") pinned: Boolean
+    ): Response<CommunityPostResponse>
 
     @GET("communities/{community_id}/members")
     suspend fun getCommunityMembers(
