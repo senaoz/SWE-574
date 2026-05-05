@@ -7,7 +7,7 @@ import {
 import { Form } from "radix-ui";
 import {
   ArrowLeftIcon, PlusIcon, Pencil1Icon,
-  TrashIcon, ChevronUpIcon,
+  TrashIcon, ChevronUpIcon, GlobeIcon,
 } from "@radix-ui/react-icons";
 import { CalendarClockIcon, GlobeIcon, MessageCircleIcon, UsersIcon, PinIcon } from "lucide-react";
 import { communityApi, getImageUrl, uploadApi } from "@/services/api";
@@ -64,6 +64,7 @@ export function CommunityDetail() {
     community?.user_membership === "moderator" ||
     canPinPlatform;
   const isFounder = community?.user_membership === "founder";
+  const isAdmin = user?.role === "admin";
 
   useEffect(() => {
     if (!id) return;
@@ -248,8 +249,8 @@ export function CommunityDetail() {
                     {membershipLoading ? "Leaving..." : "Leave"}
                   </Button>
                 )}
-                {/* Founder controls */}
-                {isFounder && (
+                {/* Founder or admin controls */}
+                {(isFounder || isAdmin) && (
                   <>
                     <Button size="2" variant="soft" color="gray" onClick={() => setShowEditCommunity(true)}>
                       <Pencil1Icon /> Edit

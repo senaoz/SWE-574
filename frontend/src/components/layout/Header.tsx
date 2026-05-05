@@ -127,11 +127,20 @@ export function Header() {
                   </IconButton>
                 </Tooltip>
                 <NotificationBell />
-                {(user.role === "admin" || user.role === "moderator") && (
+                {user.role === "admin" || user.role === "moderator" ? (
                   <Tooltip content="Admin Panel">
                     <IconButton
                       onClick={() => navigate("/admin")}
                       variant="outline"
+                    >
+                      <GearIcon className="w-4 h-4" />
+                    </IconButton>
+                  </Tooltip>
+                ) : (
+                  <Tooltip content="Settings">
+                    <IconButton
+                      onClick={() => navigate("/settings")}
+                      variant="ghost"
                     >
                       <GearIcon className="w-4 h-4" />
                     </IconButton>

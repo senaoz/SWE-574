@@ -226,8 +226,9 @@ class CommunityService:
             doc["user_membership"] = None
         return doc
 
-    async def update_community(self, community_id: str, data: CommunityUpdate, user_id: str) -> Optional[dict]:
-        await self._require_founder(community_id, user_id)
+    async def update_community(self, community_id: str, data: CommunityUpdate, user_id: str, is_admin: bool = False) -> Optional[dict]:
+        if not is_admin:
+            await self._require_founder(community_id, user_id)
         update_fields = {k: v for k, v in data.model_dump().items() if v is not None}
         if not update_fields:
             return await self.get_community_by_id(community_id, user_id)
@@ -241,8 +242,9 @@ class CommunityService:
         )
         return await self.get_community_by_id(community_id, user_id)
 
-    async def delete_community(self, community_id: str, user_id: str):
-        await self._require_founder(community_id, user_id)
+    async def delete_community(self, community_id: str, user_id: str, is_admin: bool = False):
+        if not is_admin:
+            await self._require_founder(community_id, user_id)
         oid = ObjectId(community_id)
         post_ids = await self.posts.distinct("_id", {"community_id": oid})
         if post_ids:
@@ -534,12 +536,11 @@ class CommunityService:
             return None
         return await self._enrich_post(doc, user_id)
 
-    async def update_post(self, community_id: str, post_id: str, data: CommunityPostUpdate, user_id: str) -> Optional[dict]:
+    async def update_post(self, community_id: str, post_id: str, data: CommunityPostUpdate, user_id: str, is_admin: bool = False) -> Optional[dict]:
         doc = await self.posts.find_one({"_id": ObjectId(post_id), "community_id": ObjectId(community_id)})
         if not doc:
             raise ValueError("Post not found")
-        # Only post owner can edit
-        if str(doc["user_id"]) != user_id:
+        if str(doc["user_id"]) != user_id and not is_admin:
             raise ValueError("You can only edit your own posts")
         update_fields = {k: v for k, v in data.model_dump().items() if v is not None}
         update_fields["updated_at"] = _utcnow()
@@ -547,15 +548,14 @@ class CommunityService:
         updated = await self.posts.find_one({"_id": ObjectId(post_id)})
         return await self._enrich_post(updated, user_id)
 
-    async def delete_post(self, community_id: str, post_id: str, user_id: str):
+    async def delete_post(self, community_id: str, post_id: str, user_id: str, is_admin: bool = False):
         doc = await self.posts.find_one({"_id": ObjectId(post_id), "community_id": ObjectId(community_id)})
         if not doc:
             raise ValueError("Post not found")
-        # Owner or moderator/founder can delete
         m = await self._membership(community_id, user_id)
         is_mod = m and m["role"] in (MemberRole.FOUNDER, MemberRole.MODERATOR)
         is_owner = str(doc["user_id"]) == user_id
-        if not is_owner and not is_mod:
+        if not is_owner and not is_mod and not is_admin:
             raise ValueError("Permission denied")
         oid = ObjectId(post_id)
         await self.comments.delete_many({"target_type": "community_post", "target_id": oid})

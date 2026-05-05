@@ -19,10 +19,10 @@ import {
 } from "@/components/ui/ConfirmCompletionModal";
 import { InterestChip } from "@/components/ui/InterestChip";
 import { EditServiceDialog } from "@/components/forms/EditServiceDialog";
-import { ServicesSummaryCard } from "@/components/ui/ServicesSummaryCard";
 import { ratingsApi } from "@/services/api";
 import { ImageGallery } from "@/components/ui/ImageGallery";
 import {
+  MagnifyingGlassIcon,
   ClockIcon,
   CheckCircledIcon,
   ArrowRightIcon,
@@ -35,7 +35,6 @@ import { useNavigate } from "react-router-dom";
 
 interface MyServicesTabProps {
   services: Service[];
-  takenServices?: Service[];
   serviceTransactions: Record<string, Transaction[]>;
   currentUserId: string | null;
   requiresNeedCreation?: boolean;
@@ -65,14 +64,12 @@ interface MyServicesTabProps {
 
 export function MyServicesTab({
   services,
-  takenServices,
   serviceTransactions,
   currentUserId,
   requiresNeedCreation = false,
   onSetServiceInProgress,
   onDeleteService,
   onCancelService,
-  onStartChat,
   onCreateGroupChat,
   onCancelTransaction,
   onConfirmTransactionCompletion,
@@ -230,12 +227,16 @@ export function MyServicesTab({
 
   return (
     <div className="space-y-6">
-      <ServicesSummaryCard
-        services={services}
-        takenServices={takenServices}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-      />
+      <div className="relative">
+        <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--gray-9)] w-4 h-4 pointer-events-none" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search services by title, description or tag..."
+          className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-[var(--gray-a5)] bg-[var(--gray-a2)] placeholder-[var(--gray-9)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-8)]"
+        />
+      </div>
       <div className="flex flex-row gap-2">
         <Button
           variant={!statusFilter ? "solid" : "soft"}
@@ -545,6 +546,27 @@ export function MyServicesTab({
                                         </Text>
                                       </Flex>
 
+                                      {transaction.status === "pending" && (
+                                          <Flex gap="2">
+                                            <Button
+                                                size="1"
+                                                color="red"
+                                                variant="outline"
+                                                disabled={
+                                                    transaction.provider_confirmed &&
+                                                    transaction.requester_confirmed
+                                                }
+                                                onClick={() =>
+                                                    onCancelTransaction(
+                                                        transaction._id,
+                                                    )
+                                                }
+                                            >
+                                              Remove Confirmation
+                                            </Button>
+                                          </Flex>
+                                      )}
+
                                       {/* Rating display: show when user has confirmed */}
                                       {myRating && (
                                         <Flex direction="column" gap="1">
@@ -630,36 +652,6 @@ export function MyServicesTab({
                                               )}
                                           </>
                                         )}
-                                      {transaction.status === "pending" && (
-                                        <Flex gap="2">
-                                          <Button
-                                            size="1"
-                                            color="blue"
-                                            variant="outline"
-                                            onClick={() =>
-                                              onStartChat(transaction._id)
-                                            }
-                                          >
-                                            Start Chat
-                                          </Button>
-                                          <Button
-                                            size="1"
-                                            color="red"
-                                            variant="outline"
-                                            disabled={
-                                              transaction.provider_confirmed &&
-                                              transaction.requester_confirmed
-                                            }
-                                            onClick={() =>
-                                              onCancelTransaction(
-                                                transaction._id,
-                                              )
-                                            }
-                                          >
-                                            Cancel
-                                          </Button>
-                                        </Flex>
-                                      )}
                                     </Flex>
                                   );
                                 },
