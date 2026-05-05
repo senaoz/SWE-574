@@ -167,6 +167,7 @@ p {
     border-radius: 1.5rem;
 }
 
+/* FAB: palette aligned with .for-you-popover-* / .recommended-listing-card */
 .add-service-button {
     cursor: pointer;
     border-radius: 50%;
@@ -176,45 +177,76 @@ p {
     position: fixed;
     bottom: 2em;
     right: 2em;
+    transform: scale(1.12) rotate(90deg);
     transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
                 box-shadow 0.25s ease;
+    border: 1px solid rgba(176, 214, 87, 0.45) !important;
+    background:
+        radial-gradient(circle at top right, rgba(196, 255, 112, 0.5), transparent 42%),
+        radial-gradient(circle at left bottom, rgba(255, 218, 112, 0.28), transparent 48%),
+        linear-gradient(135deg, rgba(235, 247, 194, 0.98), rgba(255, 243, 212, 0.98)) !important;
+    box-shadow:
+        0 16px 38px rgba(151, 181, 76, 0.14),
+        0 8px 18px rgba(251, 191, 36, 0.1);
+}
+
+.dark .add-service-button {
+    border-color: rgba(176, 214, 87, 0.28) !important;
+    background:
+        radial-gradient(circle at top right, rgba(125, 177, 50, 0.35), transparent 42%),
+        radial-gradient(circle at left bottom, rgba(170, 130, 44, 0.18), transparent 48%),
+        linear-gradient(135deg, rgba(39, 50, 24, 0.96), rgba(50, 40, 22, 0.96)) !important;
+    box-shadow:
+        0 16px 38px rgba(80, 110, 30, 0.22),
+        0 8px 18px rgba(140, 100, 20, 0.14);
 }
 
 .add-service-button::before {
     content: "";
     position: absolute;
-    inset: -4px;
+    inset: -3px;
     border-radius: 50%;
     background: conic-gradient(
-        var(--orange-9),
-        var(--amber-9),
-        var(--lime-9),
-        var(--cyan-9),
-        var(--blue-9),
-        var(--orange-9)
+        rgba(196, 255, 112, 0.88),
+        rgba(251, 191, 36, 0.62),
+        rgba(176, 214, 87, 0.9),
+        rgba(255, 224, 120, 0.58),
+        rgba(196, 255, 112, 0.88)
     );
     z-index: -1;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    animation: fab-ring-spin 3s linear infinite;
-}
-
-.add-service-button {
-    transform: scale(1.12) rotate(90deg);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
-}
-
-.add-service-button::before {
     opacity: 1;
+    animation: fab-ring-spin 10s linear infinite;
+}
+
+.dark .add-service-button::before {
+    background: conic-gradient(
+        rgba(125, 177, 50, 0.52),
+        rgba(180, 140, 40, 0.42),
+        rgba(100, 150, 40, 0.58),
+        rgba(170, 130, 44, 0.38),
+        rgba(125, 177, 50, 0.52)
+    );
 }
 
 .add-service-button:hover {
     transform: scale(1.18) rotate(90deg);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+    box-shadow:
+        0 22px 46px rgba(151, 181, 76, 0.2),
+        0 12px 24px rgba(251, 191, 36, 0.14);
+}
+
+.dark .add-service-button:hover {
+    box-shadow:
+        0 22px 46px rgba(80, 110, 30, 0.3),
+        0 12px 24px rgba(140, 100, 20, 0.18);
 }
 
 .add-service-button:active {
     transform: scale(0.95) rotate(90deg);
+}
+
+.dark .add-service-button svg {
+    stroke: rgba(255, 250, 235, 0.95) !important;
 }
 
 @keyframes fab-ring-spin {
