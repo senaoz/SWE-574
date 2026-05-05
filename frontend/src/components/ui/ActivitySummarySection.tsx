@@ -34,6 +34,39 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   disputed: { label: "Disputed", color: "var(--orange-9)" },
 };
 
+const TAG_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  Reliable:           { bg: "var(--green-a3)",  text: "var(--green-11)",  border: "var(--green-7)"  },
+  Trustworthy:        { bg: "var(--green-a3)",  text: "var(--green-11)",  border: "var(--green-7)"  },
+  Responsible:        { bg: "var(--green-a3)",  text: "var(--green-11)",  border: "var(--green-7)"  },
+  Organized:          { bg: "var(--teal-a3)",   text: "var(--teal-11)",   border: "var(--teal-7)"   },
+  Prepared:           { bg: "var(--teal-a3)",   text: "var(--teal-11)",   border: "var(--teal-7)"   },
+  Professional:       { bg: "var(--blue-a3)",   text: "var(--blue-11)",   border: "var(--blue-7)"   },
+  Thorough:           { bg: "var(--blue-a3)",   text: "var(--blue-11)",   border: "var(--blue-7)"   },
+  Hardworking:        { bg: "var(--blue-a3)",   text: "var(--blue-11)",   border: "var(--blue-7)"   },
+  Efficient:          { bg: "var(--blue-a3)",   text: "var(--blue-11)",   border: "var(--blue-7)"   },
+  Knowledgeable:      { bg: "var(--indigo-a3)", text: "var(--indigo-11)", border: "var(--indigo-7)" },
+  "Problem Solver":   { bg: "var(--indigo-a3)", text: "var(--indigo-11)", border: "var(--indigo-7)" },
+  "Detail-Oriented":  { bg: "var(--indigo-a3)", text: "var(--indigo-11)", border: "var(--indigo-7)" },
+  Creative:           { bg: "var(--purple-a3)", text: "var(--purple-11)", border: "var(--purple-7)" },
+  Communicative:      { bg: "var(--cyan-a3)",   text: "var(--cyan-11)",   border: "var(--cyan-7)"   },
+  "Clear Communicator":{ bg: "var(--cyan-a3)",  text: "var(--cyan-11)",   border: "var(--cyan-7)"   },
+  Friendly:           { bg: "var(--violet-a3)", text: "var(--violet-11)", border: "var(--violet-7)" },
+  Helpful:            { bg: "var(--violet-a3)", text: "var(--violet-11)", border: "var(--violet-7)" },
+  Kind:               { bg: "var(--violet-a3)", text: "var(--violet-11)", border: "var(--violet-7)" },
+  Respectful:         { bg: "var(--violet-a3)", text: "var(--violet-11)", border: "var(--violet-7)" },
+  Patient:            { bg: "var(--violet-a3)", text: "var(--violet-11)", border: "var(--violet-7)" },
+  Flexible:           { bg: "var(--amber-a3)",  text: "var(--amber-11)",  border: "var(--amber-7)"  },
+  Collaborative:      { bg: "var(--amber-a3)",  text: "var(--amber-11)",  border: "var(--amber-7)"  },
+  Understanding:      { bg: "var(--amber-a3)",  text: "var(--amber-11)",  border: "var(--amber-7)"  },
+  Appreciative:       { bg: "var(--amber-a3)",  text: "var(--amber-11)",  border: "var(--amber-7)"  },
+  "Easy to Work With":{ bg: "var(--amber-a3)",  text: "var(--amber-11)",  border: "var(--amber-7)"  },
+  Punctual:           { bg: "var(--lime-a3)",   text: "var(--lime-11)",   border: "var(--lime-7)"   },
+};
+
+function getTagColor(tag: string) {
+  return TAG_COLORS[tag] ?? { bg: "var(--gray-a3)", text: "var(--gray-11)", border: "var(--gray-6)" };
+}
+
 // 4-segment bar colors — given = orange tones, taken = blue tones
 const SEG = {
   givenOffer: "var(--orange-9)",
@@ -137,9 +170,7 @@ export function ActivitySummarySection({
       );
     if (serviceTypeFilter)
       result = result.filter(
-        (e) =>
-          e.tx.service?.service_type === serviceTypeFilter ||
-          e.rating?.service?.service_type === serviceTypeFilter,
+        (e) => e.rating?.service?.service_type === serviceTypeFilter,
       );
     return result;
   }, [enriched, filter, monthFilter, tagFilter, serviceTypeFilter]);
@@ -261,7 +292,7 @@ export function ActivitySummarySection({
     }
     return Object.entries(tagCounts)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 6);
+      .slice(0, 15);
   }, [ratings]);
 
   const inProgressCount = enriched.filter(
@@ -682,56 +713,54 @@ export function ActivitySummarySection({
                 )}
               </div>
 
-              {/* Top feedback tags — badge chips */}
+              {/* Top feedback tags — colorful word cloud */}
               {topTags.length > 0 && (
                 <div>
                   <Text size="1" color="gray" className="block mb-3">
                     Top feedback tags
                   </Text>
-                  <Flex gap="2" wrap="wrap">
-                    {topTags.map(([tag, count]) => {
-                      const isActive = tagFilter === tag;
-                      return (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() => setTagFilter(isActive ? null : tag)}
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "6px",
-                            padding: "4px 10px",
-                            borderRadius: "var(--radius-full)",
-                            border: "1px solid",
-                            borderColor: isActive
-                              ? "var(--accent-9)"
-                              : "var(--gray-5)",
-                            background: isActive
-                              ? "var(--accent-3)"
-                              : "var(--gray-a2)",
-                            color: isActive
-                              ? "var(--accent-11)"
-                              : "var(--gray-11)",
-                            cursor: "pointer",
-                            fontSize: "var(--font-size-1)",
-                            fontWeight: isActive ? "600" : "400",
-                            transition: "all 0.15s",
-                          }}
-                        >
-                          {tag}
-                          <span
-                            style={{
-                              fontSize: "10px",
-                              opacity: 0.7,
-                              fontWeight: "500",
-                            }}
-                          >
-                            ×{count}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </Flex>
+                  {(() => {
+                    const maxCount = Math.max(...topTags.map(([, c]) => c), 1);
+                    return (
+                      <Flex gap="2" wrap="wrap" align="center">
+                        {topTags.map(([tag, count]) => {
+                          const isActive = tagFilter === tag;
+                          const col = getTagColor(tag);
+                          const scale = 0.75 + (count / maxCount) * 0.55;
+                          return (
+                            <button
+                              key={tag}
+                              type="button"
+                              onClick={() => setTagFilter(isActive ? null : tag)}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "5px",
+                                padding: `${3 + scale * 2}px ${8 + scale * 4}px`,
+                                borderRadius: "var(--radius-full)",
+                                border: "1px solid",
+                                borderColor: isActive ? col.border : col.border,
+                                background: isActive ? col.bg : col.bg,
+                                color: col.text,
+                                cursor: "pointer",
+                                fontSize: `${Math.round(10 + scale * 3)}px`,
+                                fontWeight: isActive ? "700" : "500",
+                                opacity: isActive ? 1 : 0.75 + (count / maxCount) * 0.25,
+                                outline: isActive ? `2px solid ${col.border}` : "none",
+                                outlineOffset: "1px",
+                                transition: "all 0.15s",
+                              }}
+                            >
+                              {tag}
+                              <span style={{ fontSize: "9px", opacity: 0.65, fontWeight: "600" }}>
+                                {count}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </Flex>
+                    );
+                  })()}
                   {tagFilter && (
                     <button
                       type="button"
