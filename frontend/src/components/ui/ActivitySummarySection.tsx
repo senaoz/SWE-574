@@ -202,11 +202,28 @@ function PillButton({
   active,
   onClick,
   children,
+  color,
 }: {
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
+  color?: string;
 }) {
+  const borderColor = active
+    ? color
+      ? `var(--${color}-9)`
+      : "var(--accent-9)"
+    : "var(--gray-5)";
+  const bg = active
+    ? color
+      ? `var(--${color}-a3)`
+      : "var(--accent-3)"
+    : "transparent";
+  const textColor = active
+    ? color
+      ? `var(--${color}-11)`
+      : "var(--accent-11)"
+    : "var(--gray-11)";
   return (
     <button
       type="button"
@@ -215,9 +232,9 @@ function PillButton({
         padding: "4px 12px",
         borderRadius: "var(--radius-full)",
         border: "1px solid",
-        borderColor: active ? "var(--accent-9)" : "var(--gray-5)",
-        backgroundColor: active ? "var(--accent-3)" : "transparent",
-        color: active ? "var(--accent-11)" : "var(--gray-11)",
+        borderColor,
+        backgroundColor: bg,
+        color: textColor,
         cursor: "pointer",
         fontSize: "var(--font-size-2)",
         fontWeight: active ? "600" : "400",
@@ -535,7 +552,7 @@ export function ActivitySummarySection({
     }
     return Object.values(map)
       .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
+      .slice(0, 6);
   }, [enriched]);
 
   // Radar chart dimensions: given%, taken%, completed%, avgRating%, offer%, need%
@@ -623,6 +640,96 @@ export function ActivitySummarySection({
   }, [enriched]);
   const heatmapMax = Math.max(...heatmapData.map((c) => c.count), 1);
 
+  // Radar chart JSX (pre-computed to avoid linter IIFE removal)
+  const radarJsx = (() => {
+    const SIZE = 120,
+      CX = SIZE / 2,
+      CY = SIZE / 2,
+      R = 48;
+    const n = radarDims.length;
+    const angleStep = (2 * Math.PI) / n;
+    const angle = (i: number) => -Math.PI / 2 + i * angleStep;
+    const pt = (i: number, r: number) => ({
+      x: CX + r * Math.cos(angle(i)),
+      y: CY + r * Math.sin(angle(i)),
+    });
+    return (
+      <div style={{ maxWidth: 200 }}>
+        <Text size="1" color="gray" className="block mb-2">
+          Activity profile
+        </Text>
+        <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
+          {[0.25, 0.5, 0.75, 1].map((r) => (
+            <polygon
+              key={r}
+              points={Array.from({ length: n }, (_, i) => {
+                const p = pt(i, R * r);
+                return `${p.x},${p.y}`;
+              }).join(" ")}
+              fill="none"
+              stroke="var(--gray-5)"
+              strokeWidth={0.5}
+            />
+          ))}
+          {radarDims.map((_, i) => {
+            const o = pt(i, R);
+            return (
+              <line
+                key={i}
+                x1={CX}
+                y1={CY}
+                x2={o.x}
+                y2={o.y}
+                stroke="var(--gray-5)"
+                strokeWidth={0.5}
+              />
+            );
+          })}
+          <polygon
+            points={radarDims
+              .map((d, i) => {
+                const p = pt(i, R * d.value);
+                return `${p.x},${p.y}`;
+              })
+              .join(" ")}
+            fill="var(--accent-a4)"
+            stroke="var(--accent-9)"
+            strokeWidth={1.5}
+          />
+          {radarDims.map((d, i) => {
+            const p = pt(i, R * d.value);
+            return (
+              <circle
+                key={i}
+                cx={p.x}
+                cy={p.y}
+                r={2.5}
+                fill="var(--accent-9)"
+              />
+            );
+          })}
+          {radarDims.map((d, i) => {
+            const p = pt(i, R + 13);
+            return (
+              <text
+                key={i}
+                x={p.x}
+                y={p.y}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize={7}
+                fill="var(--gray-11)"
+                fontWeight="500"
+              >
+                {d.label}
+              </text>
+            );
+          })}
+        </svg>
+      </div>
+    );
+  })();
+
   const inProgressCount = enriched.filter(
     (e) => e.tx.status === "in_progress" || e.tx.status === "pending",
   ).length;
@@ -666,23 +773,75 @@ export function ActivitySummarySection({
         <>
           {/* ── Social proof message ── */}
           {(() => {
-            const completed = enriched.filter((e) => e.tx.status === "completed").length;
-            const given = enriched.filter((e) => e.userRole === "provider" && e.tx.status === "completed").length;
+            const completed = enriched.filter(
+              (e) => e.tx.status === "completed",
+            ).length;
+            const given = enriched.filter(
+              (e) => e.userRole === "provider" && e.tx.status === "completed",
+            ).length;
             const ratedItems = enriched.filter((e) => e.rating !== null);
-            const avgRating = ratedItems.length > 0
-              ? ratedItems.reduce((s, e) => s + (e.rating?.score ?? 0), 0) / ratedItems.length : 0;
+            const avgRating =
+              ratedItems.length > 0
+                ? ratedItems.reduce((s, e) => s + (e.rating?.score ?? 0), 0) /
+                  ratedItems.length
+                : 0;
             const msg =
-              streak >= 6 ? { text: `Incredible — ${streak} months active in a row. You're one of the community's most consistent members.`, color: "var(--amber-9)", bg: "var(--amber-a2)", border: "var(--amber-5)" }
-              : streak >= 3 ? { text: `${streak}-month streak! Consistency builds trust — keep it up.`, color: "var(--orange-9)", bg: "var(--orange-a2)", border: "var(--orange-5)" }
-              : completed >= 20 ? { text: `${completed} completed transactions — you're a community veteran. New members look to people like you.`, color: "var(--green-9)", bg: "var(--green-a2)", border: "var(--green-5)" }
-              : avgRating >= 4.5 && ratedItems.length >= 3 ? { text: `${avgRating.toFixed(1)} ★ average rating — exceptional quality that attracts more requests.`, color: "var(--amber-9)", bg: "var(--amber-a2)", border: "var(--amber-5)" }
-              : given >= 5 ? { text: `You've given ${given} services. Every hour you contribute comes back multiplied.`, color: "var(--violet-9)", bg: "var(--violet-a2)", border: "var(--violet-5)" }
-              : completed >= 1 ? { text: "You're active and contributing — the community grows stronger with every exchange.", color: "var(--blue-9)", bg: "var(--blue-a2)", border: "var(--blue-5)" }
-              : null;
+              streak >= 6
+                ? {
+                    text: `Incredible — ${streak} months active in a row. You're one of the community's most consistent members.`,
+                    color: "var(--amber-9)",
+                    bg: "var(--amber-a2)",
+                    border: "var(--amber-5)",
+                  }
+                : streak >= 3
+                  ? {
+                      text: `${streak}-month streak! Consistency builds trust — keep it up.`,
+                      color: "var(--orange-9)",
+                      bg: "var(--orange-a2)",
+                      border: "var(--orange-5)",
+                    }
+                  : completed >= 20
+                    ? {
+                        text: `${completed} completed transactions — you're a community veteran. New members look to people like you.`,
+                        color: "var(--green-9)",
+                        bg: "var(--green-a2)",
+                        border: "var(--green-5)",
+                      }
+                    : avgRating >= 4.5 && ratedItems.length >= 3
+                      ? {
+                          text: `${avgRating.toFixed(1)} ★ average rating — exceptional quality that attracts more requests.`,
+                          color: "var(--amber-9)",
+                          bg: "var(--amber-a2)",
+                          border: "var(--amber-5)",
+                        }
+                      : given >= 5
+                        ? {
+                            text: `You've given ${given} services. Every hour you contribute comes back multiplied.`,
+                            color: "var(--violet-9)",
+                            bg: "var(--violet-a2)",
+                            border: "var(--violet-5)",
+                          }
+                        : completed >= 1
+                          ? {
+                              text: "You're active and contributing — the community grows stronger with every exchange.",
+                              color: "var(--blue-9)",
+                              bg: "var(--blue-a2)",
+                              border: "var(--blue-5)",
+                            }
+                          : null;
             if (!msg) return null;
             return (
-              <div style={{ padding: "10px 14px", borderRadius: "var(--radius-3)", background: msg.bg, border: `1px solid ${msg.border}` }}>
-                <Text size="2" style={{ color: msg.color, fontWeight: "500" }}>{msg.text}</Text>
+              <div
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: "var(--radius-3)",
+                  background: msg.bg,
+                  border: `1px solid ${msg.border}`,
+                }}
+              >
+                <Text size="2" style={{ color: msg.color, fontWeight: "500" }}>
+                  {msg.text}
+                </Text>
               </div>
             );
           })()}
@@ -797,9 +956,9 @@ export function ActivitySummarySection({
                 className="rounded-lg px-4 py-3 cursor-pointer transition-all"
                 style={{
                   background:
-                    filter === "given" ? "var(--orange-a3)" : "var(--gray-a2)",
+                    filter === "given" ? "var(--red-a3)" : "var(--gray-a2)",
                   outline:
-                    filter === "given" ? "1.5px solid var(--orange-8)" : "none",
+                    filter === "given" ? "1.5px solid var(--red-8)" : "none",
                 }}
                 onClick={() => setFilter(filter === "given" ? "all" : "given")}
                 role="button"
@@ -812,7 +971,7 @@ export function ActivitySummarySection({
                   <Text size="4" weight="bold">
                     {stats.givenTotal}
                   </Text>
-                  <Badge size="1" color="orange" variant="soft">
+                  <Badge size="1" color="red" variant="soft">
                     {stats.givenHours.toFixed(1)} hrs
                   </Badge>
                 </Flex>
@@ -872,9 +1031,9 @@ export function ActivitySummarySection({
                 className="rounded-lg px-4 py-3 cursor-pointer transition-all"
                 style={{
                   background:
-                    filter === "taken" ? "var(--blue-a3)" : "var(--gray-a2)",
+                    filter === "taken" ? "var(--green-a3)" : "var(--gray-a2)",
                   outline:
-                    filter === "taken" ? "1.5px solid var(--blue-8)" : "none",
+                    filter === "taken" ? "1.5px solid var(--green-8)" : "none",
                 }}
                 onClick={() => setFilter(filter === "taken" ? "all" : "taken")}
                 role="button"
@@ -887,7 +1046,7 @@ export function ActivitySummarySection({
                   <Text size="4" weight="bold">
                     {stats.takenTotal}
                   </Text>
-                  <Badge size="1" color="blue" variant="soft">
+                  <Badge size="1" color="green" variant="soft">
                     {stats.takenHours.toFixed(1)} hrs
                   </Badge>
                 </Flex>
@@ -1003,6 +1162,7 @@ export function ActivitySummarySection({
                     </Flex>
                   </Flex>
                 </Flex>
+
                 <div className="flex items-end gap-2 flex-1">
                   {monthlyData.map((m) => {
                     const isActive = monthFilter === m.key;
@@ -1166,513 +1326,264 @@ export function ActivitySummarySection({
                 )}
               </div>
 
-              {/* Top feedback tags — colorful word cloud */}
-              {topTags.length > 0 && (
-                <div>
-                  <Text size="1" color="gray" className="block mb-3">
-                    Top feedback tags
-                  </Text>
-                  {(() => {
-                    const maxCount = Math.max(...topTags.map(([, c]) => c), 1);
-                    return (
-                      <Flex gap="2" wrap="wrap" align="center">
-                        {topTags.map(([tag, count]) => {
-                          const isActive = tagFilter === tag;
-                          const col = getTagColor(tag);
-                          const scale = 0.75 + (count / maxCount) * 0.55;
+              {/* ── Activity heatmap ── */}
+              <div>
+                <Text size="1" color="gray" className="block mb-2">
+                  Activity — last 52 weeks
+                </Text>
+                <div style={{ overflowX: "auto" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "2px",
+                      minWidth: "fit-content",
+                    }}
+                  >
+                    {Array.from({ length: 52 }, (_, w) => (
+                      <div
+                        key={w}
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "2px",
+                        }}
+                      >
+                        {Array.from({ length: 7 }, (_, d) => {
+                          const cell = heatmapData[w * 7 + d];
+                          if (!cell)
+                            return (
+                              <div
+                                key={d}
+                                style={{ width: "0.85rem", height: "0.85rem" }}
+                              />
+                            );
+                          const intensity =
+                            cell.count === 0
+                              ? 0
+                              : 0.2 + (cell.count / heatmapMax) * 0.8;
                           return (
-                            <button
-                              key={tag}
-                              type="button"
-                              onClick={() =>
-                                setTagFilter(isActive ? null : tag)
+                            <div
+                              key={d}
+                              title={
+                                cell.count > 0
+                                  ? `${cell.date}: ${cell.count} transaction${cell.count !== 1 ? "s" : ""}`
+                                  : cell.date
                               }
                               style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "5px",
-                                padding: `${3 + scale * 2}px ${8 + scale * 4}px`,
-                                borderRadius: "var(--radius-full)",
-                                border: "1px solid",
-                                borderColor: isActive ? col.border : col.border,
-                                background: isActive ? col.bg : col.bg,
-                                color: col.text,
-                                cursor: "pointer",
-                                fontSize: `${Math.round(10 + scale * 3)}px`,
-                                fontWeight: isActive ? "700" : "500",
-                                opacity: isActive
-                                  ? 1
-                                  : 0.75 + (count / maxCount) * 0.25,
-                                outline: isActive
-                                  ? `2px solid ${col.border}`
-                                  : "none",
-                                outlineOffset: "1px",
-                                transition: "all 0.15s",
+                                width: "0.85rem",
+                                height: "0.85rem",
+                                borderRadius: 2,
+                                background:
+                                  cell.count === 0
+                                    ? "var(--gray-a3)"
+                                    : `rgba(var(--green-9-rgb, 48,164,108), ${intensity})`,
+                                backgroundColor:
+                                  cell.count === 0
+                                    ? "var(--gray-a3)"
+                                    : intensity > 0.7
+                                      ? "var(--green-9)"
+                                      : intensity > 0.4
+                                        ? "var(--green-7)"
+                                        : "var(--green-5)",
+                                cursor: cell.count > 0 ? "pointer" : "default",
+                                transition: "opacity 0.1s",
                               }}
-                            >
-                              {tag}
-                              <span
-                                style={{
-                                  fontSize: "9px",
-                                  opacity: 0.65,
-                                  fontWeight: "600",
-                                }}
-                              >
-                                {count}
-                              </span>
-                            </button>
+                            />
                           );
                         })}
-                      </Flex>
-                    );
-                  })()}
-                  {tagFilter && (
-                    <button
-                      type="button"
-                      onClick={() => setTagFilter(null)}
-                      className="mt-2 flex items-center gap-1 text-xs"
-                      style={{
-                        color: "var(--accent-11)",
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        padding: 0,
-                      }}
-                    >
-                      <Cross2Icon /> Clear tag filter
-                    </button>
-                  )}
-                  <div className="mt-4">
-                    <Text size="1" color="gray" className="block mb-2">
-                      Service type
+                      </div>
+                    ))}
+                  </div>
+                  <Flex gap="3" align="center" className="mt-1">
+                    <Text size="1" color="gray">
+                      Less
                     </Text>
-                    <Flex gap="2">
-                      {(["offer", "need"] as const).map((type) => {
-                        const isActive = serviceTypeFilter === type;
+                    {[
+                      "var(--gray-a3)",
+                      "var(--green-5)",
+                      "var(--green-7)",
+                      "var(--green-9)",
+                    ].map((bg, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          width: "0.85rem",
+                          height: "0.85rem",
+                          borderRadius: 2,
+                          backgroundColor: bg,
+                        }}
+                      />
+                    ))}
+                    <Text size="1" color="gray">
+                      More
+                    </Text>
+                  </Flex>
+                </div>
+              </div>
+            </div>
+
+            {/* Top feedback tags — colorful word cloud */}
+            {topTags.length > 0 && (
+              <div>
+                <Text size="1" color="gray" className="block mb-3">
+                  Top feedback tags
+                </Text>
+                {(() => {
+                  const maxCount = Math.max(...topTags.map(([, c]) => c), 1);
+                  const minCount = Math.min(...topTags.map(([, c]) => c), 1);
+                  const countRange = maxCount - minCount || 1;
+                  return (
+                    <Flex gap="2" wrap="wrap" align="center">
+                      {topTags.map(([tag, count]) => {
+                        const isActive = tagFilter === tag;
+                        const col = getTagColor(tag);
+                        const t = (count - minCount) / countRange;
+                        const fontSize = Math.round(10 + t * 3);
+                        const px = Math.round(8 + t * 10); // 8px–18px
+                        const py = Math.round(3 + t * 5); // 3px–8px
                         return (
                           <button
-                            key={type}
+                            key={tag}
                             type="button"
-                            onClick={() =>
-                              setServiceTypeFilter(isActive ? null : type)
-                            }
+                            onClick={() => setTagFilter(isActive ? null : tag)}
                             style={{
                               display: "inline-flex",
                               alignItems: "center",
-                              gap: "5px",
-                              padding: "4px 10px",
+                              gap: "4px",
+                              padding: `${py}px ${px}px`,
                               borderRadius: "var(--radius-full)",
-                              border: "1px solid",
-                              borderColor: isActive
-                                ? type === "offer"
-                                  ? "var(--blue-8)"
-                                  : "var(--orange-8)"
-                                : "var(--gray-5)",
-                              background: isActive
-                                ? type === "offer"
-                                  ? "var(--blue-a3)"
-                                  : "var(--orange-a3)"
-                                : "var(--gray-a2)",
-                              color: isActive
-                                ? type === "offer"
-                                  ? "var(--blue-11)"
-                                  : "var(--orange-11)"
-                                : "var(--gray-11)",
+                              border: "1.5px solid",
+                              borderColor: col.border,
+                              background: col.bg,
+                              color: col.text,
                               cursor: "pointer",
-                              fontSize: "var(--font-size-1)",
-                              fontWeight: isActive ? "600" : "400",
+                              fontSize: `${fontSize}px`,
+                              fontWeight: isActive
+                                ? "700"
+                                : count === maxCount
+                                  ? "700"
+                                  : "500",
+                              outline: isActive
+                                ? `2px solid ${col.border}`
+                                : "none",
+                              outlineOffset: "2px",
+                              boxShadow: isActive
+                                ? `0 0 0 3px ${col.bg}`
+                                : "none",
                               transition: "all 0.15s",
                             }}
                           >
-                            {type === "offer" ? "Offer" : "Need"}
+                            {tag}
+                            <span
+                              style={{
+                                fontSize: `${Math.max(8, fontSize - 4)}px`,
+                                opacity: 0.6,
+                                fontWeight: "600",
+                              }}
+                            >
+                              {count}
+                            </span>
                           </button>
                         );
                       })}
                     </Flex>
-                  </div>
-                </div>
-              )}
-            </div>
-          </Flex>
-
-          {/* ── Activity heatmap ── */}
-          <div>
-            <Text size="1" color="gray" className="block mb-2">
-              Activity — last 52 weeks
-            </Text>
-            <div style={{ overflowX: "auto" }}>
-              <div
-                style={{ display: "flex", gap: "2px", minWidth: "fit-content" }}
-              >
-                {Array.from({ length: 52 }, (_, w) => (
-                  <div
-                    key={w}
+                  );
+                })()}
+                {tagFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setTagFilter(null)}
+                    className="mt-2 flex items-center gap-1 text-xs"
                     style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "2px",
+                      color: "var(--accent-11)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: 0,
                     }}
                   >
-                    {Array.from({ length: 7 }, (_, d) => {
-                      const cell = heatmapData[w * 7 + d];
-                      if (!cell)
-                        return (
-                          <div key={d} style={{ width: 11, height: 11 }} />
-                        );
-                      const intensity =
-                        cell.count === 0
-                          ? 0
-                          : 0.2 + (cell.count / heatmapMax) * 0.8;
-                      return (
-                        <div
-                          key={d}
-                          title={
-                            cell.count > 0
-                              ? `${cell.date}: ${cell.count} transaction${cell.count !== 1 ? "s" : ""}`
-                              : cell.date
-                          }
-                          style={{
-                            width: 11,
-                            height: 11,
-                            borderRadius: 2,
-                            background:
-                              cell.count === 0
-                                ? "var(--gray-a3)"
-                                : `rgba(var(--green-9-rgb, 48,164,108), ${intensity})`,
-                            backgroundColor:
-                              cell.count === 0
-                                ? "var(--gray-a3)"
-                                : intensity > 0.7
-                                  ? "var(--green-9)"
-                                  : intensity > 0.4
-                                    ? "var(--green-7)"
-                                    : "var(--green-5)",
-                            cursor: cell.count > 0 ? "pointer" : "default",
-                            transition: "opacity 0.1s",
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-              <Flex gap="3" align="center" className="mt-1">
-                <Text size="1" color="gray">
-                  Less
-                </Text>
-                {[
-                  "var(--gray-a3)",
-                  "var(--green-5)",
-                  "var(--green-7)",
-                  "var(--green-9)",
-                ].map((bg, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      width: 11,
-                      height: 11,
-                      borderRadius: 2,
-                      backgroundColor: bg,
-                    }}
-                  />
-                ))}
-                <Text size="1" color="gray">
-                  More
-                </Text>
-              </Flex>
-            </div>
-          </div>
-
-          {/* ── Credit balance trend ── */}
-          {creditTrend.some((m) => m.earned > 0 || m.spent > 0) &&
-            (() => {
-              const W = 480,
-                H = 80,
-                PAD = 16;
-              const vals = creditTrend.map((m) => m.cumulative);
-              const minVal = Math.min(...vals, 0);
-              const maxVal = Math.max(...vals, 0);
-              const range = maxVal - minVal || 1;
-              const toY = (v: number) =>
-                PAD + ((maxVal - v) / range) * (H - PAD * 2);
-              const toX = (i: number) =>
-                PAD + (i / (creditTrend.length - 1)) * (W - PAD * 2);
-              const points = creditTrend
-                .map((m, i) => `${toX(i)},${toY(m.cumulative)}`)
-                .join(" ");
-              const zeroY = toY(0);
-              const lastVal = vals[vals.length - 1];
-              const lineColor =
-                lastVal >= 0 ? "var(--green-9)" : "var(--red-9)";
-              return (
-                <div>
-                  <Flex justify="between" align="center" className="mb-1">
-                    <Text size="1" color="gray">
-                      Credit balance trend — last 12 months
-                    </Text>
-                    <Badge
-                      size="1"
-                      color={lastVal >= 0 ? "green" : "red"}
-                      variant="soft"
-                    >
-                      {lastVal >= 0 ? "+" : ""}
-                      {lastVal.toFixed(1)} hrs net
-                    </Badge>
-                  </Flex>
-                  <svg
-                    width="100%"
-                    viewBox={`0 0 ${W} ${H}`}
-                    style={{ overflow: "visible" }}
-                  >
-                    <line
-                      x1={PAD}
-                      y1={zeroY}
-                      x2={W - PAD}
-                      y2={zeroY}
-                      stroke="var(--gray-5)"
-                      strokeWidth={1}
-                      strokeDasharray="4 3"
-                    />
-                    <defs>
-                      <linearGradient
-                        id="creditGrad"
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="1"
-                      >
-                        <stop
-                          offset="0%"
-                          stopColor={lineColor}
-                          stopOpacity="0.25"
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor={lineColor}
-                          stopOpacity="0.03"
-                        />
-                      </linearGradient>
-                    </defs>
-                    <polygon
-                      points={`${toX(0)},${zeroY} ${points} ${toX(creditTrend.length - 1)},${zeroY}`}
-                      fill="url(#creditGrad)"
-                    />
-                    <polyline
-                      points={points}
-                      fill="none"
-                      stroke={lineColor}
-                      strokeWidth={2}
-                      strokeLinejoin="round"
-                      strokeLinecap="round"
-                    />
-                    {creditTrend.map((m, i) => (
-                      <g key={m.key}>
-                        <circle
-                          cx={toX(i)}
-                          cy={toY(m.cumulative)}
-                          r={3}
-                          fill={
-                            m.cumulative >= 0
-                              ? "var(--green-9)"
-                              : "var(--red-9)"
-                          }
-                        />
-                        <title>
-                          {m.label}: {m.cumulative >= 0 ? "+" : ""}
-                          {m.cumulative.toFixed(1)} hrs cumulative
-                        </title>
-                      </g>
-                    ))}
-                    {creditTrend
-                      .filter(
-                        (_, i) => i % 3 === 0 || i === creditTrend.length - 1,
-                      )
-                      .map((m) => {
-                        const i = creditTrend.indexOf(m);
-                        return (
-                          <text
-                            key={m.key}
-                            x={toX(i)}
-                            y={H - 2}
-                            textAnchor="middle"
-                            fontSize={9}
-                            fill="var(--gray-9)"
-                          >
-                            {m.label}
-                          </text>
-                        );
-                      })}
-                  </svg>
-                </div>
-              );
-            })()}
-
-          {/* ── Radar + Top interactions ── */}
-          <Flex gap="6" wrap="wrap" align="start">
-            {/* ── Radar chart ── */}
-            {(() => {
-              const SIZE = 120,
-                CX = SIZE / 2,
-                CY = SIZE / 2,
-                R = 48;
-              const n = radarDims.length;
-              const angleStep = (2 * Math.PI) / n;
-              const angle = (i: number) => -Math.PI / 2 + i * angleStep;
-              const pt = (i: number, r: number) => ({
-                x: CX + r * Math.cos(angle(i)),
-                y: CY + r * Math.sin(angle(i)),
-              });
-              const rings = [0.25, 0.5, 0.75, 1];
-              return (
-                <div style={{ maxWidth: 200 }}>
-                  <Text size="1" color="gray" className="block mb-2">
-                    Activity profile
-                  </Text>
-                  <svg
-                    width={SIZE}
-                    height={SIZE}
-                    viewBox={`0 0 ${SIZE} ${SIZE}`}
-                  >
-                    {/* grid rings */}
-                    {rings.map((r) => (
-                      <polygon
-                        key={r}
-                        points={Array.from({ length: n }, (_, i) => {
-                          const p = pt(i, R * r);
-                          return `${p.x},${p.y}`;
-                        }).join(" ")}
-                        fill="none"
-                        stroke="var(--gray-5)"
-                        strokeWidth={0.5}
-                      />
-                    ))}
-                    {/* spokes */}
-                    {radarDims.map((_, i) => {
-                      const outer = pt(i, R);
-                      return (
-                        <line
-                          key={i}
-                          x1={CX}
-                          y1={CY}
-                          x2={outer.x}
-                          y2={outer.y}
-                          stroke="var(--gray-5)"
-                          strokeWidth={0.5}
-                        />
-                      );
-                    })}
-                    {/* data polygon */}
-                    <polygon
-                      points={radarDims
-                        .map((d, i) => {
-                          const p = pt(i, R * d.value);
-                          return `${p.x},${p.y}`;
-                        })
-                        .join(" ")}
-                      fill="var(--accent-a4)"
-                      stroke="var(--accent-9)"
-                      strokeWidth={1.5}
-                    />
-                    {/* dots */}
-                    {radarDims.map((d, i) => {
-                      const p = pt(i, R * d.value);
-                      return (
-                        <circle
-                          key={i}
-                          cx={p.x}
-                          cy={p.y}
-                          r={2.5}
-                          fill="var(--accent-9)"
-                        />
-                      );
-                    })}
-                    {/* labels */}
-                    {radarDims.map((d, i) => {
-                      const p = pt(i, R + 13);
-                      return (
-                        <text
-                          key={i}
-                          x={p.x}
-                          y={p.y}
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          fontSize={7}
-                          fill="var(--gray-11)"
-                          fontWeight="500"
-                        >
-                          {d.label}
-                        </text>
-                      );
-                    })}
-                  </svg>
-                </div>
-              );
-            })()}
-
-            {/* ── Top interactions ── */}
-            {topInteractions.length > 0 && (
-              <div style={{ flex: 1, minWidth: 180 }}>
-                <Text size="1" color="gray" className="block mb-2">
-                  Top interactions
-                </Text>
-                <Flex direction="column" gap="2">
-                  {topInteractions.map((cp) => (
-                    <Flex
-                      key={cp.id}
-                      align="center"
-                      gap="2"
-                      style={{ cursor: "pointer" }}
-                      onClick={() => navigate(`/user/${cp.id}`)}
-                    >
-                      <div
-                        style={{
-                          width: 28,
-                          height: 28,
-                          borderRadius: "50%",
-                          background: "var(--accent-a4)",
-                          border: "1px solid var(--accent-6)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 11,
-                          fontWeight: "700",
-                          color: "var(--accent-11)",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {cp.name.replace("@", "").slice(0, 2).toUpperCase()}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <Text
-                          size="2"
-                          style={{
-                            display: "block",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {cp.name}
-                        </Text>
-                        <Text size="1" color="gray">
-                          {cp.count} transaction{cp.count !== 1 ? "s" : ""}
-                          {cp.asProvider > 0 &&
-                            cp.asRequester > 0 &&
-                            ` · ${cp.asProvider}↑ ${cp.asRequester}↓`}
-                        </Text>
-                      </div>
-                      <Badge size="1" color="gray" variant="soft">
-                        {cp.count}
-                      </Badge>
-                    </Flex>
-                  ))}
-                </Flex>
+                    <Cross2Icon /> Clear tag filter
+                  </button>
+                )}
               </div>
             )}
           </Flex>
 
+          {/* ── Top interactions ── */}
+          {topInteractions.length > 0 && (
+            <div style={{ flex: 1, minWidth: 180 }}>
+              <Text size="1" color="gray" className="block mb-2">
+                Top interactions
+              </Text>
+              <div className="grid grid-cols-2 gap-4">
+                {topInteractions.map((cp) => (
+                  <Flex
+                    key={cp.id}
+                    align="center"
+                    gap="2"
+                    style={{ cursor: "pointer" }}
+                    onClick={() => navigate(`/user/${cp.id}`)}
+                  >
+                    <div
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: "50%",
+                        background: "var(--accent-a4)",
+                        border: "1px solid var(--accent-6)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 11,
+                        fontWeight: "700",
+                        color: "var(--accent-11)",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {cp.name.replace("@", "").slice(0, 2).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <Text
+                        size="2"
+                        style={{
+                          display: "block",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {cp.name}
+                      </Text>
+                      <Text size="1" color="gray">
+                        {cp.count} transaction{cp.count !== 1 ? "s" : ""}
+                        {cp.asProvider > 0 &&
+                          cp.asRequester > 0 &&
+                          ` · ${cp.asProvider}↑ ${cp.asRequester}↓`}
+                      </Text>
+                    </div>
+                    <Badge size="1" color="gray" variant="soft">
+                      {cp.count}
+                    </Badge>
+                  </Flex>
+                ))}
+              </div>
+            </div>
+          )}
           {/* ── Filter tabs + active-filter indicator ── */}
           <Flex gap="2" wrap="wrap" align="center">
+            {(["offer", "need"] as const).map((type) => (
+              <PillButton
+                key={type}
+                active={serviceTypeFilter === type}
+                color={type === "offer" ? "blue" : "orange"}
+                onClick={() =>
+                  setServiceTypeFilter(serviceTypeFilter === type ? null : type)
+                }
+              >
+                {type === "offer" ? "Offer" : "Need"}
+              </PillButton>
+            ))}
+            •
             {[
               {
                 value: "all" as FilterTab,
