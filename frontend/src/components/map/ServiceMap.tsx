@@ -23,6 +23,7 @@ import {
   Switch,
 } from "@radix-ui/themes";
 import { useNavigate } from "react-router-dom";
+import { getUpcomingMapEvents } from "@/utils/mapEvents";
 
 
 const ISTANBUL_CENTER: [number, number] = [41.0082, 28.9784];
@@ -205,7 +206,7 @@ export function ServiceMap({
   }, [isControlled, services, filters, userPosition]);
 
   const filteredEvents = useMemo(() => {
-    let list = events.filter((e) => e.latitude != null && e.longitude != null);
+    let list = getUpcomingMapEvents(events);
     if (
       filters.distance !== "any" &&
       userPosition &&
