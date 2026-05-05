@@ -9,7 +9,7 @@ import {
   ArrowLeftIcon, PlusIcon, Pencil1Icon,
   TrashIcon, ChevronUpIcon, GlobeIcon,
 } from "@radix-ui/react-icons";
-import { CalendarClockIcon, GlobeIcon, MessageCircleIcon, UsersIcon, PinIcon } from "lucide-react";
+import { CalendarClockIcon, MessageCircleIcon, UsersIcon, PinIcon } from "lucide-react";
 import { communityApi, getImageUrl, uploadApi } from "@/services/api";
 import { useUser } from "@/App";
 import { Community, CommunityMember, CommunityPost, TagEntity, ForumEvent, ForumDiscussion } from "@/types";
@@ -64,7 +64,7 @@ export function CommunityDetail() {
     community?.user_membership === "moderator" ||
     canPinPlatform;
   const isFounder = community?.user_membership === "founder";
-  const isAdmin = user?.role === "admin";
+  const isAdmin = currentUser?.role === "admin";
 
   useEffect(() => {
     if (!id) return;

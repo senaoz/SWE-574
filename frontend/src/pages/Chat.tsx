@@ -9,35 +9,12 @@ import { useUser } from "@/App";
 // @ts-ignore
 import messageIcon from "../assets/message.webp";
 
-/** Klavye açıldığında visualViewport küçülür, biz de container yüksekliğini buna göre ayarlarız. */
-function useVisualViewportHeight() {
-  const [height, setHeight] = useState<number>(
-    () => window.visualViewport?.height ?? window.innerHeight
-  );
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const update = () => setHeight(vv.height);
-    vv.addEventListener("resize", update);
-    vv.addEventListener("scroll", update);
-    return () => {
-      vv.removeEventListener("resize", update);
-      vv.removeEventListener("scroll", update);
-    };
-  }, []);
-  return height;
-}
-
 export function Chat() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [roomId, setRoomId] = useState<string | null>(null);
   const [selectedRoom, setSelectedRoom] = useState<ChatRoom | null>(null);
   const { currentUserId } = useUser();
   const roomIdFromUrl = searchParams.get("room_id");
-  const vpHeight = useVisualViewportHeight();
-  // Header yüksekliği sabit ~64px; bu değeri çıkararak net chat alanı hesapla
-  const HEADER_HEIGHT = 64;
-  const chatHeight = Math.max(vpHeight - HEADER_HEIGHT, 200);
 
   useEffect(() => {
     if (roomIdFromUrl) {
