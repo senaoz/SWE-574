@@ -42,6 +42,12 @@ interface ServicesApi {
     @DELETE("services/{service_id}")
     suspend fun deleteService(@Path("service_id") serviceId: String): Response<Unit>
 
+    @PUT("services/{service_id}/pin")
+    suspend fun pinService(
+        @Path("service_id") serviceId: String,
+        @Query("pinned") pinned: Boolean
+    ): Response<ServiceResponse>
+
     @POST("services/{service_id}/save")
     suspend fun saveService(@Path("service_id") serviceId: String): Response<Unit>
 

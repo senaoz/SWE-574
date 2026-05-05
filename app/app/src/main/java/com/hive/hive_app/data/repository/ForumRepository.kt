@@ -103,6 +103,19 @@ class ForumRepository @Inject constructor(
         }
     }
 
+    suspend fun pinDiscussion(discussionId: String, pinned: Boolean): Result<ForumDiscussionResponse> {
+        return try {
+            val response = forumApi.pinDiscussion(discussionId, pinned)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(HttpException(response))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun listEvents(
         page: Int = 1,
         limit: Int = 100,
@@ -165,6 +178,19 @@ class ForumRepository @Inject constructor(
     suspend fun unattendEvent(eventId: String): Result<ForumEventResponse> {
         return try {
             val response = forumApi.unattendEvent(eventId)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(HttpException(response))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun pinEvent(eventId: String, pinned: Boolean): Result<ForumEventResponse> {
+        return try {
+            val response = forumApi.pinEvent(eventId, pinned)
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {

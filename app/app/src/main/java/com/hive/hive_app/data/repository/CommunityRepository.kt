@@ -38,6 +38,11 @@ class CommunityRepository @Inject constructor(
         if (resp.isSuccessful) resp.body()!! else throw HttpException(resp)
     }
 
+    suspend fun pinCommunity(id: String, pinned: Boolean): Result<CommunityResponse> = runCatching {
+        val resp = communityApi.pinCommunity(id, pinned)
+        if (resp.isSuccessful) resp.body()!! else throw HttpException(resp)
+    }
+
     suspend fun joinCommunity(id: String): Result<CommunityResponse> = runCatching {
         val resp = communityApi.joinCommunity(id)
         if (resp.isSuccessful) resp.body()!! else throw HttpException(resp)
@@ -68,6 +73,11 @@ class CommunityRepository @Inject constructor(
 
     suspend fun upvotePost(communityId: String, postId: String): Result<UpvoteResponse> = runCatching {
         val resp = communityApi.upvotePost(communityId, postId)
+        if (resp.isSuccessful) resp.body()!! else throw HttpException(resp)
+    }
+
+    suspend fun pinPost(communityId: String, postId: String, pinned: Boolean): Result<CommunityPostResponse> = runCatching {
+        val resp = communityApi.pinPost(communityId, postId, pinned)
         if (resp.isSuccessful) resp.body()!! else throw HttpException(resp)
     }
 

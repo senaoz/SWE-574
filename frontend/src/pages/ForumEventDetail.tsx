@@ -32,6 +32,7 @@ import { ForumEvent, TagEntity, Community } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import { UpvoteButton } from "@/components/ui/UpvoteButton";
 import { useUser } from "@/App";
+import { PinIcon } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { MarkdownEditor } from "@/components/forms/MarkdownEditor";
 import { TagAutocomplete } from "@/components/forms/TagAutocomplete";
@@ -63,7 +64,7 @@ type Attendee = {
 export function ForumEventDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentUserId, user } = useUser();
+  const { currentUserId, user: currentUser } = useUser();
   const [event, setEvent] = useState<ForumEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [attendees, setAttendees] = useState<Attendee[]>([]);
@@ -75,7 +76,8 @@ export function ForumEventDetail() {
   const isAttending =
     event?.attendee_ids?.includes(currentUserId || "") ?? false;
   const isOwner = !!currentUserId && event?.user_id === currentUserId;
-  const isAdmin = user?.role === "admin";
+  const canPinPlatform =
+    currentUser?.role === "admin" || currentUser?.role === "moderator";
 
   useEffect(() => {
     if (!id) return;
@@ -122,6 +124,12 @@ export function ForumEventDetail() {
     navigate("/forum?tab=events");
   };
 
+  const handlePin = async () => {
+    if (!id || !event) return;
+    const res = await forumApi.pinEvent(id, !event.is_pinned);
+    setEvent(res.data);
+  };
+
   if (loading) {
     return (
       <Card className="p-8 text-center">
@@ -166,9 +174,27 @@ export function ForumEventDetail() {
       {/* Event content */}
       <Card className="p-6 mb-6">
         <div className="flex justify-between">
-          <Heading size="5">{event.title}</Heading>
+          <div>
+            {event.is_pinned && (
+              <Badge size="1" variant="soft" color="violet" className="mb-2">
+                <PinIcon className="w-3 h-3 mr-1" /> Pinned by moderator
+              </Badge>
+            )}
+            <Heading size="5">{event.title}</Heading>
+          </div>
           <Flex gap="2" align="center">
-            {(isOwner || isAdmin) && (
+            {canPinPlatform && (
+              <Button
+                variant="soft"
+                color={event.is_pinned ? "gray" : "violet"}
+                size="1"
+                onClick={handlePin}
+              >
+                <PinIcon className="w-3 h-3" />
+                {event.is_pinned ? "Unpin" : "Pin"}
+              </Button>
+            )}
+            {isOwner && (
               <>
                 <Button
                   variant="soft"

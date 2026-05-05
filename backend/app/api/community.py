@@ -13,6 +13,7 @@ from ..models.user import UserResponse
 from ..services.community_service import CommunityService
 from ..services.forum_service import ForumService
 from ..api.auth import get_current_user, get_optional_current_user
+from ..core.permissions import require_moderator_or_admin
 from ..core.database import get_database
 
 router = APIRouter(prefix="/communities", tags=["communities"])
@@ -99,6 +100,20 @@ async def update_community(
         if not result:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Community not found")
         return result
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.put("/{community_id}/pin", response_model=CommunityResponse)
+async def pin_community(
+    community_id: str,
+    pinned: bool = True,
+    current_user: UserResponse = Depends(require_moderator_or_admin()),
+    db=Depends(get_database),
+):
+    svc = _svc(db)
+    try:
+        return await svc.pin_community(community_id, str(current_user.id), pinned)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 

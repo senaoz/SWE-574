@@ -76,6 +76,9 @@ class ForumDiscussionResponse(BaseModel):
     comment_count: int = 0
     upvote_count: int = 0
     user_upvoted: bool = False
+    is_pinned: bool = False
+    pinned_by: Optional[PyObjectId] = None
+    pinned_at: Optional[datetime] = None
 
     @field_validator("image_urls", mode="before")
     @classmethod
@@ -175,6 +178,9 @@ class ForumEventResponse(BaseModel):
     image_urls: List[str] = Field(default_factory=list)
     banner_image_url: Optional[str] = None
     community_id: Optional[str] = None
+    is_pinned: bool = False
+    pinned_by: Optional[PyObjectId] = None
+    pinned_at: Optional[datetime] = None
 
     @field_validator("image_urls", mode="before")
     @classmethod

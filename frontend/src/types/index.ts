@@ -162,6 +162,9 @@ export interface Service {
   _id: string;
   user_id: string;
   is_saved?: boolean;
+  is_pinned?: boolean;
+  pinned_by?: string | null;
+  pinned_at?: string | null;
   title: string;
   description: string;
   category: string;
@@ -575,6 +578,9 @@ export interface ForumDiscussion {
   user_upvoted?: boolean;
   image_urls?: string[];
   community_id?: string;
+  is_pinned: boolean;
+  pinned_by?: string | null;
+  pinned_at?: string | null;
 }
 
 export interface ForumDiscussionListResponse {
@@ -620,6 +626,9 @@ export interface ForumEvent {
   image_urls?: string[];
   banner_image_url?: string;
   community_id?: string;
+  is_pinned: boolean;
+  pinned_by?: string | null;
+  pinned_at?: string | null;
 }
 
 export interface ForumEventListResponse {
@@ -754,6 +763,9 @@ export interface Community {
   avatar_url?: string;
   member_count: number;
   post_count: number;
+  is_pinned: boolean;
+  pinned_by?: string | null;
+  pinned_at?: string | null;
   created_at: string;
   updated_at: string;
   founder?: ForumAuthor;
@@ -809,6 +821,8 @@ export interface CommunityPost {
   tags: TagEntity[];
   post_type: CommunityPostType;
   is_pinned: boolean;
+  pinned_by?: string | null;
+  pinned_at?: string | null;
   upvote_count: number;
   user_upvoted?: boolean;
   comment_count: number;

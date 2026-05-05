@@ -47,6 +47,12 @@ interface ForumApi {
     @DELETE("forum/discussions/{discussion_id}")
     suspend fun deleteDiscussion(@Path("discussion_id") discussionId: String): Response<Unit>
 
+    @PUT("forum/discussions/{discussion_id}/pin")
+    suspend fun pinDiscussion(
+        @Path("discussion_id") discussionId: String,
+        @Query("pinned") pinned: Boolean
+    ): Response<ForumDiscussionResponse>
+
     @GET("forum/events")
     suspend fun listEvents(
         @Query("page") page: Int = 1,
@@ -70,6 +76,12 @@ interface ForumApi {
 
     @DELETE("forum/events/{event_id}")
     suspend fun deleteEvent(@Path("event_id") eventId: String): Response<Unit>
+
+    @PUT("forum/events/{event_id}/pin")
+    suspend fun pinEvent(
+        @Path("event_id") eventId: String,
+        @Query("pinned") pinned: Boolean
+    ): Response<ForumEventResponse>
 
     @GET("forum/events/{event_id}/attendees")
     suspend fun getEventAttendees(@Path("event_id") eventId: String): Response<List<ForumUserEmbed>>

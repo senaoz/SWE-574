@@ -2,6 +2,9 @@ import pytest
 from fastapi import status
 from datetime import datetime, timezone
 
+from app.models.user import UserRole
+from tests.api_test_utils import create_user_with_headers
+
 
 class TestServicesAPI:
     """Test /services API endpoints"""
@@ -83,6 +86,54 @@ class TestServicesAPI:
         assert data["page"] == 1
         assert data["limit"] == 1
         assert len(data["services"]) <= 1
+
+    @pytest.mark.asyncio
+    async def test_moderator_can_pin_service_posts(
+        self, test_client, mock_db, sample_service, sample_service_data, auth_headers
+    ):
+        _, moderator_headers = await create_user_with_headers(
+            mock_db, "service_pin_mod", role=UserRole.MODERATOR
+        )
+        _, regular_headers = await create_user_with_headers(mock_db, "service_pin_regular")
+
+        newer_service_data = sample_service_data.copy()
+        newer_service_data["title"] = "Newer Service Post"
+        newer_service = test_client.post(
+            "/services/",
+            json=newer_service_data,
+            headers=auth_headers,
+        )
+        assert newer_service.status_code == status.HTTP_200_OK
+
+        forbidden = test_client.put(
+            f"/services/{sample_service.id}/pin",
+            headers=regular_headers,
+            params={"pinned": True},
+        )
+        assert forbidden.status_code == status.HTTP_403_FORBIDDEN
+
+        pinned = test_client.put(
+            f"/services/{sample_service.id}/pin",
+            headers=moderator_headers,
+            params={"pinned": True},
+        )
+        assert pinned.status_code == status.HTTP_200_OK
+        assert pinned.json()["is_pinned"] is True
+        assert pinned.json()["pinned_by"]
+
+        listed = test_client.get("/services/")
+        assert listed.status_code == status.HTTP_200_OK
+        first_service_id = listed.json()["services"][0].get("id") or listed.json()["services"][0].get("_id")
+        assert first_service_id == str(sample_service.id)
+
+        unpinned = test_client.put(
+            f"/services/{sample_service.id}/pin",
+            headers=moderator_headers,
+            params={"pinned": False},
+        )
+        assert unpinned.status_code == status.HTTP_200_OK
+        assert unpinned.json()["is_pinned"] is False
+        assert unpinned.json()["pinned_by"] is None
     
     def test_get_service_detail(self, test_client, sample_service):
         """Test getting a specific service by ID"""

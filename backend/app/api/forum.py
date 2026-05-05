@@ -12,6 +12,7 @@ from ..models.forum import (
 from ..models.user import UserResponse
 from ..services.forum_service import ForumService
 from ..api.auth import get_current_user, get_optional_current_user
+from ..core.permissions import require_moderator_or_admin
 from ..core.database import get_database
 
 router = APIRouter(prefix="/forum", tags=["forum"])
@@ -80,6 +81,20 @@ async def update_discussion(
         if not result:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Update failed")
         return result
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.put("/discussions/{discussion_id}/pin", response_model=ForumDiscussionResponse)
+async def pin_discussion(
+    discussion_id: str,
+    pinned: bool = True,
+    current_user: UserResponse = Depends(require_moderator_or_admin()),
+    db=Depends(get_database),
+):
+    svc = _forum(db)
+    try:
+        return await svc.pin_discussion(discussion_id, str(current_user.id), pinned)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
@@ -159,6 +174,20 @@ async def update_event(
         if not result:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Update failed")
         return result
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.put("/events/{event_id}/pin", response_model=ForumEventResponse)
+async def pin_event(
+    event_id: str,
+    pinned: bool = True,
+    current_user: UserResponse = Depends(require_moderator_or_admin()),
+    db=Depends(get_database),
+):
+    svc = _forum(db)
+    try:
+        return await svc.pin_event(event_id, str(current_user.id), pinned)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 

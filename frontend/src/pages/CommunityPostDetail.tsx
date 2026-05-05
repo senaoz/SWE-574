@@ -34,7 +34,7 @@ function timeAgo(dateStr: string) {
 export function CommunityPostDetail() {
   const { id: communityId, postId } = useParams<{ id: string; postId: string }>();
   const navigate = useNavigate();
-  const { currentUserId, user } = useUser();
+  const { currentUserId, user: currentUser } = useUser();
 
   const [community, setCommunity] = useState<Community | null>(null);
   const [post, setPost] = useState<CommunityPost | null>(null);
@@ -43,7 +43,13 @@ export function CommunityPostDetail() {
   const [showDelete, setShowDelete] = useState(false);
 
   const isMember = !!community?.user_membership;
-  const isMod = community?.user_membership === "founder" || community?.user_membership === "moderator";
+  const isCommunityMod =
+    community?.user_membership === "founder" ||
+    community?.user_membership === "moderator";
+  const canPinPost =
+    isCommunityMod ||
+    currentUser?.role === "admin" ||
+    currentUser?.role === "moderator";
   const isOwner = !!currentUserId && post?.user_id === currentUserId;
   const isAdmin = user?.role === "admin";
 
@@ -119,7 +125,7 @@ export function CommunityPostDetail() {
                 <Heading size="5" className="mt-1">{post.title}</Heading>
               </div>
               <Flex gap="2" align="center">
-                {isMod && (
+                {canPinPost && (
                   <Button variant="soft" color={post.is_pinned ? "gray" : "violet"} size="1" onClick={handlePin}>
                     <PinIcon className="w-3 h-3" /> {post.is_pinned ? "Unpin" : "Pin"}
                   </Button>
@@ -129,7 +135,7 @@ export function CommunityPostDetail() {
                     <Pencil1Icon /> Edit
                   </Button>
                 )}
-                {(isOwner || isMod || isAdmin) && (
+                {(isOwner || isCommunityMod) && (
                   <Button variant="soft" color="red" size="1" onClick={() => setShowDelete(true)}>
                     <TrashIcon /> Delete
                   </Button>
@@ -237,7 +243,7 @@ export function CommunityPostDetail() {
         onOpenChange={setShowEdit}
         communityId={communityId!}
         post={post}
-        isMod={isMod}
+        isMod={isCommunityMod}
         onUpdated={(updated) => setPost(updated)}
       />
       <ConfirmDialog
