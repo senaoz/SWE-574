@@ -664,12 +664,34 @@ export function ActivitySummarySection({
         </Card>
       ) : (
         <>
+          {/* ── Social proof message ── */}
+          {(() => {
+            const completed = enriched.filter((e) => e.tx.status === "completed").length;
+            const given = enriched.filter((e) => e.userRole === "provider" && e.tx.status === "completed").length;
+            const ratedItems = enriched.filter((e) => e.rating !== null);
+            const avgRating = ratedItems.length > 0
+              ? ratedItems.reduce((s, e) => s + (e.rating?.score ?? 0), 0) / ratedItems.length : 0;
+            const msg =
+              streak >= 6 ? { text: `Incredible — ${streak} months active in a row. You're one of the community's most consistent members.`, color: "var(--amber-9)", bg: "var(--amber-a2)", border: "var(--amber-5)" }
+              : streak >= 3 ? { text: `${streak}-month streak! Consistency builds trust — keep it up.`, color: "var(--orange-9)", bg: "var(--orange-a2)", border: "var(--orange-5)" }
+              : completed >= 20 ? { text: `${completed} completed transactions — you're a community veteran. New members look to people like you.`, color: "var(--green-9)", bg: "var(--green-a2)", border: "var(--green-5)" }
+              : avgRating >= 4.5 && ratedItems.length >= 3 ? { text: `${avgRating.toFixed(1)} ★ average rating — exceptional quality that attracts more requests.`, color: "var(--amber-9)", bg: "var(--amber-a2)", border: "var(--amber-5)" }
+              : given >= 5 ? { text: `You've given ${given} services. Every hour you contribute comes back multiplied.`, color: "var(--violet-9)", bg: "var(--violet-a2)", border: "var(--violet-5)" }
+              : completed >= 1 ? { text: "You're active and contributing — the community grows stronger with every exchange.", color: "var(--blue-9)", bg: "var(--blue-a2)", border: "var(--blue-5)" }
+              : null;
+            if (!msg) return null;
+            return (
+              <div style={{ padding: "10px 14px", borderRadius: "var(--radius-3)", background: msg.bg, border: `1px solid ${msg.border}` }}>
+                <Text size="2" style={{ color: msg.color, fontWeight: "500" }}>{msg.text}</Text>
+              </div>
+            );
+          })()}
+
           {/* ── Streak + Badges ── */}
           <div
             className="rounded-lg px-4 py-3"
             style={{
               background: "var(--gray-a2)",
-              border: "1px solid var(--gray-4)",
             }}
           >
             <Flex justify="between" align="center" wrap="wrap" gap="4">
@@ -1371,7 +1393,8 @@ export function ActivitySummarySection({
               const minVal = Math.min(...vals, 0);
               const maxVal = Math.max(...vals, 0);
               const range = maxVal - minVal || 1;
-              const toY = (v: number) => PAD + ((maxVal - v) / range) * (H - PAD * 2);
+              const toY = (v: number) =>
+                PAD + ((maxVal - v) / range) * (H - PAD * 2);
               const toX = (i: number) =>
                 PAD + (i / (creditTrend.length - 1)) * (W - PAD * 2);
               const points = creditTrend
@@ -1379,7 +1402,8 @@ export function ActivitySummarySection({
                 .join(" ");
               const zeroY = toY(0);
               const lastVal = vals[vals.length - 1];
-              const lineColor = lastVal >= 0 ? "var(--green-9)" : "var(--red-9)";
+              const lineColor =
+                lastVal >= 0 ? "var(--green-9)" : "var(--red-9)";
               return (
                 <div>
                   <Flex justify="between" align="center" className="mb-1">
@@ -1410,9 +1434,23 @@ export function ActivitySummarySection({
                       strokeDasharray="4 3"
                     />
                     <defs>
-                      <linearGradient id="creditGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={lineColor} stopOpacity="0.25" />
-                        <stop offset="100%" stopColor={lineColor} stopOpacity="0.03" />
+                      <linearGradient
+                        id="creditGrad"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="0%"
+                          stopColor={lineColor}
+                          stopOpacity="0.25"
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor={lineColor}
+                          stopOpacity="0.03"
+                        />
                       </linearGradient>
                     </defs>
                     <polygon
@@ -1433,7 +1471,11 @@ export function ActivitySummarySection({
                           cx={toX(i)}
                           cy={toY(m.cumulative)}
                           r={3}
-                          fill={m.cumulative >= 0 ? "var(--green-9)" : "var(--red-9)"}
+                          fill={
+                            m.cumulative >= 0
+                              ? "var(--green-9)"
+                              : "var(--red-9)"
+                          }
                         />
                         <title>
                           {m.label}: {m.cumulative >= 0 ? "+" : ""}
@@ -1442,7 +1484,9 @@ export function ActivitySummarySection({
                       </g>
                     ))}
                     {creditTrend
-                      .filter((_, i) => i % 3 === 0 || i === creditTrend.length - 1)
+                      .filter(
+                        (_, i) => i % 3 === 0 || i === creditTrend.length - 1,
+                      )
                       .map((m) => {
                         const i = creditTrend.indexOf(m);
                         return (
