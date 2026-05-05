@@ -408,6 +408,104 @@ export function ActivitySummarySection({
       .slice(0, 15);
   }, [ratings]);
 
+  // Streak — consecutive months with at least 1 transaction
+  const streak = useMemo(() => {
+    const months = getLastMonths(24);
+    let count = 0;
+    for (let i = months.length - 1; i >= 0; i--) {
+      const hasActivity = enriched.some((e) => e.monthKey === months[i].key);
+      if (!hasActivity) break;
+      count++;
+    }
+    return count;
+  }, [enriched]);
+
+  // Achievement badges
+  const badges = useMemo(() => {
+    const completedTx = enriched.filter((e) => e.tx.status === "completed");
+    const givenCompleted = completedTx.filter((e) => e.userRole === "provider");
+    const takenCompleted = completedTx.filter(
+      (e) => e.userRole === "requester",
+    );
+    const ratedItems = enriched.filter((e) => e.rating !== null);
+    const avgRating =
+      ratedItems.length > 0
+        ? ratedItems.reduce((s, e) => s + (e.rating?.score ?? 0), 0) /
+          ratedItems.length
+        : 0;
+    const uniquePartners = new Set(
+      enriched.map((e) =>
+        e.userRole === "provider" ? e.tx.requester_id : e.tx.provider_id,
+      ),
+    ).size;
+    return [
+      {
+        id: "giver",
+        label: "Trusted Giver",
+        desc: "Give 5 services",
+        icon: "↑",
+        cur: givenCompleted.length,
+        max: 5,
+        color: "var(--orange-9)",
+      },
+      {
+        id: "taker",
+        label: "Active Receiver",
+        desc: "Receive 5 services",
+        icon: "↓",
+        cur: takenCompleted.length,
+        max: 5,
+        color: "var(--blue-9)",
+      },
+      {
+        id: "quality",
+        label: "Quality Service",
+        desc: "Avg rating ≥ 4.5 stars",
+        icon: "★",
+        cur: avgRating,
+        max: 5,
+        color: "var(--amber-9)",
+        asScore: true,
+      },
+      {
+        id: "social",
+        label: "Community Builder",
+        desc: "Meet 5 unique people",
+        icon: "♥",
+        cur: uniquePartners,
+        max: 5,
+        color: "var(--violet-9)",
+      },
+      {
+        id: "streak",
+        label: "Consistent",
+        desc: "Active 3 months in a row",
+        icon: "🔥",
+        cur: streak,
+        max: 3,
+        color: "var(--red-9)",
+      },
+      {
+        id: "veteran",
+        label: "Veteran",
+        desc: "Complete 20 transactions",
+        icon: "⚡",
+        cur: completedTx.length,
+        max: 20,
+        color: "var(--green-9)",
+      },
+    ] as {
+      id: string;
+      label: string;
+      desc: string;
+      icon: string;
+      cur: number;
+      max: number;
+      color: string;
+      asScore?: boolean;
+    }[];
+  }, [enriched, streak]);
+
   // Top counterparties by transaction count
   const topInteractions = useMemo(() => {
     const map: Record<
@@ -566,6 +664,108 @@ export function ActivitySummarySection({
         </Card>
       ) : (
         <>
+          {/* ── Streak + Badges ── */}
+          <div
+            className="rounded-lg px-4 py-3"
+            style={{
+              background: "var(--gray-a2)",
+              border: "1px solid var(--gray-4)",
+            }}
+          >
+            <Flex justify="between" align="center" wrap="wrap" gap="4">
+              {/* Streak */}
+              <Flex align="center" gap="3">
+                <div
+                  style={{
+                    fontSize: 28,
+                    lineHeight: 1,
+                    filter:
+                      streak === 0 ? "grayscale(1) opacity(0.4)" : undefined,
+                  }}
+                >
+                  🔥
+                </div>
+                <div>
+                  <Text size="4" weight="bold">
+                    {streak}
+                  </Text>
+                  <Text size="1" color="gray" style={{ display: "block" }}>
+                    month{streak !== 1 ? "s" : ""} streak
+                  </Text>
+                </div>
+              </Flex>
+              {/* Badges */}
+              <Flex gap="3" wrap="wrap" style={{ flex: 1 }}>
+                {badges.map((b) => {
+                  const progress = Math.min(b.cur / b.max, 1);
+                  const earned = progress >= 1;
+                  return (
+                    <div
+                      key={b.id}
+                      title={`${b.label}: ${b.desc} (${b.asScore ? b.cur.toFixed(1) : b.cur}/${b.max})`}
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 4,
+                        opacity: earned ? 1 : 0.5,
+                        minWidth: 52,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: "50%",
+                          background: earned ? b.color : "var(--gray-4)",
+                          border: `2px solid ${earned ? b.color : "var(--gray-5)"}`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 16,
+                          boxShadow: earned ? `0 0 8px ${b.color}60` : "none",
+                          transition: "all 0.2s",
+                        }}
+                      >
+                        {b.icon}
+                      </div>
+                      <div
+                        style={{
+                          width: 36,
+                          height: 3,
+                          borderRadius: 2,
+                          background: "var(--gray-4)",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: `${progress * 100}%`,
+                            height: "100%",
+                            background: b.color,
+                            borderRadius: 2,
+                            transition: "width 0.4s",
+                          }}
+                        />
+                      </div>
+                      <Text
+                        size="1"
+                        color="gray"
+                        style={{
+                          textAlign: "center",
+                          fontSize: 9,
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {b.label}
+                      </Text>
+                    </div>
+                  );
+                })}
+              </Flex>
+            </Flex>
+          </div>
+
           {/* ── Charts card ── */}
           <Flex direction="column" gap="5">
             {/* Stat pills — clickable */}
@@ -1161,6 +1361,108 @@ export function ActivitySummarySection({
             </div>
           </div>
 
+          {/* ── Credit balance trend ── */}
+          {creditTrend.some((m) => m.earned > 0 || m.spent > 0) &&
+            (() => {
+              const W = 480,
+                H = 80,
+                PAD = 16;
+              const vals = creditTrend.map((m) => m.cumulative);
+              const minVal = Math.min(...vals, 0);
+              const maxVal = Math.max(...vals, 0);
+              const range = maxVal - minVal || 1;
+              const toY = (v: number) => PAD + ((maxVal - v) / range) * (H - PAD * 2);
+              const toX = (i: number) =>
+                PAD + (i / (creditTrend.length - 1)) * (W - PAD * 2);
+              const points = creditTrend
+                .map((m, i) => `${toX(i)},${toY(m.cumulative)}`)
+                .join(" ");
+              const zeroY = toY(0);
+              const lastVal = vals[vals.length - 1];
+              const lineColor = lastVal >= 0 ? "var(--green-9)" : "var(--red-9)";
+              return (
+                <div>
+                  <Flex justify="between" align="center" className="mb-1">
+                    <Text size="1" color="gray">
+                      Credit balance trend — last 12 months
+                    </Text>
+                    <Badge
+                      size="1"
+                      color={lastVal >= 0 ? "green" : "red"}
+                      variant="soft"
+                    >
+                      {lastVal >= 0 ? "+" : ""}
+                      {lastVal.toFixed(1)} hrs net
+                    </Badge>
+                  </Flex>
+                  <svg
+                    width="100%"
+                    viewBox={`0 0 ${W} ${H}`}
+                    style={{ overflow: "visible" }}
+                  >
+                    <line
+                      x1={PAD}
+                      y1={zeroY}
+                      x2={W - PAD}
+                      y2={zeroY}
+                      stroke="var(--gray-5)"
+                      strokeWidth={1}
+                      strokeDasharray="4 3"
+                    />
+                    <defs>
+                      <linearGradient id="creditGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={lineColor} stopOpacity="0.25" />
+                        <stop offset="100%" stopColor={lineColor} stopOpacity="0.03" />
+                      </linearGradient>
+                    </defs>
+                    <polygon
+                      points={`${toX(0)},${zeroY} ${points} ${toX(creditTrend.length - 1)},${zeroY}`}
+                      fill="url(#creditGrad)"
+                    />
+                    <polyline
+                      points={points}
+                      fill="none"
+                      stroke={lineColor}
+                      strokeWidth={2}
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                    />
+                    {creditTrend.map((m, i) => (
+                      <g key={m.key}>
+                        <circle
+                          cx={toX(i)}
+                          cy={toY(m.cumulative)}
+                          r={3}
+                          fill={m.cumulative >= 0 ? "var(--green-9)" : "var(--red-9)"}
+                        />
+                        <title>
+                          {m.label}: {m.cumulative >= 0 ? "+" : ""}
+                          {m.cumulative.toFixed(1)} hrs cumulative
+                        </title>
+                      </g>
+                    ))}
+                    {creditTrend
+                      .filter((_, i) => i % 3 === 0 || i === creditTrend.length - 1)
+                      .map((m) => {
+                        const i = creditTrend.indexOf(m);
+                        return (
+                          <text
+                            key={m.key}
+                            x={toX(i)}
+                            y={H - 2}
+                            textAnchor="middle"
+                            fontSize={9}
+                            fill="var(--gray-9)"
+                          >
+                            {m.label}
+                          </text>
+                        );
+                      })}
+                  </svg>
+                </div>
+              );
+            })()}
+
           {/* ── Radar + Top interactions ── */}
           <Flex gap="6" wrap="wrap" align="start">
             {/* ── Radar chart ── */}
@@ -1324,137 +1626,6 @@ export function ActivitySummarySection({
               </div>
             )}
           </Flex>
-
-          {/* ── Credit balance trend ── */}
-          {creditTrend.some((m) => m.earned > 0 || m.spent > 0) &&
-            (() => {
-              const W = 480,
-                H = 80,
-                PAD = 16;
-              const vals = creditTrend.map((m) => m.cumulative);
-              const minVal = Math.min(...vals, 0);
-              const maxVal = Math.max(...vals, 0);
-              const range = maxVal - minVal || 1;
-              const toY = (v: number) =>
-                PAD + ((maxVal - v) / range) * (H - PAD * 2);
-              const toX = (i: number) =>
-                PAD + (i / (creditTrend.length - 1)) * (W - PAD * 2);
-              const points = creditTrend
-                .map((m, i) => `${toX(i)},${toY(m.cumulative)}`)
-                .join(" ");
-              const zeroY = toY(0);
-              const positiveColor = "var(--green-9)";
-              const negativeColor = "var(--red-9)";
-              const lastVal = vals[vals.length - 1];
-              return (
-                <div>
-                  <Flex justify="between" align="center" className="mb-1">
-                    <Text size="1" color="gray">
-                      Credit balance trend — last 12 months
-                    </Text>
-                    <Badge
-                      size="1"
-                      color={lastVal >= 0 ? "green" : "red"}
-                      variant="soft"
-                    >
-                      {lastVal >= 0 ? "+" : ""}
-                      {lastVal.toFixed(1)} hrs net
-                    </Badge>
-                  </Flex>
-                  <svg
-                    width="100%"
-                    viewBox={`0 0 ${W} ${H}`}
-                    style={{ overflow: "visible" }}
-                  >
-                    {/* zero line */}
-                    <line
-                      x1={PAD}
-                      y1={zeroY}
-                      x2={W - PAD}
-                      y2={zeroY}
-                      stroke="var(--gray-5)"
-                      strokeWidth={1}
-                      strokeDasharray="4 3"
-                    />
-                    {/* area fill */}
-                    <defs>
-                      <linearGradient
-                        id="creditGrad"
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="1"
-                      >
-                        <stop
-                          offset="0%"
-                          stopColor={
-                            lastVal >= 0 ? positiveColor : negativeColor
-                          }
-                          stopOpacity="0.25"
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor={
-                            lastVal >= 0 ? positiveColor : negativeColor
-                          }
-                          stopOpacity="0.03"
-                        />
-                      </linearGradient>
-                    </defs>
-                    <polygon
-                      points={`${toX(0)},${zeroY} ${points} ${toX(creditTrend.length - 1)},${zeroY}`}
-                      fill="url(#creditGrad)"
-                    />
-                    {/* line */}
-                    <polyline
-                      points={points}
-                      fill="none"
-                      stroke={lastVal >= 0 ? positiveColor : negativeColor}
-                      strokeWidth={2}
-                      strokeLinejoin="round"
-                      strokeLinecap="round"
-                    />
-                    {/* dots */}
-                    {creditTrend.map((m, i) => (
-                      <g key={m.key}>
-                        <circle
-                          cx={toX(i)}
-                          cy={toY(m.cumulative)}
-                          r={3}
-                          fill={
-                            m.cumulative >= 0 ? positiveColor : negativeColor
-                          }
-                        />
-                        <title>
-                          {m.label}: {m.cumulative >= 0 ? "+" : ""}
-                          {m.cumulative.toFixed(1)} hrs cumulative
-                        </title>
-                      </g>
-                    ))}
-                    {/* month labels */}
-                    {creditTrend
-                      .filter(
-                        (_, i) => i % 3 === 0 || i === creditTrend.length - 1,
-                      )
-                      .map((m) => {
-                        const i = creditTrend.indexOf(m);
-                        return (
-                          <text
-                            key={m.key}
-                            x={toX(i)}
-                            y={H - 2}
-                            textAnchor="middle"
-                            fontSize={9}
-                            fill="var(--gray-9)"
-                          >
-                            {m.label}
-                          </text>
-                        );
-                      })}
-                  </svg>
-                </div>
-              );
-            })()}
 
           {/* ── Filter tabs + active-filter indicator ── */}
           <Flex gap="2" wrap="wrap" align="center">
