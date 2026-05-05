@@ -34,37 +34,148 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   disputed: { label: "Disputed", color: "var(--orange-9)" },
 };
 
-const TAG_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  Reliable:           { bg: "var(--green-a3)",  text: "var(--green-11)",  border: "var(--green-7)"  },
-  Trustworthy:        { bg: "var(--green-a3)",  text: "var(--green-11)",  border: "var(--green-7)"  },
-  Responsible:        { bg: "var(--green-a3)",  text: "var(--green-11)",  border: "var(--green-7)"  },
-  Organized:          { bg: "var(--teal-a3)",   text: "var(--teal-11)",   border: "var(--teal-7)"   },
-  Prepared:           { bg: "var(--teal-a3)",   text: "var(--teal-11)",   border: "var(--teal-7)"   },
-  Professional:       { bg: "var(--blue-a3)",   text: "var(--blue-11)",   border: "var(--blue-7)"   },
-  Thorough:           { bg: "var(--blue-a3)",   text: "var(--blue-11)",   border: "var(--blue-7)"   },
-  Hardworking:        { bg: "var(--blue-a3)",   text: "var(--blue-11)",   border: "var(--blue-7)"   },
-  Efficient:          { bg: "var(--blue-a3)",   text: "var(--blue-11)",   border: "var(--blue-7)"   },
-  Knowledgeable:      { bg: "var(--indigo-a3)", text: "var(--indigo-11)", border: "var(--indigo-7)" },
-  "Problem Solver":   { bg: "var(--indigo-a3)", text: "var(--indigo-11)", border: "var(--indigo-7)" },
-  "Detail-Oriented":  { bg: "var(--indigo-a3)", text: "var(--indigo-11)", border: "var(--indigo-7)" },
-  Creative:           { bg: "var(--purple-a3)", text: "var(--purple-11)", border: "var(--purple-7)" },
-  Communicative:      { bg: "var(--cyan-a3)",   text: "var(--cyan-11)",   border: "var(--cyan-7)"   },
-  "Clear Communicator":{ bg: "var(--cyan-a3)",  text: "var(--cyan-11)",   border: "var(--cyan-7)"   },
-  Friendly:           { bg: "var(--violet-a3)", text: "var(--violet-11)", border: "var(--violet-7)" },
-  Helpful:            { bg: "var(--violet-a3)", text: "var(--violet-11)", border: "var(--violet-7)" },
-  Kind:               { bg: "var(--violet-a3)", text: "var(--violet-11)", border: "var(--violet-7)" },
-  Respectful:         { bg: "var(--violet-a3)", text: "var(--violet-11)", border: "var(--violet-7)" },
-  Patient:            { bg: "var(--violet-a3)", text: "var(--violet-11)", border: "var(--violet-7)" },
-  Flexible:           { bg: "var(--amber-a3)",  text: "var(--amber-11)",  border: "var(--amber-7)"  },
-  Collaborative:      { bg: "var(--amber-a3)",  text: "var(--amber-11)",  border: "var(--amber-7)"  },
-  Understanding:      { bg: "var(--amber-a3)",  text: "var(--amber-11)",  border: "var(--amber-7)"  },
-  Appreciative:       { bg: "var(--amber-a3)",  text: "var(--amber-11)",  border: "var(--amber-7)"  },
-  "Easy to Work With":{ bg: "var(--amber-a3)",  text: "var(--amber-11)",  border: "var(--amber-7)"  },
-  Punctual:           { bg: "var(--lime-a3)",   text: "var(--lime-11)",   border: "var(--lime-7)"   },
-};
+const TAG_COLORS: Record<string, { bg: string; text: string; border: string }> =
+  {
+    Reliable: {
+      bg: "var(--green-a3)",
+      text: "var(--green-11)",
+      border: "var(--green-7)",
+    },
+    Trustworthy: {
+      bg: "var(--green-a3)",
+      text: "var(--green-11)",
+      border: "var(--green-7)",
+    },
+    Responsible: {
+      bg: "var(--green-a3)",
+      text: "var(--green-11)",
+      border: "var(--green-7)",
+    },
+    Organized: {
+      bg: "var(--teal-a3)",
+      text: "var(--teal-11)",
+      border: "var(--teal-7)",
+    },
+    Prepared: {
+      bg: "var(--teal-a3)",
+      text: "var(--teal-11)",
+      border: "var(--teal-7)",
+    },
+    Professional: {
+      bg: "var(--blue-a3)",
+      text: "var(--blue-11)",
+      border: "var(--blue-7)",
+    },
+    Thorough: {
+      bg: "var(--blue-a3)",
+      text: "var(--blue-11)",
+      border: "var(--blue-7)",
+    },
+    Hardworking: {
+      bg: "var(--blue-a3)",
+      text: "var(--blue-11)",
+      border: "var(--blue-7)",
+    },
+    Efficient: {
+      bg: "var(--blue-a3)",
+      text: "var(--blue-11)",
+      border: "var(--blue-7)",
+    },
+    Knowledgeable: {
+      bg: "var(--indigo-a3)",
+      text: "var(--indigo-11)",
+      border: "var(--indigo-7)",
+    },
+    "Problem Solver": {
+      bg: "var(--indigo-a3)",
+      text: "var(--indigo-11)",
+      border: "var(--indigo-7)",
+    },
+    "Detail-Oriented": {
+      bg: "var(--indigo-a3)",
+      text: "var(--indigo-11)",
+      border: "var(--indigo-7)",
+    },
+    Creative: {
+      bg: "var(--purple-a3)",
+      text: "var(--purple-11)",
+      border: "var(--purple-7)",
+    },
+    Communicative: {
+      bg: "var(--cyan-a3)",
+      text: "var(--cyan-11)",
+      border: "var(--cyan-7)",
+    },
+    "Clear Communicator": {
+      bg: "var(--cyan-a3)",
+      text: "var(--cyan-11)",
+      border: "var(--cyan-7)",
+    },
+    Friendly: {
+      bg: "var(--violet-a3)",
+      text: "var(--violet-11)",
+      border: "var(--violet-7)",
+    },
+    Helpful: {
+      bg: "var(--violet-a3)",
+      text: "var(--violet-11)",
+      border: "var(--violet-7)",
+    },
+    Kind: {
+      bg: "var(--violet-a3)",
+      text: "var(--violet-11)",
+      border: "var(--violet-7)",
+    },
+    Respectful: {
+      bg: "var(--violet-a3)",
+      text: "var(--violet-11)",
+      border: "var(--violet-7)",
+    },
+    Patient: {
+      bg: "var(--violet-a3)",
+      text: "var(--violet-11)",
+      border: "var(--violet-7)",
+    },
+    Flexible: {
+      bg: "var(--amber-a3)",
+      text: "var(--amber-11)",
+      border: "var(--amber-7)",
+    },
+    Collaborative: {
+      bg: "var(--amber-a3)",
+      text: "var(--amber-11)",
+      border: "var(--amber-7)",
+    },
+    Understanding: {
+      bg: "var(--amber-a3)",
+      text: "var(--amber-11)",
+      border: "var(--amber-7)",
+    },
+    Appreciative: {
+      bg: "var(--amber-a3)",
+      text: "var(--amber-11)",
+      border: "var(--amber-7)",
+    },
+    "Easy to Work With": {
+      bg: "var(--amber-a3)",
+      text: "var(--amber-11)",
+      border: "var(--amber-7)",
+    },
+    Punctual: {
+      bg: "var(--lime-a3)",
+      text: "var(--lime-11)",
+      border: "var(--lime-7)",
+    },
+  };
 
 function getTagColor(tag: string) {
-  return TAG_COLORS[tag] ?? { bg: "var(--gray-a3)", text: "var(--gray-11)", border: "var(--gray-6)" };
+  return (
+    TAG_COLORS[tag] ?? {
+      bg: "var(--gray-a3)",
+      text: "var(--gray-11)",
+      border: "var(--gray-6)",
+    }
+  );
 }
 
 // 4-segment bar colors — given = orange tones, taken = blue tones
@@ -128,7 +239,9 @@ export function ActivitySummarySection({
   const [filter, setFilter] = useState<FilterTab>("all");
   const [monthFilter, setMonthFilter] = useState<string | null>(null);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
-  const [serviceTypeFilter, setServiceTypeFilter] = useState<"offer" | "need" | null>(null);
+  const [serviceTypeFilter, setServiceTypeFilter] = useState<
+    "offer" | "need" | null
+  >(null);
 
   const enriched = useMemo<EnrichedTransaction[]>(() => {
     const ratingMap = new Map<string, RatingDetailed>();
@@ -295,26 +408,66 @@ export function ActivitySummarySection({
       .slice(0, 15);
   }, [ratings]);
 
+  // Top counterparties by transaction count
+  const topInteractions = useMemo(() => {
+    const map: Record<
+      string,
+      {
+        id: string;
+        name: string;
+        count: number;
+        asProvider: number;
+        asRequester: number;
+      }
+    > = {};
+    for (const { tx, userRole } of enriched) {
+      const cp = userRole === "provider" ? tx.requester : tx.provider;
+      if (!cp) continue;
+      if (!map[cp.id])
+        map[cp.id] = {
+          id: cp.id,
+          name: cp.full_name ?? `@${cp.username}`,
+          count: 0,
+          asProvider: 0,
+          asRequester: 0,
+        };
+      map[cp.id].count++;
+      if (userRole === "provider") map[cp.id].asProvider++;
+      else map[cp.id].asRequester++;
+    }
+    return Object.values(map)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  }, [enriched]);
+
   // Radar chart dimensions: given%, taken%, completed%, avgRating%, offer%, need%
   const radarDims = useMemo(() => {
     const total = enriched.length || 1;
-    const completed = enriched.filter((e) => e.tx.status === "completed").length;
+    const completed = enriched.filter(
+      (e) => e.tx.status === "completed",
+    ).length;
     const given = enriched.filter((e) => e.userRole === "provider").length;
     const taken = enriched.filter((e) => e.userRole === "requester").length;
     const ratedItems = enriched.filter((e) => e.rating !== null);
-    const avgRating = ratedItems.length > 0
-      ? ratedItems.reduce((s, e) => s + (e.rating?.score ?? 0), 0) / ratedItems.length
-      : 0;
-    const offers = enriched.filter((e) => e.rating?.service?.service_type === "offer").length;
-    const needs = enriched.filter((e) => e.rating?.service?.service_type === "need").length;
+    const avgRating =
+      ratedItems.length > 0
+        ? ratedItems.reduce((s, e) => s + (e.rating?.score ?? 0), 0) /
+          ratedItems.length
+        : 0;
+    const offers = enriched.filter(
+      (e) => e.rating?.service?.service_type === "offer",
+    ).length;
+    const needs = enriched.filter(
+      (e) => e.rating?.service?.service_type === "need",
+    ).length;
     const typed = offers + needs || 1;
     return [
-      { label: "Given",     value: given / total },
-      { label: "Taken",     value: taken / total },
+      { label: "Given", value: given / total },
+      { label: "Taken", value: taken / total },
       { label: "Completed", value: completed / total },
-      { label: "Rated",     value: Math.min(ratedItems.length / total, 1) },
-      { label: "Quality",   value: avgRating / 5 },
-      { label: "Offers",    value: offers / typed },
+      { label: "Rated", value: Math.min(ratedItems.length / total, 1) },
+      { label: "Quality", value: avgRating / 5 },
+      { label: "Offers", value: offers / typed },
     ];
   }, [enriched]);
 
@@ -323,9 +476,15 @@ export function ActivitySummarySection({
     const months = getLastMonths(12);
     let cumulative = 0;
     return months.map(({ key, label }) => {
-      const inMonth = enriched.filter((e) => e.monthKey === key && e.tx.status === "completed");
-      const earned = inMonth.filter((e) => e.userRole === "provider").reduce((s, e) => s + e.tx.timebank_hours, 0);
-      const spent = inMonth.filter((e) => e.userRole === "requester").reduce((s, e) => s + e.tx.timebank_hours, 0);
+      const inMonth = enriched.filter(
+        (e) => e.monthKey === key && e.tx.status === "completed",
+      );
+      const earned = inMonth
+        .filter((e) => e.userRole === "provider")
+        .reduce((s, e) => s + e.tx.timebank_hours, 0);
+      const spent = inMonth
+        .filter((e) => e.userRole === "requester")
+        .reduce((s, e) => s + e.tx.timebank_hours, 0);
       cumulative += earned - spent;
       return { key, label, earned, spent, cumulative };
     });
@@ -345,12 +504,22 @@ export function ActivitySummarySection({
     const startOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // align to Mon
     const start = new Date(today);
     start.setDate(today.getDate() - 363 - startOffset);
-    const cells: { date: string; count: number; weekIdx: number; dayIdx: number }[] = [];
+    const cells: {
+      date: string;
+      count: number;
+      weekIdx: number;
+      dayIdx: number;
+    }[] = [];
     for (let i = 0; i < 364; i++) {
       const d = new Date(start);
       d.setDate(start.getDate() + i);
       const key = d.toISOString().slice(0, 10);
-      cells.push({ date: key, count: counts[key] ?? 0, weekIdx: Math.floor(i / 7), dayIdx: i % 7 });
+      cells.push({
+        date: key,
+        count: counts[key] ?? 0,
+        weekIdx: Math.floor(i / 7),
+        dayIdx: i % 7,
+      });
     }
     return cells;
   }, [enriched]);
@@ -367,7 +536,8 @@ export function ActivitySummarySection({
     "cancelled",
     "disputed",
   ];
-  const hasActiveFilter = monthFilter !== null || tagFilter !== null || serviceTypeFilter !== null;
+  const hasActiveFilter =
+    monthFilter !== null || tagFilter !== null || serviceTypeFilter !== null;
 
   const clearFilters = () => {
     setMonthFilter(null);
@@ -567,7 +737,7 @@ export function ActivitySummarySection({
             {/* Monthly chart + top tags */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {/* Monthly bar chart — clickable bars, 4-segment */}
-              <div>
+              <div className="flex flex-col">
                 <Flex justify="between" align="center" className="mb-2">
                   <Text size="1" color="gray">
                     Activity — last 6 months
@@ -611,7 +781,7 @@ export function ActivitySummarySection({
                     </Flex>
                   </Flex>
                 </Flex>
-                <div className="flex items-end gap-2">
+                <div className="flex items-end gap-2 flex-1">
                   {monthlyData.map((m) => {
                     const isActive = monthFilter === m.key;
                     const goHeight = (m.givenOffer / maxMonthTotal) * 64;
@@ -792,7 +962,9 @@ export function ActivitySummarySection({
                             <button
                               key={tag}
                               type="button"
-                              onClick={() => setTagFilter(isActive ? null : tag)}
+                              onClick={() =>
+                                setTagFilter(isActive ? null : tag)
+                              }
                               style={{
                                 display: "inline-flex",
                                 alignItems: "center",
@@ -806,14 +978,24 @@ export function ActivitySummarySection({
                                 cursor: "pointer",
                                 fontSize: `${Math.round(10 + scale * 3)}px`,
                                 fontWeight: isActive ? "700" : "500",
-                                opacity: isActive ? 1 : 0.75 + (count / maxCount) * 0.25,
-                                outline: isActive ? `2px solid ${col.border}` : "none",
+                                opacity: isActive
+                                  ? 1
+                                  : 0.75 + (count / maxCount) * 0.25,
+                                outline: isActive
+                                  ? `2px solid ${col.border}`
+                                  : "none",
                                 outlineOffset: "1px",
                                 transition: "all 0.15s",
                               }}
                             >
                               {tag}
-                              <span style={{ fontSize: "9px", opacity: 0.65, fontWeight: "600" }}>
+                              <span
+                                style={{
+                                  fontSize: "9px",
+                                  opacity: 0.65,
+                                  fontWeight: "600",
+                                }}
+                              >
                                 {count}
                               </span>
                             </button>
@@ -897,31 +1079,52 @@ export function ActivitySummarySection({
               Activity — last 52 weeks
             </Text>
             <div style={{ overflowX: "auto" }}>
-              <div style={{ display: "flex", gap: "2px", minWidth: "fit-content" }}>
+              <div
+                style={{ display: "flex", gap: "2px", minWidth: "fit-content" }}
+              >
                 {Array.from({ length: 52 }, (_, w) => (
-                  <div key={w} style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                  <div
+                    key={w}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "2px",
+                    }}
+                  >
                     {Array.from({ length: 7 }, (_, d) => {
                       const cell = heatmapData[w * 7 + d];
-                      if (!cell) return <div key={d} style={{ width: 11, height: 11 }} />;
-                      const intensity = cell.count === 0 ? 0 : 0.2 + (cell.count / heatmapMax) * 0.8;
+                      if (!cell)
+                        return (
+                          <div key={d} style={{ width: 11, height: 11 }} />
+                        );
+                      const intensity =
+                        cell.count === 0
+                          ? 0
+                          : 0.2 + (cell.count / heatmapMax) * 0.8;
                       return (
                         <div
                           key={d}
-                          title={cell.count > 0 ? `${cell.date}: ${cell.count} transaction${cell.count !== 1 ? "s" : ""}` : cell.date}
+                          title={
+                            cell.count > 0
+                              ? `${cell.date}: ${cell.count} transaction${cell.count !== 1 ? "s" : ""}`
+                              : cell.date
+                          }
                           style={{
                             width: 11,
                             height: 11,
                             borderRadius: 2,
-                            background: cell.count === 0
-                              ? "var(--gray-a3)"
-                              : `rgba(var(--green-9-rgb, 48,164,108), ${intensity})`,
-                            backgroundColor: cell.count === 0
-                              ? "var(--gray-a3)"
-                              : intensity > 0.7
-                                ? "var(--green-9)"
-                                : intensity > 0.4
-                                  ? "var(--green-7)"
-                                  : "var(--green-5)",
+                            background:
+                              cell.count === 0
+                                ? "var(--gray-a3)"
+                                : `rgba(var(--green-9-rgb, 48,164,108), ${intensity})`,
+                            backgroundColor:
+                              cell.count === 0
+                                ? "var(--gray-a3)"
+                                : intensity > 0.7
+                                  ? "var(--green-9)"
+                                  : intensity > 0.4
+                                    ? "var(--green-7)"
+                                    : "var(--green-5)",
                             cursor: cell.count > 0 ? "pointer" : "default",
                             transition: "opacity 0.1s",
                           }}
@@ -932,127 +1135,326 @@ export function ActivitySummarySection({
                 ))}
               </div>
               <Flex gap="3" align="center" className="mt-1">
-                <Text size="1" color="gray">Less</Text>
-                {["var(--gray-a3)", "var(--green-5)", "var(--green-7)", "var(--green-9)"].map((bg, i) => (
-                  <div key={i} style={{ width: 11, height: 11, borderRadius: 2, backgroundColor: bg }} />
+                <Text size="1" color="gray">
+                  Less
+                </Text>
+                {[
+                  "var(--gray-a3)",
+                  "var(--green-5)",
+                  "var(--green-7)",
+                  "var(--green-9)",
+                ].map((bg, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      width: 11,
+                      height: 11,
+                      borderRadius: 2,
+                      backgroundColor: bg,
+                    }}
+                  />
                 ))}
-                <Text size="1" color="gray">More</Text>
+                <Text size="1" color="gray">
+                  More
+                </Text>
               </Flex>
             </div>
           </div>
 
-          {/* ── Radar chart ── */}
-          {(() => {
-            const SIZE = 120, CX = SIZE / 2, CY = SIZE / 2, R = 48;
-            const n = radarDims.length;
-            const angleStep = (2 * Math.PI) / n;
-            const angle = (i: number) => -Math.PI / 2 + i * angleStep;
-            const pt = (i: number, r: number) => ({
-              x: CX + r * Math.cos(angle(i)),
-              y: CY + r * Math.sin(angle(i)),
-            });
-            const rings = [0.25, 0.5, 0.75, 1];
-            return (
-              <div style={{ maxWidth: 200 }}>
-                <Text size="1" color="gray" className="block mb-2">Activity profile</Text>
-                <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
-                  {/* grid rings */}
-                  {rings.map((r) => (
+          {/* ── Radar + Top interactions ── */}
+          <Flex gap="6" wrap="wrap" align="start">
+            {/* ── Radar chart ── */}
+            {(() => {
+              const SIZE = 120,
+                CX = SIZE / 2,
+                CY = SIZE / 2,
+                R = 48;
+              const n = radarDims.length;
+              const angleStep = (2 * Math.PI) / n;
+              const angle = (i: number) => -Math.PI / 2 + i * angleStep;
+              const pt = (i: number, r: number) => ({
+                x: CX + r * Math.cos(angle(i)),
+                y: CY + r * Math.sin(angle(i)),
+              });
+              const rings = [0.25, 0.5, 0.75, 1];
+              return (
+                <div style={{ maxWidth: 200 }}>
+                  <Text size="1" color="gray" className="block mb-2">
+                    Activity profile
+                  </Text>
+                  <svg
+                    width={SIZE}
+                    height={SIZE}
+                    viewBox={`0 0 ${SIZE} ${SIZE}`}
+                  >
+                    {/* grid rings */}
+                    {rings.map((r) => (
+                      <polygon
+                        key={r}
+                        points={Array.from({ length: n }, (_, i) => {
+                          const p = pt(i, R * r);
+                          return `${p.x},${p.y}`;
+                        }).join(" ")}
+                        fill="none"
+                        stroke="var(--gray-5)"
+                        strokeWidth={0.5}
+                      />
+                    ))}
+                    {/* spokes */}
+                    {radarDims.map((_, i) => {
+                      const outer = pt(i, R);
+                      return (
+                        <line
+                          key={i}
+                          x1={CX}
+                          y1={CY}
+                          x2={outer.x}
+                          y2={outer.y}
+                          stroke="var(--gray-5)"
+                          strokeWidth={0.5}
+                        />
+                      );
+                    })}
+                    {/* data polygon */}
                     <polygon
-                      key={r}
-                      points={Array.from({ length: n }, (_, i) => { const p = pt(i, R * r); return `${p.x},${p.y}`; }).join(" ")}
-                      fill="none"
-                      stroke="var(--gray-5)"
-                      strokeWidth={0.5}
+                      points={radarDims
+                        .map((d, i) => {
+                          const p = pt(i, R * d.value);
+                          return `${p.x},${p.y}`;
+                        })
+                        .join(" ")}
+                      fill="var(--accent-a4)"
+                      stroke="var(--accent-9)"
+                      strokeWidth={1.5}
                     />
+                    {/* dots */}
+                    {radarDims.map((d, i) => {
+                      const p = pt(i, R * d.value);
+                      return (
+                        <circle
+                          key={i}
+                          cx={p.x}
+                          cy={p.y}
+                          r={2.5}
+                          fill="var(--accent-9)"
+                        />
+                      );
+                    })}
+                    {/* labels */}
+                    {radarDims.map((d, i) => {
+                      const p = pt(i, R + 13);
+                      return (
+                        <text
+                          key={i}
+                          x={p.x}
+                          y={p.y}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fontSize={7}
+                          fill="var(--gray-11)"
+                          fontWeight="500"
+                        >
+                          {d.label}
+                        </text>
+                      );
+                    })}
+                  </svg>
+                </div>
+              );
+            })()}
+
+            {/* ── Top interactions ── */}
+            {topInteractions.length > 0 && (
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <Text size="1" color="gray" className="block mb-2">
+                  Top interactions
+                </Text>
+                <Flex direction="column" gap="2">
+                  {topInteractions.map((cp) => (
+                    <Flex
+                      key={cp.id}
+                      align="center"
+                      gap="2"
+                      style={{ cursor: "pointer" }}
+                      onClick={() => navigate(`/user/${cp.id}`)}
+                    >
+                      <div
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: "50%",
+                          background: "var(--accent-a4)",
+                          border: "1px solid var(--accent-6)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 11,
+                          fontWeight: "700",
+                          color: "var(--accent-11)",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {cp.name.replace("@", "").slice(0, 2).toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <Text
+                          size="2"
+                          style={{
+                            display: "block",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {cp.name}
+                        </Text>
+                        <Text size="1" color="gray">
+                          {cp.count} transaction{cp.count !== 1 ? "s" : ""}
+                          {cp.asProvider > 0 &&
+                            cp.asRequester > 0 &&
+                            ` · ${cp.asProvider}↑ ${cp.asRequester}↓`}
+                        </Text>
+                      </div>
+                      <Badge size="1" color="gray" variant="soft">
+                        {cp.count}
+                      </Badge>
+                    </Flex>
                   ))}
-                  {/* spokes */}
-                  {radarDims.map((_, i) => {
-                    const outer = pt(i, R);
-                    return <line key={i} x1={CX} y1={CY} x2={outer.x} y2={outer.y} stroke="var(--gray-5)" strokeWidth={0.5} />;
-                  })}
-                  {/* data polygon */}
-                  <polygon
-                    points={radarDims.map((d, i) => { const p = pt(i, R * d.value); return `${p.x},${p.y}`; }).join(" ")}
-                    fill="var(--accent-a4)"
-                    stroke="var(--accent-9)"
-                    strokeWidth={1.5}
-                  />
-                  {/* dots */}
-                  {radarDims.map((d, i) => {
-                    const p = pt(i, R * d.value);
-                    return <circle key={i} cx={p.x} cy={p.y} r={2.5} fill="var(--accent-9)" />;
-                  })}
-                  {/* labels */}
-                  {radarDims.map((d, i) => {
-                    const p = pt(i, R + 13);
-                    return (
-                      <text key={i} x={p.x} y={p.y} textAnchor="middle" dominantBaseline="middle" fontSize={7} fill="var(--gray-11)" fontWeight="500">
-                        {d.label}
-                      </text>
-                    );
-                  })}
-                </svg>
+                </Flex>
               </div>
-            );
-          })()}
+            )}
+          </Flex>
 
           {/* ── Credit balance trend ── */}
-          {creditTrend.some((m) => m.earned > 0 || m.spent > 0) && (() => {
-            const W = 480, H = 80, PAD = 16;
-            const vals = creditTrend.map((m) => m.cumulative);
-            const minVal = Math.min(...vals, 0);
-            const maxVal = Math.max(...vals, 0);
-            const range = maxVal - minVal || 1;
-            const toY = (v: number) => PAD + ((maxVal - v) / range) * (H - PAD * 2);
-            const toX = (i: number) => PAD + (i / (creditTrend.length - 1)) * (W - PAD * 2);
-            const points = creditTrend.map((m, i) => `${toX(i)},${toY(m.cumulative)}`).join(" ");
-            const zeroY = toY(0);
-            const positiveColor = "var(--green-9)";
-            const negativeColor = "var(--red-9)";
-            const lastVal = vals[vals.length - 1];
-            return (
-              <div>
-                <Flex justify="between" align="center" className="mb-1">
-                  <Text size="1" color="gray">Credit balance trend — last 12 months</Text>
-                  <Badge size="1" color={lastVal >= 0 ? "green" : "red"} variant="soft">
-                    {lastVal >= 0 ? "+" : ""}{lastVal.toFixed(1)} hrs net
-                  </Badge>
-                </Flex>
-                <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible" }}>
-                  {/* zero line */}
-                  <line x1={PAD} y1={zeroY} x2={W - PAD} y2={zeroY} stroke="var(--gray-5)" strokeWidth={1} strokeDasharray="4 3" />
-                  {/* area fill */}
-                  <defs>
-                    <linearGradient id="creditGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={lastVal >= 0 ? positiveColor : negativeColor} stopOpacity="0.25" />
-                      <stop offset="100%" stopColor={lastVal >= 0 ? positiveColor : negativeColor} stopOpacity="0.03" />
-                    </linearGradient>
-                  </defs>
-                  <polygon
-                    points={`${toX(0)},${zeroY} ${points} ${toX(creditTrend.length - 1)},${zeroY}`}
-                    fill="url(#creditGrad)"
-                  />
-                  {/* line */}
-                  <polyline points={points} fill="none" stroke={lastVal >= 0 ? positiveColor : negativeColor} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-                  {/* dots */}
-                  {creditTrend.map((m, i) => (
-                    <g key={m.key}>
-                      <circle cx={toX(i)} cy={toY(m.cumulative)} r={3} fill={m.cumulative >= 0 ? positiveColor : negativeColor} />
-                      <title>{m.label}: {m.cumulative >= 0 ? "+" : ""}{m.cumulative.toFixed(1)} hrs cumulative</title>
-                    </g>
-                  ))}
-                  {/* month labels */}
-                  {creditTrend.filter((_, i) => i % 3 === 0 || i === creditTrend.length - 1).map((m) => {
-                    const i = creditTrend.indexOf(m);
-                    return (
-                      <text key={m.key} x={toX(i)} y={H - 2} textAnchor="middle" fontSize={9} fill="var(--gray-9)">{m.label}</text>
-                    );
-                  })}
-                </svg>
-              </div>
-            );
-          })()}
+          {creditTrend.some((m) => m.earned > 0 || m.spent > 0) &&
+            (() => {
+              const W = 480,
+                H = 80,
+                PAD = 16;
+              const vals = creditTrend.map((m) => m.cumulative);
+              const minVal = Math.min(...vals, 0);
+              const maxVal = Math.max(...vals, 0);
+              const range = maxVal - minVal || 1;
+              const toY = (v: number) =>
+                PAD + ((maxVal - v) / range) * (H - PAD * 2);
+              const toX = (i: number) =>
+                PAD + (i / (creditTrend.length - 1)) * (W - PAD * 2);
+              const points = creditTrend
+                .map((m, i) => `${toX(i)},${toY(m.cumulative)}`)
+                .join(" ");
+              const zeroY = toY(0);
+              const positiveColor = "var(--green-9)";
+              const negativeColor = "var(--red-9)";
+              const lastVal = vals[vals.length - 1];
+              return (
+                <div>
+                  <Flex justify="between" align="center" className="mb-1">
+                    <Text size="1" color="gray">
+                      Credit balance trend — last 12 months
+                    </Text>
+                    <Badge
+                      size="1"
+                      color={lastVal >= 0 ? "green" : "red"}
+                      variant="soft"
+                    >
+                      {lastVal >= 0 ? "+" : ""}
+                      {lastVal.toFixed(1)} hrs net
+                    </Badge>
+                  </Flex>
+                  <svg
+                    width="100%"
+                    viewBox={`0 0 ${W} ${H}`}
+                    style={{ overflow: "visible" }}
+                  >
+                    {/* zero line */}
+                    <line
+                      x1={PAD}
+                      y1={zeroY}
+                      x2={W - PAD}
+                      y2={zeroY}
+                      stroke="var(--gray-5)"
+                      strokeWidth={1}
+                      strokeDasharray="4 3"
+                    />
+                    {/* area fill */}
+                    <defs>
+                      <linearGradient
+                        id="creditGrad"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="0%"
+                          stopColor={
+                            lastVal >= 0 ? positiveColor : negativeColor
+                          }
+                          stopOpacity="0.25"
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor={
+                            lastVal >= 0 ? positiveColor : negativeColor
+                          }
+                          stopOpacity="0.03"
+                        />
+                      </linearGradient>
+                    </defs>
+                    <polygon
+                      points={`${toX(0)},${zeroY} ${points} ${toX(creditTrend.length - 1)},${zeroY}`}
+                      fill="url(#creditGrad)"
+                    />
+                    {/* line */}
+                    <polyline
+                      points={points}
+                      fill="none"
+                      stroke={lastVal >= 0 ? positiveColor : negativeColor}
+                      strokeWidth={2}
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                    />
+                    {/* dots */}
+                    {creditTrend.map((m, i) => (
+                      <g key={m.key}>
+                        <circle
+                          cx={toX(i)}
+                          cy={toY(m.cumulative)}
+                          r={3}
+                          fill={
+                            m.cumulative >= 0 ? positiveColor : negativeColor
+                          }
+                        />
+                        <title>
+                          {m.label}: {m.cumulative >= 0 ? "+" : ""}
+                          {m.cumulative.toFixed(1)} hrs cumulative
+                        </title>
+                      </g>
+                    ))}
+                    {/* month labels */}
+                    {creditTrend
+                      .filter(
+                        (_, i) => i % 3 === 0 || i === creditTrend.length - 1,
+                      )
+                      .map((m) => {
+                        const i = creditTrend.indexOf(m);
+                        return (
+                          <text
+                            key={m.key}
+                            x={toX(i)}
+                            y={H - 2}
+                            textAnchor="middle"
+                            fontSize={9}
+                            fill="var(--gray-9)"
+                          >
+                            {m.label}
+                          </text>
+                        );
+                      })}
+                  </svg>
+                </div>
+              );
+            })()}
 
           {/* ── Filter tabs + active-filter indicator ── */}
           <Flex gap="2" wrap="wrap" align="center">
@@ -1109,7 +1511,8 @@ export function ActivitySummarySection({
                 }}
               >
                 <Cross2Icon />
-                {[monthFilter, tagFilter, serviceTypeFilter].filter(Boolean).length > 1
+                {[monthFilter, tagFilter, serviceTypeFilter].filter(Boolean)
+                  .length > 1
                   ? "Clear filters"
                   : monthFilter
                     ? "Clear month"
