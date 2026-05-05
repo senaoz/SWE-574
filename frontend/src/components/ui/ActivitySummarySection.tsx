@@ -295,6 +295,19 @@ export function ActivitySummarySection({
       .slice(0, 15);
   }, [ratings]);
 
+  // Credit balance trend — cumulative hours (provider=earned, requester=spent)
+  const creditTrend = useMemo(() => {
+    const months = getLastMonths(12);
+    let cumulative = 0;
+    return months.map(({ key, label }) => {
+      const inMonth = enriched.filter((e) => e.monthKey === key && e.tx.status === "completed");
+      const earned = inMonth.filter((e) => e.userRole === "provider").reduce((s, e) => s + e.tx.timebank_hours, 0);
+      const spent = inMonth.filter((e) => e.userRole === "requester").reduce((s, e) => s + e.tx.timebank_hours, 0);
+      cumulative += earned - spent;
+      return { key, label, earned, spent, cumulative };
+    });
+  }, [enriched]);
+
   // 52-week heatmap data
   const heatmapData = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -904,6 +917,63 @@ export function ActivitySummarySection({
               </Flex>
             </div>
           </div>
+
+          {/* ── Credit balance trend ── */}
+          {creditTrend.some((m) => m.earned > 0 || m.spent > 0) && (() => {
+            const W = 480, H = 80, PAD = 16;
+            const vals = creditTrend.map((m) => m.cumulative);
+            const minVal = Math.min(...vals, 0);
+            const maxVal = Math.max(...vals, 0);
+            const range = maxVal - minVal || 1;
+            const toY = (v: number) => PAD + ((maxVal - v) / range) * (H - PAD * 2);
+            const toX = (i: number) => PAD + (i / (creditTrend.length - 1)) * (W - PAD * 2);
+            const points = creditTrend.map((m, i) => `${toX(i)},${toY(m.cumulative)}`).join(" ");
+            const zeroY = toY(0);
+            const positiveColor = "var(--green-9)";
+            const negativeColor = "var(--red-9)";
+            const lastVal = vals[vals.length - 1];
+            return (
+              <div>
+                <Flex justify="between" align="center" className="mb-1">
+                  <Text size="1" color="gray">Credit balance trend — last 12 months</Text>
+                  <Badge size="1" color={lastVal >= 0 ? "green" : "red"} variant="soft">
+                    {lastVal >= 0 ? "+" : ""}{lastVal.toFixed(1)} hrs net
+                  </Badge>
+                </Flex>
+                <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible" }}>
+                  {/* zero line */}
+                  <line x1={PAD} y1={zeroY} x2={W - PAD} y2={zeroY} stroke="var(--gray-5)" strokeWidth={1} strokeDasharray="4 3" />
+                  {/* area fill */}
+                  <defs>
+                    <linearGradient id="creditGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={lastVal >= 0 ? positiveColor : negativeColor} stopOpacity="0.25" />
+                      <stop offset="100%" stopColor={lastVal >= 0 ? positiveColor : negativeColor} stopOpacity="0.03" />
+                    </linearGradient>
+                  </defs>
+                  <polygon
+                    points={`${toX(0)},${zeroY} ${points} ${toX(creditTrend.length - 1)},${zeroY}`}
+                    fill="url(#creditGrad)"
+                  />
+                  {/* line */}
+                  <polyline points={points} fill="none" stroke={lastVal >= 0 ? positiveColor : negativeColor} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+                  {/* dots */}
+                  {creditTrend.map((m, i) => (
+                    <g key={m.key}>
+                      <circle cx={toX(i)} cy={toY(m.cumulative)} r={3} fill={m.cumulative >= 0 ? positiveColor : negativeColor} />
+                      <title>{m.label}: {m.cumulative >= 0 ? "+" : ""}{m.cumulative.toFixed(1)} hrs cumulative</title>
+                    </g>
+                  ))}
+                  {/* month labels */}
+                  {creditTrend.filter((_, i) => i % 3 === 0 || i === creditTrend.length - 1).map((m) => {
+                    const i = creditTrend.indexOf(m);
+                    return (
+                      <text key={m.key} x={toX(i)} y={H - 2} textAnchor="middle" fontSize={9} fill="var(--gray-9)">{m.label}</text>
+                    );
+                  })}
+                </svg>
+              </div>
+            );
+          })()}
 
           {/* ── Filter tabs + active-filter indicator ── */}
           <Flex gap="2" wrap="wrap" align="center">
