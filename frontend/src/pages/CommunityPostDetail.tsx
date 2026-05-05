@@ -51,7 +51,7 @@ export function CommunityPostDetail() {
     currentUser?.role === "admin" ||
     currentUser?.role === "moderator";
   const isOwner = !!currentUserId && post?.user_id === currentUserId;
-  const isAdmin = user?.role === "admin";
+  const isAdmin = currentUser?.role === "admin";
 
   useEffect(() => {
     if (!communityId || !postId) return;
