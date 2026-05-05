@@ -295,6 +295,29 @@ export function ActivitySummarySection({
       .slice(0, 15);
   }, [ratings]);
 
+  // Radar chart dimensions: given%, taken%, completed%, avgRating%, offer%, need%
+  const radarDims = useMemo(() => {
+    const total = enriched.length || 1;
+    const completed = enriched.filter((e) => e.tx.status === "completed").length;
+    const given = enriched.filter((e) => e.userRole === "provider").length;
+    const taken = enriched.filter((e) => e.userRole === "requester").length;
+    const ratedItems = enriched.filter((e) => e.rating !== null);
+    const avgRating = ratedItems.length > 0
+      ? ratedItems.reduce((s, e) => s + (e.rating?.score ?? 0), 0) / ratedItems.length
+      : 0;
+    const offers = enriched.filter((e) => e.rating?.service?.service_type === "offer").length;
+    const needs = enriched.filter((e) => e.rating?.service?.service_type === "need").length;
+    const typed = offers + needs || 1;
+    return [
+      { label: "Given",     value: given / total },
+      { label: "Taken",     value: taken / total },
+      { label: "Completed", value: completed / total },
+      { label: "Rated",     value: Math.min(ratedItems.length / total, 1) },
+      { label: "Quality",   value: avgRating / 5 },
+      { label: "Offers",    value: offers / typed },
+    ];
+  }, [enriched]);
+
   // Credit balance trend — cumulative hours (provider=earned, requester=spent)
   const creditTrend = useMemo(() => {
     const months = getLastMonths(12);
@@ -917,6 +940,62 @@ export function ActivitySummarySection({
               </Flex>
             </div>
           </div>
+
+          {/* ── Radar chart ── */}
+          {(() => {
+            const SIZE = 120, CX = SIZE / 2, CY = SIZE / 2, R = 48;
+            const n = radarDims.length;
+            const angleStep = (2 * Math.PI) / n;
+            const angle = (i: number) => -Math.PI / 2 + i * angleStep;
+            const pt = (i: number, r: number) => ({
+              x: CX + r * Math.cos(angle(i)),
+              y: CY + r * Math.sin(angle(i)),
+            });
+            const rings = [0.25, 0.5, 0.75, 1];
+            return (
+              <div style={{ maxWidth: 200 }}>
+                <Text size="1" color="gray" className="block mb-2">Activity profile</Text>
+                <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
+                  {/* grid rings */}
+                  {rings.map((r) => (
+                    <polygon
+                      key={r}
+                      points={Array.from({ length: n }, (_, i) => { const p = pt(i, R * r); return `${p.x},${p.y}`; }).join(" ")}
+                      fill="none"
+                      stroke="var(--gray-5)"
+                      strokeWidth={0.5}
+                    />
+                  ))}
+                  {/* spokes */}
+                  {radarDims.map((_, i) => {
+                    const outer = pt(i, R);
+                    return <line key={i} x1={CX} y1={CY} x2={outer.x} y2={outer.y} stroke="var(--gray-5)" strokeWidth={0.5} />;
+                  })}
+                  {/* data polygon */}
+                  <polygon
+                    points={radarDims.map((d, i) => { const p = pt(i, R * d.value); return `${p.x},${p.y}`; }).join(" ")}
+                    fill="var(--accent-a4)"
+                    stroke="var(--accent-9)"
+                    strokeWidth={1.5}
+                  />
+                  {/* dots */}
+                  {radarDims.map((d, i) => {
+                    const p = pt(i, R * d.value);
+                    return <circle key={i} cx={p.x} cy={p.y} r={2.5} fill="var(--accent-9)" />;
+                  })}
+                  {/* labels */}
+                  {radarDims.map((d, i) => {
+                    const p = pt(i, R + 13);
+                    return (
+                      <text key={i} x={p.x} y={p.y} textAnchor="middle" dominantBaseline="middle" fontSize={7} fill="var(--gray-11)" fontWeight="500">
+                        {d.label}
+                      </text>
+                    );
+                  })}
+                </svg>
+              </div>
+            );
+          })()}
 
           {/* ── Credit balance trend ── */}
           {creditTrend.some((m) => m.earned > 0 || m.spent > 0) && (() => {
