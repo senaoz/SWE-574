@@ -278,6 +278,7 @@ fun ManageServiceScreen(
                 val participantRows = state.requestRows.filter {
                     it.request.status.equals("approved", ignoreCase = true)
                 }
+                val acceptedParticipantIds = participantRows.map { it.request.userId }.distinct()
                 val declinedRows = state.requestRows.filter {
                     it.request.status.equals("rejected", ignoreCase = true)
                 }
@@ -346,6 +347,23 @@ fun ManageServiceScreen(
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
                         )
+                    }
+                    if (acceptedParticipantIds.size > 1) {
+                        item {
+                            Button(
+                                onClick = {
+                                    viewModel.startGroupChatWithAccepted(
+                                        serviceId = serviceId,
+                                        acceptedParticipantIds = acceptedParticipantIds
+                                    ) { roomId ->
+                                        roomId?.let { onStartChat?.invoke(it) }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Message all participants")
+                            }
+                        }
                     }
                     if (participantRows.isEmpty()) {
                         item {

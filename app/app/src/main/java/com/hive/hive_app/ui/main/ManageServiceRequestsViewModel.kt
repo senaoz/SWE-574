@@ -232,6 +232,35 @@ class ManageServiceRequestsViewModel @Inject constructor(
         }
     }
 
+    fun startGroupChatWithAccepted(
+        serviceId: String,
+        acceptedParticipantIds: List<String>,
+        onResult: (String?) -> Unit
+    ) {
+        viewModelScope.launch {
+            val me = authRepository.getCurrentUser().getOrNull()
+            if (me == null) {
+                onResult(null)
+                return@launch
+            }
+            val participantIds = (listOf(me._id) + acceptedParticipantIds)
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .distinct()
+            if (participantIds.size < 3) {
+                onResult(null)
+                return@launch
+            }
+            chatRepository.createRoom(
+                participantIds = participantIds,
+                serviceId = serviceId
+            ).fold(
+                onSuccess = { onResult(it._id) },
+                onFailure = { onResult(null) }
+            )
+        }
+    }
+
     fun updateRequestStatus(
         requestId: String,
         status: String,
