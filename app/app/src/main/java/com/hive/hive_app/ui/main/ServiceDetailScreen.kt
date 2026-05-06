@@ -729,6 +729,7 @@ fun ServiceDetailScreen(
                                     comments.forEach { comment ->
                                         ServiceCommentItem(
                                             comment = comment,
+                                            ownerId = service.userId,
                                             onOpenUserProfile = onOpenUserProfile
                                         )
                                     }
@@ -903,10 +904,12 @@ private fun BadgeInfoInlineBox(
 @Composable
 private fun ServiceCommentItem(
     comment: CommentResponse,
+    ownerId: String,
     onOpenUserProfile: ((String) -> Unit)? = null
 ) {
     val author = comment.user?.username ?: comment.user?.fullName ?: "Unknown"
     val authorId = comment.user?.resolvedId ?: comment.userId
+    val isOwnerComment = authorId == ownerId
     val context = LocalContext.current
     Card(
         modifier = Modifier
@@ -951,6 +954,20 @@ private fun ServiceCommentItem(
                 }
             }
             Column(modifier = Modifier.weight(1f)) {
+                if (isOwnerComment) {
+                    Surface(
+                        shape = RoundedCornerShape(percent = 50),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Text(
+                            text = "Owner",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
                 Text(
                     text = comment.content,
                     style = MaterialTheme.typography.bodyMedium,
