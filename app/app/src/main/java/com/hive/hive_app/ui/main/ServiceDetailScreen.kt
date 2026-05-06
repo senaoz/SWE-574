@@ -75,6 +75,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
@@ -259,14 +260,20 @@ fun ServiceDetailScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(imageUrls) { url ->
-                            AsyncImage(
-                                model = url,
-                                contentDescription = null,
+                            Box(
                                 modifier = Modifier
                                     .fillMaxHeight()
+                                    .size(width = 300.dp, height = 220.dp)
                                     .clip(RoundedCornerShape(12.dp))
                                     .clickable { expandedImageUrl = url }
-                            )
+                            ) {
+                                AsyncImage(
+                                    model = url,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         }
                     }
                 }
