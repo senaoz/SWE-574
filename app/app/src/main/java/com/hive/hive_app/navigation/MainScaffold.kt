@@ -323,7 +323,7 @@ fun MainScaffold(
                     onOpenUserProfile = onOpenUserProfile
                 )
                 MainDestinations.CHAT -> ChatScreen(
-                    Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = navBarTotalHeight),
+                    Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = 0.dp),
                     initialRoomId = openChatRoomId,
                     onInitialRoomConsumed = { openChatRoomId = null },
                     openCreateGroupSheet = openCreateGroupSheet,
@@ -332,7 +332,7 @@ fun MainScaffold(
                     onOpenServiceDetail = { serviceId -> pushOverlay(OverlayRoute.ServiceDetail(serviceId)) }
                 )
                 MainDestinations.COMMON -> ForumScreen(
-                    modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = navBarTotalHeight),
+                    modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = 0.dp),
                     onOpenUserProfile = onOpenUserProfile,
                     initialCommunityId = openForumCommunityId,
                     onInitialCommunityConsumed = { openForumCommunityId = null }
