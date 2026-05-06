@@ -19,11 +19,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
@@ -40,6 +43,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,6 +57,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import androidx.compose.ui.window.Dialog
 import com.hive.hive_app.data.api.dto.RatingResponse
 import com.hive.hive_app.data.api.dto.TransactionResponse
 import com.hive.hive_app.data.api.dto.UserResponse
@@ -278,9 +285,72 @@ private fun RatingListItem(
     onOpenExchange: (String) -> Unit
 ) {
     val context = LocalContext.current
+    val ratingImageUrls = rating.imageUrls.orEmpty().filter { it.isNotBlank() }
+    var selectedImageIndex by remember(rating._id, rating.createdAt) { mutableStateOf<Int?>(null) }
     val raterId = rating.raterId
     val displayName = rater?.fullName?.takeIf { it.isNotBlank() } ?: rater?.username ?: "User"
     val canOpenRater = raterId != null
+
+    selectedImageIndex?.let { initialIndex ->
+        if (ratingImageUrls.isNotEmpty()) {
+            val safeIndex = initialIndex.coerceIn(0, ratingImageUrls.lastIndex)
+            val pagerState = rememberPagerState(
+                initialPage = safeIndex,
+                pageCount = { ratingImageUrls.size }
+            )
+        Dialog(onDismissRequest = { selectedImageIndex = null }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.28f))
+                    .clickable { selectedImageIndex = null },
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 4.dp
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "${pagerState.currentPage + 1}/${ratingImageUrls.size}",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            IconButton(onClick = { selectedImageIndex = null }) {
+                                Icon(Icons.Filled.Close, contentDescription = "Close photo")
+                            }
+                        }
+                        HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            val imageRequest = buildImageRequest(context, ratingImageUrls[it])
+                            if (imageRequest != null) {
+                                AsyncImage(
+                                    model = imageRequest,
+                                    contentDescription = "Rating photo preview",
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(14.dp)),
+                                    contentScale = ContentScale.Fit
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        }
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -431,7 +501,7 @@ private fun RatingListItem(
                 )
             }
 
-            rating.imageUrls.orEmpty().filter { it.isNotBlank() }.takeIf { it.isNotEmpty() }?.let { imageUrls ->
+            ratingImageUrls.takeIf { it.isNotEmpty() }?.let { imageUrls ->
                 Spacer(Modifier.height(10.dp))
                 Row(
                     modifier = Modifier
@@ -439,7 +509,7 @@ private fun RatingListItem(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    imageUrls.forEach { imageUrl ->
+                    imageUrls.forEachIndexed { index, imageUrl ->
                         val imageRequest = buildImageRequest(context, imageUrl)
                         if (imageRequest != null) {
                             AsyncImage(
@@ -447,7 +517,8 @@ private fun RatingListItem(
                                 contentDescription = "Rating photo",
                                 modifier = Modifier
                                     .size(88.dp)
-                                    .clip(RoundedCornerShape(10.dp)),
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable { selectedImageIndex = index },
                                 contentScale = ContentScale.Crop
                             )
                         }
