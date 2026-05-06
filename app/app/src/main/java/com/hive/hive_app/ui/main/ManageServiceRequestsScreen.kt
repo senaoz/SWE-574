@@ -491,12 +491,12 @@ fun ManageServiceScreen(
                                                     contentColor = OnManageServiceLime
                                                 )
                                             ) {
-                                                val label = if (completionRows.count { it.canMarkCompleted } > 1) {
-                                                    "Mark as completed — rate ${row.otherUserName}"
-                                                } else {
-                                                    "Mark as completed"
-                                                }
-                                                Text(label)
+                                                val showName = completionRows.count { it.canMarkCompleted } > 1
+                                                CompletionActionLabel(
+                                                    name = row.otherUserName,
+                                                    profilePictureUrl = row.otherUserProfilePictureUrl,
+                                                    showName = showName
+                                                )
                                             }
                                         }
                                     }
@@ -593,6 +593,48 @@ fun ManageServiceScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun CompletionActionLabel(
+    name: String,
+    profilePictureUrl: String?,
+    showName: Boolean
+) {
+    val context = LocalContext.current
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(24.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.3f)),
+            contentAlignment = Alignment.Center
+        ) {
+            val req = buildImageRequest(context, profilePictureUrl)
+            if (req != null) {
+                AsyncImage(
+                    model = req,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Text(
+            text = if (showName) "Mark as completed — rate $name" else "Mark as completed",
+            maxLines = 1,
+            style = MaterialTheme.typography.labelLarge
+        )
     }
 }
 
