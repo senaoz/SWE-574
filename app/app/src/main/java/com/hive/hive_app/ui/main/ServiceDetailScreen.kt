@@ -588,10 +588,36 @@ fun ServiceDetailScreen(
                                                 if (onOpenUserProfile != null) Modifier.clickable { onOpenUserProfile(user._id) }
                                                 else Modifier
                                             ),
-                                        verticalAlignment = Alignment.CenterVertically
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
+                                        val displayName = user.fullName?.takeIf { it.isNotBlank() } ?: user.username
+                                        val initials = displayName.takeIf { it.isNotBlank() }?.take(2)?.uppercase() ?: "?"
+                                        if (user.profilePicture?.isNotBlank() == true) {
+                                            AsyncImage(
+                                                model = buildImageRequest(context, user.profilePicture),
+                                                contentDescription = "Profile photo",
+                                                modifier = Modifier
+                                                    .size(32.dp)
+                                                    .clip(CircleShape)
+                                            )
+                                        } else {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(32.dp)
+                                                    .clip(CircleShape)
+                                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = initials,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                                )
+                                            }
+                                        }
                                         Text(
-                                            text = user.fullName?.takeIf { it.isNotBlank() } ?: user.username,
+                                            text = displayName,
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.onSurface,
                                             modifier = Modifier.weight(1f)
