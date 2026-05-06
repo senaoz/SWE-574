@@ -38,6 +38,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -60,11 +61,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.hive.hive_app.util.badgeIcon
 import com.hive.hive_app.util.formatApplicationDate
 import java.util.Locale
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 
 private fun canStartService(
     service: com.hive.hive_app.data.api.dto.ServiceResponse?,
@@ -146,6 +149,7 @@ private fun ReceiversAvatarRow(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManageServiceScreen(
     serviceId: String,
@@ -235,6 +239,7 @@ fun ManageServiceScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .statusBarsPadding()
                 .padding(horizontal = 4.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -277,6 +282,11 @@ fun ManageServiceScreen(
                     it.request.status.equals("rejected", ignoreCase = true)
                 }
                 val canStart = canStartService(state.service, hasParticipants = participantRows.isNotEmpty())
+                PullToRefreshBox(
+                    isRefreshing = state.isLoading,
+                    onRefresh = { viewModel.load(serviceId) },
+                    modifier = Modifier.fillMaxSize()
+                ) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
@@ -561,6 +571,7 @@ fun ManageServiceScreen(
                             }
                         }
                     }
+                }
                 }
             }
         }
