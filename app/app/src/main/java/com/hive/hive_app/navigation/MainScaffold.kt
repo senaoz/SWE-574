@@ -116,6 +116,9 @@ fun MainScaffold(
 
     val onStartChat: (String) -> Unit = { roomId ->
         openChatRoomId = roomId
+        showActiveItems = false
+        overlayStack = emptyList()
+        showCommonSheet = false
         openCreateGroupSheet = false
         currentDestination = MainDestinations.CHAT
     }
