@@ -638,9 +638,9 @@ class CommunityService:
                     "full_name": user.get("full_name"),
                     "profile_picture": user.get("profile_picture"),
                 }
-        # upvotes
+        # upvotes — use the stored counter as source of truth; upvoted_by is only for per-user state
         upvoted_by = doc.get("upvoted_by", [])
-        doc["upvote_count"] = len(upvoted_by)
+        doc["upvote_count"] = doc.get("upvote_count", len(upvoted_by))
         doc["user_upvoted"] = (ObjectId(user_id) in upvoted_by) if user_id else False
         # comment count
         doc["comment_count"] = await self._comment_count(str(doc["_id"]))
