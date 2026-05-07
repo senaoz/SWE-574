@@ -1,14 +1,16 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, Text, Flex, Badge, Heading, Separator } from "@radix-ui/themes";
 import { ArrowUpIcon, ArrowDownIcon, Cross2Icon } from "@radix-ui/react-icons";
-import { Transaction, RatingDetailed } from "@/types";
+import { Transaction, RatingDetailed, Badge as BadgeType } from "@/types";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { RatingStars } from "@/components/ui/RatingStars";
 import { InterestChip } from "@/components/ui/InterestChip";
 import { tagToLabel } from "@/components/ui/ConfirmCompletionModal";
 import { ImageGallery } from "@/components/ui/ImageGallery";
 import { formatDateShort } from "@/utils/utils";
+import { CustomBadge } from "@/components/ui/BadgeDisplay";
+import { usersApi } from "@/services/api";
 
 type FilterTab = "all" | "given" | "taken" | "in_progress";
 
@@ -259,6 +261,16 @@ export function ActivitySummarySection({
   const [serviceTypeFilter, setServiceTypeFilter] = useState<
     "offer" | "need" | null
   >(null);
+  const [earnedBadges, setEarnedBadges] = useState<BadgeType[]>([]);
+
+  useEffect(() => {
+    usersApi
+      .getUserBadges(currentUserId)
+      .then((res) => {
+        setEarnedBadges(res.data.badges.filter((b) => b.earned));
+      })
+      .catch(() => {});
+  }, [currentUserId]);
 
   const enriched = useMemo<EnrichedTransaction[]>(() => {
     const ratingMap = new Map<string, RatingDetailed>();
@@ -437,92 +449,6 @@ export function ActivitySummarySection({
     return count;
   }, [enriched]);
 
-  // Achievement badges
-  const badges = useMemo(() => {
-    const completedTx = enriched.filter((e) => e.tx.status === "completed");
-    const givenCompleted = completedTx.filter((e) => e.userRole === "provider");
-    const takenCompleted = completedTx.filter(
-      (e) => e.userRole === "requester",
-    );
-    const ratedItems = enriched.filter((e) => e.rating !== null);
-    const avgRating =
-      ratedItems.length > 0
-        ? ratedItems.reduce((s, e) => s + (e.rating?.score ?? 0), 0) /
-          ratedItems.length
-        : 0;
-    const uniquePartners = new Set(
-      enriched.map((e) =>
-        e.userRole === "provider" ? e.tx.requester_id : e.tx.provider_id,
-      ),
-    ).size;
-    return [
-      {
-        id: "giver",
-        label: "Trusted Giver",
-        desc: "Give 5 services",
-        icon: "↑",
-        cur: givenCompleted.length,
-        max: 5,
-        color: "var(--orange-9)",
-      },
-      {
-        id: "taker",
-        label: "Active Receiver",
-        desc: "Receive 5 services",
-        icon: "↓",
-        cur: takenCompleted.length,
-        max: 5,
-        color: "var(--blue-9)",
-      },
-      {
-        id: "quality",
-        label: "Quality Service",
-        desc: "Avg rating ≥ 4.5 stars",
-        icon: "★",
-        cur: avgRating,
-        max: 5,
-        color: "var(--amber-9)",
-        asScore: true,
-      },
-      {
-        id: "social",
-        label: "Community Builder",
-        desc: "Meet 5 unique people",
-        icon: "♥",
-        cur: uniquePartners,
-        max: 5,
-        color: "var(--violet-9)",
-      },
-      {
-        id: "streak",
-        label: "Consistent",
-        desc: "Active 3 months in a row",
-        icon: "🔥",
-        cur: streak,
-        max: 3,
-        color: "var(--red-9)",
-      },
-      {
-        id: "veteran",
-        label: "Veteran",
-        desc: "Complete 20 transactions",
-        icon: "⚡",
-        cur: completedTx.length,
-        max: 20,
-        color: "var(--green-9)",
-      },
-    ] as {
-      id: string;
-      label: string;
-      desc: string;
-      icon: string;
-      cur: number;
-      max: number;
-      color: string;
-      asScore?: boolean;
-    }[];
-  }, [enriched, streak]);
-
   // Top counterparties by transaction count
   const topInteractions = useMemo(() => {
     const map: Record<
@@ -590,6 +516,24 @@ export function ActivitySummarySection({
   }, [enriched]);
   const heatmapMax = Math.max(...heatmapData.map((c) => c.count), 1);
 
+  // Month label positions for the heatmap top axis
+  const heatmapMonthLabels = useMemo(() => {
+    const labels: Record<number, string> = {};
+    for (let w = 0; w < 52; w++) {
+      const cell = heatmapData[w * 7];
+      if (!cell) continue;
+      const date = new Date(cell.date + "T00:00:00");
+      const prev = heatmapData[(w - 1) * 7];
+      const prevMonth = prev
+        ? new Date(prev.date + "T00:00:00").getMonth()
+        : -1;
+      if (w === 0 || date.getMonth() !== prevMonth) {
+        labels[w] = date.toLocaleString("default", { month: "short" });
+      }
+    }
+    return labels;
+  }, [heatmapData]);
+
   const inProgressCount = enriched.filter(
     (e) => e.tx.status === "in_progress" || e.tx.status === "pending",
   ).length;
@@ -649,7 +593,7 @@ export function ActivitySummarySection({
               streak >= 6
                 ? {
                     text: `Incredible — ${streak} months active in a row. You're one of the community's most consistent members.`,
-                    color: "var(--amber-9)",
+                    color: "var(--amber-11)",
                     bg: "var(--amber-a2)",
                     border: "var(--amber-5)",
                   }
@@ -670,7 +614,7 @@ export function ActivitySummarySection({
                     : avgRating >= 4.5 && ratedItems.length >= 3
                       ? {
                           text: `${avgRating.toFixed(1)} ★ average rating — exceptional quality that attracts more requests.`,
-                          color: "var(--amber-9)",
+                          color: "var(--amber-11)",
                           bg: "var(--amber-a2)",
                           border: "var(--amber-5)",
                         }
@@ -706,107 +650,46 @@ export function ActivitySummarySection({
             );
           })()}
 
-          {/* ── Streak + Badges ── */}
+          {/* ── Streak ── */}
           <div
             className="rounded-lg px-4 py-3"
             style={{
               background: "var(--gray-a2)",
             }}
           >
-            <Flex justify="between" align="center" wrap="wrap" gap="4">
-              {/* Streak */}
-              <Flex align="center" gap="3">
-                <div
-                  style={{
-                    fontSize: 28,
-                    lineHeight: 1,
-                    filter:
-                      streak === 0 ? "grayscale(1) opacity(0.4)" : undefined,
-                  }}
+            <Flex align="center" gap="3">
+              <div
+                style={{
+                  fontSize: 28,
+                  lineHeight: 1,
+                  filter:
+                    streak === 0 ? "grayscale(1) opacity(0.4)" : undefined,
+                }}
+              >
+                🔥
+              </div>
+              <div>
+                <Text size="4" weight="bold">
+                  {streak}
+                </Text>
+                <Text size="1" color="gray" style={{ display: "block" }}>
+                  month{streak !== 1 ? "s" : ""} streak
+                </Text>
+              </div>
+              {/* ── Badges ── */}
+              {earnedBadges.length > 0 && (
+                <Flex
+                  gap="2"
+                  wrap="wrap"
+                  className="ml-4 border-l-2 border-dashed border-gray-200 pl-4"
                 >
-                  🔥
-                </div>
-                <div>
-                  <Text size="4" weight="bold">
-                    {streak}
-                  </Text>
-                  <Text size="1" color="gray" style={{ display: "block" }}>
-                    month{streak !== 1 ? "s" : ""} streak
-                  </Text>
-                </div>
-              </Flex>
-              {/* Badges */}
-              <Flex gap="3" wrap="wrap" style={{ flex: 1 }}>
-                {badges.map((b) => {
-                  const progress = Math.min(b.cur / b.max, 1);
-                  const earned = progress >= 1;
-                  return (
-                    <div
-                      key={b.id}
-                      title={`${b.label}: ${b.desc} (${b.asScore ? b.cur.toFixed(1) : b.cur}/${b.max})`}
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: 4,
-                        opacity: earned ? 1 : 0.5,
-                        minWidth: 52,
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: "50%",
-                          background: earned ? b.color : "var(--gray-4)",
-                          border: `2px solid ${earned ? b.color : "var(--gray-5)"}`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 16,
-                          boxShadow: earned ? `0 0 8px ${b.color}60` : "none",
-                          transition: "all 0.2s",
-                        }}
-                      >
-                        {b.icon}
-                      </div>
-                      <div
-                        style={{
-                          width: 36,
-                          height: 3,
-                          borderRadius: 2,
-                          background: "var(--gray-4)",
-                          overflow: "hidden",
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: `${progress * 100}%`,
-                            height: "100%",
-                            background: b.color,
-                            borderRadius: 2,
-                            transition: "width 0.4s",
-                          }}
-                        />
-                      </div>
-                      <Text
-                        size="1"
-                        color="gray"
-                        style={{
-                          textAlign: "center",
-                          fontSize: 9,
-                          lineHeight: 1.2,
-                        }}
-                      >
-                        {b.label}
-                      </Text>
-                    </div>
-                  );
-                })}
-              </Flex>
+                  {earnedBadges.map((b) => (
+                    <CustomBadge key={b.key} badge={b} />
+                  ))}
+                </Flex>
+              )}
             </Flex>
           </div>
-
           {/* ── Charts card ── */}
           <Flex direction="column" gap="5">
             {/* Stat pills — clickable */}
@@ -1195,64 +1078,128 @@ export function ActivitySummarySection({
                   <div
                     style={{
                       display: "flex",
-                      gap: "2px",
+                      gap: "4px",
                       minWidth: "fit-content",
                     }}
                   >
-                    {Array.from({ length: 52 }, (_, w) => (
+                    {/* Day-of-week labels column */}
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "2px",
+                        paddingTop: "16px",
+                        marginRight: "2px",
+                      }}
+                    >
+                      {["Mon", "", "Wed", "", "Fri", "", ""].map((label, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            height: "0.85rem",
+                            fontSize: "9px",
+                            lineHeight: "0.85rem",
+                            color: "var(--gray-9)",
+                            textAlign: "right",
+                            whiteSpace: "nowrap",
+                            userSelect: "none",
+                          }}
+                        >
+                          {label}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Month labels + week columns */}
+                    <div>
+                      {/* Month labels row */}
                       <div
-                        key={w}
                         style={{
                           display: "flex",
-                          flexDirection: "column",
                           gap: "2px",
+                          marginBottom: "2px",
+                          height: "14px",
                         }}
                       >
-                        {Array.from({ length: 7 }, (_, d) => {
-                          const cell = heatmapData[w * 7 + d];
-                          if (!cell)
-                            return (
-                              <div
-                                key={d}
-                                style={{ width: "0.85rem", height: "0.85rem" }}
-                              />
-                            );
-                          const intensity =
-                            cell.count === 0
-                              ? 0
-                              : 0.2 + (cell.count / heatmapMax) * 0.8;
-                          return (
-                            <div
-                              key={d}
-                              title={
-                                cell.count > 0
-                                  ? `${cell.date}: ${cell.count} transaction${cell.count !== 1 ? "s" : ""}`
-                                  : cell.date
-                              }
-                              style={{
-                                width: "0.85rem",
-                                height: "0.85rem",
-                                borderRadius: 2,
-                                background:
-                                  cell.count === 0
-                                    ? "var(--gray-a3)"
-                                    : `rgba(var(--green-9-rgb, 48,164,108), ${intensity})`,
-                                backgroundColor:
-                                  cell.count === 0
-                                    ? "var(--gray-a3)"
-                                    : intensity > 0.7
-                                      ? "var(--green-9)"
-                                      : intensity > 0.4
-                                        ? "var(--green-7)"
-                                        : "var(--green-5)",
-                                cursor: cell.count > 0 ? "pointer" : "default",
-                                transition: "opacity 0.1s",
-                              }}
-                            />
-                          );
-                        })}
+                        {Array.from({ length: 52 }, (_, w) => (
+                          <div
+                            key={w}
+                            style={{
+                              width: "0.85rem",
+                              fontSize: "9px",
+                              color: "var(--gray-9)",
+                              overflow: "visible",
+                              whiteSpace: "nowrap",
+                              userSelect: "none",
+                            }}
+                          >
+                            {heatmapMonthLabels[w] ?? ""}
+                          </div>
+                        ))}
                       </div>
-                    ))}
+
+                      {/* Week columns */}
+                      <div style={{ display: "flex", gap: "2px" }}>
+                        {Array.from({ length: 52 }, (_, w) => (
+                          <div
+                            key={w}
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "2px",
+                            }}
+                          >
+                            {Array.from({ length: 7 }, (_, d) => {
+                              const cell = heatmapData[w * 7 + d];
+                              if (!cell)
+                                return (
+                                  <div
+                                    key={d}
+                                    style={{
+                                      width: "0.85rem",
+                                      height: "0.85rem",
+                                    }}
+                                  />
+                                );
+                              const intensity =
+                                cell.count === 0
+                                  ? 0
+                                  : 0.2 + (cell.count / heatmapMax) * 0.8;
+                              return (
+                                <div
+                                  key={d}
+                                  title={
+                                    cell.count > 0
+                                      ? `${cell.date}: ${cell.count} transaction${cell.count !== 1 ? "s" : ""}`
+                                      : cell.date
+                                  }
+                                  style={{
+                                    width: "0.85rem",
+                                    height: "0.85rem",
+                                    borderRadius: 2,
+                                    background:
+                                      cell.count === 0
+                                        ? "var(--gray-a3)"
+                                        : `rgba(var(--green-9-rgb, 48,164,108), ${intensity})`,
+                                    backgroundColor:
+                                      cell.count === 0
+                                        ? "var(--gray-a3)"
+                                        : intensity > 0.7
+                                          ? "var(--green-9)"
+                                          : intensity > 0.4
+                                            ? "var(--green-7)"
+                                            : "var(--green-5)",
+                                    cursor:
+                                      cell.count > 0 ? "pointer" : "default",
+                                    transition: "opacity 0.1s",
+                                  }}
+                                />
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                   <Flex gap="3" align="center" className="mt-1">
                     <Text size="1" color="gray">
