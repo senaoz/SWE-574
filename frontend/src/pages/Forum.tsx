@@ -205,7 +205,7 @@ export function Forum() {
       </Flex>
       <Flex gap="3" className="mb-6" wrap="wrap">
         <TextField.Root
-          placeholder="Search discussions & events..."
+          placeholder="Search discussions, events & communities..."
           value={searchQ}
           onChange={(e) => setSearchQ(e.target.value)}
           className="flex-1 min-w-[200px]"
@@ -741,6 +741,10 @@ export function Forum() {
                           tag={tag}
                           size="1"
                           stopPropagation
+                          onClick={(t) => {
+                            const label = typeof t === "string" ? t : t.label;
+                            setTagFilter(label);
+                          }}
                         />
                       ))}
                     </Flex>

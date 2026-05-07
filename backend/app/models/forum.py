@@ -54,7 +54,7 @@ class ForumDiscussionCreate(BaseModel):
 class ForumDiscussionUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=3, max_length=200)
     body: Optional[str] = Field(None, min_length=1, max_length=10000)
-    tags: Optional[List[dict]] = Field(None, max_length=10)
+    tags: Optional[List[dict]] = None
     image_urls: Optional[List[str]] = None
     community_id: Optional[str] = None
 

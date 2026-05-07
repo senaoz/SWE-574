@@ -16,6 +16,7 @@ import {
   CheckCircledIcon,
   Crosshair1Icon,
   ArrowLeftIcon,
+  EnvelopeClosedIcon,
 } from "@radix-ui/react-icons";
 import { useQuery } from "@tanstack/react-query";
 import { Community, User, Service, RatingDetailed } from "@/types";
@@ -391,10 +392,18 @@ export function UserDetail() {
               )}
 
               {/* Location */}
-              {user.location && (
+              {user.show_location !== false && user.location && (
                 <Flex align="center" gap="2">
                   <Crosshair1Icon className="w-4 h-4" />
                   <Text size="2">{user.location}</Text>
+                </Flex>
+              )}
+
+              {/* Email */}
+              {user.show_email && user.email && (
+                <Flex align="center" gap="2">
+                  <EnvelopeClosedIcon className="w-4 h-4" />
+                  <Text size="2">{user.email}</Text>
                 </Flex>
               )}
 
