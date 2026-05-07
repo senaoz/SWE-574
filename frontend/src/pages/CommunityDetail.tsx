@@ -263,7 +263,25 @@ export function CommunityDetail() {
               </Flex>
             </Flex>
 
-            <Text size="2" className="mt-3 block">{community.description}</Text>
+            <div className="mt-3 block prose-content">
+              <ReactMarkdown
+                components={{
+                  a: ({ node: _node, ...props }) => (
+                    <a
+                      {...props}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {props.children}
+                    </a>
+                  ),
+                }}
+              >
+                {community.description}
+              </ReactMarkdown>
+            </div>
+
+       
 
             {community.tags && community.tags.length > 0 && (
               <Flex gap="2" className="mt-3" wrap="wrap">
