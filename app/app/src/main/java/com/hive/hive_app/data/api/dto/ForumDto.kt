@@ -133,7 +133,10 @@ data class ForumEventResponse(
     @Json(name = "attendee_count") val attendeeCount: Int = 0,
     @Json(name = "is_pinned") val isPinned: Boolean = false,
     @Json(name = "pinned_by") val pinnedBy: String? = null,
-    @Json(name = "pinned_at") val pinnedAt: String? = null
+    @Json(name = "pinned_at") val pinnedAt: String? = null,
+    val status: String? = null,
+    @Json(name = "is_cancelled") val isCancelled: Boolean? = null,
+    @Json(name = "is_canceled") val isCanceled: Boolean? = null
 )
 
 @JsonClass(generateAdapter = true)
