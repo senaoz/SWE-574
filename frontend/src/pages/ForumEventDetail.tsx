@@ -351,17 +351,26 @@ export function ForumEventDetail() {
 
           {attendees.length > 0 ? (
             <Flex align="center" gap="2" wrap="wrap">
-              {attendees.slice(0, 10).map((a) => (
-                <Tooltip key={a._id} content={a.full_name || a.username}>
-                  <Avatar
-                    fallback={a.full_name?.[0] || a.username[0]}
-                    src={getImageUrl(a.profile_picture)}
-                    size="3"
-                    className="cursor-pointer hover:ring-2 hover:ring-purple-500 transition-all"
-                    onClick={() => navigate(`/user/${a._id}`)}
-                  />
-                </Tooltip>
-              ))}
+              {attendees.slice(0, 10).map((a) => {
+                const displayName = a.full_name || a.username;
+                return (
+                  <Tooltip key={a._id} content={displayName}>
+                    <Link
+                      to={`/user/${a._id}`}
+                      aria-label={`View ${displayName} profile`}
+                      title={displayName}
+                      className="inline-flex rounded-full focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      <Avatar
+                        fallback={displayName[0] || "?"}
+                        src={getImageUrl(a.profile_picture)}
+                        size="3"
+                        className="cursor-pointer hover:ring-2 hover:ring-purple-500 transition-all"
+                      />
+                    </Link>
+                  </Tooltip>
+                );
+              })}
               {attendees.length > 10 && (
                 <Tooltip content={`${attendees.length - 10} more attendees`}>
                   <Avatar

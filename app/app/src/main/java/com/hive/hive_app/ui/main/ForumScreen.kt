@@ -294,7 +294,7 @@ fun ForumScreen(
                         else -> {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
+                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 110.dp),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 items(items = listState.discussions, key = { it.id }) { discussion ->
@@ -350,7 +350,7 @@ fun ForumScreen(
                         else -> {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
+                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 110.dp),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 items(items = eventsListState.events, key = { it.id }) { event ->
@@ -1811,7 +1811,7 @@ fun CommunitiesContent(
                 else -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 110.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(items = state.communities, key = { it.id }) { community ->

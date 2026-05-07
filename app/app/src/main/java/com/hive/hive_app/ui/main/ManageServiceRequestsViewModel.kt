@@ -53,6 +53,7 @@ data class ServiceCompletionRow(
     val transactionId: String,
     val ratedUserId: String,
     val otherUserName: String,
+    val otherUserProfilePictureUrl: String?,
     val creditsHours: Double,
     val canMarkCompleted: Boolean,
     val waitingForOther: Boolean
@@ -232,6 +233,35 @@ class ManageServiceRequestsViewModel @Inject constructor(
         }
     }
 
+    fun startGroupChatWithAccepted(
+        serviceId: String,
+        acceptedParticipantIds: List<String>,
+        onResult: (String?) -> Unit
+    ) {
+        viewModelScope.launch {
+            val me = authRepository.getCurrentUser().getOrNull()
+            if (me == null) {
+                onResult(null)
+                return@launch
+            }
+            val participantIds = (listOf(me._id) + acceptedParticipantIds)
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .distinct()
+            if (participantIds.size < 3) {
+                onResult(null)
+                return@launch
+            }
+            chatRepository.createRoom(
+                participantIds = participantIds,
+                serviceId = serviceId
+            ).fold(
+                onSuccess = { onResult(it._id) },
+                onFailure = { onResult(null) }
+            )
+        }
+    }
+
     fun updateRequestStatus(
         requestId: String,
         status: String,
@@ -271,13 +301,15 @@ private suspend fun buildCompletionRows(
                 val waiting = waitingForOtherToConfirmForService(service, txn, userId)
                 if (!canMark && !waiting) return@async null
                 val otherId = if (userId == txn.providerId) txn.requesterId else txn.providerId
-                val name = usersRepository.getUser(otherId).getOrNull()?.let { u ->
+                val otherUser = usersRepository.getUser(otherId).getOrNull()
+                val name = otherUser?.let { u ->
                     u.fullName?.takeIf { it.isNotBlank() } ?: u.username
                 } ?: "Participant"
                 ServiceCompletionRow(
                     transactionId = txn.id,
                     ratedUserId = otherId,
                     otherUserName = name,
+                    otherUserProfilePictureUrl = otherUser?.profilePicture,
                     creditsHours = txn.timebankHours,
                     canMarkCompleted = canMark,
                     waitingForOther = waiting

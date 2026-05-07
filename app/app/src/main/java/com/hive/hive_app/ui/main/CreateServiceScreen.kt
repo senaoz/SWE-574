@@ -65,7 +65,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.foundation.focusable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -502,103 +501,25 @@ fun CreateServiceScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            Text(
-                text = "Tags (Wikidata)",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            OutlinedTextField(
-                value = tagQuery,
-                onValueChange = {
+            CommonTagSelectorSection(
+                tagQuery = tagQuery,
+                onTagQueryChange = {
                     tagQuery = it
                     viewModel.setTagSearchQuery(it)
                 },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Search tags") },
-                placeholder = { Text("Start typing (e.g. photography)") },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp)
+                tagSuggestions = tagSuggestions,
+                tagSearchLoading = tagSearchLoading,
+                tagSearchError = tagSearchError,
+                selectedTags = selectedTags,
+                onAddTag = { suggestion ->
+                    selectedTags = selectedTags + suggestion
+                    tagQuery = ""
+                    viewModel.setTagSearchQuery("")
+                },
+                onRemoveTag = { suggestion ->
+                    selectedTags = selectedTags.filterNot { it.id == suggestion.id }
+                }
             )
-
-            if (tagSearchLoading) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Searching…",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            if (tagSearchError != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = tagSearchError!!,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-
-            if (tagSuggestions.isNotEmpty() && tagQuery.isNotBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 220.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Column(modifier = Modifier.padding(8.dp)) {
-                        tagSuggestions.forEach { suggestion ->
-                            val alreadySelected = selectedTags.any { it.id == suggestion.id }
-                            TextButton(
-                                onClick = {
-                                    if (!alreadySelected) selectedTags = selectedTags + suggestion
-                                    tagQuery = ""
-                                    viewModel.setTagSearchQuery("")
-                                },
-                                enabled = !isLoading && !alreadySelected
-                            ) {
-                                Text(
-                                    text = suggestion.label,
-                                    maxLines = 1,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (selectedTags.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(10.dp))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    selectedTags.forEach { suggestion ->
-                        FilterChip(
-                            selected = true,
-                            onClick = { selectedTags = selectedTags.filterNot { it.id == suggestion.id } },
-                            label = { Text(suggestion.label) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                containerColor = Color.White,
-                                labelColor = Lime500,
-                                iconColor = Lime500,
-                                selectedContainerColor = Color.White,
-                                selectedLabelColor = Lime500,
-                                selectedLeadingIconColor = Lime500
-                            ),
-                            border = FilterChipDefaults.filterChipBorder(
-                                enabled = true,
-                                selected = true,
-                                borderColor = Lime500,
-                                selectedBorderColor = Lime500
-                            )
-                        )
-                    }
-                }
-            }
 
             Spacer(modifier = Modifier.height(10.dp))
 

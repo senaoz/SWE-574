@@ -186,9 +186,8 @@ class MapViewModel @Inject constructor(
             )
             result.fold(
                 onSuccess = { listResponse ->
-                    val excludedStatuses = setOf("completed", "expired")
                     val fullList = listResponse.services
-                        .filter { it.location != null && it.status.lowercase() !in excludedStatuses }
+                        .filter { it.location != null && isServiceVisibleOnMap(it) }
                     val offerCount = fullList.count { it.serviceType.equals("offer", ignoreCase = true) }
                     val needCount = fullList.count { it.serviceType.equals("need", ignoreCase = true) }
                     var list = fullList
@@ -253,6 +252,7 @@ class MapViewModel @Inject constructor(
                 onSuccess = { list ->
                     val events = list.events
                         .filter { it.latitude != null && it.longitude != null }
+                        .filter { isEventVisibleOnMap(it) }
                     _state.update { it.copy(events = events) }
                     recomputeVisible()
                 },
@@ -494,6 +494,44 @@ class MapViewModel @Inject constructor(
         val scheduledDateOk = if (dateFilter == DateFilter.ANYTIME) true else dateOk
         val scheduledTimeOk = if (timeOfDay == TimeOfDayFilter.ANYTIME) true else timeOk
         return scheduledDateOk && scheduledTimeOk
+    }
+
+    private fun isServiceVisibleOnMap(service: ServiceResponse): Boolean {
+        val status = service.status.trim().lowercase()
+        if (status in setOf("completed", "expired", "cancelled", "canceled")) return false
+        val serviceDate = parseIsoDate(service.specificDate) ?: parseIsoDate(service.deadline)
+        return serviceDate == null || !serviceDate.isBefore(LocalDate.now())
+    }
+
+    private fun isEventVisibleOnMap(event: ForumEventResponse): Boolean {
+        if (isCancelledStatus(event.status)) return false
+        if (event.isCancelled == true) return false
+        if (event.isCanceled == true) return false
+
+        val embeddedServiceCancelled = when (val svc = event.service) {
+            is ServiceResponse -> isCancelledStatus(svc.status)
+            is Map<*, *> -> isCancelledStatus(svc["status"] as? String)
+            else -> false
+        }
+        if (embeddedServiceCancelled) return false
+
+        val eventDate = parseIsoDate(event.eventAt)
+        return eventDate != null && !eventDate.isBefore(LocalDate.now())
+    }
+
+    private fun isCancelledStatus(status: String?): Boolean {
+        val normalized = status?.trim()?.lowercase() ?: return false
+        return normalized == "cancelled" || normalized == "canceled"
+    }
+
+    private fun parseIsoDate(value: String?): LocalDate? {
+        val raw = value?.trim().orEmpty()
+        if (raw.isEmpty()) return null
+        return runCatching {
+            Instant.parse(raw).atZone(ZoneId.systemDefault()).toLocalDate()
+        }.getOrElse {
+            runCatching { LocalDate.parse(raw.take(10)) }.getOrNull()
+        }
     }
 
     private fun bucketFor(t: LocalTime): TimeOfDayFilter {

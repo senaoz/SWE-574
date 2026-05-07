@@ -1107,18 +1107,51 @@ fun MapScreen(
                         icon = Icons.Outlined.Search,
                         label = typeLabel,
                         isActive = !typeIsDefault,
+                        onClick = {
+                            if (typeIsDefault) {
+                                showFilters = true
+                            } else {
+                                viewModel.setFilters(
+                                    state.filterTimeOfDay,
+                                    state.filterDate,
+                                    null
+                                )
+                            }
+                        },
                         modifier = Modifier.weight(1f)
                     )
                     FilterSummaryChip(
                         icon = Icons.Outlined.Schedule,
                         label = dateLabel,
                         isActive = !dateIsDefault,
+                        onClick = {
+                            if (dateIsDefault) {
+                                showFilters = true
+                            } else {
+                                viewModel.setFilters(
+                                    state.filterTimeOfDay,
+                                    MapViewModel.DateFilter.ANYTIME,
+                                    state.filterType
+                                )
+                            }
+                        },
                         modifier = Modifier.weight(1f)
                     )
                     FilterSummaryChip(
                         icon = Icons.Outlined.WbCloudy,
                         label = timeLabel,
                         isActive = !timeIsDefault,
+                        onClick = {
+                            if (timeIsDefault) {
+                                showFilters = true
+                            } else {
+                                viewModel.setFilters(
+                                    MapViewModel.TimeOfDayFilter.ANYTIME,
+                                    state.filterDate,
+                                    state.filterType
+                                )
+                            }
+                        },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -1260,6 +1293,7 @@ private fun FilterSummaryChip(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     isActive: Boolean,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val containerColor = if (isActive)
@@ -1272,7 +1306,7 @@ private fun FilterSummaryChip(
         MaterialTheme.colorScheme.onSurfaceVariant
 
     androidx.compose.material3.Surface(
-        modifier = modifier,
+        modifier = modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(50),
         color = containerColor,
         contentColor = contentColor,

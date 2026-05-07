@@ -565,8 +565,15 @@ class CommunityService:
             {"$inc": {"post_count": -1}, "$set": {"updated_at": _utcnow()}},
         )
 
-    async def pin_post(self, community_id: str, post_id: str, user_id: str, pinned: bool, is_admin: bool = False):
-        if not await self._can_pin_post(community_id, user_id):
+    async def pin_post(
+        self,
+        community_id: str,
+        post_id: str,
+        user_id: str,
+        pinned: bool,
+        is_admin: bool = False,
+    ):
+        if not is_admin and not await self._can_pin_post(community_id, user_id):
             raise ValueError("Moderator or founder permission required")
         doc = await self.posts.find_one({"_id": ObjectId(post_id), "community_id": ObjectId(community_id)})
         if not doc:
