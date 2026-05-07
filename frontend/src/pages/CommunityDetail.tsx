@@ -391,7 +391,27 @@ export function CommunityDetail() {
                     <Badge size="1" variant="soft" color="gray">
                       <MessageCircleIcon className="w-3 h-3 mr-1" />{post.comment_count}
                     </Badge>
-                    <UpvoteButton count={post.upvote_count ?? 0} upvoted={post.user_upvoted} />
+                    <UpvoteButton
+                      count={post.upvote_count ?? 0}
+                      upvoted={post.user_upvoted}
+                      onUpvote={
+                        currentUserId
+                          ? () =>
+                              communityApi.upvotePost(id!, post._id).then((r) => {
+                                setPosts((prev) =>
+                                  prev.map((p) =>
+                                    p._id === post._id
+                                      ? { ...p, upvote_count: r.data.upvote_count, user_upvoted: r.data.user_upvoted }
+                                      : p
+                                  )
+                                );
+                                return r.data;
+                              })
+                          : undefined
+                      }
+                      disabled={!currentUserId}
+                      showLoginHint={!currentUserId}
+                    />
                     {(post.tags || []).slice(0, 3).map((tag, i) => (
                       <ClickableTag key={i} tag={tag} size="1" stopPropagation />
                     ))}
