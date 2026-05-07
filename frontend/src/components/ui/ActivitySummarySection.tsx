@@ -267,7 +267,18 @@ export function ActivitySummarySection({
     usersApi
       .getUserBadges(currentUserId)
       .then((res) => {
-        setEarnedBadges(res.data.badges.filter((b) => b.earned));
+        const eBadges: BadgeType[] = [];
+        const pBadges: BadgeType[] = [];
+
+        for (const b of res.data.badges) {
+          if (b?.earned) {
+            eBadges.push(b);
+          } else if (b?.progress?.current && b.progress.current > 0) {
+            pBadges.push(b);
+          }
+        }
+
+        setEarnedBadges([...eBadges, ...pBadges]);
       })
       .catch(() => {});
   }, [currentUserId]);

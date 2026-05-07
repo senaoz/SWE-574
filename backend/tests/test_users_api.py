@@ -81,8 +81,8 @@ class TestUsersAPI:
             headers=headers,
             json={
                 "current_password": "testpassword123",
-                "new_password": "newpassword123",
-                "confirm_password": "newpassword123",
+                "new_password": "Newpassword123",
+                "confirm_password": "Newpassword123",
             },
         )
         assert changed.status_code == status.HTTP_200_OK
@@ -90,7 +90,7 @@ class TestUsersAPI:
         deleted = test_client.post(
             "/users/account/delete",
             headers=headers,
-            json={"password": "newpassword123"},
+            json={"password": "Newpassword123"},
         )
         assert deleted.status_code == status.HTTP_200_OK
 
