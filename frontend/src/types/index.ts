@@ -721,7 +721,8 @@ export type NotificationType =
   | 'transaction_completed'
   | 'service_completed'
   | 'new_message'
-  | 'service_started';
+  | 'service_started'
+  | 'service_match';
 
 export type NotificationRelatedType = 'service' | 'join_request' | 'transaction' | 'chat_room';
 

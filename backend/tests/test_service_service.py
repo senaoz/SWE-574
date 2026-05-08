@@ -2,6 +2,7 @@ import pytest
 from datetime import datetime, timedelta
 from app.services.service_service import ServiceService
 from app.models.service import ServiceCreate, ServiceUpdate, ServiceStatus, ServiceType, ServiceFilters
+from app.models.notification import NotificationType
 from app.models.user import UserRole
 
 
@@ -21,6 +22,130 @@ class TestServiceService:
         assert service.user_id == str(test_user.id)
         assert service.status == ServiceStatus.ACTIVE
         assert service.created_at is not None
+
+    @pytest.mark.asyncio
+    async def test_create_service_sends_notifications_for_for_you_complements(
+        self, mock_db, test_user, second_user, sample_service_data
+    ):
+        """Creating a matching opposite-type post should notify both service owners."""
+        from bson import ObjectId
+
+        service_service = ServiceService(mock_db)
+
+        offer_data = sample_service_data.copy()
+        offer_data.update(
+            {
+                "title": "Book Swap Offer",
+                "description": "I can lend and discuss novels with neighbors.",
+                "category": "books",
+                "tags": ["books", "reading"],
+                "service_type": "offer",
+                "estimated_duration": 1.0,
+            }
+        )
+        offer = await service_service.create_service(
+            ServiceCreate(**offer_data),
+            str(test_user.id),
+        )
+
+        need_data = sample_service_data.copy()
+        need_data.update(
+            {
+                "title": "Book Reading Need",
+                "description": "Looking for someone who can share book recommendations.",
+                "category": "books",
+                "tags": ["books", "reading"],
+                "service_type": "need",
+                "estimated_duration": 1.0,
+            }
+        )
+        need = await service_service.create_service(
+            ServiceCreate(**need_data),
+            str(second_user.id),
+        )
+
+        existing_owner_notification = await mock_db.notifications.find_one(
+            {
+                "user_id": ObjectId(str(test_user.id)),
+                "type": NotificationType.SERVICE_MATCH,
+            }
+        )
+        new_owner_notification = await mock_db.notifications.find_one(
+            {
+                "user_id": ObjectId(str(second_user.id)),
+                "type": NotificationType.SERVICE_MATCH,
+            }
+        )
+
+        assert existing_owner_notification is not None
+        assert existing_owner_notification["related_id"] == str(need.id)
+        assert "Book Reading Need" in existing_owner_notification["body"]
+
+        assert new_owner_notification is not None
+        assert new_owner_notification["related_id"] == str(offer.id)
+        assert "Book Swap Offer" in new_owner_notification["body"]
+
+    @pytest.mark.asyncio
+    async def test_create_service_respects_service_match_notification_preference(
+        self, mock_db, test_user, second_user, sample_service_data
+    ):
+        """Users who disable Service Matches should not receive match notifications."""
+        from bson import ObjectId
+
+        service_service = ServiceService(mock_db)
+        await mock_db.users.update_one(
+            {"_id": ObjectId(str(test_user.id))},
+            {"$set": {"service_matches_notifications": False}},
+        )
+
+        offer_data = sample_service_data.copy()
+        offer_data.update(
+            {
+                "title": "Book Lending Offer",
+                "description": "I can lend books and help pick your next read.",
+                "category": "books",
+                "tags": ["books", "reading"],
+                "service_type": "offer",
+                "estimated_duration": 1.0,
+            }
+        )
+        offer = await service_service.create_service(
+            ServiceCreate(**offer_data),
+            str(test_user.id),
+        )
+
+        need_data = sample_service_data.copy()
+        need_data.update(
+            {
+                "title": "Book Borrowing Need",
+                "description": "I need help finding and borrowing a good novel.",
+                "category": "books",
+                "tags": ["books", "reading"],
+                "service_type": "need",
+                "estimated_duration": 1.0,
+            }
+        )
+        await service_service.create_service(
+            ServiceCreate(**need_data),
+            str(second_user.id),
+        )
+
+        disabled_user_notification = await mock_db.notifications.find_one(
+            {
+                "user_id": ObjectId(str(test_user.id)),
+                "type": NotificationType.SERVICE_MATCH,
+            }
+        )
+        enabled_user_notification = await mock_db.notifications.find_one(
+            {
+                "user_id": ObjectId(str(second_user.id)),
+                "type": NotificationType.SERVICE_MATCH,
+            }
+        )
+
+        assert disabled_user_notification is None
+        assert enabled_user_notification is not None
+        assert enabled_user_notification["related_id"] == str(offer.id)
     
     @pytest.mark.asyncio
     async def test_get_service_by_id(self, mock_db, sample_service):

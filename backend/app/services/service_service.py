@@ -19,6 +19,7 @@ from ..core.database import get_database
 from .content_moderation_service import is_offensive
 
 PINNED_LIMIT = 2
+SERVICE_MATCH_NOTIFICATION_LIMIT = 5
 
 
 def _ensure_non_offensive(value: Optional[str], field_name: str) -> None:
@@ -283,6 +284,12 @@ class ServiceService:
     def _normalize_text_value(value: Optional[str]) -> str:
         return str(value or "").strip().lower()
 
+    @staticmethod
+    def _normalize_service_type_value(value) -> str:
+        if isinstance(value, ServiceType):
+            return value.value
+        return str(value or "").strip().lower()
+
     def _build_tag_filter_conditions(self, tags: List[str]) -> List[dict]:
         return [
             {"tags": {"$in": tags}},
@@ -461,7 +468,9 @@ class ServiceService:
     def _build_service_match_context(self, service_like: dict) -> dict:
         return {
             "title": str(service_like.get("title") or "").strip(),
-            "service_type": self._normalize_text_value(service_like.get("service_type")),
+            "service_type": self._normalize_service_type_value(
+                service_like.get("service_type")
+            ),
             "tags": self._get_tag_labels(service_like.get("tags")),
             "category": self._normalize_text_value(service_like.get("category")),
             "keywords": self._tokenize_text(
@@ -1148,6 +1157,143 @@ class ServiceService:
 
         return [], 0, "empty", show_profile_prompt
 
+    async def _user_wants_service_match_notifications(self, user_id: str) -> bool:
+        user_doc = await self.users_collection.find_one(
+            {"_id": self._normalize_object_id(user_id)},
+            {"service_matches_notifications": 1},
+        )
+        return bool((user_doc or {}).get("service_matches_notifications", True))
+
+    async def _get_service_match_notification_candidates(
+        self,
+        source_service_doc: dict,
+        limit: int = SERVICE_MATCH_NOTIFICATION_LIMIT,
+    ) -> List[Tuple[dict, float]]:
+        source_context = self._build_service_match_context(source_service_doc)
+        source_type = source_context.get("service_type")
+        if source_type == ServiceType.OFFER.value:
+            target_service_type = ServiceType.NEED
+        elif source_type == ServiceType.NEED.value:
+            target_service_type = ServiceType.OFFER
+        else:
+            return []
+
+        source_owner_id = str(source_service_doc.get("user_id"))
+        cursor = (
+            self.services_collection.find(
+                {
+                    "service_type": target_service_type,
+                    "status": ServiceStatus.ACTIVE,
+                }
+            )
+            .sort("created_at", -1)
+            .limit(200)
+        )
+
+        candidates: List[Tuple[dict, float]] = []
+        async for candidate_doc in cursor:
+            candidate_doc = self._normalize_service_doc(candidate_doc)
+            candidate_id = str(candidate_doc.get("_id"))
+            if candidate_id == str(source_service_doc.get("_id")):
+                continue
+            if str(candidate_doc.get("user_id")) == source_owner_id:
+                continue
+            if self._is_service_full(candidate_doc):
+                continue
+
+            score, _ = self._score_active_service_complement(
+                candidate_doc=candidate_doc,
+                active_service_contexts=[source_context],
+            )
+            if score >= 0.2:
+                candidates.append((candidate_doc, score))
+
+        candidates.sort(
+            key=lambda item: (
+                item[1],
+                item[0].get("created_at") or datetime.min,
+            ),
+            reverse=True,
+        )
+        return candidates[:limit]
+
+    async def _create_service_match_notification_if_needed(
+        self,
+        user_id: str,
+        title: str,
+        body: str,
+        related_id: str,
+    ) -> None:
+        if not await self._user_wants_service_match_notifications(user_id):
+            return
+
+        from .notification_service import NotificationService
+        from ..models.notification import NotificationType, NotificationRelatedType
+
+        existing = await self.db.notifications.find_one(
+            {
+                "user_id": self._normalize_object_id(user_id),
+                "type": NotificationType.SERVICE_MATCH,
+                "body": body,
+                "related_id": related_id,
+                "related_type": NotificationRelatedType.SERVICE,
+            },
+            {"_id": 1},
+        )
+        if existing:
+            return
+
+        notif_service = NotificationService(self.db)
+        await notif_service.create_notification(
+            user_id=user_id,
+            notification_type=NotificationType.SERVICE_MATCH,
+            title=title,
+            body=body,
+            related_id=related_id,
+            related_type=NotificationRelatedType.SERVICE,
+        )
+
+    async def _notify_service_matches_for_new_service(
+        self,
+        new_service_doc: dict,
+    ) -> None:
+        candidates = await self._get_service_match_notification_candidates(
+            new_service_doc
+        )
+        if not candidates:
+            return
+
+        new_service_id = str(new_service_doc.get("_id"))
+        new_owner_id = str(new_service_doc.get("user_id"))
+        new_title = str(new_service_doc.get("title") or "A service")
+        new_type = self._normalize_service_type_value(
+            new_service_doc.get("service_type")
+        )
+
+        top_candidate_doc = candidates[0][0]
+        top_candidate_id = str(top_candidate_doc.get("_id"))
+        top_candidate_title = str(top_candidate_doc.get("title") or "a service")
+
+        await self._create_service_match_notification_if_needed(
+            user_id=new_owner_id,
+            title="New service match",
+            body=f"'{top_candidate_title}' matches your {new_type} '{new_title}'",
+            related_id=top_candidate_id,
+        )
+
+        for candidate_doc, _ in candidates:
+            candidate_owner_id = str(candidate_doc.get("user_id"))
+            candidate_title = str(candidate_doc.get("title") or "your service")
+            candidate_type = self._normalize_service_type_value(
+                candidate_doc.get("service_type")
+            )
+            await self._create_service_match_notification_if_needed(
+                user_id=candidate_owner_id,
+                title="New service match",
+                body=f"'{new_title}' matches your {candidate_type} '{candidate_title}'",
+                related_id=new_service_id,
+            )
+
     async def create_service(self, service_data: ServiceCreate, user_id: str) -> ServiceResponse:
         """Create a new service"""
         try:
@@ -1213,6 +1359,11 @@ class ServiceService:
 
             # Convert GeoJSON back for response
             service_doc = self._normalize_service_doc(service_doc)
+
+            try:
+                await self._notify_service_matches_for_new_service(service_doc)
+            except Exception as e:
+                print(f"Warning: Failed to send service match notifications: {e}")
 
             return ServiceResponse(**service_doc)
         except Exception as e:
