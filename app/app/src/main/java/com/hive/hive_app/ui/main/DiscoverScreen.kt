@@ -1,0 +1,643 @@
+package com.hive.hive_app.ui.main
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.border
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Label
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.hive.hive_app.data.api.dto.ServiceResponse
+import com.hive.hive_app.util.badgeIcon
+import com.hive.hive_app.util.formatDurationHours
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import coil.compose.AsyncImage
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.activity.compose.BackHandler
+
+@Composable
+fun DiscoverScreen(
+    modifier: Modifier = Modifier,
+    viewModel: DiscoverViewModel = hiltViewModel(),
+    onStartChat: ((String) -> Unit)? = null,
+    onOpenUserProfile: ((String) -> Unit)? = null,
+    searchBarEndPadding: Dp = 16.dp
+) {
+    var selectedServiceId by remember { mutableStateOf<String?>(null) }
+    var manageRequestsServiceId by remember { mutableStateOf<String?>(null) }
+    var completeServiceRatingArgs by remember { mutableStateOf<CompleteServiceRatingArgs?>(null) }
+    var showCreateServiceScreen by remember { mutableStateOf(false) }
+    var editServiceId by remember { mutableStateOf<String?>(null) }
+    val detailViewModel: ServiceDetailViewModel = hiltViewModel()
+    val activeItemsVm: ActiveItemsViewModel = hiltViewModel()
+    val context = LocalContext.current
+
+    BackHandler(
+        enabled = completeServiceRatingArgs != null ||
+            manageRequestsServiceId != null ||
+            showCreateServiceScreen ||
+            selectedServiceId != null
+    ) {
+        when {
+            completeServiceRatingArgs != null -> completeServiceRatingArgs = null
+            manageRequestsServiceId != null -> manageRequestsServiceId = null
+            showCreateServiceScreen -> {
+                showCreateServiceScreen = false
+                editServiceId = null
+            }
+            selectedServiceId != null -> selectedServiceId = null
+        }
+    }
+
+    completeServiceRatingArgs?.let { args ->
+        key(args.transactionId) {
+            CompleteServiceRatingScreen(
+                args = args,
+                onBack = { completeServiceRatingArgs = null },
+                onSuccess = {
+                    completeServiceRatingArgs = null
+                    viewModel.refresh()
+                },
+                viewModel = activeItemsVm
+            )
+        }
+        return
+    }
+
+    manageRequestsServiceId?.let { mrId ->
+        key(mrId) {
+            ManageServiceScreen(
+                serviceId = mrId,
+                onBack = { manageRequestsServiceId = null },
+                onOpenUserProfile = onOpenUserProfile,
+                onStartChat = onStartChat,
+                onNavigateToCompleteRating = { args ->
+                    completeServiceRatingArgs = args
+                },
+                onEditService = { sid ->
+                    manageRequestsServiceId = null
+                    editServiceId = sid
+                    showCreateServiceScreen = true
+                }
+            )
+        }
+        return
+    }
+
+    if (selectedServiceId != null) {
+        val id = selectedServiceId!!
+        LaunchedEffect(id) { detailViewModel.load(id) }
+        val detailState by detailViewModel.state.collectAsState()
+        val detailCreator by detailViewModel.creator.collectAsState()
+        val detailAcceptedUsers by detailViewModel.acceptedUsers.collectAsState()
+        val detailLoading by detailViewModel.isLoading.collectAsState()
+        val detailError by detailViewModel.error.collectAsState()
+        val detailCreatorBadges by detailViewModel.creatorBadges.collectAsState()
+        val detailCreatorRating by detailViewModel.creatorRating.collectAsState()
+        val detailIsSaved by detailViewModel.isSaved.collectAsState()
+        ServiceDetailScreen(
+            service = detailState,
+            creator = detailCreator,
+            acceptedUsers = detailAcceptedUsers,
+            isLoading = detailLoading,
+            error = detailError,
+            onBack = { selectedServiceId = null },
+            viewModel = detailViewModel,
+            modifier = modifier,
+            creatorBadges = detailCreatorBadges,
+            creatorRating = detailCreatorRating,
+            isSaved = detailIsSaved,
+            onStartChat = onStartChat,
+            onOpenUserProfile = onOpenUserProfile,
+            onManageJoinRequests = {
+                manageRequestsServiceId = id
+                selectedServiceId = null
+            }
+        )
+        return
+    }
+
+    val state by viewModel.state.collectAsState()
+    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { viewModel.setLocationPermissionGranted(it) }
+
+    LaunchedEffect(Unit) {
+        if (state.services.isEmpty() && !state.isLoading) viewModel.loadServices()
+    }
+
+    LaunchedEffect(Unit) {
+        val granted = androidx.core.content.ContextCompat.checkSelfPermission(
+            context,
+            android.Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        viewModel.setLocationPermissionGranted(granted)
+        if (!granted) {
+            permissionLauncher.launch(android.Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+    }
+
+    if (showCreateServiceScreen) {
+        CreateServiceScreen(
+            modifier = modifier.fillMaxSize(),
+            editServiceId = editServiceId,
+            userLat = state.userLat,
+            userLon = state.userLon,
+            locationPermissionGranted = state.locationPermissionGranted,
+            onRequestLocationPermission = {
+                permissionLauncher.launch(android.Manifest.permission.ACCESS_COARSE_LOCATION)
+            },
+            onRefreshLocation = { viewModel.refreshLocation() },
+            onBack = {
+                showCreateServiceScreen = false
+                editServiceId = null
+            },
+            onCreated = { serviceId ->
+                showCreateServiceScreen = false
+                editServiceId = null
+                viewModel.loadServices(page = 1)
+                selectedServiceId = serviceId
+            }
+        )
+        return
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Search bar
+            OutlinedTextField(
+                value = state.searchQuery,
+                onValueChange = { viewModel.setSearchQuery(it) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = searchBarEndPadding, top = 8.dp, bottom = 8.dp),
+                placeholder = { Text("Search services…") },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.Search,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { /* filter is live */ }),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    cursorColor = MaterialTheme.colorScheme.primary,
+                    focusedLeadingIconColor = MaterialTheme.colorScheme.primary
+                ),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(percent = 50)
+            )
+
+        // Service type filter
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                "Service type",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = state.filterType == null,
+                    onClick = { viewModel.setFilter(null) },
+                    label = { Text("All") }
+                )
+                FilterChip(
+                    selected = state.filterType == "offer",
+                    onClick = { viewModel.setFilter("offer") },
+                    label = { Text("Offers") }
+                )
+                FilterChip(
+                    selected = state.filterType == "need",
+                    onClick = { viewModel.setFilter("need") },
+                    label = { Text("Needs") }
+                )
+            }
+        }
+
+        // Sort by button (opens dropdown)
+        var sortMenuExpanded by remember { mutableStateOf(false) }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            OutlinedButton(
+                onClick = { sortMenuExpanded = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Sort by: ${state.sortOrder.label}")
+                Icon(
+                    Icons.Default.ArrowDropDown,
+                    contentDescription = null,
+                    modifier = Modifier.padding(start = 4.dp)
+                )
+            }
+            DropdownMenu(
+                expanded = sortMenuExpanded,
+                onDismissRequest = { sortMenuExpanded = false },
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                DiscoverSortOrder.entries.forEach { order ->
+                    DropdownMenuItem(
+                        text = { Text(order.label) },
+                        onClick = {
+                            viewModel.setSortOrder(order)
+                            sortMenuExpanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        if (state.isLoading && state.services.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            }
+        } else if (state.error != null && state.services.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    state.error!!,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        } else {
+            val listState = rememberLazyListState()
+            LaunchedEffect(state.sortOrder) {
+                if (state.displayedServices.isNotEmpty()) {
+                    listState.animateScrollToItem(0)
+                }
+            }
+            val systemBottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+            LazyColumn(
+                state = listState,
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 110.dp + systemBottomInset),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(
+                    items = state.displayedServices,
+                    key = { it._id }
+                ) { service ->
+                    val distanceKm = viewModel.distanceToService(service)
+                    val creator = state.creatorInfo[service.userId]
+                    val isRemote = service.isRemote
+                    DiscoverServiceCard(
+                        service = service,
+                        distanceKm = if (isRemote) null else distanceKm,
+                        isRemote = isRemote,
+                        creator = creator,
+                        onClick = { selectedServiceId = service._id }
+                    )
+                }
+            }
+        }
+    }
+
+        FloatingActionButton(
+            onClick = {
+                editServiceId = null
+                showCreateServiceScreen = true
+            },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, top = 16.dp, bottom = 110.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Create service"
+            )
+        }
+    }
+}
+
+@Composable
+private fun BadgeInfoBox(
+    key: String,
+    name: String?,
+    description: String?,
+    modifier: Modifier = Modifier
+) {
+    val title = name ?: key
+    val desc = description?.takeIf { it.isNotBlank() } ?: "No description available."
+    val lime = Color(0xFFC6E600)
+    Card(
+        modifier = modifier
+            .border(1.5.dp, lime, RoundedCornerShape(12.dp)),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(10.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = badgeIcon(key),
+                    contentDescription = title,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Badge: $title",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = desc,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiscoverServiceCard(
+    service: ServiceResponse,
+    distanceKm: Double?,
+    isRemote: Boolean,
+    creator: CreatorInfo?,
+    onClick: () -> Unit
+) {
+    var showBadgeInfo by remember { mutableStateOf(false) }
+    val accepted = service.matchedUserIds?.size ?: 0
+    val max = service.maxParticipants ?: 1
+    val capacityText = "$accepted/$max"
+    val remaining = max - accepted
+    val isFull = max > 0 && remaining <= 0
+    val isNearlyFull = !isFull && max >= 3 && remaining <= (if (max == 3) 1 else 2)
+    val locationText = if (isRemote) null else (service.location?.address?.takeIf { it.isNotBlank() }
+        ?: service.location?.let { "%.4f, %.4f".format(it.latitude, it.longitude) }
+        ?: "—")
+    val userName = creator?.user?.fullName?.takeIf { it.isNotBlank() }
+        ?: creator?.user?.username
+        ?: "User"
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (creator?.user?.profilePicture?.isNotBlank() == true) {
+                    val context = LocalContext.current
+                    AsyncImage(
+                        model = buildImageRequest(context, creator.user!!.profilePicture),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = userName.firstOrNull()?.uppercase() ?: "?",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = userName,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    val primaryBadgeKey = creator?.primaryBadgeKey
+                    if (creator?.rating != null || primaryBadgeKey != null) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            creator?.rating?.let { avg ->
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.Star,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = "%.1f".format(avg),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            if (primaryBadgeKey != null) {
+                                IconButton(
+                                    onClick = { showBadgeInfo = !showBadgeInfo },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = badgeIcon(primaryBadgeKey),
+                                        contentDescription = creator?.primaryBadgeName ?: "Badge",
+                                        modifier = Modifier.size(16.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (showBadgeInfo && creator?.primaryBadgeKey != null) {
+                BadgeInfoBox(
+                    key = creator.primaryBadgeKey,
+                    name = creator.primaryBadgeName,
+                    description = creator.primaryBadgeDescription,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            Text(
+                text = service.title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            val previewText = service.description.take(180) + if (service.description.length > 180) "…" else ""
+            Text(
+                text = simpleMarkdownToAnnotatedString(previewText),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (locationText != null) {
+                Text(
+                    text = locationText,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = service.serviceType,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = capacityText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (isFull) {
+                        androidx.compose.material3.Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.errorContainer
+                        ) {
+                            Text(
+                                text = "Full",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    } else if (isNearlyFull) {
+                        androidx.compose.material3.Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color(0xFFFFECB3)
+                        ) {
+                            Text(
+                                text = if (remaining == 1) "1 spot left" else "$remaining spots left",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF7B5800),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                    Text(
+                        text = formatDurationHours(service.estimatedDuration) + " • " + service.status.replace("_", " "),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (isRemote) {
+                    Text(
+                        text = "Remote",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else if (distanceKm != null) {
+                    Text(
+                        text = "~${"%.1f".format(distanceKm)} km",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+
+}

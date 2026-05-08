@@ -13,43 +13,133 @@ import {
   Dialog,
 } from "@radix-ui/themes";
 import { Form } from "radix-ui";
-import { servicesApi } from "@/services/api";
-import { ServiceForm, ServiceFormErrors, TagEntity } from "@/types";
-import { TURKISH_CITIES, getCityOptions } from "@/constants/turkishCities";
+import { servicesApi, uploadApi, getImageUrl } from "@/services/api";
+import { Service, ServiceForm, ServiceFormErrors, TagEntity } from "@/types";
 import { TagAutocomplete } from "./TagAutocomplete";
 import { MarkdownEditor } from "./MarkdownEditor";
-import { MapContainer, TileLayer, Circle, Marker } from "react-leaflet";
-import L from "leaflet";
+import { MapLocationPicker } from "@/components/ui/MapLocationPicker";
 import { GlobeIcon, Crosshair1Icon } from "@radix-ui/react-icons";
+import { PlusIcon } from "lucide-react";
 
 interface OfferNeedFormProps {
   serviceType: "offer" | "need";
   onSuccess?: () => void;
   onClose?: () => void;
+  initialService?: Service;
 }
+
+const placeholderTexts: Record<
+  "offer" | "need",
+  {
+    title: string;
+    description: string;
+    tags: string;
+    open_availability: string;
+    estimated_duration: string;
+    max_participants: string;
+  }
+> = {
+  offer: {
+    title: "Italian cooking lessons at home",
+    description:
+      "I can teach 2 hours of Italian cooking at home per week. Ingredients from you. You can use **bold** and *italic*.",
+    tags: "cooking, gardening, programming, language, math...",
+    open_availability: "Weekday evenings after 6 PM, weekends anytime",
+    estimated_duration: "2",
+    max_participants: "5",
+  },
+  need: {
+    title: "Garden help, pruning the Roses, weeding the garden",
+    description:
+      "I need help with pruning the Roses, weeding the garden, etc. Ingredients from us. You can use **bold** and *italic*.",
+    tags: "cooking, gardening, programming, language, math...",
+    open_availability: "Weekday evenings after 6 PM, weekends anytime",
+    estimated_duration: "2",
+    max_participants: "5",
+  },
+};
 
 export function OfferNeedForm({
   serviceType,
   onSuccess,
   onClose,
+  initialService,
 }: OfferNeedFormProps) {
+  const isEditMode = !!initialService;
   const [showConfirmation, setShowConfirmation] = useState(false);
-  const [formData, setFormData] = useState<ServiceForm>({
-    title: "",
-    description: "",
-    tags: [],
-    estimated_duration: 1,
-    location: { latitude: 0, longitude: 0, address: "" },
-    city: "",
-    service_type: serviceType,
-    scheduling_type: "specific",
-    max_participants: 1,
-    is_remote: false,
+  const [formData, setFormData] = useState<ServiceForm>(() => {
+    if (initialService) {
+      return {
+        title: initialService.title,
+        description: initialService.description,
+        tags: initialService.tags || [],
+        estimated_duration: initialService.estimated_duration,
+        location: initialService.location || { latitude: 0, longitude: 0, address: "" },
+        city: "",
+        service_type: initialService.service_type as "offer" | "need",
+        scheduling_type: initialService.scheduling_type || "specific",
+        max_participants: initialService.max_participants || 1,
+        is_remote: initialService.is_remote || false,
+        specific_date: initialService.specific_date,
+        specific_time: initialService.specific_time,
+        recurring_pattern: initialService.recurring_pattern,
+        open_availability: initialService.open_availability,
+        deadline: initialService.deadline,
+      };
+    }
+    return {
+      title: "",
+      description: "",
+      tags: [],
+      estimated_duration: 1,
+      location: { latitude: 0, longitude: 0, address: "" },
+      city: "",
+      service_type: serviceType,
+      scheduling_type: "specific",
+      max_participants: 1,
+      is_remote: false,
+    };
   });
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>(
+    () => (initialService?.image_urls || []).map((url) => getImageUrl(url) ?? url),
+  );
   const [errors, setErrors] = useState<ServiceFormErrors>({});
+  const MAX_SERVICE_IMAGES = 3;
+  const [serviceImageFiles, setServiceImageFiles] = useState<File[]>([]);
+  const [serviceImagePreviewUrls, setServiceImagePreviewUrls] = useState<
+    string[]
+  >([]);
+  const [serviceImageUploading, setServiceImageUploading] = useState(false);
+  const [serviceImageError, setServiceImageError] = useState<string | null>(
+    null,
+  );
   const formTopRef = useRef<HTMLDivElement>(null);
-  const [isGettingLocation, setIsGettingLocation] = useState(false);
-  const [useCurrentLocation, setUseCurrentLocation] = useState(true);
+
+  useEffect(() => {
+    setFormData((prev) =>
+      prev.service_type === serviceType
+        ? prev
+        : { ...prev, service_type: serviceType },
+    );
+  }, [serviceType]);
+
+  const updateServiceMutation = useMutation({
+    mutationFn: (data: Partial<ServiceForm>) =>
+      servicesApi.updateService(initialService!._id, data),
+    onSuccess: () => {
+      if (onSuccess) onSuccess();
+    },
+    onError: (error: any) => {
+      console.error("Error updating service:", error);
+      const errorDetail = error.response?.data?.detail;
+      if (typeof errorDetail === "string") {
+        setErrors({ title: errorDetail });
+      } else {
+        setErrors({ title: "Failed to update service" });
+      }
+    },
+  });
+
   const createServiceMutation = useMutation({
     mutationFn: servicesApi.createService,
     onSuccess: () => {
@@ -125,16 +215,6 @@ export function OfferNeedForm({
     },
   });
 
-  useEffect(() => {
-    if (formData.location.latitude && formData.location.longitude) {
-      const closestCity = findClosestTurkishCity(
-        formData.location.latitude,
-        formData.location.longitude,
-      );
-      handleInputChange("city", (closestCity as any).key || "");
-    }
-  }, [formData.location.latitude, formData.location.longitude]);
-
   const handleInputChange = (field: keyof ServiceForm, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
@@ -170,196 +250,10 @@ export function OfferNeedForm({
     );
   };
 
-  const findClosestTurkishCity = (latitude: number, longitude: number) => {
-    let closestCity: {
-      key: string;
-      latitude: number;
-      longitude: number;
-      address: string;
-    } | null = null;
-    let minDistance = Infinity;
-
-    Object.entries(TURKISH_CITIES).forEach(([key, cityData]) => {
-      const distance = Math.sqrt(
-        Math.pow(cityData.latitude - latitude, 2) +
-          Math.pow(cityData.longitude - longitude, 2),
-      );
-
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestCity = { key, ...cityData };
-      }
-    });
-
-    return closestCity;
-  };
-
-  const getCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      setErrors((prev) => ({
-        ...prev,
-        location: "Geolocation is not supported by this browser",
-      }));
-      return;
-    }
-
-    setIsGettingLocation(true);
-    setErrors((prev) => ({ ...prev, location: undefined }));
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-
-        // Reverse geocoding to get address using OpenStreetMap Nominatim
-        fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
-          {
-            headers: {
-              "User-Agent": "hive-frontend",
-            },
-          },
-        )
-          .then((response) => response.json())
-          .then((data) => {
-            console.log(data);
-            // Build address from Nominatim response
-            const addressParts: string[] = [];
-            if (data.address) {
-              if (data.address.neighbourhood || data.address.suburb) {
-                addressParts.push(
-                  data.address.neighbourhood || data.address.suburb,
-                );
-              }
-              if (
-                data.address.city ||
-                data.address.town ||
-                data.address.village
-              ) {
-                addressParts.push(
-                  data.address.city ||
-                    data.address.town ||
-                    data.address.village,
-                );
-              }
-              if (data.address.state || data.address.region) {
-                addressParts.push(data.address.state || data.address.region);
-              }
-            }
-            const address =
-              addressParts.length > 0
-                ? addressParts.join(", ")
-                : data.display_name || "Current Location";
-
-            // Find the closest Turkish city based on coordinates
-            const closestCity = findClosestTurkishCity(latitude, longitude);
-
-            handleInputChange("location", {
-              latitude,
-              longitude,
-              address: address || "Current Location",
-            });
-
-            // Set the city based on geolocation
-            if (closestCity) {
-              handleInputChange("city", (closestCity as any).key);
-            }
-
-            setIsGettingLocation(false);
-          })
-          .catch((error) => {
-            console.error("Error getting address:", error);
-            handleInputChange("location", {
-              latitude,
-              longitude,
-              address: "Current Location",
-            });
-            setIsGettingLocation(false);
-          });
-      },
-      (error) => {
-        console.error("Error getting location:", error);
-        let errorMessage = "Unable to get your location";
-
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage =
-              "Location access denied. Please enable location permissions.";
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = "Location information unavailable.";
-            break;
-          case error.TIMEOUT:
-            errorMessage = "Location request timed out.";
-            break;
-        }
-
-        setErrors((prev) => ({
-          ...prev,
-          location: errorMessage,
-        }));
-        setIsGettingLocation(false);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 300000, // 5 minutes
-      },
-    );
-  };
-
-  const handleManualAddressChange = (address: string) => {
-    handleInputChange("location", {
-      ...formData.location,
-      address: address,
-    });
-  };
-
-  const geocodeAddress = async (address: string) => {
-    if (!address.trim()) return;
-
-    try {
-      // Using OpenStreetMap Nominatim API
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          address,
-        )}&limit=1`,
-        {
-          headers: {
-            "User-Agent": "hive-frontend",
-          },
-        },
-      );
-      const data = await response.json();
-
-      if (data && data.length > 0) {
-        const result = data[0];
-        handleInputChange("location", {
-          latitude: parseFloat(result.lat),
-          longitude: parseFloat(result.lon),
-          address: address,
-        });
-      } else {
-        // No results found, still allow address to be set
-        handleInputChange("location", {
-          latitude: 0,
-          longitude: 0,
-          address: address,
-        });
-      }
-    } catch (error) {
-      console.error("Error geocoding address:", error);
-      // Still allow the address to be set even if geocoding fails
-      handleInputChange("location", {
-        latitude: 0,
-        longitude: 0,
-        address: address,
-      });
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
+    setServiceImageError(null);
 
     const newErrors: ServiceFormErrors = {};
 
@@ -373,18 +267,13 @@ export function OfferNeedForm({
       newErrors.description = "Description is required";
     }
 
-    if (!formData.is_remote && !useCurrentLocation && !formData.city?.trim()) {
-      newErrors.city = "City is required";
-    }
-
     if (
       !formData.is_remote &&
       formData.location.latitude === 0 &&
-      formData.location.longitude === 0 &&
-      !formData.location.address?.trim()
+      formData.location.longitude === 0
     ) {
       newErrors.location =
-        "Please provide your location or get your current location";
+        "Please select a location on the map or search by address";
     }
 
     if (formData.tags.length === 0) {
@@ -399,10 +288,16 @@ export function OfferNeedForm({
       newErrors.max_participants = "Must allow at least 1 participant";
     }
 
+    if (!isEditMode && serviceImageFiles.length === 0) {
+      newErrors.images = "Please upload at least one photo of your service.";
+    }
+
     // Validate scheduling based on type
     if (formData.scheduling_type === "specific") {
       if (!formData.specific_date) {
         newErrors.specific_date = "Date is required for specific scheduling";
+      } else if (formData.specific_date < new Date().toISOString().slice(0, 10)) {
+        newErrors.specific_date = "Date cannot be in the past";
       }
       if (!formData.specific_time) {
         newErrors.specific_time = "Time is required for specific scheduling";
@@ -433,11 +328,43 @@ export function OfferNeedForm({
       return;
     }
 
-    createServiceMutation.mutate(formData);
+    const imageUrls: string[] = [];
+    if (serviceImageFiles.length > 0) {
+      setServiceImageUploading(true);
+      try {
+        for (const file of serviceImageFiles) {
+          const res = await uploadApi.uploadServiceImage(file);
+          imageUrls.push(res.data.url);
+        }
+      } catch (err: any) {
+        setServiceImageError(
+          err.response?.data?.detail || "Image upload failed",
+        );
+        setServiceImageUploading(false);
+        return;
+      }
+      setServiceImageUploading(false);
+    }
+
+    const allImageUrls = [...existingImageUrls, ...imageUrls];
+    const payload = {
+      ...formData,
+      service_type: serviceType,
+      image_urls: allImageUrls.length > 0 ? allImageUrls : undefined,
+    };
+
+    if (isEditMode) {
+      updateServiceMutation.mutate(payload);
+    } else {
+      createServiceMutation.mutate(payload);
+    }
   };
 
   const handleConfirmationClose = () => {
     setShowConfirmation(false);
+    serviceImagePreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+    setServiceImageFiles([]);
+    setServiceImagePreviewUrls([]);
     // Call onSuccess after closing confirmation modal
     if (onSuccess) onSuccess();
     if (onClose) onClose();
@@ -500,7 +427,7 @@ export function OfferNeedForm({
                 <Form.Label className="text-sm font-medium">Title *</Form.Label>
                 <Form.Control asChild>
                   <TextField.Root
-                    placeholder="e.g. Home cooking class, Garden landscaping help"
+                    placeholder={placeholderTexts[serviceType].title}
                     value={formData.title}
                     onChange={(e) => handleInputChange("title", e.target.value)}
                     className={errors.title ? "border-red-500" : ""}
@@ -521,7 +448,7 @@ export function OfferNeedForm({
                   onTagAdd={handleTagAdd}
                   onTagRemove={handleTagRemove}
                   error={errors.tags}
-                  placeholder="e.g. cooking, gardening, programming, language, math..."
+                  placeholder={placeholderTexts[serviceType].tags}
                   maxTags={10}
                 />
               </Form.Field>
@@ -534,7 +461,7 @@ export function OfferNeedForm({
                   Description *
                 </Form.Label>
                 <MarkdownEditor
-                  placeholder="e.g. I can teach 2 hours of Italian cooking at home per week. Ingredients from you. You can use **bold** and *italic*."
+                  placeholder={placeholderTexts[serviceType].description}
                   value={formData.description}
                   onChange={(value) => handleInputChange("description", value)}
                   error={!!errors.description}
@@ -547,13 +474,147 @@ export function OfferNeedForm({
                 )}
               </Form.Field>
 
+              {/* Service images (optional, max 3) */}
+              <Form.Field
+                name="service_images"
+                className="space-y-1 col-span-2"
+              >
+                {serviceImageFiles.length + existingImageUrls.length <
+                  MAX_SERVICE_IMAGES && (
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="sr-only"
+                      disabled={serviceImageUploading}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (
+                          serviceImageFiles.length + existingImageUrls.length >=
+                          MAX_SERVICE_IMAGES
+                        )
+                          return;
+                        const maxMb = 5;
+                        if (file.size > maxMb * 1024 * 1024) {
+                          setServiceImageError(
+                            `File must be under ${maxMb} MB`,
+                          );
+                          return;
+                        }
+                        setServiceImageError(null);
+                        setErrors((prev) => ({ ...prev, images: undefined }));
+                        setServiceImageFiles((prev) => [...prev, file]);
+                        setServiceImagePreviewUrls((prev) => [
+                          ...prev,
+                          URL.createObjectURL(file),
+                        ]);
+                        e.target.value = "";
+                      }}
+                    />
+                    <span className={`flex items-center justify-center gap-2 border rounded-lg p-2 hover-card text-center cursor-pointer font-medium text-sm w-full${errors.images ? " border-red-500" : ""}`}>
+                      <PlusIcon className="w-4 h-4" />
+                      {isEditMode
+                        ? `Add Images (optional, max ${MAX_SERVICE_IMAGES})`
+                        : `Add Images (required, max ${MAX_SERVICE_IMAGES})`}
+                    </span>
+                  </label>
+                )}
+
+                {/* Display existing images in edit mode */}
+                {existingImageUrls.length > 0 && (
+                  <div>
+                    <Text size="1" color="gray" className="mb-2 block">
+                      Existing images
+                    </Text>
+                    <Flex gap="2" wrap="wrap" className="border rounded-lg p-2">
+                      {existingImageUrls.map((url, index) => (
+                        <Box key={`existing-${index}`} className="relative">
+                          <img
+                            src={url}
+                            alt={`Existing ${index + 1}`}
+                            className="rounded-lg object-cover h-24 w-24"
+                          />
+                          <Button
+                            type="button"
+                            size="1"
+                            variant="solid"
+                            color="red"
+                            className="!absolute top-1 right-1 !p-1 w-5 h-5 cursor-pointer"
+                            onClick={() => {
+                              setExistingImageUrls((prev) =>
+                                prev.filter((_, i) => i !== index),
+                              );
+                              setServiceImageError(null);
+                            }}
+                          >
+                            ×
+                          </Button>
+                        </Box>
+                      ))}
+                    </Flex>
+                  </div>
+                )}
+
+                {/* Display newly added images */}
+                {serviceImagePreviewUrls.length > 0 && (
+                  <div>
+                    <Text size="1" color="gray" className="mb-2 block">
+                      New images
+                    </Text>
+                    <Flex gap="2" wrap="wrap" className="border rounded-lg p-2">
+                      {serviceImagePreviewUrls.map((url, index) => (
+                        <Box key={index} className="relative">
+                          <img
+                            src={url}
+                            alt={`Preview ${index + 1}`}
+                            className="rounded-lg object-cover h-24 w-24"
+                          />
+                          <Button
+                            type="button"
+                            size="1"
+                            variant="solid"
+                            color="red"
+                            className="!absolute top-1 right-1 !p-1 w-5 h-5 cursor-pointer"
+                            onClick={() => {
+                              URL.revokeObjectURL(
+                                serviceImagePreviewUrls[index],
+                              );
+                              setServiceImageFiles((prev) =>
+                                prev.filter((_, i) => i !== index),
+                              );
+                              setServiceImagePreviewUrls((prev) =>
+                                prev.filter((_, i) => i !== index),
+                              );
+                              setServiceImageError(null);
+                            }}
+                          >
+                            ×
+                          </Button>
+                        </Box>
+                      ))}
+                    </Flex>
+                  </div>
+                )}
+                {serviceImageError && (
+                  <Text color="red" size="1">
+                    {serviceImageError}
+                  </Text>
+                )}
+                {errors.images && (
+                  <Text color="red" size="1">
+                    {errors.images}
+                  </Text>
+                )}
+              </Form.Field>
+
               {/* In person or remote service selection */}
               <Box
                 className={`flex items-center justify-center gap-2 mb-4 border rounded-lg p-2 hover-card text-center cursor-pointer font-medium text-sm`}
                 onClick={() => handleInputChange("is_remote", false)}
                 style={{
                   backgroundColor: formData.is_remote ? "" : "var(--gray-1)",
-                  borderColor: "var(--gray-3)",
+                  boxShadow: formData.is_remote ? "" : "0 0 0 2px var(--accent-9), 0 4px 12px rgba(0,0,0,0.15)",
                 }}
               >
                 <Crosshair1Icon className="w-4 h-4" /> In person Service
@@ -563,7 +624,7 @@ export function OfferNeedForm({
                 onClick={() => handleInputChange("is_remote", true)}
                 style={{
                   backgroundColor: formData.is_remote ? "var(--gray-1)" : "",
-                  borderColor: "var(--gray-3)",
+                  boxShadow: formData.is_remote ? "0 0 0 2px var(--accent-9), 0 4px 12px rgba(0,0,0,0.15)" : "",
                 }}
               >
                 <GlobeIcon className="w-4 h-4" />
@@ -572,212 +633,18 @@ export function OfferNeedForm({
             </Grid>
             {/* Location Section */}
             {!formData?.is_remote && (
-              <>
-                <Box className="mb-4">
-                  {/* Toggle between current location and manual address */}
-                  <div className="mb-3 flex items-center align-center gap-2">
-                    <Text size="2">Location</Text>
-                    <Switch
-                      checked={useCurrentLocation}
-                      onCheckedChange={setUseCurrentLocation}
-                    />
-                    <Text size="2">
-                      {useCurrentLocation
-                        ? "Use current location"
-                        : "Enter address manually"}
-                    </Text>
-                  </div>
-
-                  <Form.Field name="location" className="space-y-2 mb-4">
-                    {useCurrentLocation ? (
-                      <Flex gap="2" align="center">
-                        <TextField.Root
-                          placeholder="e.g. Kadıköy, Istanbul or click Get Location"
-                          value={formData.location.address || ""}
-                          readOnly
-                          className="flex-1"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={getCurrentLocation}
-                          disabled={isGettingLocation}
-                          className="whitespace-nowrap"
-                        >
-                          <Crosshair1Icon width="16" height="16" />
-                          {isGettingLocation ? "Getting..." : "Get Location"}
-                        </Button>
-                      </Flex>
-                    ) : (
-                      <Flex gap="2" align="center">
-                        <TextField.Root
-                          placeholder="e.g. 123 Main St, Kadıköy, Istanbul"
-                          value={formData.location.address || ""}
-                          onChange={(e) =>
-                            handleManualAddressChange(e.target.value)
-                          }
-                          onBlur={(e) => {
-                            if (e.target.value.trim()) {
-                              geocodeAddress(e.target.value.trim());
-                            }
-                          }}
-                          className="flex-1"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() =>
-                            geocodeAddress(formData.location.address || "")
-                          }
-                          disabled={!formData.location.address?.trim()}
-                          className="whitespace-nowrap"
-                        >
-                          Find Location
-                        </Button>
-                      </Flex>
-                    )}
-
-                    {errors.location && (
-                      <Text color="red" size="1">
-                        {errors.location}
-                      </Text>
-                    )}
-
-                    {formData.location.latitude !== 0 &&
-                      formData.location.longitude !== 0 && (
-                        <Text color="green" size="1">
-                          ✓ Location set:{" "}
-                          {formData.location.latitude.toFixed(4)},{" "}
-                          {formData.location.longitude.toFixed(4)}
-                        </Text>
-                      )}
-
-                    {formData.location.address &&
-                      formData.location.latitude === 0 &&
-                      formData.location.longitude === 0 && (
-                        <Text color="orange" size="1">
-                          ⚠ Address set but coordinates not found. Location will
-                          be approximate.
-                        </Text>
-                      )}
-
-                    {formData.location.latitude !== 0 &&
-                      formData.location.longitude !== 0 && (
-                        <Box
-                          className="mt-3 rounded-xl overflow-hidden"
-                          style={{ height: 180 }}
-                        >
-                          <MapContainer
-                            center={[
-                              formData.location.latitude,
-                              formData.location.longitude,
-                            ]}
-                            zoom={15}
-                            style={{ height: "100%", width: "100%" }}
-                            scrollWheelZoom={false}
-                          >
-                            <TileLayer
-                              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                              subdomains="abcd"
-                            />
-                            <Circle
-                              center={[
-                                formData.location.latitude,
-                                formData.location.longitude,
-                              ]}
-                              radius={200}
-                              pathOptions={{
-                                color:
-                                  serviceType === "offer"
-                                    ? "#059669"
-                                    : "#dc2626",
-                                fillColor:
-                                  serviceType === "offer"
-                                    ? "#059669"
-                                    : "#dc2626",
-                                fillOpacity: 0.12,
-                                weight: 1.5,
-                              }}
-                            />
-                            <Marker
-                              position={[
-                                formData.location.latitude,
-                                formData.location.longitude,
-                              ]}
-                              icon={L.divIcon({
-                                className: "custom-marker",
-                                html: `<div style="width:20px;height:20px;border-radius:50%;color:white;background-color:${
-                                  serviceType === "offer"
-                                    ? "#059669"
-                                    : "#dc2626"
-                                };display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;">${
-                                  serviceType === "offer" ? "+" : "?"
-                                }</div>`,
-                                iconSize: [20, 20],
-                                iconAnchor: [10, 10],
-                              })}
-                            />
-                          </MapContainer>
-                        </Box>
-                      )}
-                  </Form.Field>
-                </Box>
-
-                <Form.Field
-                  name="city"
-                  className="space-y-2 flex flex-col mb-2"
-                >
-                  <Form.Label className="text-sm">
-                    City *{" "}
-                    {useCurrentLocation && "(Auto-detected from location)"}
-                  </Form.Label>
-                  <Select.Root
-                    value={formData.city}
-                    onValueChange={(value) => {
-                      if (!useCurrentLocation) {
-                        handleInputChange("city", value);
-                        const cityData =
-                          TURKISH_CITIES[value as keyof typeof TURKISH_CITIES];
-                        if (cityData) {
-                          handleInputChange("location", {
-                            latitude: cityData.latitude,
-                            longitude: cityData.longitude,
-                            address: cityData.address,
-                          });
-                        }
-                      }
-                    }}
-                    disabled={useCurrentLocation}
-                  >
-                    <Select.Trigger
-                      className={errors.city ? "border-red-500" : ""}
-                      disabled={useCurrentLocation}
-                    />
-                    <Select.Content>
-                      {getCityOptions().map((city) => (
-                        <Select.Item key={city.value} value={city.value}>
-                          {city.label}
-                        </Select.Item>
-                      ))}
-                    </Select.Content>
-                  </Select.Root>
-                  {errors.city && (
-                    <Text color="red" size="1">
-                      {errors.city}
-                    </Text>
-                  )}
-                  {useCurrentLocation && formData.city && (
-                    <Text color="green" size="1">
-                      ✓ City auto-detected:{" "}
-                      {
-                        TURKISH_CITIES[
-                          formData.city as keyof typeof TURKISH_CITIES
-                        ]?.address
-                      }
-                    </Text>
-                  )}
-                </Form.Field>
-              </>
+              <Box className="mb-4">
+                <Text size="2" weight="medium" className="mb-2 block">
+                  Location *
+                </Text>
+                <MapLocationPicker
+                  value={formData.location}
+                  onChange={(loc) => handleInputChange("location", loc)}
+                  markerColor={serviceType === "offer" ? "#059669" : "#d97706"}
+                  error={errors.location}
+                  height={220}
+                />
+              </Box>
             )}
           </Box>
 
@@ -817,6 +684,7 @@ export function OfferNeedForm({
                   <Form.Control asChild>
                     <TextField.Root
                       type="date"
+                      min={new Date().toISOString().slice(0, 10)}
                       value={formData.specific_date || ""}
                       onChange={(e) =>
                         handleInputChange("specific_date", e.target.value)
@@ -927,7 +795,9 @@ export function OfferNeedForm({
                 </Form.Label>
                 <Form.Control asChild>
                   <TextArea
-                    placeholder="e.g. Weekday evenings after 6 PM, weekends anytime"
+                    placeholder={
+                      placeholderTexts[serviceType].open_availability
+                    }
                     value={formData.open_availability || ""}
                     onChange={(e) =>
                       handleInputChange("open_availability", e.target.value)
@@ -956,7 +826,9 @@ export function OfferNeedForm({
                   <TextField.Root
                     type="number"
                     min="1"
-                    placeholder="e.g. 2"
+                    placeholder={
+                      placeholderTexts[serviceType].estimated_duration
+                    }
                     value={formData.estimated_duration}
                     onChange={(e) =>
                       handleInputChange(
@@ -984,7 +856,7 @@ export function OfferNeedForm({
                   <TextField.Root
                     type="number"
                     min="1"
-                    placeholder="e.g. 5"
+                    placeholder={placeholderTexts[serviceType].max_participants}
                     value={formData.max_participants}
                     onChange={(e) =>
                       handleInputChange(
@@ -1010,8 +882,21 @@ export function OfferNeedForm({
               Cancel
             </Button>
             <Form.Submit asChild>
-              <Button type="submit" disabled={createServiceMutation.isPending}>
-                {createServiceMutation.isPending ? "Creating..." : "Create"}
+              <Button
+                type="submit"
+                disabled={
+                  createServiceMutation.isPending || updateServiceMutation.isPending || serviceImageUploading
+                }
+              >
+                {serviceImageUploading
+                  ? "Uploading image..."
+                  : isEditMode
+                    ? updateServiceMutation.isPending
+                      ? "Saving..."
+                      : "Save Changes"
+                    : createServiceMutation.isPending
+                      ? "Creating..."
+                      : "Create"}
               </Button>
             </Form.Submit>
           </Flex>

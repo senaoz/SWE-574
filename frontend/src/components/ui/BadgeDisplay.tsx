@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Card, Text, Flex, Heading, Box } from "@radix-ui/themes";
+import { Card, Text, Flex, Heading, Box, Tooltip } from "@radix-ui/themes";
 import {
   UserPlus,
   Image,
@@ -8,15 +8,53 @@ import {
   Star,
   TrendingUp,
   Heart,
+  CheckCircle,
   Shield,
   Award,
   Clock,
   Activity,
+  Calendar,
+  Users,
+  MessageSquare,
+  Sparkles,
+  Link,
+  Trophy,
 } from "lucide-react";
 import { Badge as BadgeType, BadgeSummary } from "@/types";
 import { usersApi } from "@/services/api";
 
-const ICON_MAP: Record<string, React.ElementType> = {
+export const BADGE_PRIORITY: string[] = [
+  "true_bee",           // True Bee
+  "generous_giver",     // Queen Bee
+  "veteran_scout",      // Veteran Scout
+  "master_helper",      // Elite Forager
+  "community_favorite", // Queen's Choice
+  "cross_pollinator",   // Cross-Pollinator
+  "helper_hero",        // Pollinator Bee
+  "hive_dancer",        // Hive Dancer
+  "popular",            // Honeycomb Star
+  "helper",             // Worker Bee
+  "hive_whisperer",     // Hive Whisperer
+  "well_tagged",        // Nectar Expert
+  "rated",              // Sweet Taste
+  "first_exchange",     // Honey Maker
+  "social_antenna",     // Social Antenna
+  "newcomer",           // Newcomer
+  "profile_complete",   // Polished Wings
+  "tagged",             // Pollen Collector
+];
+
+export function getHighestPriorityBadge(badges: BadgeType[]): BadgeType | null {
+  const earned = badges.filter((b) => b.earned);
+  if (earned.length === 0) return null;
+  return (
+    BADGE_PRIORITY.map((key) => earned.find((b) => b.key === key)).find(
+      Boolean
+    ) ?? earned[0]
+  );
+}
+
+export const ICON_MAP: Record<string, React.ElementType> = {
   "user-plus": UserPlus,
   image: Image,
   tag: Tag,
@@ -24,11 +62,55 @@ const ICON_MAP: Record<string, React.ElementType> = {
   star: Star,
   "trending-up": TrendingUp,
   heart: Heart,
+  "check-circle": CheckCircle,
   handshake: Activity,
   shield: Shield,
   award: Award,
   clock: Clock,
+  calendar: Calendar,
+  users: Users,
+  "message-square": MessageSquare,
+  sparkles: Sparkles,
+  link: Link,
+  trophy: Trophy,
 };
+
+export function CustomBadge({
+  badge,
+  className,
+  size = 24,
+}: {
+  badge: BadgeType;
+  className?: string;
+  size?: number;
+}) {
+  const IconComponent = ICON_MAP[badge.icon] || Award;
+  return (
+    <Tooltip
+      content={
+        <Flex direction="column" gap="1">
+          <Text size="2" weight="bold">{badge.name}</Text>
+          {badge.description && (
+            <Text size="1" style={{ color: "var(--gray-8)" }}>{badge.description}</Text>
+          )}
+        </Flex>
+      }
+      side="right"
+    >
+      <Box
+        className={`p-2 custom-badge-icon ${className || ''}`}
+        data-badge-key={badge.key}
+      >
+        <IconComponent
+          size={size}
+          style={{
+            color: badge.earned ? "var(--lime-11) !important" : "var(--gray-8) !important",
+          }}
+        />
+      </Box>
+    </Tooltip>
+  );
+}
 
 function BadgeCard({ badge }: { badge: BadgeType }) {
   const IconComponent = ICON_MAP[badge.icon] || Award;
@@ -39,7 +121,7 @@ function BadgeCard({ badge }: { badge: BadgeType }) {
 
   return (
     <Card
-      className="p-4 transition-all"
+      className="p-4 transition-all border-none-card"
       style={{
         opacity: badge.earned ? 1 : 0.55,
         borderColor: badge.earned ? "var(--lime-8)" : undefined,

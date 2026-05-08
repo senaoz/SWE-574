@@ -1,5 +1,5 @@
 import pytest
-from app.services.auth_service import AuthService
+from app.services.auth_service import AuthService, LoginNotAllowedError
 from app.models.user import UserCreate, UserRole
 from app.core.security import verify_password
 
@@ -131,72 +131,54 @@ class TestAuthService:
         assert retrieved_user is not None
         assert retrieved_user.id == created_user.id
         assert retrieved_user.username == test_user_data["username"]
-    
+
     @pytest.mark.asyncio
-    async def test_get_or_create_oauth_user_new(self, mock_db):
-        """Test creating a new OAuth user"""
-        auth_service = AuthService(mock_db)
-        
-        user = await auth_service.get_or_create_oauth_user(
-            email="oauth@example.com",
-            username="oauthuser",
-            full_name="OAuth User",
-            provider="google",
-            provider_id="12345"
-        )
-        
-        assert user is not None
-        assert user.email == "oauth@example.com"
-        assert user.username == "oauthuser"
-        assert user.is_verified is True  # OAuth users are verified
-        assert user.timebank_balance == 0.0  # OAuth users start with 0
-    
-    @pytest.mark.asyncio
-    async def test_get_or_create_oauth_user_existing(self, mock_db, test_user_data):
-        """Test retrieving existing OAuth user"""
+    async def test_authenticate_user_banned(self, mock_db, test_user_data):
+        """Test authentication is blocked for banned users"""
         auth_service = AuthService(mock_db)
         user_create = UserCreate(**test_user_data)
-        
-        # Create regular user first
-        created_user = await auth_service.create_user(user_create)
-        
-        # Try to get or create OAuth user with same email
-        oauth_user = await auth_service.get_or_create_oauth_user(
-            email=test_user_data["email"],
-            username="different_username",
-            full_name="Different Name",
-            provider="google",
-            provider_id="12345"
-        )
-        
-        # Should return existing user
-        assert oauth_user is not None
-        assert oauth_user.id == created_user.id
-        assert oauth_user.email == test_user_data["email"]
-    
-    @pytest.mark.asyncio
-    async def test_get_or_create_oauth_user_username_conflict(self, mock_db):
-        """Test OAuth user creation with username conflict"""
-        auth_service = AuthService(mock_db)
-        
-        # Create first OAuth user
-        await auth_service.get_or_create_oauth_user(
-            email="user1@example.com",
-            username="testuser",
-            full_name="User 1",
-            provider="google",
-            provider_id="111"
-        )
-        
-        # Try to create second OAuth user with same username
-        user2 = await auth_service.get_or_create_oauth_user(
-            email="user2@example.com",
-            username="testuser",
-            full_name="User 2",
-            provider="github",
-            provider_id="222"
-        )
-        
-        # Should auto-generate unique username
-        assert user2.username == "testuser1"
 
+        await auth_service.create_user(user_create)
+        await mock_db.users.update_one(
+            {"email": test_user_data["email"]},
+            {"$set": {"role": UserRole.BANNED.value}}
+        )
+
+        with pytest.raises(LoginNotAllowedError):
+            await auth_service.authenticate_user(
+                test_user_data["email"],
+                test_user_data["password"]
+            )
+
+    @pytest.mark.asyncio
+    async def test_create_user_duplicate_username(self, mock_db, test_user_data):
+        """Test that creating a user with duplicate username raises ValueError"""
+        auth_service = AuthService(mock_db)
+        user_create = UserCreate(**test_user_data)
+
+        await auth_service.create_user(user_create)
+
+        different_email_data = {**test_user_data, "email": "other@example.com"}
+        user_create2 = UserCreate(**different_email_data)
+
+        with pytest.raises(ValueError, match="Username already taken"):
+            await auth_service.create_user(user_create2)
+
+    @pytest.mark.asyncio
+    async def test_create_user_initial_balance(self, mock_db, test_user_data):
+        """Test that new users start with the welcome bonus of 3.0 hours"""
+        auth_service = AuthService(mock_db)
+        user_create = UserCreate(**test_user_data)
+
+        user = await auth_service.create_user(user_create)
+
+        assert user.timebank_balance == 3.0
+
+    @pytest.mark.asyncio
+    async def test_get_user_by_username_nonexistent(self, mock_db):
+        """Test that looking up a non-existent username returns None"""
+        auth_service = AuthService(mock_db)
+
+        user = await auth_service.get_user_by_username("doesnotexist")
+
+        assert user is None

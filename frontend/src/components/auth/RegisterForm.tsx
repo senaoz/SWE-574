@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { authApi, usersApi } from "@/services/api";
-import { Button, Card, TextField } from "@radix-ui/themes";
+import { authApi } from "@/services/api";
+import { useUser } from "@/contexts/UserContext";
+import { Button, TextField } from "@radix-ui/themes";
 import { Form } from "radix-ui";
 import { validateEmail, validatePassword } from "@/utils/utils";
-import { InterestSelector } from "@/components/ui/InterestSelector";
 
 interface RegisterFormData {
   username: string;
@@ -17,9 +17,16 @@ interface RegisterFormData {
   location?: string;
 }
 
-export function RegisterForm() {
+export function RegisterForm({
+  setLoginDialogOpen,
+  onSwitchToLogin,
+}: {
+  setLoginDialogOpen?: (open: boolean) => void;
+  onSwitchToLogin?: () => void;
+} = {}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { setAuthToken } = useUser();
   const [formData, setFormData] = useState<RegisterFormData>({
     username: "",
     email: "",
@@ -30,12 +37,6 @@ export function RegisterForm() {
     location: "",
   });
   const [errors, setErrors] = useState<Partial<RegisterFormData>>({});
-  const [showInterestOnboarding, setShowInterestOnboarding] = useState(false);
-
-  if (localStorage.getItem("access_token") && !showInterestOnboarding) {
-    navigate("/dashboard");
-    return null;
-  }
 
   const registerMutation = useMutation({
     mutationFn: authApi.register,
@@ -47,7 +48,10 @@ export function RegisterForm() {
         if (user) {
           queryClient.setQueryData(["currentUser"], user);
         }
-        setShowInterestOnboarding(true);
+        setAuthToken(true);
+
+        setLoginDialogOpen?.(false);
+        navigate("/dashboard");
         return;
       }
       const legacyUser = response.data as { email?: string; username?: string };
@@ -64,7 +68,10 @@ export function RegisterForm() {
             if (loginUser) {
               queryClient.setQueryData(["currentUser"], loginUser);
             }
-            setShowInterestOnboarding(true);
+            setAuthToken(true);
+
+            setLoginDialogOpen?.(false);
+            navigate("/dashboard");
             return;
           }
         } catch (e) {
@@ -130,7 +137,7 @@ export function RegisterForm() {
   };
 
   return (
-    <Card size="4" className="w-full max-w-xl mx-auto justify-between">
+    <div>
       <div className="mb-4">
         <div className="text-2xl font-bold mb-2">Create Account</div>
         <div className="">
@@ -265,8 +272,12 @@ export function RegisterForm() {
               onChange={(e) =>
                 setFormData({ ...formData, bio: e.target.value })
               }
+              className={errors.bio ? "border-red-500" : ""}
             />
           </Form.Control>
+          {errors.bio && (
+            <div className="text-red-500 text-sm">{errors.bio}</div>
+          )}
         </Form.Field>
 
         <Form.Field name="location" className="space-y-2">
@@ -284,7 +295,11 @@ export function RegisterForm() {
         </Form.Field>
 
         <Form.Submit asChild>
-          <Button type="submit" disabled={registerMutation.isPending}>
+          <Button
+            type="submit"
+            disabled={registerMutation.isPending}
+            className="w-full"
+          >
             {registerMutation.isPending
               ? "Creating account..."
               : "Create Account"}
@@ -293,32 +308,23 @@ export function RegisterForm() {
       </Form.Root>
       <p className="mt-6 text-center text-sm ">
         Already have an account?{" "}
-        <a href="/?login=true" className="text-blue-600 hover:underline">
-          Sign in
-        </a>
+        {onSwitchToLogin ? (
+          <button
+            type="button"
+            onClick={onSwitchToLogin}
+            className="text-lime-600 hover:underline font-medium"
+          >
+            Sign in
+          </button>
+        ) : (
+          <a
+            href="/?login=true"
+            className="text-lime-600 hover:underline font-medium"
+          >
+            Sign in
+          </a>
+        )}
       </p>
-
-      <InterestSelector
-        open={showInterestOnboarding}
-        onOpenChange={(open) => {
-          if (!open) {
-            navigate("/dashboard");
-          }
-          setShowInterestOnboarding(open);
-        }}
-        initialSelected={[]}
-        onSave={async (selected) => {
-          try {
-            if (selected.length > 0) {
-              await usersApi.updateProfile({ interests: selected } as any);
-            }
-          } catch (e) {
-            console.error("Error saving interests:", e);
-          }
-          setShowInterestOnboarding(false);
-          navigate("/dashboard");
-        }}
-      />
-    </Card>
+    </div>
   );
 }

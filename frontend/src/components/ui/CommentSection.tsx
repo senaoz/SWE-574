@@ -1,174 +1,205 @@
-import { useState, useEffect } from "react";
-import {
-  Card,
-  Text,
-  Flex,
-  Avatar,
-  Button,
-  TextArea,
-  Badge,
-} from "@radix-ui/themes";
-import { Comment, Service } from "@/types";
-import {
-  ChatBubbleIcon,
-  PaperPlaneIcon,
-  Pencil1Icon,
-  TrashIcon,
-  CheckIcon,
-  Cross2Icon,
-} from "@radix-ui/react-icons";
-import { commentsApi, servicesApi } from "@/services/api";
-import { useUser } from "@/App";
+import { useState, useEffect, useRef } from "react";
+import { Text, Flex, Avatar, Button, TextArea } from "@radix-ui/themes";
+import { PaperPlaneIcon, Cross2Icon } from "@radix-ui/react-icons";
+import { getImageUrl, uploadApi } from "@/services/api";
+import { ImageGallery } from "@/components/ui/ImageGallery";
+import { useNavigate } from "react-router-dom";
+import { MessageCircleIcon, ImageIcon } from "lucide-react";
+import { formatRelativeTime } from "@/utils/utils";
 
-interface CommentSectionProps {
-  serviceId: string;
+const MAX_IMAGES = 3;
+
+export interface CommentItem {
+  _id: string;
+  user_id: string;
+  content: string;
+  image_urls?: string[];
+  created_at: string;
+  user?: {
+    profile_picture?: string;
+    full_name?: string;
+    username?: string;
+  };
+  // Forum-specific optional fields
+  upvote_count?: number;
+  user_upvoted?: boolean;
 }
 
-export function CommentSection({ serviceId }: CommentSectionProps) {
-  const { currentUserId } = useUser();
-  const [comments, setComments] = useState<Comment[]>([]);
+interface CommentSectionProps {
+  fetchComments: () => Promise<CommentItem[]>;
+  postComment?: (content: string, imageUrls?: string[]) => Promise<CommentItem>;
+  title?: string;
+  placeholder?: string;
+  emptyMessage?: string;
+  /** Rendered after the username + timestamp row (e.g. owner/participant badges) */
+  renderCommentMeta?: (comment: CommentItem) => React.ReactNode;
+  /** Overrides default plain-text rendering of comment.content */
+  renderCommentContent?: (comment: CommentItem) => React.ReactNode;
+  /** Rendered to the right of the comment body (e.g. upvote button) */
+  renderCommentActions?: (comment: CommentItem) => React.ReactNode;
+}
+
+export function CommentSection({
+  fetchComments,
+  postComment,
+  title = "Comments",
+  placeholder = "Write a comment...",
+  emptyMessage = "No comments yet. Be the first to share your thoughts!",
+  renderCommentMeta,
+  renderCommentContent,
+  renderCommentActions,
+}: CommentSectionProps) {
+  const [comments, setComments] = useState<CommentItem[]>([]);
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [service, setService] = useState<Service | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editContent, setEditContent] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
 
-  // Fetch comments and service on component mount
   useEffect(() => {
-    fetchComments();
-    fetchService();
-  }, [serviceId]);
-
-  const fetchService = async () => {
-    try {
-      const response = await servicesApi.getService(serviceId);
-      setService(response.data);
-    } catch (error) {
-      console.error("Error fetching service:", error);
-    }
-  };
-
-  const fetchComments = async () => {
-    try {
-      setIsLoading(true);
-      const response = await commentsApi.getServiceComments(serviceId);
-      setComments(response.data.comments);
-    } catch (error) {
-      console.error("Error fetching comments:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleEditStart = (comment: Comment) => {
-    setEditingId(comment._id);
-    setEditContent(comment.content);
-  };
-
-  const handleEditCancel = () => {
-    setEditingId(null);
-    setEditContent("");
-  };
-
-  const handleEditSave = async (commentId: string) => {
-    if (!editContent.trim()) return;
-    try {
-      const response = await commentsApi.updateComment(commentId, {
-        content: editContent.trim(),
+    let cancelled = false;
+    setIsLoading(true);
+    fetchComments()
+      .then((items) => {
+        if (!cancelled) setComments(items);
+      })
+      .catch((e) => console.error("Error fetching comments:", e))
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
       });
-      setComments((prev) =>
-        prev.map((c) => (c._id === commentId ? response.data : c))
-      );
-      setEditingId(null);
-      setEditContent("");
-    } catch (error) {
-      console.error("Error updating comment:", error);
-    }
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchComments]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const toAdd = files.slice(0, MAX_IMAGES - selectedFiles.length);
+    setSelectedFiles((prev) => [...prev, ...toAdd]);
+    setPreviewUrls((prev) => [
+      ...prev,
+      ...toAdd.map((f) => URL.createObjectURL(f)),
+    ]);
+    setUploadError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleDelete = async (commentId: string) => {
-    if (!window.confirm("Delete this comment?")) return;
-    try {
-      await commentsApi.deleteComment(commentId);
-      setComments((prev) => prev.filter((c) => c._id !== commentId));
-    } catch (error) {
-      console.error("Error deleting comment:", error);
-    }
+  const handleRemoveImage = (index: number) => {
+    URL.revokeObjectURL(previewUrls[index]);
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setPreviewUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmitComment = async () => {
-    if (!newComment.trim()) return;
-
+  const handleSubmit = async () => {
+    if (!newComment.trim() || !postComment) return;
     setIsSubmitting(true);
+    setUploadError(null);
     try {
-      const response = await commentsApi.createComment({
-        content: newComment.trim(),
-        service_id: serviceId,
-      });
-
-      // Add the new comment to the list
-      setComments((prev) => [response.data, ...prev]);
+      let imageUrls: string[] | undefined;
+      if (selectedFiles.length > 0) {
+        const uploads = await Promise.all(
+          selectedFiles.map((file) => uploadApi.uploadCommentImage(file)),
+        );
+        imageUrls = uploads.map((r) => r.data.url);
+      }
+      const created = await postComment(newComment.trim(), imageUrls);
+      setComments((prev) => [created, ...prev]);
       setNewComment("");
+      previewUrls.forEach((u) => URL.revokeObjectURL(u));
+      setSelectedFiles([]);
+      setPreviewUrls([]);
     } catch (error) {
       console.error("Error creating comment:", error);
+      setUploadError("Failed to post comment. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const now = new Date();
-    // Parse the UTC timestamp correctly
-    const commentDate = new Date(dateString);
-
-    // Calculate the difference in milliseconds
-    const diffInMs = now.getTime() - commentDate.getTime();
-    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
-    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
-    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-
-    if (diffInMinutes < 1) {
-      return "just now";
-    } else if (diffInMinutes < 60) {
-      return `${diffInMinutes} minute${diffInMinutes === 1 ? "" : "s"} ago`;
-    } else if (diffInHours < 24) {
-      return `${diffInHours} hour${diffInHours === 1 ? "" : "s"} ago`;
-    } else if (diffInDays < 7) {
-      return `${diffInDays} day${diffInDays === 1 ? "" : "s"} ago`;
-    } else {
-      // For older comments, show the actual date
-      return commentDate.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    }
-  };
-
   return (
-    <Card className="p-4">
+    <div>
       <Flex align="center" gap="2" className="mb-4">
-        <ChatBubbleIcon className="w-5 h-5" />
+        <MessageCircleIcon className="w-5 h-5" />
         <Text size="4" weight="bold">
-          Comments & Ideas ({comments.length})
+          {title} ({comments.length})
         </Text>
       </Flex>
 
-      {/* Add comment form */}
-      <div className="mb-4">
+      {/* Comment form — hidden when postComment is not provided (e.g. non-member) */}
+      <div className="mb-4 relative">
         <TextArea
-          placeholder="Add a comment, idea, or share your experience..."
+          placeholder={placeholder}
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
-          className="mb-3"
+          className="mb-2"
           rows={3}
+          variant="soft"
+          disabled={!postComment}
         />
-        <Flex justify="end">
+
+        <Flex align="center" gap="2" className="comment-images-input">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            multiple
+            className="hidden"
+            onChange={handleFileChange}
+          />
           <Button
-            onClick={handleSubmitComment}
+            variant="ghost"
+            size="1"
+            color="gray"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={selectedFiles.length >= MAX_IMAGES}
+            title={
+              selectedFiles.length >= MAX_IMAGES
+                ? `Max ${MAX_IMAGES} images`
+                : "Attach images"
+            }
+          >
+            <ImageIcon className="w-4 h-4" />
+            {selectedFiles.length > 0 && (
+              <Text size="1" color="gray">
+                {selectedFiles.length}/{MAX_IMAGES}
+              </Text>
+            )}
+          </Button>
+        </Flex>
+
+        {previewUrls.length > 0 && (
+          <Flex gap="2" wrap="wrap" className="mb-2">
+            {previewUrls.map((url, i) => (
+              <div key={i} className="relative inline-block">
+                <img
+                  src={url}
+                  alt={`preview ${i + 1}`}
+                  className="w-20 h-20 object-cover rounded border border-gray-200"
+                />
+                <button
+                  onClick={() => handleRemoveImage(i)}
+                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs leading-none"
+                  aria-label="Remove image"
+                >
+                  <Cross2Icon width={8} height={8} />
+                </button>
+              </div>
+            ))}
+          </Flex>
+        )}
+
+        {uploadError && (
+          <Text size="1" color="red" className="mb-2">
+            {uploadError}
+          </Text>
+        )}
+
+        <Flex justify="end" align="center">
+          <Button
+            onClick={handleSubmit}
             disabled={!newComment.trim() || isSubmitting}
             size="2"
           >
@@ -178,7 +209,7 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
         </Flex>
       </div>
 
-      {/* Comments list */}
+      {/* Comment list */}
       <div className="space-y-4">
         {isLoading ? (
           <Text size="2" color="gray" className="text-center py-8">
@@ -187,30 +218,28 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
         ) : (
           comments.map((comment) => {
             const user = comment.user;
-            const isParticipant =
-              service &&
-              (service.user_id === comment.user_id ||
-                service.matched_user_ids?.includes(comment.user_id));
-            const isOwner = currentUserId === comment.user_id;
-            const isEditing = editingId === comment._id;
             return (
               <div key={comment._id} className="flex gap-3">
                 <Avatar
+                  src={getImageUrl(user?.profile_picture)}
                   fallback={user?.full_name?.[0] || user?.username?.[0] || "?"}
                   size="3"
+                  onClick={() => navigate(`/profile/${comment.user_id}`)}
+                  className="cursor-pointer"
                 />
                 <div className="flex-1">
                   <Flex align="center" gap="2" className="mb-1">
-                    <Text size="2" weight="bold">
+                    <Text
+                      size="2"
+                      weight="bold"
+                      className="cursor-pointer hover:underline"
+                      onClick={() => navigate(`/profile/${comment.user_id}`)}
+                    >
                       {user?.full_name || user?.username || "Unknown User"}
                     </Text>
-                    {isParticipant && (
-                      <Badge color="blue" size="1">
-                        Participant
-                      </Badge>
-                    )}
+                    {renderCommentMeta?.(comment)}
                     <Text size="1" color="gray">
-                      {formatDate(comment.created_at)}
+                      {formatRelativeTime(comment.created_at)}
                     </Text>
                     {isOwner && !isEditing && (
                       <Flex gap="1" className="ml-auto">
@@ -233,38 +262,25 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
                       </Flex>
                     )}
                   </Flex>
-                  {isEditing ? (
-                    <div>
-                      <TextArea
-                        value={editContent}
-                        onChange={(e) => setEditContent(e.target.value)}
-                        rows={3}
-                        className="mb-2"
-                      />
-                      <Flex gap="2">
-                        <Button
-                          size="1"
-                          onClick={() => handleEditSave(comment._id)}
-                          disabled={!editContent.trim()}
-                        >
-                          <CheckIcon /> Save
-                        </Button>
-                        <Button
-                          size="1"
-                          variant="soft"
-                          color="gray"
-                          onClick={handleEditCancel}
-                        >
-                          <Cross2Icon /> Cancel
-                        </Button>
-                      </Flex>
-                    </div>
+                  {renderCommentContent ? (
+                    renderCommentContent(comment)
                   ) : (
                     <Text size="2" className="leading-relaxed">
                       {comment.content}
                     </Text>
                   )}
+                  {comment.image_urls && comment.image_urls.length > 0 && (
+                    <ImageGallery
+                      urls={comment.image_urls}
+                      alt="Comment photo"
+                      layout="thumbnails"
+                      className="mt-2"
+                    />
+                  )}
                 </div>
+                {renderCommentActions && (
+                  <div className="mt-1">{renderCommentActions(comment)}</div>
+                )}
               </div>
             );
           })
@@ -273,9 +289,9 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
 
       {!isLoading && comments.length === 0 && (
         <Text size="2" color="gray" className="text-center py-8">
-          No comments yet. Be the first to share your thoughts!
+          {emptyMessage}
         </Text>
       )}
-    </Card>
+    </div>
   );
 }

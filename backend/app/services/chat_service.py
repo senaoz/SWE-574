@@ -8,7 +8,7 @@ from ..models.chat import (
     ChatRoomParticipant
 )
 from ..core.database import get_database
-
+from .content_moderation_service import is_offensive
 
 class ChatService:
     def __init__(self, db):
@@ -95,7 +95,8 @@ class ChatService:
                     "id": str(user["_id"]),
                     "username": user["username"],
                     "full_name": user.get("full_name"),
-                    "bio": user.get("bio")
+                    "bio": user.get("bio"),
+                    "profile_picture": user.get("profile_picture")
                 })
         room_doc["participants"] = participants
         
@@ -211,7 +212,10 @@ class ChatService:
             
             if not room:
                 raise ValueError("Chat room not found or user not authorized")
-            
+
+            if message_data.message_type == "text" and is_offensive(message_data.content):
+                raise ValueError("Message contains offensive language")
+
             # Create message document
             message_doc = {
                 **message_data.dict(),
@@ -226,13 +230,33 @@ class ChatService:
             
             result = await self.messages_collection.insert_one(message_doc)
             message_doc["_id"] = result.inserted_id
-            
+
             # Update room's last_message_at
             await self.chat_rooms_collection.update_one(
                 {"_id": ObjectId(message_data.room_id)},
                 {"$set": {"last_message_at": datetime.utcnow(), "updated_at": datetime.utcnow()}}
             )
-            
+
+            # Notify other participants
+            try:
+                from .notification_service import NotificationService
+                from ..models.notification import NotificationType, NotificationRelatedType
+                notif_service = NotificationService(self.db)
+                sender = await self.users_collection.find_one({"_id": ObjectId(sender_id)})
+                sender_name = sender.get("full_name") or sender.get("username", "Someone") if sender else "Someone"
+                for pid in room.get("participant_ids", []):
+                    if str(pid) != sender_id:
+                        await notif_service.create_notification(
+                            user_id=str(pid),
+                            notification_type=NotificationType.NEW_MESSAGE,
+                            title="New message",
+                            body=f"{sender_name} sent you a message",
+                            related_id=message_data.room_id,
+                            related_type=NotificationRelatedType.CHAT_ROOM,
+                        )
+            except Exception:
+                pass
+
             return MessageResponse(**message_doc)
         except Exception as e:
             raise ValueError(f"Error sending message: {str(e)}")
@@ -264,7 +288,8 @@ class ChatService:
                     message_doc["sender"] = {
                         "id": str(sender["_id"]),
                         "username": sender["username"],
-                        "full_name": sender.get("full_name")
+                        "full_name": sender.get("full_name"),
+                        "profile_picture": sender.get("profile_picture")
                     }
                 
                 # Populate reply to message if exists
@@ -295,7 +320,10 @@ class ChatService:
             
             if not message:
                 raise ValueError("Message not found or user not authorized")
-            
+
+            if update_data.content is not None and is_offensive(update_data.content):
+                raise ValueError("Message contains offensive language")
+
             update_doc = {k: v for k, v in update_data.dict().items() if v is not None}
             if not update_doc:
                 return await self.get_message_by_id(message_id, user_id)
@@ -368,6 +396,49 @@ class ChatService:
             return MessageResponse(**message_doc)
         except Exception:
             return None
+
+    async def create_room_for_service(self, service_id: str, creator_id: str) -> ChatRoomResponse:
+        """Create a group chat room for an active service (provider only, includes all matched users)"""
+        try:
+            service = await self.services_collection.find_one({"_id": ObjectId(service_id)})
+            if not service:
+                raise ValueError("Service not found")
+
+            if str(service["user_id"]) != creator_id:
+                raise ValueError("Only the service provider can create a group chat")
+
+            matched_user_ids = service.get("matched_user_ids", [])
+            if not matched_user_ids:
+                raise ValueError("No matched users yet — cannot create a group chat")
+
+            participant_ids = [ObjectId(creator_id)] + [ObjectId(uid) for uid in matched_user_ids]
+
+            # Return existing active group chat for this service if one exists
+            existing_room = await self.chat_rooms_collection.find_one({
+                "service_ids": ObjectId(service_id),
+                "is_active": True
+            })
+            if existing_room:
+                return await self._populate_room_response(existing_room)
+
+            room_doc = {
+                "name": service["title"],
+                "description": f"Group chat for service: {service['title']}",
+                "is_active": True,
+                "participant_ids": participant_ids,
+                "service_ids": [ObjectId(service_id)],
+                "transaction_id": None,
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow(),
+                "last_message_at": None,
+            }
+
+            result = await self.chat_rooms_collection.insert_one(room_doc)
+            room_doc["_id"] = result.inserted_id
+
+            return await self._populate_room_response(room_doc)
+        except Exception as e:
+            raise ValueError(f"Error creating service group chat room: {str(e)}")
 
     async def create_room_for_transaction(self, transaction_id: str, creator_id: str) -> ChatRoomResponse:
         """Create a chat room for a specific transaction"""

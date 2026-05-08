@@ -1,20 +1,22 @@
 import { useState, useEffect } from "react";
-import {
-  Card,
-  Text,
-  Flex,
-  Avatar,
-  Button,
-  Badge,
-  TextArea,
-} from "@radix-ui/themes";
+import { Text, Flex, Avatar, Button, Badge, TextArea } from "@radix-ui/themes";
 import { JoinRequest } from "@/types";
-import { joinRequestsApi } from "@/services/api";
+import {
+  getImageUrl,
+  joinRequestsApi,
+  ratingsApi,
+  usersApi,
+} from "@/services/api";
 import {
   CheckCircledIcon,
   CrossCircledIcon,
   ClockIcon,
+  StarFilledIcon,
 } from "@radix-ui/react-icons";
+import { useNavigate } from "react-router-dom";
+import { CustomBadge } from "./BadgeDisplay";
+import { formatDate } from "@/utils/utils";
+import { AxiosError } from "axios";
 
 interface ApplicantsListProps {
   serviceId: string;
@@ -32,8 +34,11 @@ export function ApplicantsList({
   const [isLoading, setIsLoading] = useState(true);
   const [updatingRequest, setUpdatingRequest] = useState<string | null>(null);
   const [adminMessage, setAdminMessage] = useState<{ [key: string]: string }>(
-    {}
+    {},
   );
+  const navigate = useNavigate();
+  const [users, setUsers] = useState<Record<string, any>>({});
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     fetchRequests();
@@ -51,7 +56,46 @@ export function ApplicantsList({
     }
   };
 
+  useEffect(() => {
+    const applicantIds = new Set<string>();
+    requests.forEach((request) => {
+      if (request.user?.id) applicantIds.add(request.user?.id);
+    });
+    applicantIds.forEach(async (userId) => {
+      try {
+        const [userRes, badgesRes, ratingsRes] = await Promise.all([
+          usersApi.getUserById(userId),
+          usersApi.getUserBadges(userId).catch(() => ({ data: null })),
+          ratingsApi.getUserRatings(userId, 1, 1).catch(() => ({
+            data: { total: 0, average_score: null },
+          })),
+        ]);
+        const earnedBadges = badgesRes.data?.badges.filter((b) => b.earned) ?? [];
+        const u = {
+          ...userRes.data,
+          badges: {
+            earned: earnedBadges ?? [],
+            earned_count: earnedBadges.length,
+            total_count: badgesRes.data?.total_count ?? 0,
+          },
+          rating: {
+            total: ratingsRes.data?.total ?? 0,
+            average_score: ratingsRes.data?.average_score ?? 0,
+          },
+        };
+        setUsers((prev) => ({
+          ...prev,
+          [userId]: u,
+        }));
+        // console.log(users);
+      } catch {
+        // keep fallback
+      }
+    });
+  }, [requests]);
+
   const handleApprove = async (requestId: string) => {
+    setErrorMessage(null);
     setUpdatingRequest(requestId);
     try {
       const response = await joinRequestsApi.updateRequestStatus(requestId, {
@@ -61,7 +105,9 @@ export function ApplicantsList({
 
       // Optimistically update the local state with the response
       setRequests((prevRequests) =>
-        prevRequests.map((req) => (req._id === requestId ? response.data : req))
+        prevRequests.map((req) =>
+          req._id === requestId ? response.data : req,
+        ),
       );
 
       // Clear the admin message for this request
@@ -76,6 +122,10 @@ export function ApplicantsList({
       onRequestUpdate?.();
     } catch (error) {
       console.error("Error approving request:", error);
+      setErrorMessage(
+        (error as any)?.response?.data?.detail ??
+          "Unable to approve request. Please try again.",
+      );
       // On error, refresh to get the correct state
       await fetchRequests();
     } finally {
@@ -84,6 +134,7 @@ export function ApplicantsList({
   };
 
   const handleReject = async (requestId: string) => {
+    setErrorMessage(null);
     setUpdatingRequest(requestId);
     try {
       const response = await joinRequestsApi.updateRequestStatus(requestId, {
@@ -93,7 +144,9 @@ export function ApplicantsList({
 
       // Optimistically update the local state with the response
       setRequests((prevRequests) =>
-        prevRequests.map((req) => (req._id === requestId ? response.data : req))
+        prevRequests.map((req) =>
+          req._id === requestId ? response.data : req,
+        ),
       );
 
       // Clear the admin message for this request
@@ -108,6 +161,10 @@ export function ApplicantsList({
       onRequestUpdate?.();
     } catch (error) {
       console.error("Error rejecting request:", error);
+      setErrorMessage(
+        (error as AxiosError<{ detail: string }>)?.response?.data?.detail ??
+          null,
+      );
       // On error, refresh to get the correct state
       await fetchRequests();
     } finally {
@@ -120,37 +177,27 @@ export function ApplicantsList({
       case "pending":
         return (
           <Badge color="yellow">
-            <ClockIcon className="w-3 h-3 mr-1" />
+            <ClockIcon className="w-3 h-3" />
             Pending
           </Badge>
         );
       case "approved":
         return (
           <Badge color="green">
-            <CheckCircledIcon className="w-3 h-3 mr-1" />
+            <CheckCircledIcon className="w-3 h-3" />
             Approved
           </Badge>
         );
       case "rejected":
         return (
           <Badge color="red">
-            <CrossCircledIcon className="w-3 h-3 mr-1" />
+            <CrossCircledIcon className="w-3 h-3" />
             Rejected
           </Badge>
         );
       default:
         return <Badge color="gray">{status}</Badge>;
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
   };
 
   if (isLoading) {
@@ -169,12 +216,12 @@ export function ApplicantsList({
     <>
       <Flex align="center" justify="between" className="mb-2">
         <Flex align="center" gap="2">
-          <Text size="4" weight="bold">
+          <Text size="3" weight="bold">
             Applicants History
           </Text>
           {pendingCount > 0 && (
             <Badge color="yellow" size="2">
-              <ClockIcon className="w-3 h-3 mr-1" />
+              <ClockIcon className="w-3 h-3" />
               {pendingCount} Pending
             </Badge>
           )}
@@ -195,28 +242,46 @@ export function ApplicantsList({
           {/* Show pending requests first */}
           {requests
             .filter((r) => r.status === "pending")
-            .map((request) => (
-              <Card
+            .map((request, index) => (
+              <div
                 key={request._id}
-                className="p-4"
+                className="p-4 rounded-lg bg-[var(--accent-a2)] transition-colors duration-200"
                 style={{
-                  border: "2px solid var(--yellow-9)",
-                  backgroundColor: "var(--yellow-2)",
+                  borderBottom:
+                    index !== requests.length - 1
+                      ? "1px solid var(--gray-3)"
+                      : "none",
                 }}
               >
                 <Flex direction="column" gap="3">
                   {/* User info */}
                   <Flex align="center" gap="3">
                     <Avatar
+                      onClick={() => {
+                        if (request.user?.id)
+                          navigate(`/user/${request.user.id}`);
+                      }}
+                      src={
+                        getImageUrl(request.user?.profile_picture) ?? undefined
+                      }
                       fallback={
                         request.user?.full_name?.[0] ||
                         request.user?.username?.[0] ||
                         "?"
                       }
                       size="3"
+                      className="cursor-pointer"
                     />
                     <div className="flex-1 flex flex-col">
-                      <Text size="3" weight="bold">
+                      <Text
+                        size="3"
+                        weight="bold"
+                        className="cursor-pointer"
+                        onClick={() => {
+                          if (request.user?.id)
+                            navigate(`/user/${request.user.id}`);
+                        }}
+                      >
                         {request.user?.full_name ||
                           request.user?.username ||
                           "Unknown User"}
@@ -224,21 +289,35 @@ export function ApplicantsList({
                       <Text size="2" color="gray">
                         @{request.user?.username}
                       </Text>
+                      {users[request.user?.id ?? ""]?.rating?.average_score && (
+                        <Flex align="center" gap="1" className="text-sm mt-1">
+                          <StarFilledIcon className="w-4 h-4" />
+                          {users[request.user?.id ?? ""]?.rating?.average_score}
+                          /5 ({
+                            users[request.user?.id ?? ""]?.rating?.total
+                          }{" "}
+                          ratings)
+                        </Flex>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       {getStatusBadge(request.status)}
                       <Text size="1" color="gray">
                         {formatDate(request.created_at)}
                       </Text>
+                      {users[request.user?.id ?? ""]?.badges?.earned.length >
+                        0 && (
+                        <CustomBadge
+                          badge={
+                            users[request.user?.id ?? ""]?.badges?.earned[
+                              users[request.user?.id ?? ""]?.badges?.earned
+                                .length - 1
+                            ]
+                          }
+                        />
+                      )}
                     </div>
                   </Flex>
-
-                  {/* User bio */}
-                  {request.user?.bio && (
-                    <Text size="2" color="gray">
-                      {request.user.bio}
-                    </Text>
-                  )}
 
                   {/* Request message */}
                   {request.message && (
@@ -260,6 +339,15 @@ export function ApplicantsList({
                       </Text>
                       <Text size="2" className="italic">
                         "{request.admin_message}"
+                      </Text>
+                    </div>
+                  )}
+
+                  {/* Error message */}
+                  {errorMessage && (
+                    <div>
+                      <Text size="2" className="italic text-red-500">
+                        "{errorMessage}"
                       </Text>
                     </div>
                   )}
@@ -316,49 +404,73 @@ export function ApplicantsList({
                     </div>
                   )}
                 </Flex>
-              </Card>
+              </div>
             ))}
 
           {/* Show other requests (approved/rejected) */}
           {requests
             .filter((r) => r.status !== "pending")
-            .map((request) => (
-              <Card key={request._id} className="p-4">
-                <Flex direction="column" gap="3">
-                  {/* User info */}
+            .map((request) => {
+              const user = request.user?.id
+                ? users[request.user?.id]
+                : request.user;
+              return (
+                <div
+                  key={request._id}
+                  className="p-4 rounded-lg bg-[var(--accent-a2)] transition-colors duration-200 flex flex-col gap-3"
+                >
                   <Flex align="center" gap="3">
                     <Avatar
+                      onClick={() => {
+                        if (request.user?.id)
+                          navigate(`/user/${request.user.id}`);
+                      }}
+                      src={getImageUrl(user?.profile_picture) ?? undefined}
                       fallback={
-                        request.user?.full_name?.[0] ||
-                        request.user?.username?.[0] ||
-                        "?"
+                        user?.full_name?.[0] || user?.username?.[0] || "?"
                       }
                       size="3"
+                      className="cursor-pointer"
                     />
                     <div className="flex-1 flex flex-col">
-                      <Text size="3" weight="bold">
-                        {request.user?.full_name ||
-                          request.user?.username ||
-                          "Unknown User"}
+                      <Text
+                        size="3"
+                        weight="bold"
+                        className="cursor-pointer"
+                        onClick={() => {
+                          if (request.user?.id)
+                            navigate(`/user/${request.user?.id}`);
+                        }}
+                      >
+                        {user?.full_name || user?.username || "Unknown User"}
                       </Text>
                       <Text size="2" color="gray">
-                        @{request.user?.username}
+                        @{user?.username}
                       </Text>
+                      {user?.rating?.average_score && (
+                        <Flex align="center" gap="1" className="text-sm mt-1">
+                          <StarFilledIcon className="w-4 h-4" />
+                          {user?.rating?.average_score}/5 ({user?.rating?.total}{" "}
+                          ratings)
+                        </Flex>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       {getStatusBadge(request.status)}
                       <Text size="1" color="gray">
                         {formatDate(request.created_at)}
                       </Text>
+                      {user?.badges?.earned.length > 0 && (
+                        <CustomBadge
+                          badge={
+                            user?.badges?.earned[
+                              user?.badges?.earned.length - 1
+                            ]
+                          }
+                        />
+                      )}
                     </div>
                   </Flex>
-
-                  {/* User bio */}
-                  {request.user?.bio && (
-                    <Text size="2" color="gray">
-                      {request.user.bio}
-                    </Text>
-                  )}
 
                   {/* Request message */}
                   {request.message && (
@@ -383,9 +495,9 @@ export function ApplicantsList({
                       </Text>
                     </div>
                   )}
-                </Flex>
-              </Card>
-            ))}
+                </div>
+              );
+            })}
         </div>
       )}
     </>

@@ -1,9 +1,20 @@
 import { useState, useEffect, useRef } from "react";
-import { Card, Text, Flex, Button, TextField, Badge } from "@radix-ui/themes";
+import {
+  Card,
+  Text,
+  Flex,
+  Button,
+  TextField,
+  Badge,
+  Avatar,
+  IconButton,
+} from "@radix-ui/themes";
 import { ChatRoom, Message } from "@/types";
-import { chatApi } from "@/services/api";
+import { chatApi, getImageUrl } from "@/services/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PaperPlaneIcon } from "@radix-ui/react-icons";
+import { PaperPlaneIcon, Pencil1Icon, CheckIcon, Cross2Icon } from "@radix-ui/react-icons";
+import { useNavigate } from "react-router-dom";
+import { formatTime } from "@/utils/utils";
 
 interface ChatRoomProps {
   room: ChatRoom;
@@ -12,7 +23,11 @@ interface ChatRoomProps {
 
 export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
   const [newMessage, setNewMessage] = useState("");
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(room.name || "");
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const {
@@ -24,6 +39,32 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
     queryFn: () => chatApi.getRoomMessages(room._id, 1, 50),
     refetchInterval: 5000,
   });
+
+  const updateNameMutation = useMutation({
+    mutationFn: (name: string) => chatApi.updateChatRoom(room._id, { name }),
+    onSuccess: () => {
+      setEditingName(false);
+      queryClient.invalidateQueries({ queryKey: ["chat-rooms"] });
+    },
+  });
+
+  const handleSaveName = () => {
+    const trimmed = nameInput.trim();
+    if (!trimmed || trimmed === room.name) {
+      setEditingName(false);
+      setNameInput(room.name || "");
+      return;
+    }
+    updateNameMutation.mutate(trimmed);
+  };
+
+  const handleNameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleSaveName();
+    if (e.key === "Escape") {
+      setEditingName(false);
+      setNameInput(room.name || "");
+    }
+  };
 
   const sendMessageMutation = useMutation({
     mutationFn: (content: string) =>
@@ -54,13 +95,6 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messagesData?.data.messages]);
 
-  const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
   if (messagesLoading) {
     return (
       <Card className="p-4">
@@ -77,7 +111,7 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
     );
   }
 
-  const messages = messagesData?.data.messages || [];
+  const messages = [...(messagesData?.data.messages || [])].reverse();
   return (
     <div className="flex flex-col h-full">
       {/* Chat Header */}
@@ -87,12 +121,78 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
         className="border-b border-gray-200/30 p-2 pb-3"
       >
         <div className="flex flex-col gap-1 flex-1">
-          <Text size="3" weight="bold">
-            {room.name ||
-              room.service?.title ||
-              room.services?.[0]?.title ||
-              "Chat Room"}
-          </Text>
+          {editingName ? (
+            <Flex align="center" gap="1">
+              <input
+                ref={nameInputRef}
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                onKeyDown={handleNameKeyDown}
+                onBlur={handleSaveName}
+                autoFocus
+                className="text-sm font-bold bg-transparent border-b border-current outline-none w-full"
+              />
+              <IconButton
+                size="1"
+                variant="ghost"
+                onClick={handleSaveName}
+                disabled={updateNameMutation.isPending}
+              >
+                <CheckIcon />
+              </IconButton>
+              <IconButton
+                size="1"
+                variant="ghost"
+                color="gray"
+                onClick={() => {
+                  setEditingName(false);
+                  setNameInput(room.name || "");
+                }}
+              >
+                <Cross2Icon />
+              </IconButton>
+            </Flex>
+          ) : (
+            <Flex align="center" gap="1" className="group">
+              <Text size="3" weight="bold">
+                {room.name || `Chat with ${room.participants
+                      ?.filter((p) => p.id !== currentUserId)
+                      ?.map((p) => p.full_name || p.username)
+                      .join(", ")}`}
+              </Text>
+              <IconButton
+                size="1"
+                variant="ghost"
+                color="gray"
+                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => {
+                  setNameInput(room.name || "");
+                  setEditingName(true);
+                }}
+              >
+                <Pencil1Icon />
+              </IconButton>
+            </Flex>
+          )}
+          {room.participants && room.participants.length > 2 && (
+            <Flex align="center" gap="1" wrap="wrap">
+              {room.participants.map((p) => (
+                <Avatar
+                  key={p.id}
+                  src={getImageUrl(p.profile_picture) ?? undefined}
+                  fallback={p.full_name?.[0] || p.username[0]}
+                  size="1"
+                  radius="full"
+                  title={p.full_name || p.username}
+                  className="cursor-pointer"
+                  onClick={() => navigate(`/user/${p.id}`)}
+                />
+              ))}
+              <Text size="1" color="gray">
+                {room.participants.length} participants
+              </Text>
+            </Flex>
+          )}
           {room.description && (
             <Text size="2" color="gray">
               {room.description}
@@ -104,7 +204,7 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
               <Text size="1" color="gray" className="mr-1">
                 Services:
               </Text>
-              {room.services.map((service, idx) => (
+              {room.services.map((service) => (
                 <Badge
                   key={service.id}
                   color="blue"
@@ -132,21 +232,40 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
       </Flex>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 flex flex-col">
         {messages.length === 0 ? (
           <div className="text-center opacity-50 py-8">
             <Text>No messages yet. Start the conversation!</Text>
           </div>
         ) : (
-          messages.map((message: Message) => (
+          messages.map((message: Message, index: number) => (
             <div
               key={message._id}
-              className={`flex ${
+              className={`flex items-end gap-2 ${
                 message.sender_id === currentUserId
                   ? "justify-end"
                   : "justify-start"
-              }`}
+              }${index === 0 ? " mt-auto" : ""}`}
             >
+              {message.sender_id !== currentUserId && (
+                <Avatar
+                  src={
+                    getImageUrl(message.sender?.profile_picture) ?? undefined
+                  }
+                  fallback={
+                    message.sender?.full_name?.[0] ||
+                    message.sender?.username?.[0] ||
+                    "?"
+                  }
+                  size="2"
+                  radius="full"
+                  className="cursor-pointer flex-shrink-0"
+                  title={message.sender?.full_name || message.sender?.username}
+                  onClick={() =>
+                    message.sender?.id && navigate(`/user/${message.sender.id}`)
+                  }
+                />
+              )}
               <div
                 className={`max-w-xs rounded-xl lg:max-w-md px-4 py-2 ${
                   message.sender_id === currentUserId
@@ -158,8 +277,19 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
                 }}
               >
                 {message.sender_id !== currentUserId && (
-                  <Text size="1" weight="bold" className="block mb-1">
-                    {message.sender?.username || "Unknown User"}
+                  <Text
+                    size="1"
+                    weight="bold"
+                    className="block mb-1 cursor-pointer hover:underline"
+                    onClick={() =>
+                      message.sender?.id &&
+                      navigate(`/user/${message.sender.id}`)
+                    }
+                  >
+                    {message.sender?.full_name ||
+                      message.sender?.username ||
+                      message.sender?.id ||
+                      "Unknown User"}
                   </Text>
                 )}
                 <Text size="2">{message.content}</Text>
@@ -169,10 +299,10 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
                     className={
                       message.sender_id === currentUserId
                         ? "text-blue-100"
-                        : "text-gray-500"
+                        : "opacity-80"
                     }
                   >
-                    {formatTime(message.created_at)}
+                    {formatTime(message.created_at + "Z")}
                   </Text>
                   {message.is_edited && (
                     <Text
@@ -180,7 +310,7 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
                       className={
                         message.sender_id === currentUserId
                           ? "text-blue-100"
-                          : "text-gray-500"
+                          : "opacity-80"
                       }
                     >
                       (edited)
@@ -195,26 +325,24 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
       </div>
 
       {/* Message Input */}
-      <Card className="p-4">
-        <form onSubmit={handleSendMessage}>
-          <Flex gap="2">
-            <TextField.Root
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type a message..."
-              className="flex-1"
-              disabled={sendMessageMutation.isPending}
-            />
-            <Button
-              type="submit"
-              disabled={!newMessage.trim() || sendMessageMutation.isPending}
-            >
-              <PaperPlaneIcon className="w-4 h-4" />
-              {sendMessageMutation.isPending ? "Sending..." : "Send"}
-            </Button>
-          </Flex>
-        </form>
-      </Card>
+      <form onSubmit={handleSendMessage}>
+        <Flex gap="2" className="pt-4 pb-2">
+          <TextField.Root
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="Type a message..."
+            className="flex-1"
+            disabled={sendMessageMutation.isPending}
+          />
+          <Button
+            type="submit"
+            disabled={!newMessage.trim() || sendMessageMutation.isPending}
+          >
+            <PaperPlaneIcon className="w-4 h-4" />
+            {sendMessageMutation.isPending ? "Sending..." : "Send"}
+          </Button>
+        </Flex>
+      </form>
     </div>
   );
 }

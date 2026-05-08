@@ -1,5 +1,9 @@
 import pytest
 from fastapi import status
+from datetime import datetime, timezone
+
+from app.models.user import UserRole
+from tests.api_test_utils import create_user_with_headers
 
 
 class TestServicesAPI:
@@ -38,6 +42,29 @@ class TestServicesAPI:
         assert "page" in data
         assert "limit" in data
         assert len(data["services"]) > 0
+
+    @pytest.mark.asyncio
+    async def test_get_services_endpoint_marks_saved_items_for_authenticated_user(
+        self, test_client, mock_db, sample_service, auth_headers
+    ):
+        await mock_db.saved_services.insert_one(
+            {
+                "user_id": str(sample_service.user_id),
+                "service_id": str(sample_service.id),
+                "created_at": datetime.now(timezone.utc),
+            }
+        )
+
+        response = test_client.get("/services/", headers=auth_headers)
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        saved_service = next(
+            service
+            for service in data["services"]
+            if (service.get("id") or service.get("_id")) == str(sample_service.id)
+        )
+        assert saved_service["is_saved"] is True
     
     def test_get_services_endpoint_with_filters(self, test_client, sample_service):
         """Test getting services with filters"""
@@ -59,6 +86,54 @@ class TestServicesAPI:
         assert data["page"] == 1
         assert data["limit"] == 1
         assert len(data["services"]) <= 1
+
+    @pytest.mark.asyncio
+    async def test_moderator_can_pin_service_posts(
+        self, test_client, mock_db, sample_service, sample_service_data, auth_headers
+    ):
+        _, moderator_headers = await create_user_with_headers(
+            mock_db, "service_pin_mod", role=UserRole.MODERATOR
+        )
+        _, regular_headers = await create_user_with_headers(mock_db, "service_pin_regular")
+
+        newer_service_data = sample_service_data.copy()
+        newer_service_data["title"] = "Newer Service Post"
+        newer_service = test_client.post(
+            "/services/",
+            json=newer_service_data,
+            headers=auth_headers,
+        )
+        assert newer_service.status_code == status.HTTP_200_OK
+
+        forbidden = test_client.put(
+            f"/services/{sample_service.id}/pin",
+            headers=regular_headers,
+            params={"pinned": True},
+        )
+        assert forbidden.status_code == status.HTTP_403_FORBIDDEN
+
+        pinned = test_client.put(
+            f"/services/{sample_service.id}/pin",
+            headers=moderator_headers,
+            params={"pinned": True},
+        )
+        assert pinned.status_code == status.HTTP_200_OK
+        assert pinned.json()["is_pinned"] is True
+        assert pinned.json()["pinned_by"]
+
+        listed = test_client.get("/services/")
+        assert listed.status_code == status.HTTP_200_OK
+        first_service_id = listed.json()["services"][0].get("id") or listed.json()["services"][0].get("_id")
+        assert first_service_id == str(sample_service.id)
+
+        unpinned = test_client.put(
+            f"/services/{sample_service.id}/pin",
+            headers=moderator_headers,
+            params={"pinned": False},
+        )
+        assert unpinned.status_code == status.HTTP_200_OK
+        assert unpinned.json()["is_pinned"] is False
+        assert unpinned.json()["pinned_by"] is None
     
     def test_get_service_detail(self, test_client, sample_service):
         """Test getting a specific service by ID"""
@@ -70,6 +145,28 @@ class TestServicesAPI:
         service_id = data.get("id") or data.get("_id")
         assert service_id == str(sample_service.id)
         assert data["title"] == sample_service.title
+        assert data["is_saved"] is False
+
+    @pytest.mark.asyncio
+    async def test_get_service_detail_marks_saved_for_authenticated_user(
+        self, test_client, mock_db, sample_service, auth_headers
+    ):
+        await mock_db.saved_services.insert_one(
+            {
+                "user_id": str(sample_service.user_id),
+                "service_id": str(sample_service.id),
+                "created_at": datetime.now(timezone.utc),
+            }
+        )
+
+        response = test_client.get(
+            f"/services/{sample_service.id}",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["is_saved"] is True
     
     def test_get_service_detail_nonexistent(self, test_client):
         """Test getting non-existent service"""
@@ -79,6 +176,98 @@ class TestServicesAPI:
         response = test_client.get(f"/services/{fake_id}")
         
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    @pytest.mark.asyncio
+    async def test_get_potential_matches_endpoint(
+        self, test_client, mock_db, sample_service, second_user, auth_headers, sample_service_data
+    ):
+        """Test fetching opposite-type potential matches for a service."""
+        from datetime import datetime, timezone
+        from app.models.service import ServiceCreate
+        from app.services.service_service import ServiceService
+
+        service_service = ServiceService(mock_db)
+
+        matching_need_data = sample_service_data.copy()
+        matching_need_data["service_type"] = "need"
+        matching_need_data["estimated_duration"] = 0.5
+        matching_need = await service_service.create_service(
+            ServiceCreate(**matching_need_data),
+            str(second_user.id),
+        )
+
+        saved_need_data = sample_service_data.copy()
+        saved_need_data["title"] = "Saved need"
+        saved_need_data["service_type"] = "need"
+        saved_need_data["estimated_duration"] = 0.5
+        saved_need = await service_service.create_service(
+            ServiceCreate(**saved_need_data),
+            str(second_user.id),
+        )
+
+        await mock_db.saved_services.insert_one(
+            {
+                "user_id": str(sample_service.user_id),
+                "service_id": str(saved_need.id),
+                "created_at": datetime.now(timezone.utc),
+            }
+        )
+
+        response = test_client.get(
+            f"/services/{sample_service.id}/potential-matches",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
+        service_id = data["items"][0]["service"].get("id") or data["items"][0]["service"].get("_id")
+        assert service_id == str(matching_need.id)
+        assert data["items"][0]["service"]["service_type"] == "need"
+        assert data["items"][0]["reason_label"]
+
+    @pytest.mark.asyncio
+    async def test_get_recommendations_endpoint_returns_location_fallback_metadata(
+        self, test_client, mock_db, second_user, auth_headers, sample_service_data
+    ):
+        """Recommendation endpoint should report when nearby fallback is being used."""
+        from app.models.service import ServiceCreate
+        from app.services.service_service import ServiceService
+
+        service_service = ServiceService(mock_db)
+
+        nearby_service_data = sample_service_data.copy()
+        nearby_service_data.update(
+            {
+                "title": "Nearby Community Cleanup",
+                "description": "Join a small neighborhood cleanup session.",
+                "category": "community",
+                "tags": ["community", "cleanup"],
+                "location": {
+                    "latitude": 41.0085,
+                    "longitude": 28.9786,
+                    "address": "Fatih, Istanbul",
+                },
+            }
+        )
+        await service_service.create_service(
+            ServiceCreate(**nearby_service_data),
+            str(second_user.id),
+        )
+
+        response = test_client.get(
+            "/services/recommendations",
+            headers=auth_headers,
+            params={"latitude": 41.0082, "longitude": 28.9784},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["recommendation_mode"] == "location_fallback"
+        assert data["show_profile_prompt"] is True
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
     
     def test_update_service_endpoint(self, test_client, sample_service, auth_headers):
         """Test updating a service via API"""
@@ -199,3 +388,39 @@ class TestServicesAPI:
         assert "participants" in data
         assert len(data["participants"]) >= 1
 
+    @pytest.mark.asyncio
+    async def test_complete_service_endpoint(self, test_client, mock_db, sample_service, second_user, auth_headers):
+        """Test provider can complete service via API (POST /services/{id}/complete)"""
+        from app.services.service_service import ServiceService
+        
+        service_service = ServiceService(mock_db)
+        await service_service.match_service(str(sample_service.id), str(second_user.id))
+        
+        response = test_client.post(
+            f"/services/{sample_service.id}/complete",
+            headers=auth_headers,
+        )
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert "message" in data
+        completed = await service_service.get_service_by_id(str(sample_service.id))
+        assert completed.status.value == "completed"
+
+    @pytest.mark.asyncio
+    async def test_complete_service_endpoint_unauthorized(self, test_client, mock_db, sample_service, second_user):
+        """Test non-owner cannot complete service via API"""
+        from app.core.security import create_access_token
+        from app.services.service_service import ServiceService
+        
+        service_service = ServiceService(mock_db)
+        await service_service.match_service(str(sample_service.id), str(second_user.id))
+        token = create_access_token(data={"sub": str(second_user.id)})
+        headers = {"Authorization": f"Bearer {token}"}
+        
+        response = test_client.post(
+            f"/services/{sample_service.id}/complete",
+            headers=headers,
+        )
+        
+        assert response.status_code == status.HTTP_400_BAD_REQUEST

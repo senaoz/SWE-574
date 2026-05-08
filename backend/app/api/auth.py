@@ -13,12 +13,13 @@ from ..core.security import (
     get_github_user_info
 )
 from ..core.config import settings
-from ..models.user import UserCreate, UserLogin, UserResponse, OAuthUserCreate
+from ..models.user import UserCreate, UserLogin, UserResponse, OAuthUserCreate, UserRole
 from ..services.user_service import UserService
-from ..services.auth_service import AuthService
+from ..services.auth_service import AuthService, LoginNotAllowedError
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 security = HTTPBearer()
+optional_security = HTTPBearer(auto_error=False)
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -43,7 +44,49 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found"
         )
+
+    # Block banned/inactive accounts from using authenticated endpoints
+    if user.role == UserRole.BANNED:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Your account has been banned."
+        )
+    if user.is_active is False:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Your account is inactive."
+        )
     
+    return user
+
+
+async def get_optional_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_security),
+    db=Depends(get_database)
+) -> Optional[UserResponse]:
+    """Get current user if a bearer token is provided, otherwise return None."""
+    if credentials is None:
+        return None
+
+    token = credentials.credentials
+    payload = verify_token(token)
+    user_id = payload.get("sub")
+
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        )
+
+    user_service = UserService(db)
+    user = await user_service.get_user_by_id(user_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found"
+        )
+
     return user
 
 @router.post("/register")
@@ -90,11 +133,17 @@ async def login(login_data: UserLogin, db=Depends(get_database)):
     auth_service = AuthService(db)
     
     # Authenticate user
-    user = await auth_service.authenticate_user(login_data.email, login_data.password)
-    if not user:
+    try:
+        user = await auth_service.authenticate_user(login_data.email, login_data.password)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password"
+            )
+    except LoginNotAllowedError as e:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
         )
     
     # Create access token
@@ -199,6 +248,11 @@ async def oauth_callback(
             "user": user
         }
         
+    except LoginNotAllowedError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

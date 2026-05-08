@@ -16,14 +16,18 @@ import {
   CheckCircledIcon,
   Crosshair1Icon,
   ArrowLeftIcon,
+  EnvelopeClosedIcon,
 } from "@radix-ui/react-icons";
 import { useQuery } from "@tanstack/react-query";
-import { User, Service } from "@/types";
-import { servicesApi, usersApi, ratingsApi } from "@/services/api";
+import { Community, User, Service, RatingDetailed } from "@/types";
+import { servicesApi, usersApi, ratingsApi, getImageUrl } from "@/services/api";
+import { useUser } from "@/App";
+import { ReportDialog } from "@/components/ui/ReportDialog";
 import { OfferListingCard } from "@/components/ui/OfferListingCard";
 import { BadgeDisplay } from "@/components/ui/BadgeDisplay";
 import { InterestChip } from "@/components/ui/InterestChip";
 import { RatingStars } from "@/components/ui/RatingStars";
+import { ReviewCard } from "@/components/ui/ReviewCard";
 import {
   Linkedin,
   Github,
@@ -31,15 +35,17 @@ import {
   Instagram,
   Globe,
   Briefcase,
+  AlertOctagonIcon,
 } from "lucide-react";
 
 export function UserDetail() {
   const { userId } = useParams<{ userId: string }>();
-  console.log("userId", userId);
   const navigate = useNavigate();
+  const { currentUserId } = useUser();
   const [user, setUser] = useState<User | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -53,7 +59,6 @@ export function UserDetail() {
           page: 1,
           limit: 50,
         });
-        console.log("servicesResponse", servicesResponse);
         setServices(servicesResponse.data.services);
       } catch (error) {
         console.error("Error fetching user data:", error);
@@ -75,6 +80,25 @@ export function UserDetail() {
   const averageRating = ratingsData?.data?.average_score ?? null;
   const ratingCount = ratingsData?.data?.total ?? 0;
 
+  const { data: detailedRatingsData, isLoading: detailedRatingsLoading } =
+    useQuery({
+      queryKey: ["user-ratings-detailed", userId],
+      queryFn: () => ratingsApi.getUserRatingsDetailed(userId!, 1, 10),
+      enabled: !!userId,
+    });
+  const detailedRatings: RatingDetailed[] =
+    detailedRatingsData?.data?.ratings ?? [];
+
+  const { data: userCommunitiesData, isLoading: userCommunitiesLoading } =
+    useQuery({
+      queryKey: ["user-communities", userId],
+      queryFn: () => usersApi.getUserCommunities(userId!),
+      enabled: !!userId,
+    });
+  const userCommunities: Community[] =
+    userCommunitiesData?.data?.communities ?? [];
+  const mutualCommunityCount = userCommunitiesData?.data?.mutual_count ?? 0;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -94,14 +118,38 @@ export function UserDetail() {
   const servicesProvided = services.filter((s) => s.service_type === "offer");
   const servicesReceived = services.filter((s) => s.service_type === "need");
   const completedServices = services.filter((s) => s.status === "completed");
+  const showMutualCommunities = !!currentUserId && currentUserId !== userId;
 
   return (
     <div className="space-y-6">
+      {user && userId && currentUserId && currentUserId !== userId && (
+        <ReportDialog
+          open={reportDialogOpen}
+          onOpenChange={setReportDialogOpen}
+          reportType="user"
+          reportedId={userId}
+          reportedName={user.full_name || user.username}
+        />
+      )}
+
       {/* Header */}
-      <Button variant="ghost" size="2" onClick={() => navigate(-1)}>
-        <ArrowLeftIcon className="w-4 h-4" />
-        Back
-      </Button>
+      <Flex justify="between" align="center">
+        <Button variant="ghost" size="2" onClick={() => navigate(-1)}>
+          <ArrowLeftIcon className="w-4 h-4" />
+          Back
+        </Button>
+        {currentUserId && userId && currentUserId !== userId && (
+          <Button
+            variant="soft"
+            color="red"
+            size="2"
+            onClick={() => setReportDialogOpen(true)}
+          >
+            <AlertOctagonIcon className="w-4 h-4" />
+            <Text size="2">Report User</Text>
+          </Button>
+        )}
+      </Flex>
 
       <Heading size="8">User Profile</Heading>
 
@@ -113,7 +161,7 @@ export function UserDetail() {
               {/* User Avatar and Basic Info */}
               <Flex align="center" gap="4">
                 <Avatar
-                  src={user.profile_picture || undefined}
+                  src={getImageUrl(user.profile_picture) || undefined}
                   fallback={user.full_name?.[0] || user.username[0]}
                   size="6"
                 />
@@ -264,14 +312,6 @@ export function UserDetail() {
                 </div>
               )}
 
-              {/* Location */}
-              {user.location && (
-                <Flex align="center" gap="2">
-                  <Crosshair1Icon className="w-4 h-4" />
-                  <Text size="2">{user.location}</Text>
-                </Flex>
-              )}
-
               {/* Interests */}
               {(user.interests?.length || 0) > 0 && (
                 <div>
@@ -291,27 +331,103 @@ export function UserDetail() {
                 </div>
               )}
 
+              {/* Communities */}
+              {(userCommunitiesLoading || userCommunities.length > 0) && (
+                <div>
+                  <Flex align="center" gap="2" className="mb-2">
+                    <Text size="2" weight="bold">
+                      Communities
+                    </Text>
+                    {!userCommunitiesLoading && (
+                      <Text size="1" color="gray">
+                        {userCommunities.length}
+                      </Text>
+                    )}
+                    {showMutualCommunities && !userCommunitiesLoading && (
+                      <Badge size="1" variant="soft" color="violet">
+                        {mutualCommunityCount} common
+                      </Badge>
+                    )}
+                  </Flex>
+                  {userCommunitiesLoading ? (
+                    <Text size="1" color="gray">
+                      Loading communities...
+                    </Text>
+                  ) : (
+                    <Flex gap="2" wrap="wrap">
+                      {userCommunities.slice(0, 12).map((community) => (
+                        <button
+                          key={community._id}
+                          type="button"
+                          title={community.name}
+                          aria-label={`Open ${community.name}`}
+                          onClick={() =>
+                            navigate(`/forum/communities/${community._id}`)
+                          }
+                          className={`rounded-full transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[var(--grass-8)] ${
+                            community.is_mutual
+                              ? "ring-2 ring-[var(--violet-7)]"
+                              : "ring-1 ring-[var(--gray-6)]"
+                          }`}
+                        >
+                          <Avatar
+                            size="3"
+                            src={getImageUrl(community.avatar_url)}
+                            fallback={community.name[0]}
+                            radius="full"
+                          />
+                        </button>
+                      ))}
+                      {userCommunities.length > 12 && (
+                        <span
+                          title={`${userCommunities.length - 12} more communities`}
+                          className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--gray-3)] text-sm font-medium text-[var(--gray-11)] ring-1 ring-[var(--gray-6)]"
+                        >
+                          +{userCommunities.length - 12}
+                        </span>
+                      )}
+                    </Flex>
+                  )}
+                </div>
+              )}
+
+              {/* Location */}
+              {user.show_location !== false && user.location && (
+                <Flex align="center" gap="2">
+                  <Crosshair1Icon className="w-4 h-4" />
+                  <Text size="2">{user.location}</Text>
+                </Flex>
+              )}
+
+              {/* Email */}
+              {user.show_email && user.email && (
+                <Flex align="center" gap="2">
+                  <EnvelopeClosedIcon className="w-4 h-4" />
+                  <Text size="2">{user.email}</Text>
+                </Flex>
+              )}
+
               {/* Stats */}
               <div className="space-y-2">
-                <Flex justify="between" align="center">
+                <Flex gap={"2"} align="center">
                   <Text size="2">TimeBank Balance</Text>
                   <Text size="2" weight="bold">
                     {user.timebank_balance} hours
                   </Text>
                 </Flex>
-                <Flex justify="between" align="center">
+                <Flex gap={"2"} align="center">
                   <Text size="2">Services Provided</Text>
                   <Text size="2" weight="bold">
                     {servicesProvided.length}
                   </Text>
                 </Flex>
-                <Flex justify="between" align="center">
+                <Flex gap={"2"} align="center">
                   <Text size="2">Services Received</Text>
                   <Text size="2" weight="bold">
                     {servicesReceived.length}
                   </Text>
                 </Flex>
-                <Flex justify="between" align="center">
+                <Flex gap={"2"} align="center">
                   <Text size="2">Completed</Text>
                   <Text size="2" weight="bold">
                     {completedServices.length}
@@ -330,6 +446,26 @@ export function UserDetail() {
         </Box>
 
         {userId && <BadgeDisplay userId={userId} />}
+
+        {/* Reviews Section */}
+        <div className="space-y-4">
+          <Heading size="5">Recent Reviews</Heading>
+          {detailedRatingsLoading ? (
+            <Card className="p-6 text-center">
+              <Text color="gray">Loading reviews...</Text>
+            </Card>
+          ) : detailedRatings.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {detailedRatings.map((rating) => (
+                <ReviewCard key={rating._id} rating={rating} />
+              ))}
+            </div>
+          ) : (
+            <Card className="p-6 text-center">
+              <Text color="gray">No reviews yet</Text>
+            </Card>
+          )}
+        </div>
 
         {/* Services Section */}
         <div className="space-y-6">

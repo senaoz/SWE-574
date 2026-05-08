@@ -67,6 +67,8 @@ async def get_comment(
                 detail="Comment not found"
             )
         return comment
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

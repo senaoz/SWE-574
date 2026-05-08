@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, BeforeValidator, model_validator
-from typing import Optional, List, Annotated, Union
+from typing import Optional, List, Annotated, Union, Literal
 from datetime import datetime
 from bson import ObjectId
 from enum import Enum
@@ -67,26 +67,20 @@ class Location(BaseModel):
     latitude: float = Field(..., ge=-90, le=90)
     longitude: float = Field(..., ge=-180, le=180)
     address: Optional[str] = None
-    
+
+    @model_validator(mode='before')
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-    
-    @classmethod
-    def validate(cls, v):
+    def parse_geojson(cls, v):
         if isinstance(v, dict):
-            # Handle GeoJSON format
+            # Handle GeoJSON format from MongoDB
             if 'type' in v and 'coordinates' in v and v['type'] == 'Point':
                 coords = v['coordinates']
                 if len(coords) == 2:
-                    return cls(
-                        latitude=coords[1],  # latitude is second coordinate
-                        longitude=coords[0],  # longitude is first coordinate
-                        address=v.get('address')
-                    )
-            # Handle regular format
-            elif 'latitude' in v and 'longitude' in v:
-                return cls(**v)
+                    return {
+                        'latitude': coords[1],
+                        'longitude': coords[0],
+                        'address': v.get('address'),
+                    }
         return v
 
 
@@ -113,7 +107,8 @@ class ServiceBase(BaseModel):
     specific_time: Optional[str] = None  # Time string in HH:MM format
     recurring_pattern: Optional[dict] = None  # RecurringPattern dict: {"days": [...], "time": "HH:MM"}
     open_availability: Optional[str] = None  # Free-form text description
-    
+    image_urls: Optional[List[str]] = Field(default_factory=list, max_items=3)  # Up to 3 uploaded service images
+
     @model_validator(mode='before')
     @classmethod
     def validate_max_participants(cls, data):
@@ -173,20 +168,26 @@ class ServiceUpdate(BaseModel):
     specific_time: Optional[str] = None  # Time string in HH:MM format
     recurring_pattern: Optional[dict] = None  # RecurringPattern dict: {"days": [...], "time": "HH:MM"}
     open_availability: Optional[str] = None  # Free-form text description
+    image_urls: Optional[List[str]] = Field(None, max_items=3)
 
     class Config:
         json_encoders = {ObjectId: str}
 
 
 class ServiceResponse(ServiceBase):
+    # Override description to allow empty (legacy/imported data); create/update still require min_length=10
+    description: str = Field(..., min_length=0, max_length=5000)
     id: PyObjectId = Field(alias="_id")
     user_id: PyObjectId
+    is_saved: bool = False
+    is_pinned: bool = False
+    pinned_by: Optional[PyObjectId] = None
+    pinned_at: Optional[datetime] = None
     status: ServiceStatus = ServiceStatus.ACTIVE
     created_at: datetime
     updated_at: datetime
     completed_at: Optional[datetime] = None
     matched_user_ids: List[PyObjectId] = Field(default_factory=list)
-    provider_confirmed: Optional[bool] = False
     receiver_confirmed_ids: Optional[List[PyObjectId]] = Field(default_factory=list)
 
     class Config:
@@ -205,7 +206,47 @@ class ServiceListResponse(BaseModel):
         json_encoders = {ObjectId: str}
 
 
+class PotentialMatchItem(BaseModel):
+    service: ServiceResponse
+    relevance_score: float = Field(..., ge=0)
+    reason_label: str = Field(..., min_length=1, max_length=120)
+
+    class Config:
+        json_encoders = {ObjectId: str}
+
+
+class PotentialMatchListResponse(BaseModel):
+    items: List[PotentialMatchItem]
+    total: int
+
+    class Config:
+        json_encoders = {ObjectId: str}
+
+
+class RecommendedServiceItem(BaseModel):
+    service: ServiceResponse
+    reason: str = Field(..., min_length=1, max_length=160)
+    score: float = Field(..., ge=0)
+    matched_interests: List[str] = Field(default_factory=list)
+
+    class Config:
+        json_encoders = {ObjectId: str}
+
+
+class RecommendedServiceListResponse(BaseModel):
+    items: List[RecommendedServiceItem]
+    total: int
+    page: int
+    limit: int
+    recommendation_mode: Literal["personalized", "location_fallback", "empty"] = "empty"
+    show_profile_prompt: bool = False
+
+    class Config:
+        json_encoders = {ObjectId: str}
+
+
 class ServiceFilters(BaseModel):
+    q: Optional[str] = None
     service_type: Optional[ServiceType] = None
     category: Optional[str] = None
     tags: Optional[List[str]] = None

@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { TextArea, Text, Flex, Box, Card, Tabs } from "@radix-ui/themes";
+import { TextArea, Text, Box, Card, Tabs } from "@radix-ui/themes";
 
 interface MarkdownEditorProps {
   value: string;
@@ -47,13 +47,13 @@ export function MarkdownEditor({
         </Tabs.Content>
         <Tabs.Content value="preview">
           <Box
-            className="p-2 min-h-[120px] prose prose-sm max-w-none"
+            className="p-2 min-h-[120px] prose-content"
             style={{ minHeight: `${rows * 24 + 32}px` }}
           >
             {value ? (
               <ReactMarkdown
                 components={{
-                  img: ({ node, ...props }) => (
+                  img: ({ node: _node, ...props }) => (
                     <img
                       className="my-4 w-full h-auto rounded-xl mx-auto"
                       {...props}
@@ -62,12 +62,12 @@ export function MarkdownEditor({
                         target.style.display = "none";
                         target.insertAdjacentHTML(
                           "afterend",
-                          '<span style="color: #ef4444; font-size: 12px;">⚠ Image failed to load</span>'
+                          '<span style="color: #ef4444; font-size: 12px;">⚠ Image failed to load</span>',
                         );
                       }}
                     />
                   ),
-                  a: ({ node, ...props }) => (
+                  a: ({ node: _node, ...props }) => (
                     <a
                       {...props}
                       target="_blank"

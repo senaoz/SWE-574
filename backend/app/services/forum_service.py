@@ -9,6 +9,9 @@ from ..models.forum import (
 )
 
 
+PINNED_LIMIT = 2
+
+
 class ForumService:
     def __init__(self, db):
         self.db = db
@@ -61,6 +64,9 @@ class ForumService:
         doc = {
             **data.dict(),
             "user_id": ObjectId(user_id),
+            "is_pinned": False,
+            "pinned_by": None,
+            "pinned_at": None,
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
         }
@@ -70,8 +76,21 @@ class ForumService:
         doc["comment_count"] = 0
         return ForumDiscussionResponse(**doc)
 
+    def _upvote_fields(self, doc: dict, user_id: Optional[str]) -> dict:
+        """Populate upvote_count and user_upvoted from the upvoted_by array."""
+        upvoted_by = doc.get("upvoted_by") or []
+        doc["upvote_count"] = doc.get("upvote_count") or len(upvoted_by)
+        doc["user_upvoted"] = user_id in [str(uid) for uid in upvoted_by] if user_id else False
+        return doc
+
     async def get_discussions(
-        self, page: int = 1, limit: int = 20, tag: Optional[str] = None, q: Optional[str] = None
+        self,
+        page: int = 1,
+        limit: int = 20,
+        tag: Optional[str] = None,
+        q: Optional[str] = None,
+        sort_by: str = "created_at",
+        user_id: Optional[str] = None,
     ) -> Tuple[List[ForumDiscussionResponse], int]:
         query: dict = {}
         if tag:
@@ -82,32 +101,35 @@ class ForumService:
                 {"body": {"$regex": q, "$options": "i"}},
             ]
 
+        sort_field = "upvote_count" if sort_by == "upvote_count" else "created_at"
         total = await self.discussions.count_documents(query)
         skip = (page - 1) * limit
-        cursor = self.discussions.find(query).sort("created_at", -1).skip(skip).limit(limit)
+        cursor = self.discussions.find(query).sort([("is_pinned", -1), (sort_field, -1)]).skip(skip).limit(limit)
 
         results = []
         async for doc in cursor:
             doc = await self._enrich_user(doc)
             doc["comment_count"] = await self._comment_count("discussion", doc["_id"])
+            doc = self._upvote_fields(doc, user_id)
             results.append(ForumDiscussionResponse(**doc))
         return results, total
 
-    async def get_discussion_by_id(self, discussion_id: str) -> Optional[ForumDiscussionResponse]:
+    async def get_discussion_by_id(self, discussion_id: str, user_id: Optional[str] = None) -> Optional[ForumDiscussionResponse]:
         doc = await self.discussions.find_one({"_id": ObjectId(discussion_id)})
         if not doc:
             return None
         doc = await self._enrich_user(doc)
         doc["comment_count"] = await self._comment_count("discussion", doc["_id"])
+        doc = self._upvote_fields(doc, user_id)
         return ForumDiscussionResponse(**doc)
 
     async def update_discussion(
-        self, discussion_id: str, data: ForumDiscussionUpdate, user_id: str
+        self, discussion_id: str, data: ForumDiscussionUpdate, user_id: str, is_admin: bool = False
     ) -> Optional[ForumDiscussionResponse]:
         existing = await self.discussions.find_one({"_id": ObjectId(discussion_id)})
         if not existing:
             raise ValueError("Discussion not found")
-        if str(existing["user_id"]) != user_id:
+        if str(existing["user_id"]) != user_id and not is_admin:
             raise ValueError("Not authorized to update this discussion")
 
         update_data = {k: v for k, v in data.dict().items() if v is not None}
@@ -115,11 +137,11 @@ class ForumService:
         await self.discussions.update_one({"_id": ObjectId(discussion_id)}, {"$set": update_data})
         return await self.get_discussion_by_id(discussion_id)
 
-    async def delete_discussion(self, discussion_id: str, user_id: str) -> bool:
+    async def delete_discussion(self, discussion_id: str, user_id: str, is_admin: bool = False) -> bool:
         existing = await self.discussions.find_one({"_id": ObjectId(discussion_id)})
         if not existing:
             raise ValueError("Discussion not found")
-        if str(existing["user_id"]) != user_id:
+        if str(existing["user_id"]) != user_id and not is_admin:
             raise ValueError("Not authorized to delete this discussion")
         result = await self.discussions.delete_one({"_id": ObjectId(discussion_id)})
         if result.deleted_count:
@@ -129,7 +151,44 @@ class ForumService:
             })
         return result.deleted_count > 0
 
+    async def pin_discussion(
+        self, discussion_id: str, user_id: str, pinned: bool
+    ) -> Optional[ForumDiscussionResponse]:
+        oid = ObjectId(discussion_id)
+        existing = await self.discussions.find_one({"_id": oid})
+        if not existing:
+            raise ValueError("Discussion not found")
+
+        if pinned and not existing.get("is_pinned"):
+            pinned_count = await self.discussions.count_documents({
+                "is_pinned": True,
+                "_id": {"$ne": oid},
+            })
+            if pinned_count >= PINNED_LIMIT:
+                raise ValueError("Only two discussions can be pinned at a time")
+
+        now = datetime.utcnow()
+        await self.discussions.update_one(
+            {"_id": oid},
+            {
+                "$set": {
+                    "is_pinned": pinned,
+                    "pinned_by": ObjectId(user_id) if pinned else None,
+                    "pinned_at": now if pinned else None,
+                    "updated_at": now,
+                }
+            },
+        )
+        return await self.get_discussion_by_id(discussion_id, user_id)
+
     # ---- Events ----
+
+    def _populate_attendee_fields(self, doc: dict) -> dict:
+        """Ensure attendee_ids / attendee_count are present on event docs."""
+        raw = doc.get("attendee_ids") or []
+        doc["attendee_ids"] = [str(aid) for aid in raw]
+        doc["attendee_count"] = len(doc["attendee_ids"])
+        return doc
 
     async def create_event(self, data: ForumEventCreate, user_id: str) -> ForumEventResponse:
         doc = data.dict()
@@ -141,6 +200,10 @@ class ForumService:
             doc["service_id"] = ObjectId(doc["service_id"])
         else:
             doc["service_id"] = None
+        doc["attendee_ids"] = []
+        doc["is_pinned"] = False
+        doc["pinned_by"] = None
+        doc["pinned_at"] = None
         doc["created_at"] = datetime.utcnow()
         doc["updated_at"] = datetime.utcnow()
 
@@ -149,6 +212,7 @@ class ForumService:
         doc = await self._enrich_user(doc)
         doc = await self._enrich_service(doc)
         doc["comment_count"] = 0
+        doc = self._populate_attendee_fields(doc)
         return ForumEventResponse(**doc)
 
     async def get_events(
@@ -158,6 +222,8 @@ class ForumService:
         tag: Optional[str] = None,
         q: Optional[str] = None,
         has_location: bool = False,
+        user_id: Optional[str] = None,
+        sort_by: str = "event_at",
     ) -> Tuple[List[ForumEventResponse], int]:
         query: dict = {}
         if tag:
@@ -173,32 +239,37 @@ class ForumService:
 
         total = await self.events.count_documents(query)
         skip = (page - 1) * limit
-        cursor = self.events.find(query).sort("event_at", -1).skip(skip).limit(limit)
+        sort_field = sort_by if sort_by in ("event_at", "upvote_count", "created_at") else "event_at"
+        cursor = self.events.find(query).sort([("is_pinned", -1), (sort_field, -1)]).skip(skip).limit(limit)
 
         results = []
         async for doc in cursor:
             doc = await self._enrich_user(doc)
             doc = await self._enrich_service(doc)
             doc["comment_count"] = await self._comment_count("event", doc["_id"])
+            doc = self._populate_attendee_fields(doc)
+            doc = self._upvote_fields(doc, user_id)
             results.append(ForumEventResponse(**doc))
         return results, total
 
-    async def get_event_by_id(self, event_id: str) -> Optional[ForumEventResponse]:
+    async def get_event_by_id(self, event_id: str, user_id: Optional[str] = None) -> Optional[ForumEventResponse]:
         doc = await self.events.find_one({"_id": ObjectId(event_id)})
         if not doc:
             return None
         doc = await self._enrich_user(doc)
         doc = await self._enrich_service(doc)
         doc["comment_count"] = await self._comment_count("event", doc["_id"])
+        doc = self._populate_attendee_fields(doc)
+        doc = self._upvote_fields(doc, user_id)
         return ForumEventResponse(**doc)
 
     async def update_event(
-        self, event_id: str, data: ForumEventUpdate, user_id: str
+        self, event_id: str, data: ForumEventUpdate, user_id: str, is_admin: bool = False
     ) -> Optional[ForumEventResponse]:
         existing = await self.events.find_one({"_id": ObjectId(event_id)})
         if not existing:
             raise ValueError("Event not found")
-        if str(existing["user_id"]) != user_id:
+        if str(existing["user_id"]) != user_id and not is_admin:
             raise ValueError("Not authorized to update this event")
 
         update_data = {k: v for k, v in data.dict().items() if v is not None}
@@ -211,11 +282,11 @@ class ForumService:
         await self.events.update_one({"_id": ObjectId(event_id)}, {"$set": update_data})
         return await self.get_event_by_id(event_id)
 
-    async def delete_event(self, event_id: str, user_id: str) -> bool:
+    async def delete_event(self, event_id: str, user_id: str, is_admin: bool = False) -> bool:
         existing = await self.events.find_one({"_id": ObjectId(event_id)})
         if not existing:
             raise ValueError("Event not found")
-        if str(existing["user_id"]) != user_id:
+        if str(existing["user_id"]) != user_id and not is_admin:
             raise ValueError("Not authorized to delete this event")
         result = await self.events.delete_one({"_id": ObjectId(event_id)})
         if result.deleted_count:
@@ -225,6 +296,36 @@ class ForumService:
             })
         return result.deleted_count > 0
 
+    async def pin_event(
+        self, event_id: str, user_id: str, pinned: bool
+    ) -> Optional[ForumEventResponse]:
+        oid = ObjectId(event_id)
+        existing = await self.events.find_one({"_id": oid})
+        if not existing:
+            raise ValueError("Event not found")
+
+        if pinned and not existing.get("is_pinned"):
+            pinned_count = await self.events.count_documents({
+                "is_pinned": True,
+                "_id": {"$ne": oid},
+            })
+            if pinned_count >= PINNED_LIMIT:
+                raise ValueError("Only two events can be pinned at a time")
+
+        now = datetime.utcnow()
+        await self.events.update_one(
+            {"_id": oid},
+            {
+                "$set": {
+                    "is_pinned": pinned,
+                    "pinned_by": ObjectId(user_id) if pinned else None,
+                    "pinned_at": now if pinned else None,
+                    "updated_at": now,
+                }
+            },
+        )
+        return await self.get_event_by_id(event_id, user_id)
+
     async def get_events_for_service(self, service_id: str) -> List[ForumEventResponse]:
         """Return all events linked to a given service (for ServiceDetail)."""
         query = {
@@ -233,14 +334,124 @@ class ForumService:
                 {"service_id": service_id},
             ]
         }
-        cursor = self.events.find(query).sort("event_at", -1)
+        cursor = self.events.find(query).sort([("is_pinned", -1), ("event_at", -1)])
         results = []
         async for doc in cursor:
             doc = await self._enrich_user(doc)
             doc = await self._enrich_service(doc)
             doc["comment_count"] = await self._comment_count("event", doc["_id"])
+            doc = self._populate_attendee_fields(doc)
             results.append(ForumEventResponse(**doc))
         return results
+
+    async def get_events_for_community(self, community_id: str, limit: int = 20) -> List[ForumEventResponse]:
+        """Return events associated with a given community."""
+        query = {"community_id": community_id}
+        cursor = self.events.find(query).sort([("is_pinned", -1), ("event_at", -1)]).limit(limit)
+        results = []
+        async for doc in cursor:
+            doc = await self._enrich_user(doc)
+            doc = await self._enrich_service(doc)
+            doc["comment_count"] = await self._comment_count("event", doc["_id"])
+            doc = self._populate_attendee_fields(doc)
+            doc = self._upvote_fields(doc, None)
+            results.append(ForumEventResponse(**doc))
+        return results
+
+    async def get_discussions_for_community(self, community_id: str, limit: int = 20) -> List[ForumDiscussionResponse]:
+        """Return discussions associated with a given community."""
+        query = {"community_id": community_id}
+        cursor = self.discussions.find(query).sort([("is_pinned", -1), ("created_at", -1)]).limit(limit)
+        results = []
+        async for doc in cursor:
+            doc = await self._enrich_user(doc)
+            doc["comment_count"] = await self._comment_count("discussion", doc["_id"])
+            doc = self._upvote_fields(doc, None)
+            results.append(ForumDiscussionResponse(**doc))
+        return results
+
+    # ---- Attendance ----
+
+    async def attend_event(self, event_id: str, user_id: str) -> ForumEventResponse:
+        oid = ObjectId(event_id)
+        uid = ObjectId(user_id)
+        doc = await self.events.find_one({"_id": oid})
+        if not doc:
+            raise ValueError("Event not found")
+        existing = [str(a) for a in (doc.get("attendee_ids") or [])]
+        if user_id in existing:
+            raise ValueError("Already attending this event")
+        await self.events.update_one({"_id": oid}, {"$push": {"attendee_ids": uid}})
+        return await self.get_event_by_id(event_id)
+
+    async def unattend_event(self, event_id: str, user_id: str) -> ForumEventResponse:
+        oid = ObjectId(event_id)
+        uid = ObjectId(user_id)
+        doc = await self.events.find_one({"_id": oid})
+        if not doc:
+            raise ValueError("Event not found")
+        await self.events.update_one({"_id": oid}, {"$pull": {"attendee_ids": uid}})
+        return await self.get_event_by_id(event_id)
+
+    async def get_event_attendees(self, event_id: str) -> list:
+        doc = await self.events.find_one({"_id": ObjectId(event_id)})
+        if not doc:
+            raise ValueError("Event not found")
+        attendee_ids = doc.get("attendee_ids") or []
+        attendees = []
+        for aid in attendee_ids:
+            uid = aid if isinstance(aid, ObjectId) else ObjectId(aid)
+            user = await self.users.find_one({"_id": uid})
+            if user:
+                attendees.append({
+                    "_id": str(user["_id"]),
+                    "username": user["username"],
+                    "full_name": user.get("full_name"),
+                    "profile_picture": user.get("profile_picture"),
+                })
+        return attendees
+
+    # ---- Upvotes ----
+
+    async def toggle_upvote(self, target_type: str, target_id: str, user_id: str) -> dict:
+        """Toggle upvote for a discussion, event, or comment. Returns updated counts."""
+        collection_map = {
+            "discussion": self.discussions,
+            "event": self.events,
+            "comment": self.forum_comments,
+        }
+        collection = collection_map.get(target_type)
+        if collection is None:
+            raise ValueError(f"Invalid target type: {target_type}")
+
+        oid = ObjectId(target_id)
+        uid = ObjectId(user_id)
+
+        doc = await collection.find_one({"_id": oid})
+        if not doc:
+            raise ValueError(f"{target_type.capitalize()} not found")
+
+        upvoted_by = [str(u) for u in (doc.get("upvoted_by") or [])]
+        if user_id in upvoted_by:
+            # Withdraw upvote
+            await collection.update_one(
+                {"_id": oid},
+                {"$pull": {"upvoted_by": uid}, "$inc": {"upvote_count": -1}},
+            )
+            user_upvoted = False
+        else:
+            # Cast upvote
+            await collection.update_one(
+                {"_id": oid},
+                {"$addToSet": {"upvoted_by": uid}, "$inc": {"upvote_count": 1}},
+            )
+            user_upvoted = True
+
+        updated = await collection.find_one({"_id": oid})
+        return {
+            "upvote_count": updated.get("upvote_count", 0),
+            "user_upvoted": user_upvoted,
+        }
 
     # ---- Comments ----
 
@@ -248,8 +459,10 @@ class ForumService:
         target_id = ObjectId(data.target_id)
         if data.target_type == "discussion":
             target = await self.discussions.find_one({"_id": target_id})
-        else:
+        elif data.target_type == "event":
             target = await self.events.find_one({"_id": target_id})
+        else:  # community_post
+            target = await self.db["community_posts"].find_one({"_id": target_id})
         if not target:
             raise ValueError(f"{data.target_type.capitalize()} not found")
 
@@ -258,6 +471,7 @@ class ForumService:
             "target_type": data.target_type,
             "target_id": target_id,
             "content": data.content,
+            "image_urls": data.image_urls or [],
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
         }
@@ -267,7 +481,7 @@ class ForumService:
         return ForumCommentResponse(**doc)
 
     async def get_comments(
-        self, target_type: str, target_id: str, page: int = 1, limit: int = 20
+        self, target_type: str, target_id: str, page: int = 1, limit: int = 20, user_id: Optional[str] = None
     ) -> Tuple[List[ForumCommentResponse], int]:
         oid = ObjectId(target_id)
         query = {
@@ -281,31 +495,35 @@ class ForumService:
         results = []
         async for doc in cursor:
             doc = await self._enrich_user(doc)
+            doc = self._upvote_fields(doc, user_id)
             results.append(ForumCommentResponse(**doc))
         return results, total
 
     async def update_comment(
-        self, comment_id: str, data: ForumCommentUpdate, user_id: str
+        self, comment_id: str, data: ForumCommentUpdate, user_id: str, is_admin: bool = False
     ) -> Optional[ForumCommentResponse]:
         existing = await self.forum_comments.find_one({"_id": ObjectId(comment_id)})
         if not existing:
             raise ValueError("Comment not found")
-        if str(existing["user_id"]) != user_id:
+        if str(existing["user_id"]) != user_id and not is_admin:
             raise ValueError("Not authorized to update this comment")
 
+        update_fields: dict = {"content": data.content, "updated_at": datetime.utcnow()}
+        if data.image_urls is not None:
+            update_fields["image_urls"] = data.image_urls
         await self.forum_comments.update_one(
             {"_id": ObjectId(comment_id)},
-            {"$set": {"content": data.content, "updated_at": datetime.utcnow()}},
+            {"$set": update_fields},
         )
         updated = await self.forum_comments.find_one({"_id": ObjectId(comment_id)})
         updated = await self._enrich_user(updated)
         return ForumCommentResponse(**updated)
 
-    async def delete_comment(self, comment_id: str, user_id: str) -> bool:
+    async def delete_comment(self, comment_id: str, user_id: str, is_admin: bool = False) -> bool:
         existing = await self.forum_comments.find_one({"_id": ObjectId(comment_id)})
         if not existing:
             raise ValueError("Comment not found")
-        if str(existing["user_id"]) != user_id:
+        if str(existing["user_id"]) != user_id and not is_admin:
             raise ValueError("Not authorized to delete this comment")
         result = await self.forum_comments.delete_one({"_id": ObjectId(comment_id)})
         return result.deleted_count > 0

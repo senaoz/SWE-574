@@ -7,11 +7,15 @@ from bson import ObjectId
 from ..core.database import get_database
 from ..api.auth import get_current_user
 from ..models.user import UserResponse
+from ..core.permissions import require_moderator_or_admin
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 @router.get("/db/inspect")
-async def inspect_database(db=Depends(get_database)) -> Dict[str, Any]:
+async def inspect_database(
+    current_user: UserResponse = Depends(require_moderator_or_admin()),
+    db=Depends(get_database),
+) -> Dict[str, Any]:
     """Inspect database collections and documents"""
     try:
         # List all collections
@@ -55,7 +59,10 @@ async def inspect_database(db=Depends(get_database)) -> Dict[str, Any]:
         )
 
 @router.get("/db/stats")
-async def database_stats(db=Depends(get_database)) -> Dict[str, Any]:
+async def database_stats(
+    current_user: UserResponse = Depends(require_moderator_or_admin()),
+    db=Depends(get_database),
+) -> Dict[str, Any]:
     """Get database statistics"""
     try:
         stats = await db.command("dbStats")

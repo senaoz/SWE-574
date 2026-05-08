@@ -11,17 +11,24 @@ import { Home } from "@/pages/Home";
 import { ServiceDetail } from "@/pages/ServiceDetail";
 import { UserDetail } from "@/pages/UserDetail";
 import { Profile } from "@/pages/Profile";
-import { MyServices } from "@/pages/MyServices";
-import { Chat } from "@/pages/Chat";
 import { AdminPanel } from "@/pages/AdminPanel";
+import { Settings } from "@/pages/Settings";
 import { Forum } from "@/pages/Forum";
 import { ForumDiscussionDetail } from "@/pages/ForumDiscussionDetail";
 import { ForumEventDetail } from "@/pages/ForumEventDetail";
+import { CommunityDetail } from "@/pages/CommunityDetail";
+import { CommunityPostDetail } from "@/pages/CommunityPostDetail";
 import { Layout } from "@/components/layout/Layout";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { GuestOnlyRoute } from "@/components/auth/GuestOnlyRoute";
 import { FilterProvider } from "@/contexts/FilterContext";
+import { UserProvider, useUser } from "@/contexts/UserContext";
+import { OnboardingModal } from "@/components/onboarding/OnboardingModal";
 import { useState, createContext, useContext, useEffect } from "react";
+
+// Re-export useUser for backward compatibility (components may import from App)
+export { useUser };
 
 // Create theme context
 interface ThemeContextType {
@@ -35,22 +42,6 @@ export const useTheme = () => {
   const context = useContext(ThemeContext);
   if (context === undefined) {
     throw new Error("useTheme must be used within a ThemeProvider");
-  }
-  return context;
-};
-
-// Create user context
-interface UserContextType {
-  getCurrentUserId: () => string | null;
-  currentUserId: string | null;
-}
-
-const UserContext = createContext<UserContextType | undefined>(undefined);
-
-export const useUser = () => {
-  const context = useContext(UserContext);
-  if (context === undefined) {
-    throw new Error("useUser must be used within a UserProvider");
   }
   return context;
 };
@@ -75,32 +66,25 @@ function App() {
     localStorage.setItem("theme", newTheme);
   };
 
-  const getCurrentUserId = () => {
-    const token = localStorage.getItem("access_token");
-    if (!token) return null;
-
-    try {
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      return payload.sub;
-    } catch (error) {
-      console.error("Error decoding token:", error);
-      return null;
-    }
-  };
-
-  const currentUserId = getCurrentUserId();
-
   return (
-    <UserContext.Provider value={{ getCurrentUserId, currentUserId }}>
+    <UserProvider>
       <ThemeContext.Provider value={{ appearance, toggleAppearance }}>
         <FilterProvider>
           <Theme accentColor="lime" radius="full" appearance={appearance}>
             <Router>
               <ScrollToTop />
+              <OnboardingModal />
               <Layout>
                 <Routes>
                   <Route path="/" element={<Home />} />
-                  <Route path="/register" element={<RegisterForm />} />
+                  <Route
+                    path="/register"
+                    element={
+                      <GuestOnlyRoute>
+                        <RegisterForm />
+                      </GuestOnlyRoute>
+                    }
+                  />
                   <Route
                     path="/dashboard"
                     element={
@@ -146,28 +130,6 @@ function App() {
                     }
                   />
                   <Route
-                    path="/my-services"
-                    element={
-                      <ProtectedRoute
-                        requiredRole="user"
-                        fallbackPath="/?login=true"
-                      >
-                        <MyServices />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/chat"
-                    element={
-                      <ProtectedRoute
-                        requiredRole="user"
-                        fallbackPath="/?login=true"
-                      >
-                        <Chat />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
                     path="/forum"
                     element={
                       <ProtectedRoute
@@ -201,6 +163,39 @@ function App() {
                     }
                   />
                   <Route
+                    path="/forum/communities/:id"
+                    element={
+                      <ProtectedRoute
+                        requiredRole="user"
+                        fallbackPath="/?login=true"
+                      >
+                        <CommunityDetail />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/forum/communities/:id/posts/:postId"
+                    element={
+                      <ProtectedRoute
+                        requiredRole="user"
+                        fallbackPath="/?login=true"
+                      >
+                        <CommunityPostDetail />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/settings"
+                    element={
+                      <ProtectedRoute
+                        requiredRole="user"
+                        fallbackPath="/?login=true"
+                      >
+                        <Settings />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
                     path="/admin"
                     element={
                       <ProtectedRoute requiredRole="moderator">
@@ -215,7 +210,7 @@ function App() {
           </Theme>
         </FilterProvider>
       </ThemeContext.Provider>
-    </UserContext.Provider>
+    </UserProvider>
   );
 }
 

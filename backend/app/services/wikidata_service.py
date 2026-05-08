@@ -12,7 +12,7 @@ CACHE_TTL_HOURS = 24
 
 # User-Agent header required by WikiData API
 # Format: AppName/Version (ContactInfo)
-USER_AGENT = "HivePlatform/1.0 (https://github.com/senaoz/swe-573)"
+USER_AGENT = "HivePlatform/1.0 (https://github.com/senaoz/swe-574)"
 
 
 class WikidataService:

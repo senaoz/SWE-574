@@ -114,23 +114,23 @@ async def confirm_transaction_completion(
             detail=str(e)
         )
 
-@router.post("/{transaction_id}/complete", response_model=TransactionResponse)
-async def complete_transaction(
-    transaction_id: str,
-    completion_notes: str = None,
-    current_user: UserResponse = Depends(get_current_user),
+@router.get("/admin/all", response_model=TransactionListResponse)
+async def get_all_transactions_admin(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    current_user: UserResponse = Depends(require_moderator_or_admin()),
     db=Depends(get_database)
 ):
-    """Mark a transaction as completed (deprecated - use confirm-completion instead)"""
+    """Get all transactions (admin or moderator only)"""
     transaction_service = TransactionService(db)
     try:
-        completed_transaction = await transaction_service.complete_transaction(transaction_id, str(current_user.id), completion_notes)
-        if not completed_transaction:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to complete transaction"
-            )
-        return completed_transaction
+        transactions, total = await transaction_service.get_all_transactions(page, limit)
+        return TransactionListResponse(
+            transactions=transactions,
+            total=total,
+            page=page,
+            limit=limit
+        )
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -153,29 +153,6 @@ async def get_transaction(
                 detail="Transaction not found"
             )
         return transaction
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-
-@router.get("/admin/all", response_model=TransactionListResponse)
-async def get_all_transactions_admin(
-    page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
-    current_user: UserResponse = Depends(require_moderator_or_admin()),
-    db=Depends(get_database)
-):
-    """Get all transactions (admin or moderator only)"""
-    transaction_service = TransactionService(db)
-    try:
-        transactions, total = await transaction_service.get_all_transactions(page, limit)
-        return TransactionListResponse(
-            transactions=transactions,
-            total=total,
-            page=page,
-            limit=limit
-        )
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

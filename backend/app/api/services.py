@@ -1,15 +1,24 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import status
 from typing import Optional, List
+from datetime import datetime, timezone
 from bson import ObjectId
 
 from ..models.service import (
-    ServiceCreate, ServiceUpdate, ServiceResponse, ServiceListResponse, 
-    ServiceFilters, ServiceStatus
+    PotentialMatchListResponse,
+    RecommendedServiceListResponse,
+    ServiceCreate,
+    ServiceFilters,
+    ServiceListResponse,
+    ServiceResponse,
+    ServiceStatus,
+    ServiceUpdate,
 )
 from ..models.user import UserResponse
 from ..services.service_service import ServiceService
-from ..api.auth import get_current_user
+from ..services.user_service import UserService
+from ..api.auth import get_current_user, get_optional_current_user
+from ..core.permissions import require_moderator_or_admin
 from ..core.database import get_database
 
 router = APIRouter(prefix="/services", tags=["services"])
@@ -17,7 +26,8 @@ router = APIRouter(prefix="/services", tags=["services"])
 @router.get("/", response_model=ServiceListResponse)
 async def get_services(
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(100, ge=1, le=1000),
+    q: Optional[str] = None,
     service_type: Optional[str] = None,
     category: Optional[str] = None,
     tags: Optional[str] = None,
@@ -27,6 +37,7 @@ async def get_services(
     radius: Optional[float] = None,
     user_id: Optional[str] = None,
     is_remote: Optional[bool] = None,
+    current_user: Optional[UserResponse] = Depends(get_optional_current_user),
     db=Depends(get_database)
 ):
     """Get services with optional filters"""
@@ -43,6 +54,7 @@ async def get_services(
     
     # Create filters
     filters = ServiceFilters(
+        q=q,
         service_type=service_type,
         category=category,
         tags=tag_list,
@@ -54,7 +66,12 @@ async def get_services(
     )
     
     try:
-        services, total = await service_service.get_services(filters, page, limit)
+        services, total = await service_service.get_services(
+            filters,
+            page,
+            limit,
+            current_user_id=str(current_user.id) if current_user else None,
+        )
         return ServiceListResponse(
             services=services,
             total=total,
@@ -85,9 +102,194 @@ async def create_service(
             detail=str(e)
         )
 
+@router.get("/saved", response_model=ServiceListResponse)
+async def get_saved_services(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    current_user: UserResponse = Depends(get_current_user),
+    db=Depends(get_database)
+):
+    """Get all services saved by the current user"""
+    try:
+        cursor = db.saved_services.find(
+            {"user_id": str(current_user.id)}
+        ).sort("created_at", -1).skip((page - 1) * limit).limit(limit)
+
+        saved_docs = await cursor.to_list(length=limit)
+        total = await db.saved_services.count_documents({"user_id": str(current_user.id)})
+
+        service_service = ServiceService(db)
+        services = []
+        for doc in saved_docs:
+            try:
+                svc = await service_service.get_service_by_id(
+                    doc["service_id"],
+                    str(current_user.id),
+                )
+                if svc:
+                    services.append(svc)
+            except Exception:
+                pass
+
+        return ServiceListResponse(
+            services=services,
+            total=total,
+            page=page,
+            limit=limit,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error fetching saved services: {str(e)}"
+        )
+
+
+@router.get("/saved/ids")
+async def get_saved_service_ids(
+    current_user: UserResponse = Depends(get_current_user),
+    db=Depends(get_database)
+):
+    """Get list of service IDs saved by the current user (lightweight check)"""
+    cursor = db.saved_services.find(
+        {"user_id": str(current_user.id)},
+        {"service_id": 1, "_id": 0}
+    )
+    docs = await cursor.to_list(length=500)
+    return {"service_ids": [doc["service_id"] for doc in docs]}
+
+
+@router.get("/recommendations", response_model=RecommendedServiceListResponse)
+async def get_recommended_services(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    q: Optional[str] = None,
+    service_type: Optional[str] = None,
+    category: Optional[str] = None,
+    tags: Optional[str] = None,
+    service_status: Optional[str] = Query(ServiceStatus.ACTIVE, alias="status"),
+    city: Optional[str] = None,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
+    radius: Optional[float] = Query(None, ge=0),
+    is_remote: Optional[bool] = None,
+    date_filter: Optional[str] = None,
+    current_user: UserResponse = Depends(get_current_user),
+    db=Depends(get_database),
+):
+    """Get personalized service recommendations for the current user."""
+    if (latitude is None) != (longitude is None):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Latitude and longitude must be provided together",
+        )
+    if radius is not None and (latitude is None or longitude is None):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Latitude and longitude are required when radius is provided",
+        )
+
+    service_service = ServiceService(db)
+    tag_list = tags.split(",") if tags else None
+    normalized_service_type = None if service_type in (None, "", "all") else service_type
+    normalized_status = None if service_status in (None, "", "all") else service_status
+    normalized_date_filter = None if date_filter in (None, "", "all") else date_filter
+
+    filters = ServiceFilters(
+        q=q,
+        service_type=normalized_service_type,
+        category=category,
+        tags=tag_list,
+        status=normalized_status,
+        location={
+            "latitude": latitude,
+            "longitude": longitude,
+            "address": city,
+        }
+        if latitude is not None and longitude is not None
+        else None,
+        radius=radius,
+        is_remote=is_remote,
+    )
+
+    try:
+        (
+            items,
+            total,
+            recommendation_mode,
+            show_profile_prompt,
+        ) = await service_service.get_recommended_services(
+            user_id=str(current_user.id),
+            filters=filters,
+            page=page,
+            limit=limit,
+            city=city,
+            date_filter=normalized_date_filter,
+            viewer_latitude=latitude,
+            viewer_longitude=longitude,
+        )
+        return RecommendedServiceListResponse(
+            items=items,
+            total=total,
+            page=page,
+            limit=limit,
+            recommendation_mode=recommendation_mode,
+            show_profile_prompt=show_profile_prompt,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error fetching recommendations: {str(e)}",
+        )
+
+
+@router.get("/{service_id}/potential-matches", response_model=PotentialMatchListResponse)
+async def get_potential_matches(
+    service_id: str,
+    limit: int = Query(6, ge=1, le=12),
+    current_user: Optional[UserResponse] = Depends(get_optional_current_user),
+    db=Depends(get_database)
+):
+    """Get matching services for the current post, preferring opposite-type results first."""
+    if not ObjectId.is_valid(service_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Service not found"
+        )
+
+    service_service = ServiceService(db)
+
+    try:
+        current_service = await service_service.get_service_by_id(service_id)
+        if not current_service:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Service not found"
+            )
+
+        items, total = await service_service.get_potential_matches(
+            service_id=service_id,
+            current_user_id=str(current_user.id) if current_user else None,
+            limit=limit,
+        )
+        return PotentialMatchListResponse(items=items, total=total)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error fetching potential matches: {str(e)}"
+        )
+
+
 @router.get("/{service_id}", response_model=ServiceResponse)
 async def get_service(
     service_id: str,
+    current_user: Optional[UserResponse] = Depends(get_optional_current_user),
     db=Depends(get_database)
 ):
     """Get service by ID"""
@@ -101,7 +303,10 @@ async def get_service(
         )
     
     try:
-        service = await service_service.get_service_by_id(service_id)
+        service = await service_service.get_service_by_id(
+            service_id,
+            str(current_user.id) if current_user else None,
+        )
         if not service:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -123,11 +328,12 @@ async def update_service(
     current_user: UserResponse = Depends(get_current_user),
     db=Depends(get_database)
 ):
-    """Update service (only by owner)"""
+    """Update service (by owner or admin)"""
     service_service = ServiceService(db)
-    
+    user_service = UserService(db)
+
     try:
-        # Check if service exists and user owns it
+        # Check if service exists
         existing_service = await service_service.get_service_by_id(service_id)
         if not existing_service:
             raise HTTPException(
@@ -135,7 +341,11 @@ async def update_service(
                 detail="Service not found"
             )
         
-        if str(existing_service.user_id) != str(current_user.id):
+        # Check authorization: owner or admin
+        is_owner = str(existing_service.user_id) == str(current_user.id)
+        is_admin = await user_service.is_admin(str(current_user.id))
+
+        if not (is_owner or is_admin):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to update this service"
@@ -157,6 +367,39 @@ async def update_service(
             detail=f"Error updating service: {str(e)}"
         )
 
+@router.put("/{service_id}/pin", response_model=ServiceResponse)
+async def pin_service(
+    service_id: str,
+    pinned: bool = True,
+    current_user: UserResponse = Depends(require_moderator_or_admin()),
+    db=Depends(get_database),
+):
+    """Pin or unpin a service post (admin/moderator only)."""
+    service_service = ServiceService(db)
+
+    if not ObjectId.is_valid(service_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Service not found",
+        )
+
+    try:
+        service = await service_service.pin_service(
+            service_id,
+            str(current_user.id),
+            pinned,
+        )
+        if not service:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Service not found",
+            )
+        return service
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
 @router.delete("/{service_id}")
 async def delete_service(
     service_id: str,
@@ -165,6 +408,7 @@ async def delete_service(
 ):
     """Delete service (only by owner)"""
     service_service = ServiceService(db)
+    user_service = UserService(db)
     
     try:
         # Check if service exists and user owns it
@@ -174,13 +418,16 @@ async def delete_service(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Service not found"
             )
-        
-        if str(existing_service.user_id) != str(current_user.id):
+
+        # Check if user is admin or owner
+        is_owner = str(existing_service.user_id) == str(current_user.id)
+        is_admin = await user_service.is_admin(str(current_user.id))
+        if not (is_owner or is_admin):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to delete this service"
             )
-
+        
         if existing_service.status != ServiceStatus.ACTIVE:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -202,6 +449,52 @@ async def delete_service(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Error deleting service: {str(e)}"
         )
+
+@router.post("/{service_id}/save")
+async def save_service(
+    service_id: str,
+    current_user: UserResponse = Depends(get_current_user),
+    db=Depends(get_database)
+):
+    """Save a service for future reference"""
+    if not ObjectId.is_valid(service_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
+
+    service_service = ServiceService(db)
+    svc = await service_service.get_service_by_id(service_id)
+    if not svc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
+
+    existing = await db.saved_services.find_one({
+        "user_id": str(current_user.id),
+        "service_id": service_id
+    })
+    if existing:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Service already saved")
+
+    await db.saved_services.insert_one({
+        "user_id": str(current_user.id),
+        "service_id": service_id,
+        "created_at": datetime.now(timezone.utc),
+    })
+    return {"message": "Service saved successfully"}
+
+
+@router.delete("/{service_id}/save")
+async def unsave_service(
+    service_id: str,
+    current_user: UserResponse = Depends(get_current_user),
+    db=Depends(get_database)
+):
+    """Remove a service from saved items"""
+    result = await db.saved_services.delete_one({
+        "user_id": str(current_user.id),
+        "service_id": service_id
+    })
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Saved service not found")
+    return {"message": "Service unsaved successfully"}
+
 
 @router.post("/{service_id}/match")
 async def match_service(
@@ -232,36 +525,13 @@ async def match_service(
             detail=f"Error matching service: {str(e)}"
         )
 
-@router.post("/{service_id}/confirm-completion", response_model=ServiceResponse)
-async def confirm_service_completion(
-    service_id: str,
-    current_user: UserResponse = Depends(get_current_user),
-    db=Depends(get_database)
-):
-    """Confirm service completion (requires both provider and receiver to confirm)"""
-    service_service = ServiceService(db)
-    
-    try:
-        updated_service = await service_service.confirm_service_completion(service_id, str(current_user.id))
-        return updated_service
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error confirming service completion: {str(e)}"
-        )
-
 @router.post("/{service_id}/complete")
 async def complete_service(
     service_id: str,
     current_user: UserResponse = Depends(get_current_user),
     db=Depends(get_database)
 ):
-    """Complete a service exchange and update TimeBank (deprecated - use confirm-completion instead)"""
+    """Mark service as completed (owner only). Updates status and linked transactions."""
     service_service = ServiceService(db)
     
     try:
