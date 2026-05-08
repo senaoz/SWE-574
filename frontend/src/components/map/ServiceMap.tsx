@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -133,6 +133,57 @@ function MapLocationHandler({
     if (!userPosition) return;
     map.flyTo(userPosition, USER_LOCATION_ZOOM, { duration: 1 });
   }, [map, userPosition]);
+  return null;
+}
+
+/** "Near Me" Leaflet control — appears below zoom buttons, top-left */
+function LocateMeControl({
+  userPosition,
+}: {
+  userPosition: [number, number] | null;
+}) {
+  const map = useMap();
+
+  const handleClick = useCallback(
+    (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (userPosition) {
+        map.flyTo(userPosition, USER_LOCATION_ZOOM, { duration: 1.5 });
+      }
+    },
+    [map, userPosition],
+  );
+
+  useEffect(() => {
+    const locateSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><circle cx="12" cy="12" r="8" stroke-opacity="0.4"/></svg>`;
+
+    const container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
+    const btn = L.DomUtil.create("a", "", container) as HTMLAnchorElement;
+    btn.href = "#";
+    btn.title = "Near me — go to my location";
+    btn.setAttribute("role", "button");
+    btn.setAttribute("aria-label", "Near me");
+    btn.innerHTML = locateSvg;
+    btn.style.cssText =
+      "width:30px;height:30px;display:flex;align-items:center;justify-content:center;";
+
+    L.DomEvent.on(btn, "click", handleClick);
+
+    const LocateControl = L.Control.extend({
+      onAdd: () => container,
+      onRemove: () => L.DomEvent.off(btn, "click", handleClick),
+    });
+
+    const control = new LocateControl({ position: "topleft" });
+    control.addTo(map);
+
+    return () => {
+      L.DomEvent.off(btn, "click", handleClick);
+      control.remove();
+    };
+  }, [map, handleClick]);
+
   return null;
 }
 
@@ -330,6 +381,7 @@ export function ServiceMap({
           maxNativeZoom={19}
         />
         <MapLocationHandler userPosition={userPosition} />
+        <LocateMeControl userPosition={userPosition} />
         {userPosition && distanceRadiusM !== null && (
           <Circle
             center={userPosition}
