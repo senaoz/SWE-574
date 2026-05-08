@@ -10,6 +10,9 @@ from ..models.community import (
 )
 
 
+PINNED_LIMIT = 2
+
+
 def _utcnow():
     return datetime.now(timezone.utc)
 
@@ -78,6 +81,20 @@ class CommunityService:
             raise ValueError("Only the founder can perform this action")
         return m
 
+    async def _is_platform_moderator(self, user_id: str) -> bool:
+        user = await self.users.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            return False
+        role = user.get("role")
+        role_value = getattr(role, "value", role)
+        return role_value in ("moderator", "admin")
+
+    async def _can_pin_post(self, community_id: str, user_id: str) -> bool:
+        m = await self._membership(community_id, user_id)
+        if m and m["role"] in (MemberRole.FOUNDER, MemberRole.MODERATOR):
+            return True
+        return await self._is_platform_moderator(user_id)
+
     async def _upvote_fields(self, doc: dict, user_id: Optional[str]) -> dict:
         upvoted_by = doc.get("upvoted_by", [])
         doc["upvote_count"] = len(upvoted_by)
@@ -117,6 +134,9 @@ class CommunityService:
             "founder_id": ObjectId(user_id),
             "member_count": 1,
             "post_count": 0,
+            "is_pinned": False,
+            "pinned_by": None,
+            "pinned_at": None,
             "created_at": now,
             "updated_at": now,
         }
@@ -167,7 +187,7 @@ class CommunityService:
 
         total = await self.communities.count_documents(query)
         sort_field = sort_by if sort_by in ("member_count", "created_at", "post_count") else "member_count"
-        cursor = self.communities.find(query).sort(sort_field, -1).skip((page - 1) * limit).limit(limit)
+        cursor = self.communities.find(query).sort([("is_pinned", -1), (sort_field, -1)]).skip((page - 1) * limit).limit(limit)
         docs = await cursor.to_list(length=limit)
 
         results = []
@@ -206,8 +226,9 @@ class CommunityService:
             doc["user_membership"] = None
         return doc
 
-    async def update_community(self, community_id: str, data: CommunityUpdate, user_id: str) -> Optional[dict]:
-        await self._require_founder(community_id, user_id)
+    async def update_community(self, community_id: str, data: CommunityUpdate, user_id: str, is_admin: bool = False) -> Optional[dict]:
+        if not is_admin:
+            await self._require_founder(community_id, user_id)
         update_fields = {k: v for k, v in data.model_dump().items() if v is not None}
         if not update_fields:
             return await self.get_community_by_id(community_id, user_id)
@@ -221,8 +242,9 @@ class CommunityService:
         )
         return await self.get_community_by_id(community_id, user_id)
 
-    async def delete_community(self, community_id: str, user_id: str):
-        await self._require_founder(community_id, user_id)
+    async def delete_community(self, community_id: str, user_id: str, is_admin: bool = False):
+        if not is_admin:
+            await self._require_founder(community_id, user_id)
         oid = ObjectId(community_id)
         post_ids = await self.posts.distinct("_id", {"community_id": oid})
         if post_ids:
@@ -230,6 +252,34 @@ class CommunityService:
         await self.posts.delete_many({"community_id": oid})
         await self.memberships.delete_many({"community_id": oid})
         await self.communities.delete_one({"_id": oid})
+
+    async def pin_community(self, community_id: str, user_id: str, pinned: bool) -> Optional[dict]:
+        oid = ObjectId(community_id)
+        existing = await self.communities.find_one({"_id": oid})
+        if not existing:
+            raise ValueError("Community not found")
+
+        if pinned and not existing.get("is_pinned"):
+            pinned_count = await self.communities.count_documents({
+                "is_pinned": True,
+                "_id": {"$ne": oid},
+            })
+            if pinned_count >= PINNED_LIMIT:
+                raise ValueError("Only two communities can be pinned at a time")
+
+        now = _utcnow()
+        await self.communities.update_one(
+            {"_id": oid},
+            {
+                "$set": {
+                    "is_pinned": pinned,
+                    "pinned_by": ObjectId(user_id) if pinned else None,
+                    "pinned_at": now if pinned else None,
+                    "updated_at": now,
+                }
+            },
+        )
+        return await self.get_community_by_id(community_id, user_id)
 
     # ──────────────────── Membership ────────────────────
 
@@ -276,13 +326,32 @@ class CommunityService:
         )
         return await self.get_community_by_id(community_id, user_id)
 
-    async def get_members(self, community_id: str) -> Tuple[List[dict], int]:
+    async def get_members(
+        self,
+        community_id: str,
+        current_user_id: Optional[str] = None,
+    ) -> Tuple[List[dict], int]:
         query = {"community_id": ObjectId(community_id), "status": MemberStatus.ACTIVE}
         total = await self.memberships.count_documents(query)
         cursor = self.memberships.find(query).sort("joined_at", 1)
         docs = await cursor.to_list(length=500)
+
+        current_user_community_ids = None
+        current_user_community_object_ids = []
+        if current_user_id:
+            current_user_memberships = await self.memberships.find({
+                "user_id": ObjectId(current_user_id),
+                "status": MemberStatus.ACTIVE,
+            }).to_list(length=500)
+            current_user_community_ids = {
+                str(m["community_id"]) for m in current_user_memberships
+            }
+            current_user_community_object_ids = [
+                ObjectId(cid) for cid in current_user_community_ids
+            ]
+
         for doc in docs:
-            user = await self.users.find_one({"_id": doc["user_id"]})
+            user = await self.users.find_one({"_id": ObjectId(str(doc["user_id"]))})
             if user:
                 doc["user"] = {
                     "id": str(user["_id"]),
@@ -290,7 +359,67 @@ class CommunityService:
                     "full_name": user.get("full_name"),
                     "profile_picture": user.get("profile_picture"),
                 }
+            if current_user_community_ids is not None:
+                if str(doc["user_id"]) == current_user_id:
+                    doc["mutual_community_count"] = len(current_user_community_ids)
+                else:
+                    doc["mutual_community_count"] = await self.memberships.count_documents({
+                        "user_id": ObjectId(str(doc["user_id"])),
+                        "status": MemberStatus.ACTIVE,
+                        "community_id": {"$in": current_user_community_object_ids},
+                    })
         return docs, total
+
+    async def get_communities_for_user(
+        self,
+        target_user_id: str,
+        current_user_id: Optional[str] = None,
+    ) -> dict:
+        target_memberships = await self.memberships.find({
+            "user_id": ObjectId(target_user_id),
+            "status": MemberStatus.ACTIVE,
+        }).sort("joined_at", -1).to_list(length=500)
+        target_community_ids = [ObjectId(str(m["community_id"])) for m in target_memberships]
+
+        current_memberships = []
+        if current_user_id:
+            current_memberships = await self.memberships.find({
+                "user_id": ObjectId(current_user_id),
+                "status": MemberStatus.ACTIVE,
+            }).to_list(length=500)
+        current_membership_by_community = {
+            str(m["community_id"]): m for m in current_memberships
+        }
+        current_community_ids = set(current_membership_by_community.keys())
+        target_community_id_set = {str(cid) for cid in target_community_ids}
+
+        if not target_community_ids:
+            return {"communities": [], "total": 0, "mutual_count": 0}
+
+        docs = await self.communities.find({
+            "_id": {"$in": target_community_ids}
+        }).to_list(length=500)
+        community_by_id = {str(doc["_id"]): doc for doc in docs}
+
+        communities = []
+        for membership in target_memberships:
+            community_id = str(membership["community_id"])
+            doc = community_by_id.get(community_id)
+            if not doc:
+                continue
+            doc = await self._enrich_user(doc)
+            doc["target_membership"] = membership["role"]
+            current_membership = current_membership_by_community.get(community_id)
+            doc["user_membership"] = current_membership["role"] if current_membership else None
+            doc["is_mutual"] = community_id in current_community_ids
+            communities.append(doc)
+
+        mutual_count = len(target_community_id_set & current_community_ids)
+        return {
+            "communities": communities,
+            "total": len(communities),
+            "mutual_count": mutual_count,
+        }
 
     async def update_member_role(self, community_id: str, target_user_id: str, role: MemberRole, requester_id: str):
         await self._require_founder(community_id, requester_id)
@@ -356,6 +485,8 @@ class CommunityService:
             "community_id": ObjectId(community_id),
             "user_id": ObjectId(user_id),
             "is_pinned": False,
+            "pinned_by": None,
+            "pinned_at": None,
             "upvote_count": 0,
             "upvoted_by": [],
             "comment_count": 0,
@@ -405,12 +536,11 @@ class CommunityService:
             return None
         return await self._enrich_post(doc, user_id)
 
-    async def update_post(self, community_id: str, post_id: str, data: CommunityPostUpdate, user_id: str) -> Optional[dict]:
+    async def update_post(self, community_id: str, post_id: str, data: CommunityPostUpdate, user_id: str, is_admin: bool = False) -> Optional[dict]:
         doc = await self.posts.find_one({"_id": ObjectId(post_id), "community_id": ObjectId(community_id)})
         if not doc:
             raise ValueError("Post not found")
-        # Only post owner can edit
-        if str(doc["user_id"]) != user_id:
+        if str(doc["user_id"]) != user_id and not is_admin:
             raise ValueError("You can only edit your own posts")
         update_fields = {k: v for k, v in data.model_dump().items() if v is not None}
         update_fields["updated_at"] = _utcnow()
@@ -418,15 +548,14 @@ class CommunityService:
         updated = await self.posts.find_one({"_id": ObjectId(post_id)})
         return await self._enrich_post(updated, user_id)
 
-    async def delete_post(self, community_id: str, post_id: str, user_id: str):
+    async def delete_post(self, community_id: str, post_id: str, user_id: str, is_admin: bool = False):
         doc = await self.posts.find_one({"_id": ObjectId(post_id), "community_id": ObjectId(community_id)})
         if not doc:
             raise ValueError("Post not found")
-        # Owner or moderator/founder can delete
         m = await self._membership(community_id, user_id)
         is_mod = m and m["role"] in (MemberRole.FOUNDER, MemberRole.MODERATOR)
         is_owner = str(doc["user_id"]) == user_id
-        if not is_owner and not is_mod:
+        if not is_owner and not is_mod and not is_admin:
             raise ValueError("Permission denied")
         oid = ObjectId(post_id)
         await self.comments.delete_many({"target_type": "community_post", "target_id": oid})
@@ -436,14 +565,40 @@ class CommunityService:
             {"$inc": {"post_count": -1}, "$set": {"updated_at": _utcnow()}},
         )
 
-    async def pin_post(self, community_id: str, post_id: str, user_id: str, pinned: bool):
-        await self._require_mod(community_id, user_id)
+    async def pin_post(
+        self,
+        community_id: str,
+        post_id: str,
+        user_id: str,
+        pinned: bool,
+        is_admin: bool = False,
+    ):
+        if not is_admin and not await self._can_pin_post(community_id, user_id):
+            raise ValueError("Moderator or founder permission required")
         doc = await self.posts.find_one({"_id": ObjectId(post_id), "community_id": ObjectId(community_id)})
         if not doc:
             raise ValueError("Post not found")
+
+        if pinned and not doc.get("is_pinned"):
+            pinned_count = await self.posts.count_documents({
+                "community_id": ObjectId(community_id),
+                "is_pinned": True,
+                "_id": {"$ne": ObjectId(post_id)},
+            })
+            if pinned_count >= PINNED_LIMIT:
+                raise ValueError("Only two posts can be pinned at a time")
+
+        now = _utcnow()
         await self.posts.update_one(
             {"_id": ObjectId(post_id)},
-            {"$set": {"is_pinned": pinned, "updated_at": _utcnow()}},
+            {
+                "$set": {
+                    "is_pinned": pinned,
+                    "pinned_by": ObjectId(user_id) if pinned else None,
+                    "pinned_at": now if pinned else None,
+                    "updated_at": now,
+                }
+            },
         )
         updated = await self.posts.find_one({"_id": ObjectId(post_id)})
         return await self._enrich_post(updated, user_id)
@@ -483,9 +638,9 @@ class CommunityService:
                     "full_name": user.get("full_name"),
                     "profile_picture": user.get("profile_picture"),
                 }
-        # upvotes
+        # upvotes — use the stored counter as source of truth; upvoted_by is only for per-user state
         upvoted_by = doc.get("upvoted_by", [])
-        doc["upvote_count"] = len(upvoted_by)
+        doc["upvote_count"] = doc.get("upvote_count", len(upvoted_by))
         doc["user_upvoted"] = (ObjectId(user_id) in upvoted_by) if user_id else False
         # comment count
         doc["comment_count"] = await self._comment_count(str(doc["_id"]))

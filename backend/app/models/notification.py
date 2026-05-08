@@ -27,6 +27,7 @@ class NotificationType(str, Enum):
     SERVICE_COMPLETED = "service_completed"
     NEW_MESSAGE = "new_message"
     SERVICE_STARTED = "service_started"
+    SERVICE_MATCH = "service_match"
 
 
 class NotificationRelatedType(str, Enum):

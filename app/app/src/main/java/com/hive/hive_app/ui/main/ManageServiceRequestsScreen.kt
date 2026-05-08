@@ -38,6 +38,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -60,11 +61,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.hive.hive_app.util.badgeIcon
 import com.hive.hive_app.util.formatApplicationDate
 import java.util.Locale
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 
 private fun canStartService(
     service: com.hive.hive_app.data.api.dto.ServiceResponse?,
@@ -146,6 +149,7 @@ private fun ReceiversAvatarRow(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManageServiceScreen(
     serviceId: String,
@@ -235,6 +239,7 @@ fun ManageServiceScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .statusBarsPadding()
                 .padding(horizontal = 4.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -273,10 +278,16 @@ fun ManageServiceScreen(
                 val participantRows = state.requestRows.filter {
                     it.request.status.equals("approved", ignoreCase = true)
                 }
+                val acceptedParticipantIds = participantRows.map { it.request.userId }.distinct()
                 val declinedRows = state.requestRows.filter {
                     it.request.status.equals("rejected", ignoreCase = true)
                 }
                 val canStart = canStartService(state.service, hasParticipants = participantRows.isNotEmpty())
+                PullToRefreshBox(
+                    isRefreshing = state.isLoading,
+                    onRefresh = { viewModel.load(serviceId) },
+                    modifier = Modifier.fillMaxSize()
+                ) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
@@ -336,6 +347,23 @@ fun ManageServiceScreen(
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
                         )
+                    }
+                    if (acceptedParticipantIds.size > 1) {
+                        item {
+                            Button(
+                                onClick = {
+                                    viewModel.startGroupChatWithAccepted(
+                                        serviceId = serviceId,
+                                        acceptedParticipantIds = acceptedParticipantIds
+                                    ) { roomId ->
+                                        roomId?.let { onStartChat?.invoke(it) }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Message all participants")
+                            }
+                        }
                     }
                     if (participantRows.isEmpty()) {
                         item {
@@ -463,12 +491,12 @@ fun ManageServiceScreen(
                                                     contentColor = OnManageServiceLime
                                                 )
                                             ) {
-                                                val label = if (completionRows.count { it.canMarkCompleted } > 1) {
-                                                    "Mark as completed — rate ${row.otherUserName}"
-                                                } else {
-                                                    "Mark as completed"
-                                                }
-                                                Text(label)
+                                                val showName = completionRows.count { it.canMarkCompleted } > 1
+                                                CompletionActionLabel(
+                                                    name = row.otherUserName,
+                                                    profilePictureUrl = row.otherUserProfilePictureUrl,
+                                                    showName = showName
+                                                )
                                             }
                                         }
                                     }
@@ -562,8 +590,51 @@ fun ManageServiceScreen(
                         }
                     }
                 }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun CompletionActionLabel(
+    name: String,
+    profilePictureUrl: String?,
+    showName: Boolean
+) {
+    val context = LocalContext.current
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(24.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.3f)),
+            contentAlignment = Alignment.Center
+        ) {
+            val req = buildImageRequest(context, profilePictureUrl)
+            if (req != null) {
+                AsyncImage(
+                    model = req,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Text(
+            text = if (showName) "Mark as completed — rate $name" else "Mark as completed",
+            maxLines = 1,
+            style = MaterialTheme.typography.labelLarge
+        )
     }
 }
 

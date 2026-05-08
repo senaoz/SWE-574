@@ -25,6 +25,7 @@ import type { Report, ReportStatus } from "@/types";
 import { TextField } from "@radix-ui/themes";
 import { useUser } from "@/contexts/UserContext";
 import { InterestChip } from "@/components/ui/InterestChip";
+import { SettingsPanel } from "@/components/ui/SettingsPanel";
 import { useNavigate } from "react-router-dom";
 
 export function AdminPanel() {
@@ -361,6 +362,9 @@ export function AdminPanel() {
           </Tabs.Trigger>
           <Tabs.Trigger value="reports">
             Reports ({reportsData?.total || 0})
+          </Tabs.Trigger>
+          <Tabs.Trigger value="settings">
+            My Settings
           </Tabs.Trigger>
         </Tabs.List>
 
@@ -897,6 +901,12 @@ export function AdminPanel() {
               </Table.Root>
             )}
           </Card>
+        </Tabs.Content>
+
+        <Tabs.Content value="settings" className="mt-6">
+          <div className="max-w-xl">
+            <SettingsPanel />
+          </div>
         </Tabs.Content>
       </Tabs.Root>
 

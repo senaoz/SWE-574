@@ -4,7 +4,25 @@ from fastapi import status
 from app.core.config import settings
 
 
-UPLOAD_ENDPOINTS = ("/upload/profile-picture", "/upload/service-image")
+UPLOAD_ENDPOINTS = (
+    "/upload/profile-picture",
+    "/upload/service-image",
+    "/upload/community-image",
+    "/upload/rating-image",
+    "/upload/comment-image",
+    "/upload/forum-event-image",
+    "/upload/discussion-image",
+)
+
+UPLOAD_ENDPOINT_CASES = (
+    ("/upload/profile-picture", "/uploads/profile/"),
+    ("/upload/service-image", "/uploads/services/"),
+    ("/upload/community-image", "/uploads/communities/"),
+    ("/upload/rating-image", "/uploads/ratings/"),
+    ("/upload/comment-image", "/uploads/comments/"),
+    ("/upload/forum-event-image", "/uploads/forum-events/"),
+    ("/upload/discussion-image", "/uploads/discussions/"),
+)
 
 
 def _saved_path_from_url(tmp_path, url: str):
@@ -18,6 +36,24 @@ def _saved_path_from_url(tmp_path, url: str):
 
 
 class TestUploadAPI:
+    @pytest.mark.parametrize(("endpoint", "expected_prefix"), UPLOAD_ENDPOINT_CASES)
+    def test_upload_endpoint_happy_path_parity(
+        self, test_client, auth_headers, tmp_path, monkeypatch, endpoint, expected_prefix
+    ):
+        monkeypatch.setattr(settings, "upload_dir", str(tmp_path))
+
+        response = test_client.post(
+            endpoint,
+            headers=auth_headers,
+            files={"file": ("image.png", b"png-data", "image/png")},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["url"].startswith(expected_prefix)
+        assert data["url"].endswith(".png")
+        assert _saved_path_from_url(tmp_path, data["url"]).exists()
+
     @pytest.mark.parametrize(
         ("content_type", "filename", "payload", "expected_ext"),
         [
@@ -128,4 +164,3 @@ class TestUploadAPI:
         assert ".." not in url
         assert "/" not in filename
         assert "//" not in url
-

@@ -75,6 +75,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
@@ -259,14 +260,20 @@ fun ServiceDetailScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(imageUrls) { url ->
-                            AsyncImage(
-                                model = url,
-                                contentDescription = null,
+                            Box(
                                 modifier = Modifier
                                     .fillMaxHeight()
+                                    .size(width = 300.dp, height = 220.dp)
                                     .clip(RoundedCornerShape(12.dp))
                                     .clickable { expandedImageUrl = url }
-                            )
+                            ) {
+                                AsyncImage(
+                                    model = url,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         }
                     }
                 }
@@ -581,10 +588,36 @@ fun ServiceDetailScreen(
                                                 if (onOpenUserProfile != null) Modifier.clickable { onOpenUserProfile(user._id) }
                                                 else Modifier
                                             ),
-                                        verticalAlignment = Alignment.CenterVertically
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
+                                        val displayName = user.fullName?.takeIf { it.isNotBlank() } ?: user.username
+                                        val initials = displayName.takeIf { it.isNotBlank() }?.take(2)?.uppercase() ?: "?"
+                                        if (user.profilePicture?.isNotBlank() == true) {
+                                            AsyncImage(
+                                                model = buildImageRequest(context, user.profilePicture),
+                                                contentDescription = "Profile photo",
+                                                modifier = Modifier
+                                                    .size(32.dp)
+                                                    .clip(CircleShape)
+                                            )
+                                        } else {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(32.dp)
+                                                    .clip(CircleShape)
+                                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = initials,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                                )
+                                            }
+                                        }
                                         Text(
-                                            text = user.fullName?.takeIf { it.isNotBlank() } ?: user.username,
+                                            text = displayName,
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.onSurface,
                                             modifier = Modifier.weight(1f)
@@ -696,6 +729,7 @@ fun ServiceDetailScreen(
                                     comments.forEach { comment ->
                                         ServiceCommentItem(
                                             comment = comment,
+                                            ownerId = service.userId,
                                             onOpenUserProfile = onOpenUserProfile
                                         )
                                     }
@@ -870,10 +904,12 @@ private fun BadgeInfoInlineBox(
 @Composable
 private fun ServiceCommentItem(
     comment: CommentResponse,
+    ownerId: String,
     onOpenUserProfile: ((String) -> Unit)? = null
 ) {
     val author = comment.user?.username ?: comment.user?.fullName ?: "Unknown"
     val authorId = comment.user?.resolvedId ?: comment.userId
+    val isOwnerComment = authorId == ownerId
     val context = LocalContext.current
     Card(
         modifier = Modifier
@@ -918,6 +954,20 @@ private fun ServiceCommentItem(
                 }
             }
             Column(modifier = Modifier.weight(1f)) {
+                if (isOwnerComment) {
+                    Surface(
+                        shape = RoundedCornerShape(percent = 50),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Text(
+                            text = "Owner",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
                 Text(
                     text = comment.content,
                     style = MaterialTheme.typography.bodyMedium,

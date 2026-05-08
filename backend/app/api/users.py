@@ -1,14 +1,18 @@
 import logging
+import re
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Optional
 
 from ..models.user import UserResponse, UserUpdate, TimeBankResponse, UserRole, UserRoleUpdate, UserSettingsUpdate, PasswordChange, AccountDeletion, TimeBankBalanceUpdate
 from ..services.user_service import UserService
 from ..services.badge_service import BadgeService
+from ..services.community_service import CommunityService
 from ..api.auth import get_current_user
+from ..api.auth import get_optional_current_user
 from ..core.database import get_database
 from ..core.permissions import require_admin, require_moderator_or_admin
 from ..constants.interests import AVAILABLE_INTERESTS
+from ..models.community import UserCommunityListResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/users", tags=["users"])
@@ -137,6 +141,16 @@ async def change_password(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="New passwords do not match"
         )
+    if len(password_change.new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters long"
+        )
+    if not re.search(r'[A-Z]', password_change.new_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must contain at least one uppercase letter"
+        )
     
     success = await user_service.change_password(str(current_user.id), password_change)
     if not success:
@@ -238,6 +252,23 @@ async def get_user_badges(
         return await badge_service.get_badge_summary(user_id)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.get("/{user_id}/communities", response_model=UserCommunityListResponse)
+async def get_user_communities(
+    user_id: str,
+    current_user: Optional[UserResponse] = Depends(get_optional_current_user),
+    db=Depends(get_database),
+):
+    """Get communities a user belongs to, including mutual count with current user."""
+    user_service = UserService(db)
+    target_user = await user_service.get_user_by_id(user_id)
+    if not target_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    current_user_id = str(current_user.id) if current_user else None
+    community_service = CommunityService(db)
+    return await community_service.get_communities_for_user(user_id, current_user_id)
 
 @router.put("/{user_id}/role", response_model=UserResponse)
 async def update_user_role(

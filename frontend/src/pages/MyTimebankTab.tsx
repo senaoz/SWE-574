@@ -43,7 +43,7 @@ function OfferNeedChart({ transactions }: { transactions: TimeBankTransaction[] 
               aria-hidden="true"
             />
             <Text size="2" weight="medium">Offered</Text>
-            <Text size="1" color="gray">({offerTxns.length} txn{offerTxns.length !== 1 ? "s" : ""})</Text>
+            <Text size="1" color="gray">({offerTxns.length} transaction{offerTxns.length !== 1 ? "s" : ""})</Text>
           </Flex>
           <Text size="2" weight="bold">{offerHours.toFixed(1)} hrs</Text>
         </Flex>
@@ -76,7 +76,7 @@ function OfferNeedChart({ transactions }: { transactions: TimeBankTransaction[] 
               aria-hidden="true"
             />
             <Text size="2" weight="medium">Needed</Text>
-            <Text size="1" color="gray">({needTxns.length} txn{needTxns.length !== 1 ? "s" : ""})</Text>
+            <Text size="1" color="gray">({needTxns.length} transaction{needTxns.length !== 1 ? "s" : ""})</Text>
           </Flex>
           <Text size="2" weight="bold">{needHours.toFixed(1)} hrs</Text>
         </Flex>

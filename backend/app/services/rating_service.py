@@ -17,6 +17,10 @@ class RatingService:
         self.services_collection = db.services
         self.users_collection = db.users
 
+    @staticmethod
+    def _to_object_id(value):
+        return ObjectId(value) if isinstance(value, str) and ObjectId.is_valid(value) else value
+
     async def create_rating(self, rater_id: str, rating_data: RatingCreate) -> RatingResponse:
         """
         Create a rating for a transaction. Allowed when the rater has confirmed
@@ -88,7 +92,7 @@ class RatingService:
 
         ratings = []
         async for doc in cursor:
-            rater = await self.users_collection.find_one({"_id": doc["rater_id"]})
+            rater = await self.users_collection.find_one({"_id": self._to_object_id(doc["rater_id"])})
             if rater:
                 doc["rater"] = {
                     "id": str(rater["_id"]),
@@ -116,7 +120,7 @@ class RatingService:
 
         ratings: List[RatingDetailedResponse] = []
         async for doc in cursor:
-            rater = await self.users_collection.find_one({"_id": doc["rater_id"]})
+            rater = await self.users_collection.find_one({"_id": self._to_object_id(doc["rater_id"])})
             if rater:
                 doc["rater"] = {
                     "id": str(rater["_id"]),
@@ -125,7 +129,7 @@ class RatingService:
                 }
 
             transaction = await self.transactions_collection.find_one(
-                {"_id": doc["transaction_id"]}
+                {"_id": self._to_object_id(doc["transaction_id"])}
             )
             if transaction:
                 rated_user_id_str = str(doc["rated_user_id"])
@@ -146,7 +150,7 @@ class RatingService:
 
                 service_id = transaction.get("service_id")
                 if service_id is not None:
-                    service = await self.services_collection.find_one({"_id": service_id})
+                    service = await self.services_collection.find_one({"_id": self._to_object_id(service_id)})
                     if service:
                         doc["service"] = {
                             "id": str(service["_id"]),
@@ -167,7 +171,7 @@ class RatingService:
         )
         ratings = []
         async for doc in cursor:
-            rater = await self.users_collection.find_one({"_id": doc["rater_id"]})
+            rater = await self.users_collection.find_one({"_id": self._to_object_id(doc["rater_id"])})
             if rater:
                 doc["rater"] = {
                     "id": str(rater["_id"]),

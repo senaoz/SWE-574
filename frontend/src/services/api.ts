@@ -96,6 +96,16 @@ export const uploadApi = {
       }],
     });
   },
+  uploadCommunityImage: (file: File): Promise<AxiosResponse<{ url: string }>> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/upload/community-image', formData, {
+      transformRequest: [(data: unknown, headers?: Record<string, string>) => {
+        if (headers) delete headers['Content-Type'];
+        return data;
+      }],
+    });
+  },
   uploadRatingImage: (file: File): Promise<AxiosResponse<{ url: string }>> => {
     const formData = new FormData();
     formData.append('file', file);
@@ -173,6 +183,9 @@ export const usersApi = {
   getUserById: (id: string): Promise<AxiosResponse<User>> =>
     api.get(`/users/${id}`),
 
+  getUserCommunities: (id: string): Promise<AxiosResponse<import('../types').UserCommunityListResponse>> =>
+    api.get(`/users/${id}/communities`),
+
   /** Update a user's TimeBank balance (admin or moderator only). */
   updateUserTimebank: (userId: string, data: { balance: number }): Promise<AxiosResponse<User>> =>
     api.put(`/users/${userId}/timebank`, data),
@@ -231,6 +244,9 @@ export const servicesApi = {
   
   deleteService: (id: string): Promise<AxiosResponse<{ message: string }>> =>
     api.delete(`/services/${id}`),
+
+  pinService: (id: string, pinned: boolean): Promise<AxiosResponse<Service>> =>
+    api.put(`/services/${id}/pin`, null, { params: { pinned } }),
   
   cancelService: (id: string): Promise<AxiosResponse<{ message: string }>> =>
     api.post(`/services/${id}/cancel`),
@@ -408,6 +424,9 @@ export const forumApi = {
   deleteDiscussion: (id: string): Promise<AxiosResponse<{ message: string }>> =>
     api.delete(`/forum/discussions/${id}`),
 
+  pinDiscussion: (id: string, pinned: boolean): Promise<AxiosResponse<ForumDiscussion>> =>
+    api.put(`/forum/discussions/${id}/pin`, null, { params: { pinned } }),
+
   // Events
   getEvents: (params?: { page?: number; limit?: number; tag?: string; q?: string; has_location?: boolean; sort_by?: string }): Promise<AxiosResponse<ForumEventListResponse>> =>
     api.get('/forum/events', { params }),
@@ -423,6 +442,9 @@ export const forumApi = {
 
   deleteEvent: (id: string): Promise<AxiosResponse<{ message: string }>> =>
     api.delete(`/forum/events/${id}`),
+
+  pinEvent: (id: string, pinned: boolean): Promise<AxiosResponse<ForumEvent>> =>
+    api.put(`/forum/events/${id}/pin`, null, { params: { pinned } }),
 
   getLinkedEvents: (serviceId: string): Promise<AxiosResponse<ForumEventListResponse>> =>
     api.get(`/forum/services/${serviceId}/linked-events`),
@@ -513,6 +535,9 @@ export const communityApi = {
 
   deleteCommunity: (id: string): Promise<AxiosResponse<void>> =>
     api.delete(`/communities/${id}`),
+
+  pinCommunity: (id: string, pinned: boolean): Promise<AxiosResponse<import('../types').Community>> =>
+    api.put(`/communities/${id}/pin`, null, { params: { pinned } }),
 
   // Membership
   joinCommunity: (id: string): Promise<AxiosResponse<import('../types').Community>> =>

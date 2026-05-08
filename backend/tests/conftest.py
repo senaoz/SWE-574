@@ -195,6 +195,23 @@ class AsyncMockDatabase:
     def __init__(self, sync_db):
         self._sync_db = sync_db
         self.client = sync_db.client
+
+    def __getitem__(self, name):
+        return AsyncMockCollection(self._sync_db[name])
+
+    async def list_collection_names(self, *args, **kwargs):
+        return self._sync_db.list_collection_names(*args, **kwargs)
+
+    async def command(self, command_name, *args, **kwargs):
+        if command_name == "dbStats":
+            return {
+                "collections": len(self._sync_db.list_collection_names()),
+                "objects": sum(
+                    self._sync_db[name].count_documents({})
+                    for name in self._sync_db.list_collection_names()
+                ),
+            }
+        return self._sync_db.command(command_name, *args, **kwargs)
     
     def __getattr__(self, name):
         if name.startswith('_'):

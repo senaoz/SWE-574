@@ -191,7 +191,7 @@ class TestTransactionServiceCreate:
             )
 
     @pytest.mark.asyncio
-    async def test_create_transaction_duplicate_allows_second_record(self, mock_db):
+    async def test_create_transaction_duplicate_rejected(self, mock_db):
         provider = await _create_user(mock_db, "txprov_create_dup")
         requester = await _create_user(mock_db, "txreq_create_dup")
         service = await _create_service(mock_db, str(provider.id))
@@ -205,7 +205,8 @@ class TestTransactionServiceCreate:
             timebank_hours=2.0,
         )
         await svc.create_transaction(payload)
-        await svc.create_transaction(payload)
+        with pytest.raises(ValueError, match="Transaction already exists"):
+            await svc.create_transaction(payload)
 
         total = await mock_db.transactions.count_documents(
             {
@@ -214,7 +215,7 @@ class TestTransactionServiceCreate:
                 "requester_id": ObjectId(str(requester.id)),
             }
         )
-        assert total == 2
+        assert total == 1
 
 
 class TestTransactionServiceGetters:
@@ -374,6 +375,24 @@ class TestTransactionServiceUpdateAndConfirm:
         assert updated.completion_notes == "started"
 
     @pytest.mark.asyncio
+    async def test_update_transaction_status_requester_happy_path(self, mock_db):
+        provider = await _create_user(mock_db, "txprov_update_req_ok")
+        requester = await _create_user(mock_db, "txreq_update_req_ok")
+        service = await _create_service(mock_db, str(provider.id))
+        tx = await _insert_transaction(mock_db, str(service.id), str(provider.id), str(requester.id))
+
+        svc = TransactionService(mock_db)
+        updated = await svc.update_transaction_status(
+            str(tx["_id"]),
+            TransactionUpdate(status=TransactionStatus.DISPUTED, dispute_reason="needs review"),
+            str(requester.id),
+        )
+
+        assert updated is not None
+        assert updated.status == TransactionStatus.DISPUTED
+        assert updated.dispute_reason == "needs review"
+
+    @pytest.mark.asyncio
     async def test_update_transaction_status_unauthorized(self, mock_db):
         provider = await _create_user(mock_db, "txprov_update_unauth")
         requester = await _create_user(mock_db, "txreq_update_unauth")
@@ -502,6 +521,62 @@ class TestTransactionServiceUpdateAndConfirm:
 
 
 class TestTransactionServiceFinalizeAndLegacy:
+    @pytest.mark.asyncio
+    async def test_confirm_completed_transaction_is_idempotent(self, mock_db):
+        provider = await _create_user(mock_db, "txprov_confirm_done", balance=3.0)
+        requester = await _create_user(mock_db, "txreq_confirm_done", balance=5.0)
+        service = await _create_service(mock_db, str(provider.id), duration=2.0)
+        tx = await _insert_transaction(
+            mock_db,
+            str(service.id),
+            str(provider.id),
+            str(requester.id),
+            timebank_hours=2.0,
+        )
+
+        svc = TransactionService(mock_db)
+        await svc.confirm_transaction_completion(str(tx["_id"]), str(provider.id))
+        completed = await svc.confirm_transaction_completion(str(tx["_id"]), str(requester.id))
+        repeated_provider = await svc.confirm_transaction_completion(str(tx["_id"]), str(provider.id))
+        repeated_requester = await svc.confirm_transaction_completion(str(tx["_id"]), str(requester.id))
+
+        user_service = UserService(mock_db)
+        provider_after = await user_service.get_user_by_id(str(provider.id))
+        requester_after = await user_service.get_user_by_id(str(requester.id))
+
+        assert completed.status == TransactionStatus.COMPLETED
+        assert repeated_provider.status == TransactionStatus.COMPLETED
+        assert repeated_requester.status == TransactionStatus.COMPLETED
+        assert provider_after.timebank_balance == 5.0
+        assert requester_after.timebank_balance == 3.0
+
+    @pytest.mark.asyncio
+    async def test_finalize_transaction_skips_completed_transaction(self, mock_db):
+        provider = await _create_user(mock_db, "txprov_finalize_skip", balance=3.0)
+        requester = await _create_user(mock_db, "txreq_finalize_skip", balance=5.0)
+        service = await _create_service(mock_db, str(provider.id), duration=2.0)
+        tx = await _insert_transaction(
+            mock_db,
+            str(service.id),
+            str(provider.id),
+            str(requester.id),
+            status=TransactionStatus.COMPLETED,
+            provider_confirmed=True,
+            requester_confirmed=True,
+            timebank_hours=2.0,
+        )
+
+        svc = TransactionService(mock_db)
+        result = await svc._finalize_transaction(str(tx["_id"]), tx)
+
+        user_service = UserService(mock_db)
+        provider_after = await user_service.get_user_by_id(str(provider.id))
+        requester_after = await user_service.get_user_by_id(str(requester.id))
+
+        assert result is True
+        assert provider_after.timebank_balance == 3.0
+        assert requester_after.timebank_balance == 5.0
+
     @pytest.mark.asyncio
     async def test_multi_participant_offer_provider_earns_once_requesters_each_pay_one_hour(self, mock_db):
         provider = await _create_user(mock_db, "txprov_multi_one_hour", balance=3.0)

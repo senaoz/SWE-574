@@ -33,11 +33,11 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
+import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -57,8 +57,8 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.hive.hive_app.data.api.dto.CommunityResponse
 import com.hive.hive_app.data.repository.WikidataTagSuggestion
-import com.hive.hive_app.ui.theme.Lime50
 import com.hive.hive_app.ui.theme.Lime500
+import com.hive.hive_app.ui.theme.Lime50
 
 @Composable
 fun CommonCreateHeader(
@@ -90,13 +90,6 @@ fun CommonSectionLabel(text: String) {
 }
 
 @Composable
-fun commonLimeFilterChipColors() = FilterChipDefaults.filterChipColors(
-    selectedContainerColor = Lime50,
-    selectedLabelColor = Lime500,
-    selectedLeadingIconColor = Lime500
-)
-
-@Composable
 fun CommonTagSelectorSection(
     tagQuery: String,
     onTagQueryChange: (String) -> Unit,
@@ -109,51 +102,122 @@ fun CommonTagSelectorSection(
 ) {
     CommonSectionLabel("Tags (Wikidata)")
     Spacer(modifier = Modifier.height(8.dp))
-    OutlinedTextField(
-        value = tagQuery,
-        onValueChange = onTagQueryChange,
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        label = { Text("Search tags") },
-        placeholder = { Text("Start typing") },
-        singleLine = true,
-        shape = RoundedCornerShape(12.dp)
-    )
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            OutlinedTextField(
+                value = tagQuery,
+                onValueChange = onTagQueryChange,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Search tags") },
+                placeholder = { Text("Start typing (e.g. photography)") },
+                singleLine = true,
+                trailingIcon = {
+                    if (tagQuery.isNotBlank()) {
+                        IconButton(onClick = { onTagQueryChange("") }) {
+                            Icon(Icons.Filled.Close, contentDescription = "Clear tag search")
+                        }
+                    }
+                },
+                shape = RoundedCornerShape(12.dp)
+            )
 
-    if (tagSearchLoading) {
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "Searching...",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = if (selectedTags.isEmpty()) {
+                    "Pick at least one tag to help others discover your post."
+                } else {
+                    "${selectedTags.size} tag${if (selectedTags.size > 1) "s" else ""} selected"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            if (tagSearchLoading) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Searching...",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (!tagSearchError.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = tagSearchError,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
     }
-    if (!tagSearchError.isNullOrBlank()) {
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = tagSearchError,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error
-        )
-    }
+
     if (tagSuggestions.isNotEmpty() && tagQuery.isNotBlank()) {
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
         Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 240.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-            Column(modifier = Modifier.padding(8.dp)) {
-                tagSuggestions.forEach { suggestion ->
+            LazyColumn(
+                modifier = Modifier.padding(vertical = 6.dp, horizontal = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(tagSuggestions, key = { it.id }) { suggestion ->
                     val alreadySelected = selectedTags.any { it.id == suggestion.id }
-                    androidx.compose.material3.TextButton(
-                        onClick = { if (!alreadySelected) onAddTag(suggestion) },
-                        enabled = !alreadySelected
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = !alreadySelected) {
+                                onAddTag(suggestion)
+                            },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (alreadySelected) {
+                                MaterialTheme.colorScheme.surfaceVariant
+                            } else {
+                                MaterialTheme.colorScheme.surface
+                            }
+                        )
                     ) {
-                        Text(suggestion.label)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(
+                                text = suggestion.label,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (alreadySelected) {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = if (alreadySelected) "Added" else "Add",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (alreadySelected) {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                } else {
+                                    MaterialTheme.colorScheme.primary
+                                }
+                            )
+                        }
                     }
                 }
             }
         }
     }
+
     if (selectedTags.isNotEmpty()) {
         Spacer(modifier = Modifier.height(10.dp))
         FlowRow(
@@ -161,12 +225,23 @@ fun CommonTagSelectorSection(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             selectedTags.forEach { suggestion ->
-                FilterChip(
+                InputChip(
                     selected = true,
                     onClick = { onRemoveTag(suggestion) },
                     label = { Text(suggestion.label) },
-                    colors = commonLimeFilterChipColors(),
-                    border = FilterChipDefaults.filterChipBorder(
+                    trailingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = "Remove tag",
+                            modifier = Modifier.size(16.dp)
+                        )
+                    },
+                    colors = InputChipDefaults.inputChipColors(
+                        selectedContainerColor = Lime50,
+                        selectedLabelColor = Lime500,
+                        selectedTrailingIconColor = Lime500
+                    ),
+                    border = InputChipDefaults.inputChipBorder(
                         enabled = true,
                         selected = true,
                         borderColor = Lime500,

@@ -22,6 +22,8 @@ import {
   type ServiceTypeFilter,
 } from "@/components/map/ServiceMap";
 import { getCityOptions } from "@/constants/turkishCities";
+import { HERO_TEXTS } from "@/constants/heroTexts.ts";
+import { useNavigate } from "react-router-dom";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -176,7 +178,7 @@ function FilterPill({
             ${
               isActive
                 ? "border-current font-semibold filter-pill-active"
-                : "border-[var(--gray-6)] text-[var(--gray-11)]"
+                : "text-[var(--gray-11)]"
             }
           `}
         >
@@ -248,7 +250,7 @@ function ForYouExplanationContent({
               as="div"
               size="1"
               weight="medium"
-              className="uppercase tracking-[0.18em] text-lime-950/65 dark:text-lime-50/70"
+              className="uppercase tracking-[0.18em]"
             >
               For You
             </Text>
@@ -277,11 +279,7 @@ function ForYouExplanationContent({
           size="2"
           className="leading-6 text-[var(--gray-11)]"
         >
-          We rank these suggestions using the interests on your profile, your
-          city or distance filters, and activity signals like saved or
-          completed exchanges. If we do not have enough signals yet, we may
-          temporarily show nearby posts instead. Update your Interests to make
-          the next recommendations more relevant.
+          { HERO_TEXTS.forYouDescription }
         </Text>
 
         <Button
@@ -310,6 +308,8 @@ export function DashboardFilterBar({
   onOpenForYouSettings,
 }: DashboardFilterBarProps) {
   const activeTagCount = filters.selectedTags.length;
+
+  const navigate = useNavigate();
 
   const tagsLabel = useMemo(() => {
     if (activeTagCount === 0) return "Tags";
@@ -732,6 +732,21 @@ export function DashboardFilterBar({
           )}
         </Flex>
       </FilterPill>
+
+      <button
+          className={`
+                filter-pill inline-flex items-center gap-1.5 whitespace-nowrap
+                text-[var(--gray-11)]
+                rounded-full border px-4 py-2 text-sm font-medium
+                transition-all duration-200 hover:shadow-sm 
+              `}
+          onClick={() => navigate("/forum?tab=communities") }
+      >
+        Communities & Events
+        <span className={"text-[var(--accent-a11)]"}>
+          • New
+        </span>
+      </button>
 
       {/* Clear all */}
       {!isDefault(filters) && (

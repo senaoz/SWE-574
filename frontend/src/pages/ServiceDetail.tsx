@@ -18,12 +18,12 @@ import {
   PotentialMatchItem,
 } from "@/types";
 import {
-  chatApi,
   servicesApi,
   usersApi,
   joinRequestsApi,
   forumApi,
   commentsApi,
+  chatApi,
 } from "@/services/api";
 import { ImageGallery } from "@/components/ui/ImageGallery";
 import { useUser } from "@/App";
@@ -43,6 +43,7 @@ import {
   AlertOctagonIcon,
   CalendarRangeIcon,
   MessageCircleIcon,
+  PinIcon,
 } from "lucide-react";
 import {
   calculateDistance,
@@ -232,6 +233,8 @@ export function ServiceDetail() {
   const { currentUserId, user: currentUser } = useUser();
   const queryClient = useQueryClient();
   const { savedServiceIds } = useSavedServiceIds();
+  const canPinPlatform =
+    currentUser?.role === "admin" || currentUser?.role === "moderator";
 
   const {
     data: potentialMatchesData,
@@ -253,7 +256,8 @@ export function ServiceDetail() {
     retry: false,
   });
 
-  const isSaved = service?.is_saved ?? (id ? savedServiceIds.includes(id) : false);
+  const isSaved =
+    service?.is_saved ?? (id ? savedServiceIds.includes(id) : false);
   const saveMutation = useMutation({
     mutationFn: (serviceId: string) => servicesApi.saveService(serviceId),
     onSuccess: () => {
@@ -421,6 +425,23 @@ export function ServiceDetail() {
     );
   }
 
+  const handleStartChat = async () => {
+    if (!currentUserId || !service) return;
+    try {
+      const { data } = await chatApi.createChatRoom({
+        participant_ids: [currentUserId, service.user_id],
+        service_id: service._id,
+      });
+      navigate(
+        data?._id
+          ? `/profile?tab=chat&room_id=${data._id}`
+          : "/profile?tab=chat",
+      );
+    } catch (error) {
+      console.error("Error starting chat:", error);
+    }
+  };
+
   const formatTimeString = (timeString: string) => {
     const [hours, minutes] = timeString.split(":");
     const d = new Date();
@@ -482,6 +503,15 @@ export function ServiceDetail() {
       navigate(-1);
     } catch (error) {
       console.error("Error deleting service:", error);
+    }
+  };
+  const handlePin = async () => {
+    if (!id || !service) return;
+    try {
+      const res = await servicesApi.pinService(id, !service.is_pinned);
+      setService(res.data);
+    } catch (error) {
+      console.error("Error pinning service:", error);
     }
   };
   const handleCancelRequest = async () => {
@@ -587,6 +617,12 @@ export function ServiceDetail() {
                     REMOTE
                   </Badge>
                 )}
+                {service.is_pinned && (
+                  <Badge color="violet" variant="soft" size="2">
+                    <PinIcon className="w-3 h-3 mr-1" />
+                    Pinned by moderator
+                  </Badge>
+                )}
                 <Text size="2" color="gray">
                   Posted {formatDateLong(service.created_at)}
                 </Text>
@@ -622,7 +658,12 @@ export function ServiceDetail() {
               </Text>
               <Text size="3">{service.max_participants ?? "No limit"}</Text>
               {(() => {
-                const status = getCapacityStatus({ ...service, matched_user_ids: service.matched_user_ids?.length ? service.matched_user_ids : participants.map(p => p._id) });
+                const status = getCapacityStatus({
+                  ...service,
+                  matched_user_ids: service.matched_user_ids?.length
+                    ? service.matched_user_ids
+                    : participants.map((p) => p._id),
+                });
                 if (!status) return null;
                 if (status.type === "full")
                   return (
@@ -720,19 +761,28 @@ export function ServiceDetail() {
             )}
           {/* Action buttons */}
           <div className="flex flex-wrap gap-3">
+            {canPinPlatform && (
+              <Button
+                variant="soft"
+                color={service.is_pinned ? "gray" : "violet"}
+                size="3"
+                onClick={handlePin}
+              >
+                <PinIcon className="w-4 h-4" />
+                {service.is_pinned ? "Unpin" : "Pin"}
+              </Button>
+            )}
             {/* Edit button for owner or admin */}
-            {(service.status === "active" &&
-              service.user_id === currentUserId) ||
-              (currentUser?.role === "admin" && (
-                <Button
-                  variant="soft"
-                  size="3"
-                  onClick={() => setEditDialogOpen(true)}
-                >
-                  <Pencil1Icon className="w-4 h-4" />
-                  Edit
-                </Button>
-              ))}
+            {(isServingUser || currentUser?.role === "admin") && (
+              <Button
+                variant="soft"
+                size="3"
+                onClick={() => setEditDialogOpen(true)}
+              >
+                <Pencil1Icon className="w-4 h-4" />
+                Edit
+              </Button>
+            )}
             {/* Delete button for admins */}
             {currentUser?.role === "admin" && (
               <Button
@@ -819,12 +869,12 @@ export function ServiceDetail() {
                 You're joining
               </Button>
             )}
-            <StartChatButton
-              disabled={isServingUser}
-              otherUserIds={[service.user_id]}
-              service_id={service._id}
-              transaction_id={undefined}
-            />
+            {currentUserId && service.user_id !== currentUserId && (
+              <Button variant="soft" size="3" onClick={handleStartChat}>
+                <MessageCircleIcon className="w-4 h-4" />
+                Message
+              </Button>
+            )}
             <Button
               variant={isSaved ? "solid" : "soft"}
               color={isSaved ? "red" : undefined}
@@ -1109,7 +1159,16 @@ export function ServiceDetail() {
             />
           )}
 
-          <ServiceStatusBar status={service.status as "active" | "in_progress" | "completed" | "cancelled" | "expired"} />
+          <ServiceStatusBar
+            status={
+              service.status as
+                | "active"
+                | "in_progress"
+                | "completed"
+                | "cancelled"
+                | "expired"
+            }
+          />
 
           {linkedEvents.length > 0 && (
             <Card className="p-4">
@@ -1145,11 +1204,17 @@ export function ServiceDetail() {
 
           <CommentSection
             fetchComments={() =>
-              commentsApi.getServiceComments(service._id).then((r) => r.data.comments)
+              commentsApi
+                .getServiceComments(service._id)
+                .then((r) => r.data.comments)
             }
             postComment={(content, imageUrls) =>
               commentsApi
-                .createComment({ content, service_id: service._id, ...(imageUrls ? { image_urls: imageUrls } : {}) })
+                .createComment({
+                  content,
+                  service_id: service._id,
+                  ...(imageUrls ? { image_urls: imageUrls } : {}),
+                })
                 .then((r) => r.data)
             }
             title="Comments & Ideas"
@@ -1159,11 +1224,21 @@ export function ServiceDetail() {
               const isOwner = String(service.user_id ?? "") === uid;
               const isParticipant =
                 !isOwner &&
-                service.matched_user_ids?.some((id) => String(id ?? "") === uid);
+                service.matched_user_ids?.some(
+                  (id) => String(id ?? "") === uid,
+                );
               return (
                 <>
-                  {isOwner && <Badge color="amber" size="1">Owner</Badge>}
-                  {isParticipant && <Badge color="blue" size="1">Participant</Badge>}
+                  {isOwner && (
+                    <Badge color="amber" size="1">
+                      Owner
+                    </Badge>
+                  )}
+                  {isParticipant && (
+                    <Badge color="blue" size="1">
+                      Participant
+                    </Badge>
+                  )}
                 </>
               );
             }}
@@ -1173,60 +1248,3 @@ export function ServiceDetail() {
     </>
   );
 }
-export const StartChatButton = ({
-  disabled,
-  otherUserIds,
-  service_id = undefined,
-  transaction_id = undefined,
-}: {
-  disabled: boolean;
-  otherUserIds: string[];
-  service_id: string | undefined;
-  transaction_id: string | undefined;
-}) => {
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const { currentUserId } = useUser();
-  const handleStartChat = async () => {
-    try {
-      if (!currentUserId) {
-        console.error("No current user ID found");
-        return;
-      }
-      const allParticipants = [currentUserId, ...otherUserIds];
-      await chatApi
-        .createOrGetChatRoom(allParticipants)
-        .then((response) => {
-          navigate(
-            response.data._id
-              ? `/chat/${response.data._id}`
-              : "/profile?tab=chat",
-          );
-        })
-        .catch((error) => {
-          console.error("Error starting chat:", error);
-          if (
-            error.response?.data?.detail?.includes(
-              "Chat room already exists for these participants:",
-            )
-          ) {
-            queryClient.invalidateQueries({ queryKey: ["chat-rooms"] });
-            navigate("/profile?tab=chat");
-          }
-        });
-    } catch (error) {
-      console.error("Error starting chat:", error);
-    }
-  };
-  return (
-    <Button
-      variant="soft"
-      size="3"
-      onClick={handleStartChat}
-      disabled={disabled}
-    >
-      <MessageCircleIcon className="w-4 h-4" />
-      Start Chat
-    </Button>
-  );
-};

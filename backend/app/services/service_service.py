@@ -18,6 +18,10 @@ from ..models.user import UserResponse
 from ..core.database import get_database
 from .content_moderation_service import is_offensive
 
+PINNED_LIMIT = 2
+SERVICE_MATCH_NOTIFICATION_LIMIT = 5
+
+
 def _ensure_non_offensive(value: Optional[str], field_name: str) -> None:
     if isinstance(value, str) and value.strip() and is_offensive(value):
         raise ValueError(f"{field_name} contains offensive language")
@@ -280,6 +284,12 @@ class ServiceService:
     def _normalize_text_value(value: Optional[str]) -> str:
         return str(value or "").strip().lower()
 
+    @staticmethod
+    def _normalize_service_type_value(value) -> str:
+        if isinstance(value, ServiceType):
+            return value.value
+        return str(value or "").strip().lower()
+
     def _build_tag_filter_conditions(self, tags: List[str]) -> List[dict]:
         return [
             {"tags": {"$in": tags}},
@@ -287,16 +297,19 @@ class ServiceService:
             {"tags.entityId": {"$in": tags}},
         ]
 
+    @staticmethod
+    def _tokenize_query(query: str) -> List[str]:
+        tokens = [t for t in query.split() if len(t) >= 2]
+        return tokens if tokens else [query.strip()]
+
     def _build_search_conditions(self, query_text: str) -> List[dict]:
-        escaped = re.escape(query_text)
-        return [
-            {"title": {"$regex": escaped, "$options": "i"}},
-            {"description": {"$regex": escaped, "$options": "i"}},
-            {"category": {"$regex": escaped, "$options": "i"}},
-            {"tags.label": {"$regex": escaped, "$options": "i"}},
-            {"tags.entityId": {"$regex": escaped, "$options": "i"}},
-            {"location.address": {"$regex": escaped, "$options": "i"}},
-        ]
+        fields = ["title", "description", "category", "tags.label", "tags.entityId", "location.address"]
+        conditions = []
+        for token in self._tokenize_query(query_text):
+            escaped = re.escape(token)
+            for field in fields:
+                conditions.append({field: {"$regex": escaped, "$options": "i"}})
+        return conditions
 
     def _build_recommendation_query(
         self,
@@ -455,7 +468,9 @@ class ServiceService:
     def _build_service_match_context(self, service_like: dict) -> dict:
         return {
             "title": str(service_like.get("title") or "").strip(),
-            "service_type": self._normalize_text_value(service_like.get("service_type")),
+            "service_type": self._normalize_service_type_value(
+                service_like.get("service_type")
+            ),
             "tags": self._get_tag_labels(service_like.get("tags")),
             "category": self._normalize_text_value(service_like.get("category")),
             "keywords": self._tokenize_text(
@@ -1037,7 +1052,10 @@ class ServiceService:
 
             address_text = self._normalize_text_value(location.get("address"))
             city_match = bool(normalized_city and normalized_city in address_text)
-            search_match = bool(search_text and search_text in content_blob)
+            search_tokens = search_text.split() if search_text else []
+            matched_token_count = sum(1 for t in search_tokens if t in content_blob)
+            search_match = matched_token_count > 0
+            search_score = matched_token_count / len(search_tokens) if search_tokens else 0.0
 
             has_recommendation_signal = (
                 active_service_match_score >= 0.2
@@ -1081,7 +1099,7 @@ class ServiceService:
                 + saved_similarity * 3.4
                 + transaction_similarity * 3.0
                 + (0.8 if city_match else 0.0)
-                + (0.8 if search_match else 0.0)
+                + 0.8 * search_score
                 + self._calculate_recency_score(service_doc) * 0.5
             )
 
@@ -1139,6 +1157,143 @@ class ServiceService:
 
         return [], 0, "empty", show_profile_prompt
 
+    async def _user_wants_service_match_notifications(self, user_id: str) -> bool:
+        user_doc = await self.users_collection.find_one(
+            {"_id": self._normalize_object_id(user_id)},
+            {"service_matches_notifications": 1},
+        )
+        return bool((user_doc or {}).get("service_matches_notifications", True))
+
+    async def _get_service_match_notification_candidates(
+        self,
+        source_service_doc: dict,
+        limit: int = SERVICE_MATCH_NOTIFICATION_LIMIT,
+    ) -> List[Tuple[dict, float]]:
+        source_context = self._build_service_match_context(source_service_doc)
+        source_type = source_context.get("service_type")
+        if source_type == ServiceType.OFFER.value:
+            target_service_type = ServiceType.NEED
+        elif source_type == ServiceType.NEED.value:
+            target_service_type = ServiceType.OFFER
+        else:
+            return []
+
+        source_owner_id = str(source_service_doc.get("user_id"))
+        cursor = (
+            self.services_collection.find(
+                {
+                    "service_type": target_service_type,
+                    "status": ServiceStatus.ACTIVE,
+                }
+            )
+            .sort("created_at", -1)
+            .limit(200)
+        )
+
+        candidates: List[Tuple[dict, float]] = []
+        async for candidate_doc in cursor:
+            candidate_doc = self._normalize_service_doc(candidate_doc)
+            candidate_id = str(candidate_doc.get("_id"))
+            if candidate_id == str(source_service_doc.get("_id")):
+                continue
+            if str(candidate_doc.get("user_id")) == source_owner_id:
+                continue
+            if self._is_service_full(candidate_doc):
+                continue
+
+            score, _ = self._score_active_service_complement(
+                candidate_doc=candidate_doc,
+                active_service_contexts=[source_context],
+            )
+            if score >= 0.2:
+                candidates.append((candidate_doc, score))
+
+        candidates.sort(
+            key=lambda item: (
+                item[1],
+                item[0].get("created_at") or datetime.min,
+            ),
+            reverse=True,
+        )
+        return candidates[:limit]
+
+    async def _create_service_match_notification_if_needed(
+        self,
+        user_id: str,
+        title: str,
+        body: str,
+        related_id: str,
+    ) -> None:
+        if not await self._user_wants_service_match_notifications(user_id):
+            return
+
+        from .notification_service import NotificationService
+        from ..models.notification import NotificationType, NotificationRelatedType
+
+        existing = await self.db.notifications.find_one(
+            {
+                "user_id": self._normalize_object_id(user_id),
+                "type": NotificationType.SERVICE_MATCH,
+                "body": body,
+                "related_id": related_id,
+                "related_type": NotificationRelatedType.SERVICE,
+            },
+            {"_id": 1},
+        )
+        if existing:
+            return
+
+        notif_service = NotificationService(self.db)
+        await notif_service.create_notification(
+            user_id=user_id,
+            notification_type=NotificationType.SERVICE_MATCH,
+            title=title,
+            body=body,
+            related_id=related_id,
+            related_type=NotificationRelatedType.SERVICE,
+        )
+
+    async def _notify_service_matches_for_new_service(
+        self,
+        new_service_doc: dict,
+    ) -> None:
+        candidates = await self._get_service_match_notification_candidates(
+            new_service_doc
+        )
+        if not candidates:
+            return
+
+        new_service_id = str(new_service_doc.get("_id"))
+        new_owner_id = str(new_service_doc.get("user_id"))
+        new_title = str(new_service_doc.get("title") or "A service")
+        new_type = self._normalize_service_type_value(
+            new_service_doc.get("service_type")
+        )
+
+        top_candidate_doc = candidates[0][0]
+        top_candidate_id = str(top_candidate_doc.get("_id"))
+        top_candidate_title = str(top_candidate_doc.get("title") or "a service")
+
+        await self._create_service_match_notification_if_needed(
+            user_id=new_owner_id,
+            title="New service match",
+            body=f"'{top_candidate_title}' matches your {new_type} '{new_title}'",
+            related_id=top_candidate_id,
+        )
+
+        for candidate_doc, _ in candidates:
+            candidate_owner_id = str(candidate_doc.get("user_id"))
+            candidate_title = str(candidate_doc.get("title") or "your service")
+            candidate_type = self._normalize_service_type_value(
+                candidate_doc.get("service_type")
+            )
+            await self._create_service_match_notification_if_needed(
+                user_id=candidate_owner_id,
+                title="New service match",
+                body=f"'{new_title}' matches your {candidate_type} '{candidate_title}'",
+                related_id=new_service_id,
+            )
+
     async def create_service(self, service_data: ServiceCreate, user_id: str) -> ServiceResponse:
         """Create a new service"""
         try:
@@ -1186,6 +1341,9 @@ class ServiceService:
                 **service_dict,
                 "user_id": ObjectId(user_id),
                 "status": ServiceStatus.ACTIVE,
+                "is_pinned": False,
+                "pinned_by": None,
+                "pinned_at": None,
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow(),
                 "matched_user_ids": [],
@@ -1201,6 +1359,11 @@ class ServiceService:
 
             # Convert GeoJSON back for response
             service_doc = self._normalize_service_doc(service_doc)
+
+            try:
+                await self._notify_service_matches_for_new_service(service_doc)
+            except Exception as e:
+                print(f"Warning: Failed to send service match notifications: {e}")
 
             return ServiceResponse(**service_doc)
         except Exception as e:
@@ -1257,13 +1420,7 @@ class ServiceService:
 
             # Handle free-text search
             if filters.q:
-                escaped = re.escape(filters.q)
-                search_or = [
-                    {"title": {"$regex": escaped, "$options": "i"}},
-                    {"description": {"$regex": escaped, "$options": "i"}},
-                    {"category": {"$regex": escaped, "$options": "i"}},
-                    {"tags.label": {"$regex": escaped, "$options": "i"}},
-                ]
+                search_or = self._build_search_conditions(filters.q)
                 if "$or" in query:
                     query["$and"] = [{"$or": query.pop("$or")}, {"$or": search_or}]
                 else:
@@ -1305,13 +1462,7 @@ class ServiceService:
 
                 # Handle free-text search in geo pipeline
                 if filters.q:
-                    escaped = re.escape(filters.q)
-                    search_or = [
-                        {"title": {"$regex": escaped, "$options": "i"}},
-                        {"description": {"$regex": escaped, "$options": "i"}},
-                        {"category": {"$regex": escaped, "$options": "i"}},
-                        {"tags.label": {"$regex": escaped, "$options": "i"}},
-                    ]
+                    search_or = self._build_search_conditions(filters.q)
                     if "$or" in match_stage:
                         match_stage["$and"] = [{"$or": match_stage.pop("$or")}, {"$or": search_or}]
                     else:
@@ -1322,7 +1473,7 @@ class ServiceService:
                 
                 # Add pagination
                 pipeline.extend([
-                    {"$sort": {"created_at": -1}},
+                    {"$sort": {"is_pinned": -1, "created_at": -1}},
                     {"$skip": (page - 1) * limit},
                     {"$limit": limit}
                 ])
@@ -1358,7 +1509,7 @@ class ServiceService:
                 
                 # Get services with pagination
                 skip = (page - 1) * limit
-                cursor = self.services_collection.find(query).skip(skip).limit(limit).sort("created_at", -1)
+                cursor = self.services_collection.find(query).sort([("is_pinned", -1), ("created_at", -1)]).skip(skip).limit(limit)
                 
                 services = []
                 async for service_doc in cursor:
@@ -1371,6 +1522,40 @@ class ServiceService:
                 return services, total
         except Exception as e:
             raise ValueError(f"Error fetching services: {str(e)}")
+
+    async def pin_service(self, service_id: str, user_id: str, pinned: bool) -> Optional[ServiceResponse]:
+        """Pin or unpin a service post. Platform moderator/admin permission is enforced at API layer."""
+        try:
+            oid = ObjectId(service_id)
+            existing = await self.services_collection.find_one({"_id": oid})
+            if not existing:
+                raise ValueError("Service not found")
+
+            if pinned and not existing.get("is_pinned"):
+                pinned_count = await self.services_collection.count_documents({
+                    "is_pinned": True,
+                    "_id": {"$ne": oid},
+                })
+                if pinned_count >= PINNED_LIMIT:
+                    raise ValueError("Only two service posts can be pinned at a time")
+
+            now = datetime.utcnow()
+            await self.services_collection.update_one(
+                {"_id": oid},
+                {
+                    "$set": {
+                        "is_pinned": pinned,
+                        "pinned_by": ObjectId(user_id) if pinned else None,
+                        "pinned_at": now if pinned else None,
+                        "updated_at": now,
+                    }
+                },
+            )
+            return await self.get_service_by_id(service_id, user_id)
+        except ValueError:
+            raise
+        except Exception as e:
+            raise ValueError(f"Error pinning service: {str(e)}")
 
     async def update_service(self, service_id: str, service_update: ServiceUpdate, user_id: Optional[str] = None) -> Optional[ServiceResponse]:
         """Update service"""

@@ -86,11 +86,16 @@ class CommunityResponse(BaseModel):
     avatar_url: Optional[str] = None
     member_count: int = 0
     post_count: int = 0
+    is_pinned: bool = False
+    pinned_by: Optional[PyObjectId] = None
+    pinned_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
     # Enriched fields
     founder: Optional[dict] = None
     user_membership: Optional[str] = None  # "founder" | "moderator" | "member" | None
+    target_membership: Optional[str] = None
+    is_mutual: bool = False
 
     class Config:
         populate_by_name = True
@@ -108,6 +113,15 @@ class CommunityListResponse(BaseModel):
         json_encoders = {ObjectId: str}
 
 
+class UserCommunityListResponse(BaseModel):
+    communities: List[CommunityResponse]
+    total: int
+    mutual_count: int
+
+    class Config:
+        json_encoders = {ObjectId: str}
+
+
 # ─────────────────────────── Membership ───────────────────────────
 
 class MembershipResponse(BaseModel):
@@ -118,6 +132,7 @@ class MembershipResponse(BaseModel):
     status: MemberStatus
     joined_at: datetime
     user: Optional[dict] = None
+    mutual_community_count: Optional[int] = None
 
     class Config:
         populate_by_name = True
@@ -186,6 +201,8 @@ class CommunityPostResponse(BaseModel):
     tags: List[dict] = Field(default_factory=list)
     post_type: str = "post"
     is_pinned: bool = False
+    pinned_by: Optional[PyObjectId] = None
+    pinned_at: Optional[datetime] = None
     upvote_count: int = 0
     user_upvoted: bool = False
     comment_count: int = 0

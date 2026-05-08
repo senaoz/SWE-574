@@ -9,6 +9,9 @@ from ..models.forum import (
 )
 
 
+PINNED_LIMIT = 2
+
+
 class ForumService:
     def __init__(self, db):
         self.db = db
@@ -61,6 +64,9 @@ class ForumService:
         doc = {
             **data.dict(),
             "user_id": ObjectId(user_id),
+            "is_pinned": False,
+            "pinned_by": None,
+            "pinned_at": None,
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
         }
@@ -98,7 +104,7 @@ class ForumService:
         sort_field = "upvote_count" if sort_by == "upvote_count" else "created_at"
         total = await self.discussions.count_documents(query)
         skip = (page - 1) * limit
-        cursor = self.discussions.find(query).sort(sort_field, -1).skip(skip).limit(limit)
+        cursor = self.discussions.find(query).sort([("is_pinned", -1), (sort_field, -1)]).skip(skip).limit(limit)
 
         results = []
         async for doc in cursor:
@@ -118,12 +124,12 @@ class ForumService:
         return ForumDiscussionResponse(**doc)
 
     async def update_discussion(
-        self, discussion_id: str, data: ForumDiscussionUpdate, user_id: str
+        self, discussion_id: str, data: ForumDiscussionUpdate, user_id: str, is_admin: bool = False
     ) -> Optional[ForumDiscussionResponse]:
         existing = await self.discussions.find_one({"_id": ObjectId(discussion_id)})
         if not existing:
             raise ValueError("Discussion not found")
-        if str(existing["user_id"]) != user_id:
+        if str(existing["user_id"]) != user_id and not is_admin:
             raise ValueError("Not authorized to update this discussion")
 
         update_data = {k: v for k, v in data.dict().items() if v is not None}
@@ -131,11 +137,11 @@ class ForumService:
         await self.discussions.update_one({"_id": ObjectId(discussion_id)}, {"$set": update_data})
         return await self.get_discussion_by_id(discussion_id)
 
-    async def delete_discussion(self, discussion_id: str, user_id: str) -> bool:
+    async def delete_discussion(self, discussion_id: str, user_id: str, is_admin: bool = False) -> bool:
         existing = await self.discussions.find_one({"_id": ObjectId(discussion_id)})
         if not existing:
             raise ValueError("Discussion not found")
-        if str(existing["user_id"]) != user_id:
+        if str(existing["user_id"]) != user_id and not is_admin:
             raise ValueError("Not authorized to delete this discussion")
         result = await self.discussions.delete_one({"_id": ObjectId(discussion_id)})
         if result.deleted_count:
@@ -144,6 +150,36 @@ class ForumService:
                 "$or": [{"target_id": ObjectId(discussion_id)}, {"target_id": discussion_id}],
             })
         return result.deleted_count > 0
+
+    async def pin_discussion(
+        self, discussion_id: str, user_id: str, pinned: bool
+    ) -> Optional[ForumDiscussionResponse]:
+        oid = ObjectId(discussion_id)
+        existing = await self.discussions.find_one({"_id": oid})
+        if not existing:
+            raise ValueError("Discussion not found")
+
+        if pinned and not existing.get("is_pinned"):
+            pinned_count = await self.discussions.count_documents({
+                "is_pinned": True,
+                "_id": {"$ne": oid},
+            })
+            if pinned_count >= PINNED_LIMIT:
+                raise ValueError("Only two discussions can be pinned at a time")
+
+        now = datetime.utcnow()
+        await self.discussions.update_one(
+            {"_id": oid},
+            {
+                "$set": {
+                    "is_pinned": pinned,
+                    "pinned_by": ObjectId(user_id) if pinned else None,
+                    "pinned_at": now if pinned else None,
+                    "updated_at": now,
+                }
+            },
+        )
+        return await self.get_discussion_by_id(discussion_id, user_id)
 
     # ---- Events ----
 
@@ -165,6 +201,9 @@ class ForumService:
         else:
             doc["service_id"] = None
         doc["attendee_ids"] = []
+        doc["is_pinned"] = False
+        doc["pinned_by"] = None
+        doc["pinned_at"] = None
         doc["created_at"] = datetime.utcnow()
         doc["updated_at"] = datetime.utcnow()
 
@@ -201,7 +240,7 @@ class ForumService:
         total = await self.events.count_documents(query)
         skip = (page - 1) * limit
         sort_field = sort_by if sort_by in ("event_at", "upvote_count", "created_at") else "event_at"
-        cursor = self.events.find(query).sort(sort_field, -1).skip(skip).limit(limit)
+        cursor = self.events.find(query).sort([("is_pinned", -1), (sort_field, -1)]).skip(skip).limit(limit)
 
         results = []
         async for doc in cursor:
@@ -225,12 +264,12 @@ class ForumService:
         return ForumEventResponse(**doc)
 
     async def update_event(
-        self, event_id: str, data: ForumEventUpdate, user_id: str
+        self, event_id: str, data: ForumEventUpdate, user_id: str, is_admin: bool = False
     ) -> Optional[ForumEventResponse]:
         existing = await self.events.find_one({"_id": ObjectId(event_id)})
         if not existing:
             raise ValueError("Event not found")
-        if str(existing["user_id"]) != user_id:
+        if str(existing["user_id"]) != user_id and not is_admin:
             raise ValueError("Not authorized to update this event")
 
         update_data = {k: v for k, v in data.dict().items() if v is not None}
@@ -243,11 +282,11 @@ class ForumService:
         await self.events.update_one({"_id": ObjectId(event_id)}, {"$set": update_data})
         return await self.get_event_by_id(event_id)
 
-    async def delete_event(self, event_id: str, user_id: str) -> bool:
+    async def delete_event(self, event_id: str, user_id: str, is_admin: bool = False) -> bool:
         existing = await self.events.find_one({"_id": ObjectId(event_id)})
         if not existing:
             raise ValueError("Event not found")
-        if str(existing["user_id"]) != user_id:
+        if str(existing["user_id"]) != user_id and not is_admin:
             raise ValueError("Not authorized to delete this event")
         result = await self.events.delete_one({"_id": ObjectId(event_id)})
         if result.deleted_count:
@@ -257,6 +296,36 @@ class ForumService:
             })
         return result.deleted_count > 0
 
+    async def pin_event(
+        self, event_id: str, user_id: str, pinned: bool
+    ) -> Optional[ForumEventResponse]:
+        oid = ObjectId(event_id)
+        existing = await self.events.find_one({"_id": oid})
+        if not existing:
+            raise ValueError("Event not found")
+
+        if pinned and not existing.get("is_pinned"):
+            pinned_count = await self.events.count_documents({
+                "is_pinned": True,
+                "_id": {"$ne": oid},
+            })
+            if pinned_count >= PINNED_LIMIT:
+                raise ValueError("Only two events can be pinned at a time")
+
+        now = datetime.utcnow()
+        await self.events.update_one(
+            {"_id": oid},
+            {
+                "$set": {
+                    "is_pinned": pinned,
+                    "pinned_by": ObjectId(user_id) if pinned else None,
+                    "pinned_at": now if pinned else None,
+                    "updated_at": now,
+                }
+            },
+        )
+        return await self.get_event_by_id(event_id, user_id)
+
     async def get_events_for_service(self, service_id: str) -> List[ForumEventResponse]:
         """Return all events linked to a given service (for ServiceDetail)."""
         query = {
@@ -265,7 +334,7 @@ class ForumService:
                 {"service_id": service_id},
             ]
         }
-        cursor = self.events.find(query).sort("event_at", -1)
+        cursor = self.events.find(query).sort([("is_pinned", -1), ("event_at", -1)])
         results = []
         async for doc in cursor:
             doc = await self._enrich_user(doc)
@@ -278,7 +347,7 @@ class ForumService:
     async def get_events_for_community(self, community_id: str, limit: int = 20) -> List[ForumEventResponse]:
         """Return events associated with a given community."""
         query = {"community_id": community_id}
-        cursor = self.events.find(query).sort("event_at", -1).limit(limit)
+        cursor = self.events.find(query).sort([("is_pinned", -1), ("event_at", -1)]).limit(limit)
         results = []
         async for doc in cursor:
             doc = await self._enrich_user(doc)
@@ -292,7 +361,7 @@ class ForumService:
     async def get_discussions_for_community(self, community_id: str, limit: int = 20) -> List[ForumDiscussionResponse]:
         """Return discussions associated with a given community."""
         query = {"community_id": community_id}
-        cursor = self.discussions.find(query).sort("created_at", -1).limit(limit)
+        cursor = self.discussions.find(query).sort([("is_pinned", -1), ("created_at", -1)]).limit(limit)
         results = []
         async for doc in cursor:
             doc = await self._enrich_user(doc)
@@ -431,12 +500,12 @@ class ForumService:
         return results, total
 
     async def update_comment(
-        self, comment_id: str, data: ForumCommentUpdate, user_id: str
+        self, comment_id: str, data: ForumCommentUpdate, user_id: str, is_admin: bool = False
     ) -> Optional[ForumCommentResponse]:
         existing = await self.forum_comments.find_one({"_id": ObjectId(comment_id)})
         if not existing:
             raise ValueError("Comment not found")
-        if str(existing["user_id"]) != user_id:
+        if str(existing["user_id"]) != user_id and not is_admin:
             raise ValueError("Not authorized to update this comment")
 
         update_fields: dict = {"content": data.content, "updated_at": datetime.utcnow()}
@@ -450,11 +519,11 @@ class ForumService:
         updated = await self._enrich_user(updated)
         return ForumCommentResponse(**updated)
 
-    async def delete_comment(self, comment_id: str, user_id: str) -> bool:
+    async def delete_comment(self, comment_id: str, user_id: str, is_admin: bool = False) -> bool:
         existing = await self.forum_comments.find_one({"_id": ObjectId(comment_id)})
         if not existing:
             raise ValueError("Comment not found")
-        if str(existing["user_id"]) != user_id:
+        if str(existing["user_id"]) != user_id and not is_admin:
             raise ValueError("Not authorized to delete this comment")
         result = await self.forum_comments.delete_one({"_id": ObjectId(comment_id)})
         return result.deleted_count > 0

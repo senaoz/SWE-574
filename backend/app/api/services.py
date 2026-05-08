@@ -18,6 +18,7 @@ from ..models.user import UserResponse
 from ..services.service_service import ServiceService
 from ..services.user_service import UserService
 from ..api.auth import get_current_user, get_optional_current_user
+from ..core.permissions import require_moderator_or_admin
 from ..core.database import get_database
 
 router = APIRouter(prefix="/services", tags=["services"])
@@ -365,6 +366,39 @@ async def update_service(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Error updating service: {str(e)}"
         )
+
+@router.put("/{service_id}/pin", response_model=ServiceResponse)
+async def pin_service(
+    service_id: str,
+    pinned: bool = True,
+    current_user: UserResponse = Depends(require_moderator_or_admin()),
+    db=Depends(get_database),
+):
+    """Pin or unpin a service post (admin/moderator only)."""
+    service_service = ServiceService(db)
+
+    if not ObjectId.is_valid(service_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Service not found",
+        )
+
+    try:
+        service = await service_service.pin_service(
+            service_id,
+            str(current_user.id),
+            pinned,
+        )
+        if not service:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Service not found",
+            )
+        return service
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 @router.delete("/{service_id}")
 async def delete_service(

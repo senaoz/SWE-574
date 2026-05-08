@@ -36,29 +36,29 @@ function StepIcon({
   if (stepIndex === currentStepIndex && status !== "completed") {
     if (status === "cancelled") {
       return (
-        <div className="w-8 h-8 rounded-full border-2 border-red-500 bg-white flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-red-500  flex items-center justify-center">
           <CrossCircledIcon className="w-5 h-5 text-red-500" />
         </div>
       );
     }
     if (status === "expired") {
       return (
-        <div className="w-8 h-8 rounded-full border-2 border-orange-400 bg-white flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-orange-400  flex items-center justify-center">
           <ExclamationTriangleIcon className="w-5 h-5 text-orange-400" />
         </div>
       );
     }
     // Normal active step
     return (
-      <div className="w-8 h-8 rounded-full border-2 border-green-600 bg-white flex items-center justify-center">
-        <span className="text-sm font-bold text-green-700">{stepIndex + 1}</span>
+      <div className="w-8 h-8 rounded-full border-2 border-lime-500  flex items-center justify-center">
+        <span className="text-sm font-bold text-lime-500">{stepIndex + 1}</span>
       </div>
     );
   }
 
   if (isCompleted) {
     return (
-      <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center">
+      <div className="w-8 h-8 rounded-full bg-lime-600 flex items-center justify-center">
         <CheckCircledIcon className="w-5 h-5 text-white" />
       </div>
     );
@@ -66,8 +66,8 @@ function StepIcon({
 
   // Future / not-yet-reached step
   return (
-    <div className="w-8 h-8 rounded-full border-2 border-gray-300 bg-white flex items-center justify-center">
-      <span className="text-sm font-bold text-gray-400">{stepIndex + 1}</span>
+    <div className="w-8 h-8 rounded-full border-2 opacity-70 flex items-center justify-center">
+      <span className="text-sm font-bold ">{stepIndex + 1}</span>
     </div>
   );
 }
@@ -99,12 +99,12 @@ function getLabelColor(stepIndex: number, status: ServiceStatus, currentStepInde
   if (stepIndex === currentStepIndex) {
     if (status === "cancelled") return "text-red-500";
     if (status === "expired") return "text-orange-400";
-    return "text-green-700 font-semibold";
+    return "text-[var(--accent-a11)] font-semibold";
   }
   if (stepIndex < currentStepIndex && status !== "cancelled" && status !== "expired") {
-    return "text-green-700 font-semibold";
+    return "text-[var(--accent-a11)] font-semibold";
   }
-  return "text-gray-400";
+  return "text-[var(--gray-a11)]";
 }
 
 function ConnectorLine({
@@ -116,6 +116,7 @@ function ConnectorLine({
   currentStepIndex: number;
   status: ServiceStatus;
 }) {
+<<<<<<< fix/service-status-bar
   if (fromIndex < currentStepIndex) {
     if (status === "cancelled") {
       return <div className="flex-1 h-0.5 mt-4 mx-1 bg-red-400" />;
@@ -126,19 +127,27 @@ function ConnectorLine({
     return <div className="flex-1 h-0.5 mt-4 mx-1 bg-green-500" />;
   }
   return <div className="flex-1 h-0.5 mt-4 mx-1 bg-gray-200" />;
+=======
+  const isActive = fromIndex < currentStepIndex && status !== "cancelled" && status !== "expired";
+  return (
+    <div
+      className={`flex-1 h-0.5 mt-4 mx-1 ${isActive ? "bg-lime-500" : "bg-[var(--accent-a8)]"}`}
+    />
+  );
+>>>>>>> main
 }
 
 export function ServiceStatusBar({ status }: ServiceStatusBarProps) {
   const currentStepIndex = getStepIndexForStatus(status);
 
   return (
-    <Card className="p-4">
+    <Card className="p-6">
       <Text size="1" weight="bold" color="gray" className="uppercase tracking-wider mb-4 block">
         Service Status
       </Text>
       <div className="flex items-start">
         {STEPS.map((step, idx) => (
-          <div key={step.key} className="flex items-start flex-1">
+          <div key={step.key} className={`flex items-start ${idx < STEPS.length - 1 ? "flex-1" : ""}`}>
             {/* Step */}
             <div className="flex flex-col items-center w-10 shrink-0">
               <StepIcon stepIndex={idx} status={status} currentStepIndex={currentStepIndex} />

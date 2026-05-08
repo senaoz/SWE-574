@@ -142,6 +142,19 @@ class ServicesRepository @Inject constructor(
         }
     }
 
+    suspend fun pinService(serviceId: String, pinned: Boolean): Result<ServiceResponse> {
+        return try {
+            val response = servicesApi.pinService(serviceId, pinned)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(HttpException(response))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun saveService(serviceId: String): Result<Unit> {
         return try {
             val response = servicesApi.saveService(serviceId)
