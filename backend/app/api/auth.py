@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
@@ -5,17 +6,20 @@ import httpx
 
 from ..core.database import get_database
 from ..core.security import (
-    verify_password, 
-    get_password_hash, 
-    create_access_token, 
+    verify_password,
+    get_password_hash,
+    create_access_token,
     verify_token,
+    create_verification_token,
+    verify_email_token,
     get_google_user_info,
-    get_github_user_info
+    get_github_user_info,
 )
 from ..core.config import settings
 from ..models.user import UserCreate, UserLogin, UserResponse, OAuthUserCreate, UserRole
 from ..services.user_service import UserService
 from ..services.auth_service import AuthService, LoginNotAllowedError
+from ..services.email_service import send_verification_email
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 security = HTTPBearer()
@@ -119,6 +123,12 @@ async def register(user_data: UserCreate, db=Depends(get_database)):
     
     # Create user
     user = await auth_service.create_user(user_data)
+    # Send verification email (non-blocking — failure is logged, not raised)
+    try:
+        token = create_verification_token(user.email)
+        await send_verification_email(user.email, token)
+    except Exception:
+        pass
     # Create access token so user is signed in immediately
     access_token = create_access_token(data={"sub": str(user.id)})
     return {
@@ -263,3 +273,31 @@ async def oauth_callback(
 async def get_current_user_info(current_user: UserResponse = Depends(get_current_user)):
     """Get current user information"""
     return current_user
+
+
+@router.get("/verify-email")
+async def verify_email(token: str, db=Depends(get_database)):
+    """Verify email address using the token sent by email"""
+    email = verify_email_token(token)
+    result = await db.users.update_one(
+        {"email": email},
+        {"$set": {"is_verified": True, "updated_at": datetime.utcnow()}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return {"message": "Email verified successfully"}
+
+
+@router.post("/resend-verification")
+async def resend_verification_email(
+    current_user: UserResponse = Depends(get_current_user),
+):
+    """Resend the email verification link to the current user"""
+    if current_user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email is already verified",
+        )
+    token = create_verification_token(current_user.email)
+    await send_verification_email(current_user.email, token)
+    return {"message": "Verification email sent"}

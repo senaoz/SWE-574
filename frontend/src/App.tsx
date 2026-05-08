@@ -18,6 +18,7 @@ import { ForumDiscussionDetail } from "@/pages/ForumDiscussionDetail";
 import { ForumEventDetail } from "@/pages/ForumEventDetail";
 import { CommunityDetail } from "@/pages/CommunityDetail";
 import { CommunityPostDetail } from "@/pages/CommunityPostDetail";
+import { VerifyEmail } from "@/pages/VerifyEmail";
 import { Layout } from "@/components/layout/Layout";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -77,6 +78,7 @@ function App() {
               <Layout>
                 <Routes>
                   <Route path="/" element={<Home />} />
+                  <Route path="/verify-email" element={<VerifyEmail />} />
                   <Route
                     path="/register"
                     element={

@@ -164,6 +164,12 @@ export const authApi = {
   
   getMe: (): Promise<AxiosResponse<User>> =>
     api.get('/auth/me'),
+
+  verifyEmail: (token: string): Promise<AxiosResponse<{ message: string }>> =>
+    api.get(`/auth/verify-email?token=${token}`),
+
+  resendVerification: (): Promise<AxiosResponse<{ message: string }>> =>
+    api.post('/auth/resend-verification'),
 };
 
 // Users API

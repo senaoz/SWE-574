@@ -35,6 +35,33 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.jwt_algorithm)
     return encoded_jwt
 
+def create_verification_token(email: str) -> str:
+    """Create a 24-hour email verification JWT"""
+    expire = datetime.utcnow() + timedelta(hours=24)
+    return jwt.encode(
+        {"sub": email, "type": "email_verification", "exp": expire},
+        settings.secret_key,
+        algorithm=settings.jwt_algorithm,
+    )
+
+
+def verify_email_token(token: str) -> str:
+    """Validate an email verification token and return the email address"""
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
+        if payload.get("type") != "email_verification":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token type")
+        email = payload.get("sub")
+        if not email:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token")
+        return email
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification token",
+        )
+
+
 def verify_token(token: str) -> dict:
     """Verify and decode JWT token"""
     try:
