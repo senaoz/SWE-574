@@ -629,21 +629,30 @@ class ServiceService:
             raise ValueError(f"Error fetching participants: {str(e)}")
 
     async def check_and_handle_expired_services(self) -> int:
-        """Check for services with passed deadlines and reject pending requests"""
+        """Check for services with passed deadlines or specific dates and reject pending requests"""
         try:
             from .join_request_service import JoinRequestService
-            
+
             now = datetime.utcnow()
-            
-            # Find active services with passed deadlines
+            today_str = now.strftime("%Y-%m-%d")
+
+            # Find active/in_progress services that are past their deadline OR specific_date
             expired_services = await self.services_collection.find({
                 "status": {"$in": [ServiceStatus.ACTIVE, ServiceStatus.IN_PROGRESS]},
-                "deadline": {"$exists": True, "$lt": now}
+                "$or": [
+                    # Classic deadline field
+                    {"deadline": {"$exists": True, "$ne": None, "$lt": now}},
+                    # Specific-date scheduling: date string earlier than today
+                    {
+                        "scheduling_type": "specific",
+                        "specific_date": {"$exists": True, "$ne": None, "$lt": today_str}
+                    },
+                ]
             }).to_list(length=None)
-            
+
             join_request_service = JoinRequestService(self.db)
             total_rejected = 0
-            
+
             for service in expired_services:
                 # Update service status to expired if it's still active
                 if service["status"] == ServiceStatus.ACTIVE:
@@ -656,7 +665,7 @@ class ServiceService:
                             }
                         }
                     )
-                
+
                 # Reject all pending requests
                 try:
                     rejected_count = await join_request_service.reject_pending_requests_for_service(
@@ -666,7 +675,7 @@ class ServiceService:
                     total_rejected += rejected_count
                 except Exception as e:
                     print(f"Warning: Failed to reject requests for service {service['_id']}: {str(e)}")
-            
+
             return total_rejected
         except Exception as e:
             raise ValueError(f"Error checking expired services: {str(e)}")

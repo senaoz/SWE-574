@@ -1,10 +1,11 @@
+import asyncio
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from .core.config import settings
-from .core.database import connect_to_mongo, close_mongo_connection
+from .core.database import connect_to_mongo, close_mongo_connection, get_database
 from .api import auth, users, services, admin, comments, join_requests, transactions, chat, wikidata, ratings, forum
 
 logging.basicConfig(
@@ -13,14 +14,40 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+EXPIRY_CHECK_INTERVAL_SECONDS = 3600  # Her saat başı çalışır
+
+async def run_expiry_checker():
+    """Süresi geçmiş servisleri periyodik olarak expired'a çeker."""
+    from .services.service_service import ServiceService
+    # Uygulama başlarken DB bağlantısı hazır olsun diye kısa bekle
+    await asyncio.sleep(5)
+    while True:
+        try:
+            db = get_database()
+            service_service = ServiceService(db)
+            rejected = await service_service.check_and_handle_expired_services()
+            if rejected:
+                logger.info(f"Expiry check: {rejected} pending request(s) rejected.")
+            else:
+                logger.debug("Expiry check: no expired services found.")
+        except Exception as e:
+            logger.error(f"Expiry check error: {e}")
+        await asyncio.sleep(EXPIRY_CHECK_INTERVAL_SECONDS)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     logger.info("Connecting to MongoDB...")
     await connect_to_mongo()
     logger.info("Application startup complete")
+    expiry_task = asyncio.create_task(run_expiry_checker())
     yield
     # Shutdown
+    expiry_task.cancel()
+    try:
+        await expiry_task
+    except asyncio.CancelledError:
+        pass
     await close_mongo_connection()
     logger.info("Application shutdown complete")
 

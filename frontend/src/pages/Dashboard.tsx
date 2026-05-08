@@ -66,16 +66,22 @@ export function Dashboard() {
   }, []);
 
   useEffect(() => {
+    const now = new Date();
     forumApi
       .getEvents({ has_location: true, limit: 200 })
-      .then((r) => setForumEvents(r.data.events || []))
+      .then((r) => {
+        const upcomingEvents = (r.data.events || []).filter(
+          (e) => new Date(e.event_at) >= now,
+        );
+        setForumEvents(upcomingEvents);
+      })
       .catch(() => setForumEvents([]));
   }, []);
 
   const fetchServices = async () => {
     try {
       setLoading(true);
-      const response = await servicesApi.getServices();
+      const response = await servicesApi.getServices({ status: "active" });
       console.log(response.data);
       setServices(response.data.services || []);
       setFilteredServices(response.data.services || []);
