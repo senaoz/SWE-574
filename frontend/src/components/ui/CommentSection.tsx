@@ -9,19 +9,30 @@ import {
   Badge,
 } from "@radix-ui/themes";
 import { Comment, Service } from "@/types";
-import { ChatBubbleIcon, PaperPlaneIcon } from "@radix-ui/react-icons";
+import {
+  ChatBubbleIcon,
+  PaperPlaneIcon,
+  Pencil1Icon,
+  TrashIcon,
+  CheckIcon,
+  Cross2Icon,
+} from "@radix-ui/react-icons";
 import { commentsApi, servicesApi } from "@/services/api";
+import { useUser } from "@/App";
 
 interface CommentSectionProps {
   serviceId: string;
 }
 
 export function CommentSection({ serviceId }: CommentSectionProps) {
+  const { currentUserId } = useUser();
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [service, setService] = useState<Service | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
 
   // Fetch comments and service on component mount
   useEffect(() => {
@@ -47,6 +58,42 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
       console.error("Error fetching comments:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleEditStart = (comment: Comment) => {
+    setEditingId(comment._id);
+    setEditContent(comment.content);
+  };
+
+  const handleEditCancel = () => {
+    setEditingId(null);
+    setEditContent("");
+  };
+
+  const handleEditSave = async (commentId: string) => {
+    if (!editContent.trim()) return;
+    try {
+      const response = await commentsApi.updateComment(commentId, {
+        content: editContent.trim(),
+      });
+      setComments((prev) =>
+        prev.map((c) => (c._id === commentId ? response.data : c))
+      );
+      setEditingId(null);
+      setEditContent("");
+    } catch (error) {
+      console.error("Error updating comment:", error);
+    }
+  };
+
+  const handleDelete = async (commentId: string) => {
+    if (!window.confirm("Delete this comment?")) return;
+    try {
+      await commentsApi.deleteComment(commentId);
+      setComments((prev) => prev.filter((c) => c._id !== commentId));
+    } catch (error) {
+      console.error("Error deleting comment:", error);
     }
   };
 
@@ -144,6 +191,8 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
               service &&
               (service.user_id === comment.user_id ||
                 service.matched_user_ids?.includes(comment.user_id));
+            const isOwner = currentUserId === comment.user_id;
+            const isEditing = editingId === comment._id;
             return (
               <div key={comment._id} className="flex gap-3">
                 <Avatar
@@ -163,10 +212,58 @@ export function CommentSection({ serviceId }: CommentSectionProps) {
                     <Text size="1" color="gray">
                       {formatDate(comment.created_at)}
                     </Text>
+                    {isOwner && !isEditing && (
+                      <Flex gap="1" className="ml-auto">
+                        <Button
+                          size="1"
+                          variant="ghost"
+                          color="gray"
+                          onClick={() => handleEditStart(comment)}
+                        >
+                          <Pencil1Icon />
+                        </Button>
+                        <Button
+                          size="1"
+                          variant="ghost"
+                          color="red"
+                          onClick={() => handleDelete(comment._id)}
+                        >
+                          <TrashIcon />
+                        </Button>
+                      </Flex>
+                    )}
                   </Flex>
-                  <Text size="2" className="leading-relaxed">
-                    {comment.content}
-                  </Text>
+                  {isEditing ? (
+                    <div>
+                      <TextArea
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        rows={3}
+                        className="mb-2"
+                      />
+                      <Flex gap="2">
+                        <Button
+                          size="1"
+                          onClick={() => handleEditSave(comment._id)}
+                          disabled={!editContent.trim()}
+                        >
+                          <CheckIcon /> Save
+                        </Button>
+                        <Button
+                          size="1"
+                          variant="soft"
+                          color="gray"
+                          onClick={handleEditCancel}
+                        >
+                          <Cross2Icon /> Cancel
+                        </Button>
+                      </Flex>
+                    </div>
+                  ) : (
+                    <Text size="2" className="leading-relaxed">
+                      {comment.content}
+                    </Text>
+                  )}
                 </div>
               </div>
             );

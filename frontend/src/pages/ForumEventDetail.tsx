@@ -17,11 +17,16 @@ import {
   GlobeIcon,
   PaperPlaneIcon,
   Link2Icon,
+  Pencil1Icon,
+  TrashIcon,
+  CheckIcon,
+  Cross2Icon,
 } from "@radix-ui/react-icons";
 import { forumApi } from "@/services/api";
 import { ForumEvent, ForumComment } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
 import ReactMarkdown from "react-markdown";
+import { useUser } from "@/App";
 
 function timeAgo(dateStr: string) {
   const now = Date.now();
@@ -40,11 +45,14 @@ function timeAgo(dateStr: string) {
 export function ForumEventDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { currentUserId } = useUser();
   const [event, setEvent] = useState<ForumEvent | null>(null);
   const [comments, setComments] = useState<ForumComment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -64,6 +72,42 @@ export function ForumEventDetail() {
       }
     })();
   }, [id]);
+
+  const handleEditStart = (c: ForumComment) => {
+    setEditingId(c._id);
+    setEditContent(c.content);
+  };
+
+  const handleEditCancel = () => {
+    setEditingId(null);
+    setEditContent("");
+  };
+
+  const handleEditSave = async (commentId: string) => {
+    if (!editContent.trim()) return;
+    try {
+      const res = await forumApi.updateComment(commentId, {
+        content: editContent.trim(),
+      });
+      setComments((prev) =>
+        prev.map((c) => (c._id === commentId ? res.data : c))
+      );
+      setEditingId(null);
+      setEditContent("");
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDelete = async (commentId: string) => {
+    if (!window.confirm("Delete this comment?")) return;
+    try {
+      await forumApi.deleteComment(commentId);
+      setComments((prev) => prev.filter((c) => c._id !== commentId));
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const handlePostComment = async () => {
     if (!newComment.trim() || !id) return;
@@ -232,43 +276,95 @@ export function ForumEventDetail() {
 
         {/* Comment list */}
         <div className="space-y-4">
-          {comments.map((c) => (
-            <div key={c._id} className="flex gap-3">
-              <Avatar
-                size="2"
-                src={c.user?.profile_picture}
-                fallback={
-                  c.user?.full_name?.[0] || c.user?.username?.[0] || "?"
-                }
-              />
-              <div className="flex-1">
-                <Flex gap="2" align="center" className="mb-1">
-                  <Text size="2" weight="bold">
-                    {c.user?.full_name || c.user?.username || "Unknown"}
-                  </Text>
-                  <Text size="1" color="gray">
-                    {timeAgo(c.created_at)}
-                  </Text>
-                </Flex>
-                <div className="prose prose-sm max-w-none leading-relaxed">
-                  <ReactMarkdown
-                    components={{
-                      a: ({ node, ...props }) => (
-                        <a
-                          {...props}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ color: "#7c3aed" }}
-                        />
-                      ),
-                    }}
-                  >
-                    {c.content}
-                  </ReactMarkdown>
+          {comments.map((c) => {
+            const isOwner = currentUserId === c.user_id;
+            const isEditing = editingId === c._id;
+            return (
+              <div key={c._id} className="flex gap-3">
+                <Avatar
+                  size="2"
+                  src={c.user?.profile_picture}
+                  fallback={
+                    c.user?.full_name?.[0] || c.user?.username?.[0] || "?"
+                  }
+                />
+                <div className="flex-1">
+                  <Flex gap="2" align="center" className="mb-1">
+                    <Text size="2" weight="bold">
+                      {c.user?.full_name || c.user?.username || "Unknown"}
+                    </Text>
+                    <Text size="1" color="gray">
+                      {timeAgo(c.created_at)}
+                    </Text>
+                    {isOwner && !isEditing && (
+                      <Flex gap="1" className="ml-auto">
+                        <Button
+                          size="1"
+                          variant="ghost"
+                          color="gray"
+                          onClick={() => handleEditStart(c)}
+                        >
+                          <Pencil1Icon />
+                        </Button>
+                        <Button
+                          size="1"
+                          variant="ghost"
+                          color="red"
+                          onClick={() => handleDelete(c._id)}
+                        >
+                          <TrashIcon />
+                        </Button>
+                      </Flex>
+                    )}
+                  </Flex>
+                  {isEditing ? (
+                    <div>
+                      <TextArea
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        rows={3}
+                        className="mb-2"
+                      />
+                      <Flex gap="2">
+                        <Button
+                          size="1"
+                          onClick={() => handleEditSave(c._id)}
+                          disabled={!editContent.trim()}
+                        >
+                          <CheckIcon /> Save
+                        </Button>
+                        <Button
+                          size="1"
+                          variant="soft"
+                          color="gray"
+                          onClick={handleEditCancel}
+                        >
+                          <Cross2Icon /> Cancel
+                        </Button>
+                      </Flex>
+                    </div>
+                  ) : (
+                    <div className="prose prose-sm max-w-none leading-relaxed">
+                      <ReactMarkdown
+                        components={{
+                          a: ({ node, ...props }) => (
+                            <a
+                              {...props}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ color: "#7c3aed" }}
+                            />
+                          ),
+                        }}
+                      >
+                        {c.content}
+                      </ReactMarkdown>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {comments.length === 0 && (
             <Text size="2" color="gray" className="text-center py-4">
               No comments yet. Be the first!
