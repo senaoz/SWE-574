@@ -1187,6 +1187,7 @@ fun MapScreen(
             Card(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
                     .padding(start = 12.dp, end = 12.dp, bottom = 96.dp, top = 12.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)

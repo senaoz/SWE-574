@@ -114,6 +114,7 @@ import androidx.compose.foundation.layout.FlowRow
 @Composable
 fun ForumScreen(
     modifier: Modifier = Modifier,
+    bottomBarPadding: androidx.compose.ui.unit.Dp = 110.dp,
     onOpenUserProfile: (String) -> Unit = {},
     initialCommunityId: String? = null,
     onInitialCommunityConsumed: () -> Unit = {},
@@ -294,7 +295,7 @@ fun ForumScreen(
                         else -> {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 110.dp),
+                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomBarPadding),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 items(items = listState.discussions, key = { it.id }) { discussion ->
@@ -350,7 +351,7 @@ fun ForumScreen(
                         else -> {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 110.dp),
+                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomBarPadding),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 items(items = eventsListState.events, key = { it.id }) { event ->
@@ -373,6 +374,7 @@ fun ForumScreen(
             ForumTab.COMMUNITIES -> {
                 CommunitiesContent(
                     viewModel = viewModel,
+                    bottomBarPadding = bottomBarPadding,
                     onCommunityClick = { id -> selectedCommunityId = id }
                 )
             }
@@ -1765,6 +1767,7 @@ private fun ForumCreateDiscussionContent(
 fun CommunitiesContent(
     viewModel: ForumViewModel,
     modifier: Modifier = Modifier,
+    bottomBarPadding: androidx.compose.ui.unit.Dp = 110.dp,
     onCommunityClick: (String) -> Unit = {}
 ) {
     val state by viewModel.communitiesListState.collectAsState()
@@ -1811,7 +1814,7 @@ fun CommunitiesContent(
                 else -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 110.dp),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomBarPadding),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(items = state.communities, key = { it.id }) { community ->
