@@ -1230,8 +1230,8 @@ private fun ServiceStatusBar(status: String) {
                 verticalAlignment = Alignment.Top
             ) {
                 steps.forEachIndexed { index, step ->
-                    val isCompleted = index < currentIndex && !isCancelled && !isExpired
-                    val isCurrent = index == currentIndex
+                    val isCompleted = (index < currentIndex || (status.lowercase() == "completed" && index == currentIndex)) && !isCancelled && !isExpired
+                    val isCurrent = index == currentIndex && status.lowercase() != "completed"
 
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1302,8 +1302,12 @@ private fun ServiceStatusBar(status: String) {
 
                     // Connector line between steps
                     if (index < steps.size - 1) {
-                        val lineColor = if (index < currentIndex && !isCancelled && !isExpired)
-                            activeColor else MaterialTheme.colorScheme.outlineVariant
+                        val lineColor = when {
+                            index < currentIndex && isCancelled -> cancelledColor
+                            index < currentIndex && isExpired -> expiredColor
+                            index < currentIndex -> activeColor
+                            else -> MaterialTheme.colorScheme.outlineVariant
+                        }
                         Box(
                             modifier = Modifier
                                 .weight(0.5f)
