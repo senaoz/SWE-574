@@ -20,5 +20,12 @@ interface UploadsApi {
     suspend fun uploadRatingImage(
         @Part file: MultipartBody.Part
     ): Response<ResponseBody>
+
+    /** OpenAPI: Upload an image for a forum event. Returns the URL/path. */
+    @Multipart
+    @POST("upload/forum-event-image")
+    suspend fun uploadForumEventImage(
+        @Part file: MultipartBody.Part
+    ): Response<ResponseBody>
 }
 

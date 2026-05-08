@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.border
@@ -343,9 +346,10 @@ fun DiscoverScreen(
                     listState.animateScrollToItem(0)
                 }
             }
+            val systemBottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
             LazyColumn(
                 state = listState,
-                contentPadding = PaddingValues(16.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 110.dp + systemBottomInset),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(
@@ -374,7 +378,7 @@ fun DiscoverScreen(
             },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(16.dp)
+                .padding(end = 16.dp, top = 16.dp, bottom = 110.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
         ) {
             Icon(
                 imageVector = Icons.Default.Add,

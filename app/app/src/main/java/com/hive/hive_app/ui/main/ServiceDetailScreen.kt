@@ -490,6 +490,13 @@ fun ServiceDetailScreen(
                             ) {
                                 if (myJoinRequest != null) {
                                     StatusChip(status = myJoinRequest!!.status)
+                                    if (myJoinRequest!!.status.equals("pending", ignoreCase = true)) {
+                                        OutlinedButton(onClick = {
+                                            viewModel?.cancelMyJoinRequest { _, _ -> }
+                                        }) {
+                                            Text("Cancel request")
+                                        }
+                                    }
                                     Spacer(modifier = Modifier.weight(1f))
                                     if (creator != null && onStartChat != null) {
                                         IconButton(onClick = {

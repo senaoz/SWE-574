@@ -183,6 +183,25 @@ class ServiceDetailViewModel @Inject constructor(
         }
     }
 
+    fun cancelMyJoinRequest(onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            val requestId = _myJoinRequestForService.value?._id
+            if (requestId.isNullOrBlank()) {
+                onResult(false, "No pending application found.")
+                return@launch
+            }
+            joinRequestsRepository.cancel(requestId).fold(
+                onSuccess = {
+                    // Remove local request so Apply button becomes available again immediately.
+                    _myJoinRequestForService.value = null
+                    _applyMessage.value = "Application cancelled"
+                    onResult(true, null)
+                },
+                onFailure = { onResult(false, it.message) }
+            )
+        }
+    }
+
     fun updateRequestStatus(requestId: String, status: String, adminMessage: String?, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
             joinRequestsRepository.updateStatus(requestId, status, adminMessage).fold(

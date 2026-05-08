@@ -100,6 +100,7 @@ fun ProfileScreen(
     onLogout: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = hiltViewModel(),
+    bottomBarPadding: androidx.compose.ui.unit.Dp = 88.dp,
     onOpenSaved: (() -> Unit)? = null,
     onOpenNotifications: (() -> Unit)? = null,
     onOpenActive: (() -> Unit)? = null,
@@ -183,7 +184,7 @@ fun ProfileScreen(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(scrollState)
-                    .padding(bottom = 88.dp)
+                    .padding(bottom = bottomBarPadding)
             ) {
                 profile?.let { user ->
                     Spacer(Modifier.height(12.dp))

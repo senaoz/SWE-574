@@ -211,7 +211,9 @@ class ForumRepository @Inject constructor(
         longitude: Double? = null,
         isRemote: Boolean = false,
         tags: List<com.hive.hive_app.data.api.dto.TagDto>? = null,
-        serviceId: String? = null
+        serviceId: String? = null,
+        imageUrls: List<String>? = null,
+        bannerImageUrl: String? = null
     ): Result<ForumEventResponse> {
         return try {
             val body = ForumEventCreate(
@@ -224,7 +226,9 @@ class ForumRepository @Inject constructor(
                 longitude = longitude,
                 isRemote = isRemote,
                 tags = tags,
-                serviceId = serviceId
+                serviceId = serviceId,
+                imageUrls = imageUrls,
+                bannerImageUrl = bannerImageUrl
             )
             val response = forumApi.createEvent(body)
             if (response.isSuccessful && response.body() != null) {

@@ -114,6 +114,7 @@ import androidx.compose.foundation.layout.FlowRow
 @Composable
 fun ForumScreen(
     modifier: Modifier = Modifier,
+    bottomBarPadding: androidx.compose.ui.unit.Dp = 110.dp,
     onOpenUserProfile: (String) -> Unit = {},
     initialCommunityId: String? = null,
     onInitialCommunityConsumed: () -> Unit = {},
@@ -294,7 +295,7 @@ fun ForumScreen(
                         else -> {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 110.dp),
+                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomBarPadding),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 items(items = listState.discussions, key = { it.id }) { discussion ->
@@ -350,7 +351,7 @@ fun ForumScreen(
                         else -> {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 110.dp),
+                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomBarPadding),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 items(items = eventsListState.events, key = { it.id }) { event ->
@@ -373,6 +374,7 @@ fun ForumScreen(
             ForumTab.COMMUNITIES -> {
                 CommunitiesContent(
                     viewModel = viewModel,
+                    bottomBarPadding = bottomBarPadding,
                     onCommunityClick = { id -> selectedCommunityId = id }
                 )
             }
@@ -734,6 +736,8 @@ private fun ForumEventCard(
     val locationText = event.location?.takeIf { it.isNotBlank() }
     val timeLeft = formatEventTimeLeft(event.eventAt)
     val dateBadge = formatDateBadge(event.eventAt)
+    val coverImage = event.bannerImageUrl?.takeIf { it.isNotBlank() } ?: event.imageUrls.firstOrNull()
+    val context = LocalContext.current
 
     Card(
         modifier = Modifier
@@ -744,6 +748,17 @@ private fun ForumEventCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (!coverImage.isNullOrBlank()) {
+                AsyncImage(
+                    model = buildImageRequest(context, coverImage),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(132.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                )
+            }
             Row(
                 verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -980,6 +995,17 @@ fun ForumEventDetailContent(
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
                             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                if (!event.bannerImageUrl.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = buildImageRequest(context, event.bannerImageUrl),
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(180.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                    )
+                                }
                                 // Author row
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
@@ -1030,6 +1056,21 @@ fun ForumEventDetailContent(
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+
+                                if (event.imageUrls.isNotEmpty()) {
+                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        items(event.imageUrls, key = { it }) { imageUrl ->
+                                            AsyncImage(
+                                                model = buildImageRequest(context, imageUrl),
+                                                contentDescription = null,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier
+                                                    .size(width = 160.dp, height = 100.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                            )
+                                        }
+                                    }
+                                }
 
                                 // Meta chips: date, location, remote
                                 FlowRow(
@@ -1765,6 +1806,7 @@ private fun ForumCreateDiscussionContent(
 fun CommunitiesContent(
     viewModel: ForumViewModel,
     modifier: Modifier = Modifier,
+    bottomBarPadding: androidx.compose.ui.unit.Dp = 110.dp,
     onCommunityClick: (String) -> Unit = {}
 ) {
     val state by viewModel.communitiesListState.collectAsState()
@@ -1811,7 +1853,7 @@ fun CommunitiesContent(
                 else -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 110.dp),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomBarPadding),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(items = state.communities, key = { it.id }) { community ->

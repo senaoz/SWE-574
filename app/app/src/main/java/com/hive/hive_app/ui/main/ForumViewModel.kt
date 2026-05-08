@@ -595,6 +595,7 @@ class ForumViewModel @Inject constructor(
         isRemote: Boolean,
         tags: List<WikidataTagSuggestion>,
         imageUris: List<Uri>,
+        bannerImageUri: Uri?,
         onSuccess: (String) -> Unit = {}
     ) {
         setCreateEventTitle(title)
@@ -604,21 +605,26 @@ class ForumViewModel @Inject constructor(
         setCreateEventIsRemote(isRemote)
         viewModelScope.launch {
             _createEventState.update { it.copy(isSubmitting = true, error = null) }
-            val uploaded = uploadImages(imageUris).getOrElse { err ->
-                _createEventState.update { it.copy(isSubmitting = false, error = err.message ?: "Failed to upload images") }
+            val uploadedEventImages = uploadEventImages(imageUris).getOrElse { err ->
+                _createEventState.update { it.copy(isSubmitting = false, error = err.message ?: "Failed to upload event images") }
                 return@launch
             }
-            val descriptionWithImages = appendImageLinks(description, uploaded)
+            val uploadedBanner = uploadEventBanner(bannerImageUri).getOrElse { err ->
+                _createEventState.update { it.copy(isSubmitting = false, error = err.message ?: "Failed to upload banner image") }
+                return@launch
+            }
             forumRepository.createEvent(
                 title = title.trim(),
-                description = descriptionWithImages,
+                description = description.trim(),
                 eventAt = eventAt.trim(),
                 communityId = communityId,
                 location = location?.takeIf { it.isNotBlank() },
                 latitude = latitude,
                 longitude = longitude,
                 isRemote = isRemote,
-                tags = tags.toTagDtos()
+                tags = tags.toTagDtos(),
+                imageUrls = uploadedEventImages,
+                bannerImageUrl = uploadedBanner
             ).onSuccess { event ->
                 _createEventState.update {
                     it.copy(
@@ -810,6 +816,28 @@ class ForumViewModel @Inject constructor(
                 Result.success(results.mapNotNull { it.getOrNull() })
             }
         }
+    }
+
+    private suspend fun uploadEventImages(imageUris: List<Uri>): Result<List<String>> {
+        if (imageUris.isEmpty()) return Result.success(emptyList())
+        return coroutineScope {
+            val deferred = imageUris.map { uri ->
+                async { uploadsRepository.uploadForumEventImage(appContext, uri) }
+            }
+            val results = deferred.map { it.await() }
+            val firstFailure = results.firstOrNull { it.isFailure }?.exceptionOrNull()
+            if (firstFailure != null) {
+                Result.failure(firstFailure)
+            } else {
+                Result.success(results.mapNotNull { it.getOrNull() })
+            }
+        }
+    }
+
+    private suspend fun uploadEventBanner(bannerImageUri: Uri?): Result<String?> {
+        if (bannerImageUri == null) return Result.success(null)
+        return uploadsRepository.uploadForumEventImage(appContext, bannerImageUri)
+            .map { it }
     }
 
     private fun appendImageLinks(baseText: String, urls: List<String>): String {
