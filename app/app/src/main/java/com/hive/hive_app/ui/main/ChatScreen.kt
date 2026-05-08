@@ -55,6 +55,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
@@ -71,6 +72,7 @@ fun ChatScreen(
     onInitialRoomConsumed: () -> Unit = {},
     openCreateGroupSheet: Boolean = false,
     onCreateGroupSheetConsumed: () -> Unit = {},
+    bottomBarPadding: Dp = 110.dp,
     onOpenUserProfile: (String) -> Unit = {},
     onOpenServiceDetail: (String) -> Unit = {}
 ) {
@@ -101,6 +103,7 @@ fun ChatScreen(
             room = room,
             onBack = { selectedRoom = null },
             modifier = modifier,
+            bottomBarPadding = bottomBarPadding,
             onOpenUserProfile = onOpenUserProfile,
             onOpenServiceDetail = onOpenServiceDetail
         )
@@ -126,7 +129,7 @@ fun ChatScreen(
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 110.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = bottomBarPadding),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {

@@ -18,8 +18,8 @@ android {
         applicationId = "com.hive.hive_app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 9
-        versionName = "1.1.9"
+        versionCode = 10
+        versionName = "1.1.10"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BASE_URL", "\"https://backend-swe.gnahh5.easypanel.host\"")

@@ -328,6 +328,7 @@ fun MainScaffold(
                     onInitialRoomConsumed = { openChatRoomId = null },
                     openCreateGroupSheet = openCreateGroupSheet,
                     onCreateGroupSheetConsumed = { openCreateGroupSheet = false },
+                    bottomBarPadding = navBarTotalHeight,
                     onOpenUserProfile = onOpenUserProfile,
                     onOpenServiceDetail = { serviceId -> pushOverlay(OverlayRoute.ServiceDetail(serviceId)) }
                 )

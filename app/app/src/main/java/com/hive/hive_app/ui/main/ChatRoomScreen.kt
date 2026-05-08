@@ -3,6 +3,7 @@ package com.hive.hive_app.ui.main
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Spacer
@@ -13,6 +14,8 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.lazy.LazyColumn
@@ -47,6 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.platform.LocalContext
@@ -67,6 +71,7 @@ fun ChatRoomScreen(
     room: ChatRoomResponse,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    bottomBarPadding: Dp = 0.dp,
     onOpenUserProfile: (String) -> Unit = {},
     onOpenServiceDetail: (String) -> Unit = {},
     viewModel: ChatRoomViewModel = hiltViewModel()
@@ -313,6 +318,7 @@ fun ChatRoomScreen(
 
         if (canSend) {
             MessageInput(
+                bottomBarPadding = bottomBarPadding,
                 onSend = { text ->
                     viewModel.sendMessage(
                         roomId = room._id,
@@ -632,12 +638,23 @@ private fun messageDate(isoDate: String?): LocalDate? {
 }
 
 @Composable
-private fun MessageInput(onSend: (String) -> Unit) {
+@OptIn(ExperimentalLayoutApi::class)
+private fun MessageInput(
+    bottomBarPadding: Dp = 0.dp,
+    onSend: (String) -> Unit
+) {
     var text by remember { mutableStateOf("") }
+    val imeVisible = WindowInsets.isImeVisible
+    val bottomPadding = if (imeVisible) 8.dp else 8.dp + bottomBarPadding
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(
+                start = 12.dp,
+                end = 12.dp,
+                top = 8.dp,
+                bottom = bottomPadding
+            ),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
         ),
