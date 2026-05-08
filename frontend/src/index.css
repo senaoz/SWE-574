@@ -281,7 +281,6 @@ p {
 }
 
 .custom-badge-icon svg {
-    stroke: var(--lime-8);
     stroke-width: 2px;
     fill: var(--lime-4);
 }
