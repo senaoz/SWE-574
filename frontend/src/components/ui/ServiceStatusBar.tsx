@@ -27,10 +27,13 @@ function StepIcon({
   status: ServiceStatus;
   currentStepIndex: number;
 }) {
-  const isCompleted = stepIndex < currentStepIndex && status !== "cancelled" && status !== "expired";
+  const isCompleted =
+    (stepIndex < currentStepIndex || (status === "completed" && stepIndex === currentStepIndex)) &&
+    status !== "cancelled" &&
+    status !== "expired";
 
   // Special icons for cancelled/expired at the current (interrupted) step
-  if (stepIndex === currentStepIndex) {
+  if (stepIndex === currentStepIndex && status !== "completed") {
     if (status === "cancelled") {
       return (
         <div className="w-8 h-8 rounded-full border-2 border-red-500 bg-white flex items-center justify-center">
@@ -78,9 +81,9 @@ function getStepIndexForStatus(status: ServiceStatus): number {
     case "completed":
       return 2;
     case "cancelled":
-      return 1; // Cancelled at the "In Progress" step
+      return 1;
     case "expired":
-      return 1; // Expired at the "In Progress" step
+      return 1;
     default:
       return 0;
   }
@@ -113,12 +116,16 @@ function ConnectorLine({
   currentStepIndex: number;
   status: ServiceStatus;
 }) {
-  const isActive = fromIndex < currentStepIndex && status !== "cancelled" && status !== "expired";
-  return (
-    <div
-      className={`flex-1 h-0.5 mt-4 mx-1 ${isActive ? "bg-green-500" : "bg-gray-200"}`}
-    />
-  );
+  if (fromIndex < currentStepIndex) {
+    if (status === "cancelled") {
+      return <div className="flex-1 h-0.5 mt-4 mx-1 bg-red-400" />;
+    }
+    if (status === "expired") {
+      return <div className="flex-1 h-0.5 mt-4 mx-1 bg-orange-400" />;
+    }
+    return <div className="flex-1 h-0.5 mt-4 mx-1 bg-green-500" />;
+  }
+  return <div className="flex-1 h-0.5 mt-4 mx-1 bg-gray-200" />;
 }
 
 export function ServiceStatusBar({ status }: ServiceStatusBarProps) {
