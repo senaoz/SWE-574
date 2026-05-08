@@ -116,7 +116,6 @@ function ConnectorLine({
   currentStepIndex: number;
   status: ServiceStatus;
 }) {
-<<<<<<< fix/service-status-bar
   if (fromIndex < currentStepIndex) {
     if (status === "cancelled") {
       return <div className="flex-1 h-0.5 mt-4 mx-1 bg-red-400" />;
@@ -124,17 +123,9 @@ function ConnectorLine({
     if (status === "expired") {
       return <div className="flex-1 h-0.5 mt-4 mx-1 bg-orange-400" />;
     }
-    return <div className="flex-1 h-0.5 mt-4 mx-1 bg-green-500" />;
+    return <div className="flex-1 h-0.5 mt-4 mx-1 bg-lime-500" />;
   }
-  return <div className="flex-1 h-0.5 mt-4 mx-1 bg-gray-200" />;
-=======
-  const isActive = fromIndex < currentStepIndex && status !== "cancelled" && status !== "expired";
-  return (
-    <div
-      className={`flex-1 h-0.5 mt-4 mx-1 ${isActive ? "bg-lime-500" : "bg-[var(--accent-a8)]"}`}
-    />
-  );
->>>>>>> main
+  return <div className="flex-1 h-0.5 mt-4 mx-1 bg-[var(--accent-a8)]" />;
 }
 
 export function ServiceStatusBar({ status }: ServiceStatusBarProps) {
