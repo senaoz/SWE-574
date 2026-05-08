@@ -5,6 +5,7 @@ from datetime import datetime
 from bson import ObjectId
 
 from ..models.notification import NotificationResponse, NotificationType, NotificationRelatedType
+from .email_service import send_notification_email
 
 # ---------------------------------------------------------------------------
 # In-memory SSE subscriber registry
@@ -61,6 +62,20 @@ class NotificationService:
             await self.notifications_collection.insert_one(doc)
             count = await self.get_unread_count(user_id)
             await sse_push_count(user_id, count)
+
+            # Send email if user has email_notifications enabled
+            user_doc = await self.db.users.find_one(
+                {"_id": ObjectId(user_id)},
+                {"email": 1, "email_notifications": 1},
+            )
+            if user_doc and user_doc.get("email_notifications", False):
+                await send_notification_email(
+                    to_email=user_doc["email"],
+                    title=title,
+                    body=body,
+                    related_type=related_type,
+                    related_id=related_id,
+                )
         except Exception as e:
             print(f"Warning: Failed to create notification: {e}")
 

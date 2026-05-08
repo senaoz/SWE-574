@@ -35,6 +35,46 @@ async def send_email(to_email: str, subject: str, html_content: str) -> None:
         logger.error("Failed to send email to %s: %s", to_email, e)
 
 
+_RELATED_TYPE_PATHS = {
+    "service": "/service/{id}",
+    "join_request": "/service/{id}",
+    "transaction": "/service/{id}",
+    "chat_room": "/dashboard",
+}
+
+
+async def send_notification_email(
+    to_email: str,
+    title: str,
+    body: str,
+    related_type: str,
+    related_id: str,
+) -> None:
+    path = _RELATED_TYPE_PATHS.get(related_type, "/dashboard").format(id=related_id)
+    url = f"{settings.frontend_url}{path}"
+    html = f"""
+    <html>
+    <body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+      <h2 style="color: #374151;">{title}</h2>
+      <p style="color: #4b5563;">{body}</p>
+      <p>
+        <a href="{url}"
+           style="display:inline-block;padding:10px 20px;background:#65a30d;color:#fff;
+                  border-radius:8px;text-decoration:none;font-weight:600;">
+          View on The Hive
+        </a>
+      </p>
+      <p style="color:#9ca3af;font-size:12px;">
+        You received this because you have email notifications enabled.
+        You can turn them off in your
+        <a href="{settings.frontend_url}/settings">account settings</a>.
+      </p>
+    </body>
+    </html>
+    """
+    await send_email(to_email, f"The Hive — {title}", html)
+
+
 async def send_verification_email(to_email: str, token: str) -> None:
     url = f"{settings.frontend_url}/verify-email?token={token}"
     html = f"""
