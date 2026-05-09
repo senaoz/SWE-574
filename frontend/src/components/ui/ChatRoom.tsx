@@ -12,6 +12,7 @@ interface ChatRoomProps {
 
 export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
   const [newMessage, setNewMessage] = useState("");
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
@@ -53,6 +54,20 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messagesData?.data.messages]);
+
+  // Klavye açık/kapalı tespiti: görünür viewport yüksekliği pencere yüksekliğinin
+  // %75'inden küçükse klavye açık kabul edilir.
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+
+    const handleResize = () => {
+      setIsKeyboardOpen(viewport.height < window.innerHeight * 0.75);
+    };
+
+    viewport.addEventListener("resize", handleResize);
+    return () => viewport.removeEventListener("resize", handleResize);
+  }, []);
 
   const formatTime = (dateString: string) => {
     return new Date(dateString).toLocaleTimeString("en-US", {
@@ -194,9 +209,9 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Message Input */}
-      <Card className="p-4">
-        <form onSubmit={handleSendMessage}>
+      {/* Message Input — klavye açıkken Card bloğu render edilmez */}
+      {isKeyboardOpen ? (
+        <form onSubmit={handleSendMessage} className="p-4">
           <Flex gap="2">
             <TextField.Root
               value={newMessage}
@@ -204,6 +219,7 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
               placeholder="Type a message..."
               className="flex-1"
               disabled={sendMessageMutation.isPending}
+              autoFocus
             />
             <Button
               type="submit"
@@ -214,7 +230,28 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
             </Button>
           </Flex>
         </form>
-      </Card>
+      ) : (
+        <Card className="p-4">
+          <form onSubmit={handleSendMessage}>
+            <Flex gap="2">
+              <TextField.Root
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Type a message..."
+                className="flex-1"
+                disabled={sendMessageMutation.isPending}
+              />
+              <Button
+                type="submit"
+                disabled={!newMessage.trim() || sendMessageMutation.isPending}
+              >
+                <PaperPlaneIcon className="w-4 h-4" />
+                {sendMessageMutation.isPending ? "Sending..." : "Send"}
+              </Button>
+            </Flex>
+          </form>
+        </Card>
+      )}
     </div>
   );
 }
