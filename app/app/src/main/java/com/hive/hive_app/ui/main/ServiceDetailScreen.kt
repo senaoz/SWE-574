@@ -90,6 +90,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.hive.hive_app.data.api.dto.BadgesResponse
 import com.hive.hive_app.data.api.dto.JoinRequestResponse
+import com.hive.hive_app.data.api.dto.RecommendedServiceItemDto
 import com.hive.hive_app.data.api.dto.ServiceResponse
 import com.hive.hive_app.data.api.dto.UserResponse
 import com.hive.hive_app.data.api.dto.CommentResponse
@@ -122,6 +123,7 @@ fun ServiceDetailScreen(
     isSaved: Boolean = false,
     onStartChat: ((String) -> Unit)? = null,
     onOpenUserProfile: ((String) -> Unit)? = null,
+    onOpenRecommendedService: ((String) -> Unit)? = null,
     /** Owner: open full-screen manage requests instead of a dialog. */
     onManageJoinRequests: (() -> Unit)? = null
 ) {
@@ -163,6 +165,10 @@ fun ServiceDetailScreen(
                 ?: remember { mutableStateOf(false) }
             val newCommentText by viewModel?.newCommentText?.collectAsState(initial = "")
                 ?: remember { mutableStateOf("") }
+            val recommendedServices by viewModel?.recommendedServices?.collectAsState(initial = emptyList())
+                ?: remember { mutableStateOf(emptyList<RecommendedServiceItemDto>()) }
+            val recommendedLoading by viewModel?.recommendedLoading?.collectAsState(initial = false)
+                ?: remember { mutableStateOf(false) }
             val focusManager = LocalFocusManager.current
             var showApplyDialog by remember { mutableStateOf(false) }
             var applyError by remember { mutableStateOf<String?>(null) }
@@ -638,6 +644,40 @@ fun ServiceDetailScreen(
                         }
                     }
 
+                    if (recommendedLoading || recommendedServices.isNotEmpty()) {
+                        DetailSection(title = "Services like this", icon = Icons.Default.TrendingUp) {
+                            if (recommendedLoading && recommendedServices.isEmpty()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(22.dp),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        strokeWidth = 2.dp
+                                    )
+                                }
+                            } else {
+                                LazyRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    items(
+                                        items = recommendedServices.take(3),
+                                        key = { it.service._id }
+                                    ) { item ->
+                                        RecommendedServiceCompactCard(
+                                            item = item,
+                                            onClick = {
+                                                onOpenRecommendedService?.invoke(item.service._id)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Tags
                     if (service.tags.isNotEmpty()) {
                         DetailSection(title = "Tags", icon = Icons.Default.Tag) {
@@ -854,6 +894,55 @@ fun ServiceDetailScreen(
                 }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun RecommendedServiceCompactCard(
+    item: RecommendedServiceItemDto,
+    onClick: () -> Unit
+) {
+    val context = LocalContext.current
+    val imageModel = buildImageRequest(context, item.service.imageUrls?.firstOrNull())
+    Card(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.size(width = 220.dp, height = 170.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (imageModel != null) {
+                AsyncImage(
+                    model = imageModel,
+                    contentDescription = item.service.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(82.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                )
+            }
+            Text(
+                text = item.service.title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
+            Text(
+                text = item.reason,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
         }
     }
 }

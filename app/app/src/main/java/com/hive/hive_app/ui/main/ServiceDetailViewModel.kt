@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.hive.hive_app.data.api.dto.BadgesResponse
 import com.hive.hive_app.data.api.dto.JoinRequestResponse
 import com.hive.hive_app.data.api.dto.CommentResponse
+import com.hive.hive_app.data.api.dto.RecommendedServiceItemDto
 import com.hive.hive_app.data.api.dto.RatingListResponse
 import com.hive.hive_app.data.api.dto.ServiceResponse
 import com.hive.hive_app.data.api.dto.UserResponse
@@ -82,6 +83,15 @@ class ServiceDetailViewModel @Inject constructor(
     private val _newCommentText = MutableStateFlow("")
     val newCommentText: StateFlow<String> = _newCommentText.asStateFlow()
 
+    private val _recommendedServices = MutableStateFlow<List<RecommendedServiceItemDto>>(emptyList())
+    val recommendedServices: StateFlow<List<RecommendedServiceItemDto>> = _recommendedServices.asStateFlow()
+
+    private val _recommendedLoading = MutableStateFlow(false)
+    val recommendedLoading: StateFlow<Boolean> = _recommendedLoading.asStateFlow()
+
+    private val _recommendedError = MutableStateFlow<String?>(null)
+    val recommendedError: StateFlow<String?> = _recommendedError.asStateFlow()
+
     fun load(serviceId: String) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -97,6 +107,9 @@ class ServiceDetailViewModel @Inject constructor(
             _commentsTotal.value = 0
             _commentsLoading.value = false
             _newCommentText.value = ""
+            _recommendedServices.value = emptyList()
+            _recommendedLoading.value = false
+            _recommendedError.value = null
             val currentUser = authRepository.getCurrentUser().getOrNull()
             servicesRepository.getService(serviceId).fold(
                 onSuccess = { service ->
@@ -122,10 +135,33 @@ class ServiceDetailViewModel @Inject constructor(
                     } else {
                         loadMyJoinRequestForService(serviceId)
                     }
+                    loadRecommendedServices(service)
                 },
                 onFailure = {
                     _error.value = it.message ?: "Failed to load"
                     _isLoading.value = false
+                }
+            )
+        }
+    }
+
+    private fun loadRecommendedServices(service: ServiceResponse) {
+        viewModelScope.launch {
+            _recommendedLoading.value = true
+            _recommendedError.value = null
+            servicesRepository.getRecommendedServices(page = 1, limit = 3).fold(
+                onSuccess = { response ->
+                    _recommendedServices.value = response.items
+                        .asSequence()
+                        .filter { it.service._id != service._id }
+                        .take(3)
+                        .toList()
+                    _recommendedLoading.value = false
+                },
+                onFailure = {
+                    _recommendedServices.value = emptyList()
+                    _recommendedError.value = it.message ?: "Failed to load recommendations"
+                    _recommendedLoading.value = false
                 }
             )
         }
