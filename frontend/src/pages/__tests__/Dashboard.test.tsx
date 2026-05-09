@@ -192,6 +192,7 @@ describe("Dashboard", () => {
   });
 
   it("shows timebank warning when requires_need_creation", async () => {
+    localStorage.setItem("access_token", "test-token");
     mockGetServices.mockResolvedValue({ data: { services: [] } });
     mockGetTimeBank.mockResolvedValue({
       data: { balance: 12, requires_need_creation: true },

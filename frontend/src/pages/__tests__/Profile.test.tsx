@@ -41,25 +41,29 @@ vi.mock("@/services/api", () => ({
   getImageUrl: (p: string | null) => p ?? "",
 }));
 
+// Stable reference — avoids infinite loop in useEffect([user]) in Profile.tsx
+const MOCK_USER = {
+  _id: "u1",
+  username: "alice",
+  full_name: "Alice Smith",
+  email: "alice@example.com",
+  bio: "Hello world",
+  role: "user",
+  timebank_balance: 3.5,
+  interests: ["cooking"],
+  is_verified: false,
+  profile_picture: null,
+  social_links: {},
+  badges: [],
+  created_at: new Date().toISOString(),
+};
+const mockRefetchUser = vi.fn();
+
 vi.mock("@/contexts/UserContext", () => ({
   useUser: () => ({
-    user: {
-      _id: "u1",
-      username: "alice",
-      full_name: "Alice Smith",
-      email: "alice@example.com",
-      bio: "Hello world",
-      role: "user",
-      timebank_balance: 3.5,
-      interests: ["cooking"],
-      is_verified: false,
-      profile_picture: null,
-      social_links: {},
-      badges: [],
-      created_at: new Date().toISOString(),
-    },
+    user: MOCK_USER,
     isLoading: false,
-    refetchUser: vi.fn(),
+    refetchUser: mockRefetchUser,
   }),
 }));
 
@@ -70,11 +74,11 @@ vi.mock("react-router-dom", async () => {
 });
 
 // ─── Heavy component mocks ────────────────────────────────────────────────────
-vi.mock("./MyServices", () => ({
+vi.mock("@/pages/MyServices", () => ({
   MyServices: () => <div data-testid="my-services" />,
 }));
 
-vi.mock("./Chat", () => ({
+vi.mock("@/pages/Chat", () => ({
   Chat: () => <div data-testid="chat" />,
 }));
 
@@ -110,17 +114,6 @@ vi.mock("@/constants/profilePicturePresets", () => ({
   ],
 }));
 
-vi.mock("@radix-ui/themes", async () => {
-  const actual = await vi.importActual<typeof import("@radix-ui/themes")>("@radix-ui/themes");
-  return {
-    ...actual,
-    Tooltip: ({ children, content }: { children: React.ReactElement; content: string }) =>
-      React.cloneElement(children, { "aria-label": content }),
-  };
-});
-
-import React from "react";
-
 function renderProfile(path = "/profile") {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -137,7 +130,7 @@ function renderProfile(path = "/profile") {
 describe("Profile", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetTimeBank.mockResolvedValue({ data: { balance: 3.5 } });
+    mockGetTimeBank.mockResolvedValue({ data: { balance: 3.5, transactions: [], requires_need_creation: false } });
     mockGetUserCommunities.mockResolvedValue({ data: { communities: [] } });
     mockGetUserRatings.mockResolvedValue({ data: { average: 4.5, count: 2 } });
     mockGetUserRatingsDetailed.mockResolvedValue({ data: { ratings: [] } });
@@ -174,7 +167,7 @@ describe("Profile", () => {
 
   it("shows bio text in profile tab", () => {
     renderProfile();
-    expect(screen.getByDisplayValue("Hello world")).toBeInTheDocument();
+    expect(screen.getByText("Hello world")).toBeInTheDocument();
   });
 
   it("shows interests chip in profile tab", () => {
