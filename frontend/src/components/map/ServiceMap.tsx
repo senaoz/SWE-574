@@ -8,6 +8,7 @@ import {
   Circle,
 } from "react-leaflet";
 import L from "leaflet";
+import beeMarkerUrl from "@/assets/bee-marker.svg?url";
 import { Service, TagEntity, ForumEvent } from "@/types";
 import {
   Badge,
@@ -68,6 +69,15 @@ const createIcon = (color: string, label: string) =>
 const offerIcon = createIcon("#059669", "+");
 const needIcon = createIcon("#dc2626", "?");
 const eventIcon = createIcon("#7c3aed", "E");
+
+const USER_LOCATION_ICON_SIZE = 36;
+const userLocationIcon = L.divIcon({
+  className: "",
+  html: `<img src="${beeMarkerUrl}" style="width:${USER_LOCATION_ICON_SIZE}px;height:${USER_LOCATION_ICON_SIZE}px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.45));" alt="Your location"/>`,
+  iconSize: [USER_LOCATION_ICON_SIZE, USER_LOCATION_ICON_SIZE],
+  iconAnchor: [USER_LOCATION_ICON_SIZE / 2, USER_LOCATION_ICON_SIZE / 2],
+  popupAnchor: [0, -USER_LOCATION_ICON_SIZE / 2],
+});
 
 export const DISTANCE_OPTIONS_KM = [5, 10, 25, 50, 100] as const;
 const SERVICE_TYPE_OPTIONS = ["all", "offer", "need"] as const;
@@ -374,6 +384,13 @@ export function ServiceMap({
         />
         <MapLocationHandler userPosition={userPosition} />
         <LocateMeControl userPosition={userPosition} />
+        {userPosition && (
+          <Marker position={userPosition} icon={userLocationIcon}>
+            <Popup closeButton={false}>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>📍 Your location</span>
+            </Popup>
+          </Marker>
+        )}
         {userPosition && distanceRadiusM !== null && (
           <Circle
             center={userPosition}
@@ -448,6 +465,16 @@ export function ServiceMap({
             <Text size="1" weight="bold">
               Legend
             </Text>
+            {userPosition && (
+              <Flex align="center" gap="2">
+                <img
+                  src={beeMarkerUrl}
+                  style={{ width: 16, height: 16 }}
+                  alt="You"
+                />
+                <Text size="1">You</Text>
+              </Flex>
+            )}
             <Flex align="center" gap="2">
               <div
                 style={{
