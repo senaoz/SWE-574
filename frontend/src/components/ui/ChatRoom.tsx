@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Card, Text, Flex, Button, TextField, Badge } from "@radix-ui/themes";
+import { Text, Flex, Button, TextField, Badge, Card } from "@radix-ui/themes";
 import { ChatRoom, Message } from "@/types";
 import { chatApi } from "@/services/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -55,19 +55,9 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messagesData?.data.messages]);
 
-  // Klavye açık/kapalı tespiti: görünür viewport yüksekliği pencere yüksekliğinin
-  // %75'inden küçükse klavye açık kabul edilir.
-  useEffect(() => {
-    const viewport = window.visualViewport;
-    if (!viewport) return;
-
-    const handleResize = () => {
-      setIsKeyboardOpen(viewport.height < window.innerHeight * 0.75);
-    };
-
-    viewport.addEventListener("resize", handleResize);
-    return () => viewport.removeEventListener("resize", handleResize);
-  }, []);
+  // Klavye tespiti: input focus/blur olaylarıyla takip edilir.
+  // onFocus → klavye açık, onBlur → 150ms delay ile kapalı
+  // (delay: Send butonuna basıldığında blur→click arasındaki boşluğu kapatır)
 
   const formatTime = (dateString: string) => {
     return new Date(dateString).toLocaleTimeString("en-US", {
@@ -209,9 +199,22 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Message Input — klavye açıkken Card bloğu render edilmez */}
-      {isKeyboardOpen ? (
-        <form onSubmit={handleSendMessage} className="p-4">
+      {/* Message Input — klavye açıkken Card görünümü CSS ile kaldırılır,
+          TextField unmount olmaz → focus/keyboard durumu korunur */}
+      <div
+        style={
+          isKeyboardOpen
+            ? { padding: "1rem" }
+            : {
+                borderRadius: "var(--radius-4)",
+                border: "1px solid var(--gray-a6)",
+                backgroundColor: "var(--color-panel-solid)",
+                boxShadow: "var(--shadow-2)",
+                padding: "1rem",
+              }
+        }
+      >
+        <form onSubmit={handleSendMessage}>
           <Flex gap="2">
             <TextField.Root
               value={newMessage}
@@ -219,7 +222,8 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
               placeholder="Type a message..."
               className="flex-1"
               disabled={sendMessageMutation.isPending}
-              autoFocus
+              onFocus={() => setIsKeyboardOpen(true)}
+              onBlur={() => setTimeout(() => setIsKeyboardOpen(false), 150)}
             />
             <Button
               type="submit"
@@ -230,28 +234,7 @@ export function ChatRoomComponent({ room, currentUserId }: ChatRoomProps) {
             </Button>
           </Flex>
         </form>
-      ) : (
-        <Card className="p-4">
-          <form onSubmit={handleSendMessage}>
-            <Flex gap="2">
-              <TextField.Root
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Type a message..."
-                className="flex-1"
-                disabled={sendMessageMutation.isPending}
-              />
-              <Button
-                type="submit"
-                disabled={!newMessage.trim() || sendMessageMutation.isPending}
-              >
-                <PaperPlaneIcon className="w-4 h-4" />
-                {sendMessageMutation.isPending ? "Sending..." : "Send"}
-              </Button>
-            </Flex>
-          </form>
-        </Card>
-      )}
+      </div>
     </div>
   );
 }
