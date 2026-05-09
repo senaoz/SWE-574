@@ -31,6 +31,8 @@ class RecommendationViewModel @Inject constructor(
         val recommendationMode: String = "empty",
         val showProfilePrompt: Boolean = false,
         val isLoading: Boolean = false,
+        val isRefreshing: Boolean = false,
+        val hasLoadedOnce: Boolean = false,
         val error: String? = null,
         val locationPermissionGranted: Boolean = false
     )
@@ -44,23 +46,32 @@ class RecommendationViewModel @Inject constructor(
     fun setLocationPermissionGranted(granted: Boolean) {
         _state.update { it.copy(locationPermissionGranted = granted) }
         if (granted) {
-            refreshWithLocation()
+            refreshWithLocation(isPullToRefresh = false)
         } else {
-            loadRecommendations()
+            loadRecommendations(isPullToRefresh = false)
         }
     }
 
     fun refresh() {
         if (_state.value.locationPermissionGranted) {
-            refreshWithLocation()
+            refreshWithLocation(isPullToRefresh = true)
         } else {
-            loadRecommendations()
+            loadRecommendations(isPullToRefresh = true)
         }
     }
 
-    private fun refreshWithLocation() {
+    fun loadInitial() {
+        if (_state.value.hasLoadedOnce) return
+        if (_state.value.locationPermissionGranted) {
+            refreshWithLocation(isPullToRefresh = false)
+        } else {
+            loadRecommendations(isPullToRefresh = false)
+        }
+    }
+
+    private fun refreshWithLocation(isPullToRefresh: Boolean) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            loadRecommendations()
+            loadRecommendations(isPullToRefresh = isPullToRefresh)
             return
         }
         viewModelScope.launch {
@@ -70,17 +81,25 @@ class RecommendationViewModel @Inject constructor(
             }
             loadRecommendations(
                 latitude = location?.latitude,
-                longitude = location?.longitude
+                longitude = location?.longitude,
+                isPullToRefresh = isPullToRefresh
             )
         }
     }
 
     private fun loadRecommendations(
         latitude: Double? = null,
-        longitude: Double? = null
+        longitude: Double? = null,
+        isPullToRefresh: Boolean = false
     ) {
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, error = null) }
+            _state.update {
+                it.copy(
+                    isLoading = !isPullToRefresh,
+                    isRefreshing = isPullToRefresh,
+                    error = null
+                )
+            }
             val result = servicesRepository.getRecommendedServices(
                 page = 1,
                 limit = 5,
@@ -95,6 +114,8 @@ class RecommendationViewModel @Inject constructor(
                             recommendationMode = response.recommendationMode,
                             showProfilePrompt = response.showProfilePrompt,
                             isLoading = false,
+                            isRefreshing = false,
+                            hasLoadedOnce = true,
                             error = null
                         )
                     }
@@ -103,6 +124,8 @@ class RecommendationViewModel @Inject constructor(
                     _state.update {
                         it.copy(
                             isLoading = false,
+                            isRefreshing = false,
+                            hasLoadedOnce = true,
                             error = failure.message ?: "Failed to load recommendations"
                         )
                     }

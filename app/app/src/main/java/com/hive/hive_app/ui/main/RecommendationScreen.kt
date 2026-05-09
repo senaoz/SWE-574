@@ -24,18 +24,21 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -47,25 +50,23 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.hive.hive_app.data.api.dto.RecommendedServiceItemDto
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecommendationScreen(
     modifier: Modifier = Modifier,
     viewModel: RecommendationViewModel = hiltViewModel(),
     onBack: () -> Unit,
-    onServiceSelected: (String) -> Unit
+    onServiceSelected: (String) -> Unit,
+    bottomBarPadding: Dp = 96.dp
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
-    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        viewModel.setLocationPermissionGranted(granted)
-    }
 
     LaunchedEffect(Unit) {
         val granted = androidx.core.content.ContextCompat.checkSelfPermission(
@@ -73,9 +74,7 @@ fun RecommendationScreen(
             android.Manifest.permission.ACCESS_COARSE_LOCATION
         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
         viewModel.setLocationPermissionGranted(granted)
-        if (!granted) {
-            permissionLauncher.launch(android.Manifest.permission.ACCESS_COARSE_LOCATION)
-        }
+        viewModel.loadInitial()
     }
 
     Scaffold(
@@ -84,15 +83,28 @@ fun RecommendationScreen(
             RecommendationTopBar(onBack = onBack)
         }
     ) { innerPadding ->
+        val systemBottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        val safeBottomPadding = bottomBarPadding + systemBottomInset
         when {
             state.isLoading -> {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding),
+                        .padding(innerPadding)
+                        .padding(bottom = safeBottomPadding),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator()
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        CircularProgressIndicator()
+                        Text(
+                            text = "Finding services for you...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 
@@ -100,7 +112,8 @@ fun RecommendationScreen(
                 MessageState(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding),
+                        .padding(innerPadding)
+                        .padding(bottom = safeBottomPadding),
                     title = "Could not load recommendations",
                     body = state.error ?: "Please try again.",
                     actionLabel = "Retry",
@@ -112,7 +125,8 @@ fun RecommendationScreen(
                 MessageState(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding),
+                        .padding(innerPadding)
+                        .padding(bottom = safeBottomPadding),
                     title = "No recommendations yet",
                     body = "Create or engage with services to get smarter personalized suggestions.",
                     actionLabel = "Refresh",
@@ -121,45 +135,49 @@ fun RecommendationScreen(
             }
 
             else -> {
-                val systemBottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-                LazyColumn(
+                PullToRefreshBox(
+                    isRefreshing = state.isRefreshing,
+                    onRefresh = { viewModel.refresh() },
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding),
-                    contentPadding = PaddingValues(
-                        start = 16.dp,
-                        end = 16.dp,
-                        top = 12.dp,
-                        bottom = 16.dp + systemBottomInset
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                        .padding(innerPadding)
                 ) {
-                    item {
-                        RecommendationHeader(
-                            count = state.items.size,
-                            recommendationMode = state.recommendationMode
-                        )
-                    }
-                    items(items = state.items, key = { it.service._id }) { item ->
-                        RecommendationCard(
-                            item = item,
-                            onOpen = { onServiceSelected(item.service._id) }
-                        )
-                    }
-                    if (state.showProfilePrompt) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 12.dp,
+                            bottom = 16.dp + safeBottomPadding
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
                         item {
-                            Card(
-                                shape = RoundedCornerShape(14.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                                )
-                            ) {
-                                Text(
-                                    text = "Add more profile interests to improve recommendation quality.",
-                                    modifier = Modifier.padding(14.dp),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
+                            RecommendationHeader(
+                                count = state.items.size,
+                                recommendationMode = state.recommendationMode,
+                                onRefresh = { viewModel.refresh() }
+                            )
+                        }
+                        items(items = state.items, key = { it.service._id }) { item ->
+                            RecommendationCard(
+                                item = item,
+                                onOpen = { onServiceSelected(item.service._id) }
+                            )
+                        }
+                        if (state.showProfilePrompt) {
+                            item {
+                                Surface(
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = MaterialTheme.colorScheme.secondaryContainer
+                                ) {
+                                    Text(
+                                        text = "Tip: add interests in your profile to improve recommendation quality.",
+                                        modifier = Modifier.padding(14.dp),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
                             }
                         }
                     }
@@ -188,27 +206,47 @@ private fun RecommendationTopBar(
 @Composable
 private fun RecommendationHeader(
     count: Int,
-    recommendationMode: String
+    recommendationMode: String,
+    onRefresh: () -> Unit
 ) {
     val modeText = when (recommendationMode) {
-        "personalized" -> "Personalized for you"
-        "location_fallback" -> "Based on your location"
-        else -> "Suggestions for you"
+        "personalized" -> "Based on your interests and activity"
+        "location_fallback" -> "Based on nearby opportunities"
+        else -> "Suggestions tailored for you"
     }
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface
     ) {
-        Text(
-            text = "Top $count services",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
-        )
-        Text(
-            text = modeText,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "Recommended for you",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "$count picks • $modeText",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(onClick = onRefresh) {
+                Icon(
+                    imageVector = Icons.Outlined.Refresh,
+                    contentDescription = "Refresh recommendations"
+                )
+            }
+        }
     }
 }
 
@@ -222,14 +260,14 @@ private fun RecommendationCard(
     Card(
         onClick = onOpen,
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             if (imageModel != null) {
                 AsyncImage(
@@ -238,52 +276,24 @@ private fun RecommendationCard(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(156.dp)
+                        .height(164.dp)
                         .clip(RoundedCornerShape(12.dp))
                 )
             } else {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(96.dp)
+                        .height(118.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surface),
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Image,
-                        contentDescription = null,
+                        contentDescription = "No image available",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Favorite,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
-                )
-                Text(
-                    text = "Why recommended",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Text(
-                    text = item.reason,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
             }
             Text(
                 text = item.service.title,
@@ -292,11 +302,30 @@ private fun RecommendationCard(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Favorite,
+                    contentDescription = "Recommendation reason",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(14.dp)
+                )
+                Text(
+                    text = item.reason,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
             Text(
                 text = item.service.description,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 3,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
             Row(
@@ -308,12 +337,14 @@ private fun RecommendationCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    FilterChip(
-                        selected = true,
-                        onClick = {},
-                        enabled = false,
-                        label = { Text(item.service.serviceType.replaceFirstChar { it.uppercase() }) }
-                    )
+                    Surface(shape = RoundedCornerShape(999.dp), color = MaterialTheme.colorScheme.primaryContainer) {
+                        Text(
+                            text = item.service.serviceType.replaceFirstChar { it.uppercase() },
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
                     if (!item.service.isRemote) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -362,26 +393,36 @@ private fun MessageState(
     onAction: () -> Unit
 ) {
     Box(
-        modifier = modifier.padding(24.dp),
+        modifier = modifier.padding(horizontal = 20.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = body,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.size(4.dp))
-            Button(onClick = onAction) {
-                Text(actionLabel)
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = body,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = onAction) {
+                        Text(actionLabel)
+                    }
+                    Button(onClick = onAction) {
+                        Text("Try now")
+                    }
+                }
             }
         }
     }
