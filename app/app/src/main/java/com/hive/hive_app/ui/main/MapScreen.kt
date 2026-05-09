@@ -28,7 +28,9 @@ import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.FormatListBulleted
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Search
@@ -533,6 +535,7 @@ fun MapScreen(
     var didInitialCenter by remember { mutableStateOf(false) }
     var nearMeCenterNonce by remember { mutableStateOf(0) }
     var showListView by remember { mutableStateOf(false) }
+    var showRecommendations by remember { mutableStateOf(false) }
 
     LaunchedEffect(resetNonce) {
         // "Map" tab reselected from bottom bar: return to the map root UI.
@@ -544,16 +547,19 @@ fun MapScreen(
         completeServiceRatingArgs = null
         showFilters = false
         showListView = false
+        showRecommendations = false
     }
 
     BackHandler(
         enabled = completeServiceRatingArgs != null ||
+            showRecommendations ||
             manageRequestsServiceId != null ||
             showCreateServiceScreen ||
             selectedServiceId != null ||
             selectedForumEventId != null
     ) {
         when {
+            showRecommendations -> showRecommendations = false
             completeServiceRatingArgs != null -> completeServiceRatingArgs = null
             manageRequestsServiceId != null -> manageRequestsServiceId = null
             showCreateServiceScreen -> {
@@ -700,7 +706,7 @@ fun MapScreen(
     var mapUiReady by remember { mutableStateOf(false) }
     val activity = LocalActivity.current
 
-    BackHandler(enabled = showListView) {
+    BackHandler(enabled = showListView && !showRecommendations) {
         showListView = false
     }
 
@@ -717,7 +723,16 @@ fun MapScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        if (showListView) {
+        if (showRecommendations) {
+            RecommendationScreen(
+                modifier = Modifier.fillMaxSize(),
+                onBack = { showRecommendations = false },
+                onServiceSelected = { serviceId ->
+                    showRecommendations = false
+                    if (onServiceSelected != null) onServiceSelected(serviceId) else selectedServiceId = serviceId
+                }
+            )
+        } else if (showListView) {
             DiscoverScreen(
                 modifier = Modifier.fillMaxSize(),
                 onStartChat = onStartChat,
@@ -1039,9 +1054,31 @@ fun MapScreen(
                         ),
                         textStyle = MaterialTheme.typography.bodyMedium
                     )
+                    // Recommendation icon — left of list/discovery toggle
+                    IconButton(
+                        onClick = {
+                            showRecommendations = !showRecommendations
+                            if (showRecommendations) {
+                                showListView = false
+                                showFilters = false
+                            }
+                        },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (showRecommendations) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = "Recommendations",
+                            tint = if (showRecommendations) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                     // List view toggle
                     IconButton(
-                        onClick = { showListView = !showListView },
+                        onClick = {
+                            showListView = !showListView
+                            if (showListView) showRecommendations = false
+                        },
                         modifier = Modifier.size(40.dp)
                     ) {
                         Icon(

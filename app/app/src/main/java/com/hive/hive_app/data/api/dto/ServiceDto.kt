@@ -109,3 +109,21 @@ data class ServiceListResponse(
     val page: Int,
     val limit: Int
 )
+
+@JsonClass(generateAdapter = true)
+data class RecommendedServiceItemDto(
+    val service: ServiceResponse,
+    val reason: String,
+    val score: Double,
+    @Json(name = "matched_interests") val matchedInterests: List<String> = emptyList()
+)
+
+@JsonClass(generateAdapter = true)
+data class RecommendedServiceListResponse(
+    val items: List<RecommendedServiceItemDto>,
+    val total: Int,
+    val page: Int,
+    val limit: Int,
+    @Json(name = "recommendation_mode") val recommendationMode: String = "empty",
+    @Json(name = "show_profile_prompt") val showProfilePrompt: Boolean = false
+)
