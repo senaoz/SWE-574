@@ -25,6 +25,7 @@ import { TagAutocomplete } from "@/components/forms/TagAutocomplete";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CommentSection } from "@/components/ui/CommentSection";
 import ReactMarkdown from "react-markdown";
+import { useUser } from "@/App";
 
 function timeAgo(dateStr: string) {
   const now = Date.now();

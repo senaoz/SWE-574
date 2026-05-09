@@ -269,9 +269,15 @@ export function Dashboard() {
   }, []);
 
   useEffect(() => {
+    const now = new Date();
     forumApi
       .getEvents({ has_location: true, limit: 200 })
-      .then((response) => setForumEvents(response.data.events || []))
+      .then((r) => {
+        const upcomingEvents = (r.data.events || []).filter(
+          (e) => new Date(e.event_at) >= now,
+        );
+        setForumEvents(upcomingEvents);
+      })
       .catch(() => setForumEvents([]));
   }, []);
 
@@ -279,17 +285,17 @@ export function Dashboard() {
     const isInitialLoad = services.length === 0 && loading;
 
     try {
-      if (isInitialLoad) {
+if (isInitialLoad) {
         setLoading(true);
       } else {
         setIsSearching(true);
       }
-
       const response = await servicesApi.getServices({
+        status: "active",
         q: searchValue?.trim() || undefined,
         limit: 500,
       });
-
+      
       setServices(response.data.services || []);
       setFilteredServices(response.data.services || []);
     } catch (error) {
@@ -387,6 +393,7 @@ export function Dashboard() {
             service.scheduling_type !== "specific" ||
             !service.specific_date
           ) {
+            
             return false;
           }
 

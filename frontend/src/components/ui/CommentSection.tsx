@@ -241,6 +241,26 @@ export function CommentSection({
                     <Text size="1" color="gray">
                       {formatRelativeTime(comment.created_at)}
                     </Text>
+                    {isOwner && !isEditing && (
+                      <Flex gap="1" className="ml-auto">
+                        <Button
+                          size="1"
+                          variant="ghost"
+                          color="gray"
+                          onClick={() => handleEditStart(comment)}
+                        >
+                          <Pencil1Icon />
+                        </Button>
+                        <Button
+                          size="1"
+                          variant="ghost"
+                          color="red"
+                          onClick={() => handleDelete(comment._id)}
+                        >
+                          <TrashIcon />
+                        </Button>
+                      </Flex>
+                    )}
                   </Flex>
                   {renderCommentContent ? (
                     renderCommentContent(comment)
