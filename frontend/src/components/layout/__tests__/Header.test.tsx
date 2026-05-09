@@ -4,7 +4,18 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Theme } from "@radix-ui/themes";
+import React from "react";
 import { Header } from "../Header";
+
+// Make Tooltip expose its content as aria-label so buttons are queryable by name
+vi.mock("@radix-ui/themes", async () => {
+  const actual = await vi.importActual<typeof import("@radix-ui/themes")>("@radix-ui/themes");
+  return {
+    ...actual,
+    Tooltip: ({ children, content }: { children: React.ReactElement; content: string }) =>
+      React.cloneElement(children, { "aria-label": content }),
+  };
+});
 
 const mockNavigate = vi.fn();
 const mockSetSearchQuery = vi.fn();
