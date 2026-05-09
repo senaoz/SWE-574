@@ -169,6 +169,7 @@ fun MainScaffold(
                     isSaved = detailIsSaved,
                     onStartChat = onStartChat,
                     onOpenUserProfile = { pushOverlay(OverlayRoute.UserProfile(it)) },
+                    onOpenRecommendedService = { pushOverlay(OverlayRoute.ServiceDetail(it)) },
                     onManageJoinRequests = { detailState?._id?.let { pushOverlay(OverlayRoute.ManageService(it)) } }
                 )
             }

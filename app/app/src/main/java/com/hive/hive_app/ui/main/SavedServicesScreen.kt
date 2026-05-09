@@ -71,6 +71,7 @@ fun SavedServicesScreen(
             error = detailError,
             onBack = { selectedServiceId = null },
             viewModel = detailViewModel,
+            onOpenRecommendedService = { selectedServiceId = it },
             modifier = modifier
         )
         return

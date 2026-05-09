@@ -162,6 +162,7 @@ fun ActiveItemsScreen(
             isSaved = detailIsSaved,
             onStartChat = onStartChat,
             onOpenUserProfile = onOpenUserProfile,
+            onOpenRecommendedService = { selectedServiceId = it },
             onManageJoinRequests = {
                 manageRequestsServiceId = id
                 selectedServiceId = null

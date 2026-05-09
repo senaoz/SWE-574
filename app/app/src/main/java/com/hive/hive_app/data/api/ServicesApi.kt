@@ -2,6 +2,7 @@ package com.hive.hive_app.data.api
 
 import com.hive.hive_app.data.api.dto.ServiceCreate
 import com.hive.hive_app.data.api.dto.ServiceListResponse
+import com.hive.hive_app.data.api.dto.RecommendedServiceListResponse
 import com.hive.hive_app.data.api.dto.ServiceResponse
 import retrofit2.Response
 import retrofit2.http.Body
@@ -62,4 +63,13 @@ interface ServicesApi {
 
     @GET("services/saved/ids")
     suspend fun getSavedServiceIds(): Response<List<String>>
+
+    @GET("services/recommendations")
+    suspend fun getRecommendedServices(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 5,
+        @Query("latitude") latitude: Double? = null,
+        @Query("longitude") longitude: Double? = null,
+        @Query("radius") radius: Double? = null
+    ): Response<RecommendedServiceListResponse>
 }
