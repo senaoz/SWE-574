@@ -644,40 +644,6 @@ fun ServiceDetailScreen(
                         }
                     }
 
-                    if (recommendedLoading || recommendedServices.isNotEmpty()) {
-                        DetailSection(title = "Services like this", icon = Icons.Default.TrendingUp) {
-                            if (recommendedLoading && recommendedServices.isEmpty()) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(22.dp),
-                                        color = MaterialTheme.colorScheme.primary,
-                                        strokeWidth = 2.dp
-                                    )
-                                }
-                            } else {
-                                LazyRow(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    items(
-                                        items = recommendedServices.take(3),
-                                        key = { it.service._id }
-                                    ) { item ->
-                                        RecommendedServiceCompactCard(
-                                            item = item,
-                                            onClick = {
-                                                onOpenRecommendedService?.invoke(item.service._id)
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
                     // Tags
                     if (service.tags.isNotEmpty()) {
                         DetailSection(title = "Tags", icon = Icons.Default.Tag) {
@@ -887,6 +853,39 @@ fun ServiceDetailScreen(
                                     .height(200.dp)
                                     .clip(RoundedCornerShape(8.dp))
                             )
+                        }
+                    }
+                    if (recommendedLoading || recommendedServices.isNotEmpty()) {
+                        DetailSection(title = "Services like this", icon = Icons.Default.TrendingUp) {
+                            if (recommendedLoading && recommendedServices.isEmpty()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(22.dp),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        strokeWidth = 2.dp
+                                    )
+                                }
+                            } else {
+                                LazyRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    items(
+                                        items = recommendedServices.take(3),
+                                        key = { it.service._id }
+                                    ) { item ->
+                                        RecommendedServiceCompactCard(
+                                            item = item,
+                                            onClick = {
+                                                onOpenRecommendedService?.invoke(item.service._id)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                     // Clearance so the floating + FAB never overlaps the map
