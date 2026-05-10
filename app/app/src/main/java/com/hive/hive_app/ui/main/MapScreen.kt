@@ -725,11 +725,6 @@ fun MapScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        if (showListView) {
-            DiscoverScreen(
-                modifier = Modifier.fillMaxSize(),
-                onStartChat = onStartChat,
-                onOpenUserProfile = onOpenUserProfile
         if (showRecommendations) {
             RecommendationScreen(
                 modifier = Modifier.fillMaxSize(),
@@ -1061,9 +1056,6 @@ fun MapScreen(
                         ),
                         textStyle = MaterialTheme.typography.bodyMedium
                     )
-                    // List view toggle
-                    IconButton(
-                        onClick = { showListView = !showListView },
                     // Recommendation icon — left of list/discovery toggle
                     IconButton(
                         onClick = {
@@ -1340,6 +1332,7 @@ private fun FilterSummaryChip(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     isActive: Boolean,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val containerColor = if (isActive)
@@ -1352,6 +1345,7 @@ private fun FilterSummaryChip(
         MaterialTheme.colorScheme.onSurfaceVariant
 
     androidx.compose.material3.Surface(
+        onClick = onClick,
         modifier = modifier,
         shape = RoundedCornerShape(50),
         color = containerColor,
