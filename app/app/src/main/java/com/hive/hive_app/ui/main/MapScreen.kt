@@ -28,7 +28,6 @@ import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -93,8 +92,6 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.Point
 import android.view.View
-import android.os.Handler
-import android.os.Looper
 import androidx.annotation.DrawableRes
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
@@ -320,30 +317,6 @@ private class MapBubbleInfoWindow(
     override fun onClose() {
         mView.setOnClickListener(null)
         super.onClose()
-    }
-}
-
-/** Soft pulsing rings under the “You” marker. */
-private class UserLocationPulseOverlay(
-    private val geoPoint: GeoPoint
-) : Overlay() {
-    private val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.FILL
-    }
-
-    override fun draw(canvas: Canvas, mapView: MapView, shadow: Boolean) {
-        val p = Point()
-        mapView.projection.toPixels(geoPoint, p)
-        val t = (System.currentTimeMillis() % 1800L) / 1800.0
-        val pulse = sin(t * kotlin.math.PI * 2) * 0.5 + 0.5
-        val rOuter = (22f + pulse * 38f).toFloat()
-        val alphaOuter = (35 + pulse * 55).toInt().coerceIn(0, 120)
-        ringPaint.color = AndroidColor.argb(alphaOuter, 33, 150, 243)
-        canvas.drawCircle(p.x.toFloat(), p.y.toFloat(), rOuter, ringPaint)
-        val rInner = rOuter * 0.55f
-        val alphaInner = (alphaOuter * 0.45f).toInt().coerceIn(0, 80)
-        ringPaint.color = AndroidColor.argb(alphaInner, 100, 181, 246)
-        canvas.drawCircle(p.x.toFloat(), p.y.toFloat(), rInner, ringPaint)
     }
 }
 
@@ -872,7 +845,6 @@ fun MapScreen(
                 }
                 if (state.userLat != null && state.userLon != null) {
                     val gp = GeoPoint(state.userLat!!, state.userLon!!)
-                    map.overlays.add(UserLocationPulseOverlay(gp))
                     val myIcon = ContextCompat.getDrawable(context, com.hive.hive_app.R.drawable.ic_bee_marker)
                     val userMarker = Marker(map).apply {
                         position = gp
@@ -894,23 +866,6 @@ fun MapScreen(
                 // Give osmdroid a moment to create layout/first tiles; then fade loader out.
                 delay(400)
                 mapUiReady = true
-            }
-        }
-
-        DisposableEffect(mapViewRef, state.userLat, state.userLon) {
-            val map = mapViewRef ?: return@DisposableEffect onDispose { }
-            val handler = Handler(Looper.getMainLooper())
-            val invalidator = object : Runnable {
-                override fun run() {
-                    map.invalidate()
-                    handler.postDelayed(this, 50)
-                }
-            }
-            if (state.userLat != null && state.userLon != null) {
-                handler.post(invalidator)
-            }
-            onDispose {
-                handler.removeCallbacks(invalidator)
             }
         }
 
@@ -1226,6 +1181,7 @@ fun MapScreen(
             Card(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
                     .padding(start = 12.dp, end = 12.dp, bottom = 96.dp, top = 12.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -1345,8 +1301,7 @@ private fun FilterSummaryChip(
         MaterialTheme.colorScheme.onSurfaceVariant
 
     androidx.compose.material3.Surface(
-        onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(50),
         color = containerColor,
         contentColor = contentColor,
