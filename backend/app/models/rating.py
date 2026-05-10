@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
 
@@ -11,6 +11,8 @@ class RatingCreate(BaseModel):
     rated_user_id: str
     score: int = Field(..., ge=1, le=5)
     comment: Optional[str] = None
+    tags: Optional[List[str]] = None
+    image_urls: Optional[List[str]] = None
 
     class Config:
         json_encoders = {ObjectId: str}
@@ -23,6 +25,8 @@ class RatingResponse(BaseModel):
     rated_user_id: PyObjectId
     score: int
     comment: Optional[str] = None
+    tags: Optional[List[str]] = None
+    image_urls: Optional[List[str]] = None
     created_at: datetime
     rater: Optional[dict] = None
     rated_user: Optional[dict] = None
@@ -35,5 +39,32 @@ class RatingResponse(BaseModel):
 
 class RatingListResponse(BaseModel):
     ratings: list[RatingResponse]
+    total: int
+    average_score: Optional[float] = None
+
+
+class RatingDetailedResponse(BaseModel):
+    id: PyObjectId = Field(alias="_id")
+    transaction_id: PyObjectId
+    rater_id: PyObjectId
+    rated_user_id: PyObjectId
+    score: int
+    comment: Optional[str] = None
+    tags: Optional[List[str]] = None
+    image_urls: Optional[List[str]] = None
+    created_at: datetime
+    rater: Optional[dict] = None
+    rated_user: Optional[dict] = None
+    transaction: Optional[dict] = None
+    service: Optional[dict] = None
+
+    class Config:
+        populate_by_name = True
+        arbitrary_types_allowed = True
+        json_encoders = {ObjectId: str}
+
+
+class RatingDetailedListResponse(BaseModel):
+    ratings: list[RatingDetailedResponse]
     total: int
     average_score: Optional[float] = None

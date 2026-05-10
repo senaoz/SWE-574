@@ -22,6 +22,7 @@ class UserRole(str, Enum):
     USER = "user"
     MODERATOR = "moderator"
     ADMIN = "admin"
+    BANNED = "banned"
 
 
 URL_REGEX = re.compile(
@@ -156,6 +157,14 @@ class UserRoleUpdate(BaseModel):
         json_encoders = {ObjectId: str}
 
 
+class TimeBankBalanceUpdate(BaseModel):
+    """Admin/moderator update of a user's TimeBank balance"""
+    balance: float = Field(..., ge=0, description="New balance in hours")
+
+    class Config:
+        json_encoders = {ObjectId: str}
+
+
 class OAuthUserCreate(BaseModel):
     email: EmailStr
     username: str
@@ -194,6 +203,8 @@ class TimeBankResponse(BaseModel):
     max_balance: float = 10.0
     can_earn: bool = True
     requires_need_creation: bool = False
+    effective_max_balance: float = 0.0
+    effective_min_balance: float = 0.0
 
     @field_validator('balance', mode='before')
     @classmethod

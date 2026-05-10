@@ -49,6 +49,17 @@ async def create_indexes():
         await db.database.users.create_index("email", unique=True)
         await db.database.users.create_index("username", unique=True)
         
+        # Migrate old location format {latitude, longitude} to GeoJSON before creating index
+        async for doc in db.database.services.find({"location.latitude": {"$exists": True}, "location.type": {"$exists": False}}):
+            loc = doc["location"]
+            geojson = {
+                "type": "Point",
+                "coordinates": [loc["longitude"], loc["latitude"]],
+            }
+            if loc.get("address"):
+                geojson["address"] = loc["address"]
+            await db.database.services.update_one({"_id": doc["_id"]}, {"$set": {"location": geojson}})
+
         # Services collection indexes
         await db.database.services.create_index([("location", "2dsphere")])
         await db.database.services.create_index("user_id")
@@ -93,6 +104,13 @@ async def create_indexes():
         await db.database.messages.create_index("created_at")
         await db.database.messages.create_index("is_deleted")
         
+        # Saved services indexes
+        await db.database.saved_services.create_index(
+            [("user_id", 1), ("service_id", 1)], unique=True
+        )
+        await db.database.saved_services.create_index("user_id")
+        await db.database.saved_services.create_index("created_at")
+
         # Forum indexes
         await db.database.forum_discussions.create_index("user_id")
         await db.database.forum_discussions.create_index("created_at")
@@ -108,6 +126,24 @@ async def create_indexes():
         await db.database.forum_comments.create_index([("target_type", 1), ("target_id", 1)])
         await db.database.forum_comments.create_index("user_id")
         await db.database.forum_comments.create_index("created_at")
+
+        # Reports indexes
+        await db.database.reports.create_index([("reported_by", 1), ("created_at", -1)])
+        await db.database.reports.create_index([("report_type", 1), ("status", 1)])
+        await db.database.reports.create_index("reported_id")
+        await db.database.reports.create_index("status")
+        # Only one pending report per (reporter, type, target)
+        await db.database.reports.create_index(
+            [("reported_by", 1), ("report_type", 1), ("reported_id", 1)],
+            unique=True,
+            partialFilterExpression={"status": "pending"},
+            name="uniq_pending_report_per_target",
+        )
+
+        # Notifications indexes
+        await db.database.notifications.create_index("user_id")
+        await db.database.notifications.create_index([("user_id", 1), ("is_read", 1)])
+        await db.database.notifications.create_index([("user_id", 1), ("created_at", -1)])
 
         logger.info("Database indexes created successfully")
     except Exception as e:

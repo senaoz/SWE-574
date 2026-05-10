@@ -1,9 +1,13 @@
+import logging
 from typing import List, Tuple, Optional
 from datetime import datetime
 from bson import ObjectId
 
 from ..models.join_request import JoinRequestCreate, JoinRequestUpdate, JoinRequestResponse, JoinRequestStatus
+from ..models.notification import NotificationType, NotificationRelatedType
 from ..core.database import get_database
+
+logger = logging.getLogger(__name__)
 
 
 class JoinRequestService:
@@ -34,10 +38,111 @@ class JoinRequestService:
             if str(service["user_id"]) == user_id:
                 raise ValueError("Cannot request to join your own service")
             
-            # When joining an offer, block if the provider must create a Need (cannot give help yet)
-            if service.get("service_type") == "offer":
-                from .user_service import UserService
-                user_service = UserService(self.db)
+            from .user_service import UserService
+            user_service = UserService(self.db)
+            service_hours = float(service.get("estimated_duration", 0.0))
+            service_type = service.get("service_type")
+
+            if service_type == "need":
+                # User is applying to fulfill a need → they will EARN hours (provider role)
+                # Block if this would push their effective max balance over 10 hours
+                user = await user_service.get_user_by_id(user_id)
+                current_balance = float(user.timebank_balance) if user else 0.0
+
+                # Breakdown components
+                active_offers = await user_service.db.services.find({
+                    "user_id": ObjectId(user_id), "service_type": "offer", "status": "active"
+                }).to_list(None)
+                active_offer_hours = sum(float(o.get("estimated_duration", 0.0)) for o in active_offers)
+
+                pending_jrs = await user_service.db.join_requests.find({
+                    "user_id": ObjectId(user_id), "status": "pending"
+                }).to_list(None)
+                pending_need_jr_hours = 0.0
+                for jr in pending_jrs:
+                    svc = await user_service.db.services.find_one({"_id": jr["service_id"]})
+                    if svc and svc.get("service_type") == "need":
+                        pending_need_jr_hours += float(svc.get("estimated_duration", 0.0))
+
+                effective_max = await user_service.get_effective_max_balance(user_id)
+                approved_tx_hours = effective_max - current_balance - active_offer_hours - pending_need_jr_hours
+                projected = effective_max + service_hours
+
+                logger.info(
+                    "[TIMEBANK] user=%s applying to NEED service=%s (%.1f hrs)\n"
+                    "  current_balance     = %.2f hrs\n"
+                    "  + active_offer_hrs  = %.2f hrs  (%d active offers)\n"
+                    "  + pending_need_jrs  = %.2f hrs  (%d pending applications)\n"
+                    "  + approved_tx_hrs   = %.2f hrs\n"
+                    "  = effective_max     = %.2f hrs  (limit: 10.0)\n"
+                    "  projected after     = %.2f hrs  → %s",
+                    user_id, request_data.service_id, service_hours,
+                    current_balance,
+                    active_offer_hours, len(active_offers),
+                    pending_need_jr_hours, sum(1 for jr in pending_jrs if True),
+                    approved_tx_hours,
+                    effective_max,
+                    projected,
+                    "BLOCKED ❌" if projected > 10.0 else "ALLOWED ✅"
+                )
+
+                if projected > 10.0:
+                    raise ValueError(
+                        f"You cannot apply to this need. Your projected maximum balance would reach "
+                        f"{projected:.1f} hrs, exceeding the 10-hour limit. "
+                        f"Wait for your active offers or applications to complete or be cancelled."
+                    )
+
+            if service_type == "offer":
+                # User is applying to receive an offer → they will SPEND hours (requester role)
+                # Block if this would push their effective min balance below 0
+                user = await user_service.get_user_by_id(user_id)
+                current_balance = float(user.timebank_balance) if user else 0.0
+
+                # Breakdown components
+                active_needs = await user_service.db.services.find({
+                    "user_id": ObjectId(user_id), "service_type": "need", "status": "active"
+                }).to_list(None)
+                active_need_hours = sum(float(n.get("estimated_duration", 0.0)) for n in active_needs)
+
+                pending_jrs = await user_service.db.join_requests.find({
+                    "user_id": ObjectId(user_id), "status": "pending"
+                }).to_list(None)
+                pending_offer_jr_hours = 0.0
+                for jr in pending_jrs:
+                    svc = await user_service.db.services.find_one({"_id": jr["service_id"]})
+                    if svc and svc.get("service_type") == "offer":
+                        pending_offer_jr_hours += float(svc.get("estimated_duration", 0.0))
+
+                effective_min = await user_service.get_effective_min_balance(user_id)
+                approved_spend_tx_hours = current_balance - active_need_hours - pending_offer_jr_hours - effective_min
+                projected = effective_min - service_hours
+
+                logger.info(
+                    "[TIMEBANK] user=%s applying to OFFER service=%s (%.1f hrs)\n"
+                    "  current_balance       = %.2f hrs\n"
+                    "  - active_need_hrs     = %.2f hrs  (%d active needs)\n"
+                    "  - pending_offer_jrs   = %.2f hrs  (%d pending applications)\n"
+                    "  - approved_spend_txs  = %.2f hrs\n"
+                    "  = effective_min       = %.2f hrs  (floor: 0.0)\n"
+                    "  projected after       = %.2f hrs  → %s",
+                    user_id, request_data.service_id, service_hours,
+                    current_balance,
+                    active_need_hours, len(active_needs),
+                    pending_offer_jr_hours, sum(1 for jr in pending_jrs if True),
+                    approved_spend_tx_hours,
+                    effective_min,
+                    projected,
+                    "BLOCKED ❌" if projected < 0 else "ALLOWED ✅"
+                )
+
+                if projected < 0:
+                    raise ValueError(
+                        f"You cannot apply to this offer. Your projected minimum balance would drop to "
+                        f"{projected:.1f} hrs. "
+                        f"Wait for your active needs or applications to complete or be cancelled."
+                    )
+                # Also block if the provider has reached their surplus limit
                 provider_id = str(service["user_id"])
                 if await user_service.requires_need_creation(provider_id):
                     raise ValueError(
@@ -56,7 +161,24 @@ class JoinRequestService:
             
             result = await self.join_requests_collection.insert_one(request_doc)
             request_doc["_id"] = result.inserted_id
-            
+
+            # Notify service owner about the new application
+            try:
+                from .notification_service import NotificationService
+                notif_service = NotificationService(self.db)
+                applicant = await self.users_collection.find_one({"_id": ObjectId(user_id)})
+                applicant_name = (applicant.get("full_name") or applicant.get("username", "Someone")) if applicant else "Someone"
+                await notif_service.create_notification(
+                    user_id=str(service["user_id"]),
+                    notification_type=NotificationType.JOIN_REQUEST_RECEIVED,
+                    title="New application on your service",
+                    body=f"{applicant_name} applied to '{service.get('title', 'your service')}'",
+                    related_id=str(result.inserted_id),
+                    related_type=NotificationRelatedType.JOIN_REQUEST,
+                )
+            except Exception as e:
+                print(f"Warning: Failed to send join request notification: {e}")
+
             # Get user info for the response
             user = await self.users_collection.find_one({"_id": ObjectId(user_id)})
             if user:
@@ -120,7 +242,8 @@ class JoinRequestService:
             requests = []
             async for request_doc in cursor:
                 # Get service info for each request
-                service = await self.services_collection.find_one({"_id": request_doc["service_id"]})
+                _svc_id = request_doc["service_id"]
+                service = await self.services_collection.find_one({"_id": ObjectId(_svc_id) if not isinstance(_svc_id, ObjectId) else _svc_id})
                 if service:
                     request_doc["service"] = {
                         "id": str(service["_id"]),
@@ -144,22 +267,34 @@ class JoinRequestService:
                 raise ValueError("Join request not found")
             
             # Get the service to check if user is the owner
-            service = await self.services_collection.find_one({"_id": request_doc["service_id"]})
+            svc_id = request_doc["service_id"]
+            service = await self.services_collection.find_one({"_id": ObjectId(svc_id) if not isinstance(svc_id, ObjectId) else svc_id})
             if not service:
                 raise ValueError("Service not found")
             
             if str(service["user_id"]) != admin_user_id:
                 raise ValueError("Only the service owner can approve/reject requests")
             
-            # When approving an offer, provider cannot give help if they must create a Need first
-            if update_data.status == JoinRequestStatus.APPROVED and service.get("service_type") == "offer":
+            if update_data.status == JoinRequestStatus.APPROVED:
                 from .user_service import UserService
                 user_service = UserService(self.db)
-                if await user_service.requires_need_creation(admin_user_id):
-                    raise ValueError(
-                        "You must create a Need before you can give help. "
-                        "You've reached the 10-hour surplus limit."
-                    )
+
+                if service.get("service_type") == "offer":
+                    # Service owner is the provider — check their effective max balance
+                    if await user_service.requires_need_creation(admin_user_id):
+                        raise ValueError(
+                            "You must create a Need before you can give help. "
+                            "You've reached the 10-hour surplus limit."
+                        )
+
+                if service.get("service_type") == "need":
+                    # The applicant is the provider — check their effective max balance
+                    applicant_id = str(request_doc["user_id"])
+                    if await user_service.requires_need_creation(applicant_id):
+                        raise ValueError(
+                            "This applicant cannot take on more work. "
+                            "They've reached the 10-hour surplus limit."
+                        )
             
             print(f"Update data: {update_data}")
             print(f"matched_user_ids before: {service.get('matched_user_ids', [])}")
@@ -167,12 +302,18 @@ class JoinRequestService:
             # If approving, check max_participants limit BEFORE updating status
             if update_data.status == JoinRequestStatus.APPROVED:
                 # Check max_participants limit (count BEFORE we approve this request)
+                _count_svc_id = request_doc["service_id"]
+                _count_svc_oid = ObjectId(_count_svc_id) if not isinstance(_count_svc_id, ObjectId) else _count_svc_id
                 approved_count = await self.join_requests_collection.count_documents({
-                    "service_id": request_doc["service_id"],
+                    "service_id": _count_svc_oid,
                     "status": JoinRequestStatus.APPROVED
                 })
                 
-                max_participants = service.get("max_participants", 1)
+                max_participants = service.get("max_participants")
+                if max_participants is None:
+                    max_participants = 1000
+                elif not isinstance(max_participants, int):
+                    max_participants = int(max_participants)
                 # Check if adding this approval would exceed the limit
                 if approved_count >= max_participants:
                     raise ValueError(f"Service has reached maximum participants limit ({max_participants})")
@@ -193,7 +334,34 @@ class JoinRequestService:
             
             if result.modified_count == 0:
                 raise ValueError("Failed to update join request")
-            
+
+            # Notify the applicant of the decision
+            try:
+                from .notification_service import NotificationService
+                notif_service = NotificationService(self.db)
+                applicant_id = str(request_doc["user_id"])
+                service_title = service.get("title", "the service")
+                if update_data.status == JoinRequestStatus.APPROVED:
+                    await notif_service.create_notification(
+                        user_id=applicant_id,
+                        notification_type=NotificationType.JOIN_REQUEST_APPROVED,
+                        title="Your application was approved",
+                        body=f"You've been approved for '{service_title}'",
+                        related_id=str(request_doc["service_id"]),
+                        related_type=NotificationRelatedType.SERVICE,
+                    )
+                elif update_data.status == JoinRequestStatus.REJECTED:
+                    await notif_service.create_notification(
+                        user_id=applicant_id,
+                        notification_type=NotificationType.JOIN_REQUEST_REJECTED,
+                        title="Your application was not accepted",
+                        body=f"Your application for '{service_title}' was declined",
+                        related_id=str(request_doc["service_id"]),
+                        related_type=NotificationRelatedType.SERVICE,
+                    )
+            except Exception as e:
+                print(f"Warning: Failed to send approval/rejection notification: {e}")
+
             # If approved, update the service to match with the user and create a transaction
             if update_data.status == JoinRequestStatus.APPROVED:
                 
@@ -203,16 +371,18 @@ class JoinRequestService:
                 if not isinstance(user_id_to_add, ObjectId):
                     user_id_to_add = ObjectId(user_id_to_add)
                 
+                _svc_id_for_update = request_doc["service_id"]
+                _svc_oid = ObjectId(_svc_id_for_update) if not isinstance(_svc_id_for_update, ObjectId) else _svc_id_for_update
                 update_result = await self.services_collection.update_one(
-                    {"_id": request_doc["service_id"]},
+                    {"_id": _svc_oid},
                     {
                         "$addToSet": {"matched_user_ids": user_id_to_add},
                         "$set": {"updated_at": datetime.utcnow()}
                     }
                 )
-                
+
                 # Fetch updated service to verify the change
-                updated_service = await self.services_collection.find_one({"_id": request_doc["service_id"]})
+                updated_service = await self.services_collection.find_one({"_id": _svc_oid})
                 print(f"matched_user_ids after: {updated_service.get('matched_user_ids', [])}")
                 print(f"Update result - matched: {update_result.matched_count}, modified: {update_result.modified_count}")
                 

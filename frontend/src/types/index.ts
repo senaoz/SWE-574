@@ -1,4 +1,4 @@
-export type UserRole = 'user' | 'moderator' | 'admin';
+export type UserRole = 'user' | 'moderator' | 'admin' | 'banned';
 
 export interface SocialLinks {
   linkedin?: string;
@@ -27,6 +27,8 @@ export interface BadgeSummary {
   badges: Badge[];
   earned_count: number;
   total_count: number;
+  earned_badges?: Badge[] | null;
+  last_earned_badge?: Badge | null;
 }
 
 export interface Rating {
@@ -36,6 +38,8 @@ export interface Rating {
   rated_user_id: string;
   score: number;
   comment?: string;
+  tags?: string[];
+  image_urls?: string[];
   created_at: string;
   rater?: {
     id: string;
@@ -50,11 +54,50 @@ export interface RatingListResponse {
   average_score?: number;
 }
 
+export interface RatingDetailed {
+  _id: string;
+  transaction_id: string;
+  rater_id: string;
+  rated_user_id: string;
+  score: number;
+  comment?: string;
+  tags?: string[];
+  image_urls?: string[];
+  created_at: string;
+  rater?: {
+    id: string;
+    username: string;
+    full_name?: string;
+  };
+  transaction?: {
+    id: string;
+    timebank_hours: number;
+    completed_at?: string;
+    created_at?: string;
+    rated_user_role?: "provider" | "taker";
+  };
+  service?: {
+    id: string;
+    title: string;
+    description?: string;
+    service_type?: string;
+    status?: string;
+  };
+}
+
+export interface RatingDetailedListResponse {
+  ratings: RatingDetailed[];
+  total: number;
+  average_score?: number;
+}
+
 export interface RatingForm {
   transaction_id: string;
   rated_user_id: string;
   score: number;
   comment?: string;
+  tags?: string[];
+  image_urls?: string[];
 }
 
 export interface User {
@@ -118,6 +161,10 @@ export interface TagEntity {
 export interface Service {
   _id: string;
   user_id: string;
+  is_saved?: boolean;
+  is_pinned?: boolean;
+  pinned_by?: string | null;
+  pinned_at?: string | null;
   title: string;
   description: string;
   category: string;
@@ -132,7 +179,6 @@ export interface Service {
   completed_at?: string;
   matched_user_ids?: string[];
   max_participants: number;
-  provider_confirmed?: boolean;
   receiver_confirmed_ids?: string[];
   // Scheduling fields
   scheduling_type?: 'specific' | 'recurring' | 'open';
@@ -144,6 +190,7 @@ export interface Service {
   };
   open_availability?: string;
   is_remote?: boolean;
+  image_urls?: string[];
 }
 
 export interface TimeBankTransaction {
@@ -166,6 +213,8 @@ export interface TimeBankResponse {
   max_balance: number;
   can_earn: boolean;
   requires_need_creation?: boolean;
+  effective_max_balance: number;
+  effective_min_balance: number;
 }
 
 export interface ServiceFilters {
@@ -186,6 +235,33 @@ export interface ServiceListResponse {
   total: number;
   page: number;
   limit: number;
+}
+
+export interface PotentialMatchItem {
+  service: Service;
+  relevance_score: number;
+  reason_label: string;
+}
+
+export interface PotentialMatchListResponse {
+  items: PotentialMatchItem[];
+  total: number;
+}
+
+export interface RecommendedServiceItem {
+  service: Service;
+  reason: string;
+  score: number;
+  matched_interests: string[];
+}
+
+export interface RecommendedServiceListResponse {
+  items: RecommendedServiceItem[];
+  total: number;
+  page: number;
+  limit: number;
+  recommendation_mode: "personalized" | "location_fallback" | "empty";
+  show_profile_prompt: boolean;
 }
 
 export interface AuthResponse {
@@ -232,6 +308,7 @@ export interface ServiceForm {
   max_participants: number;
   attachment?: File;
   attachment_url?: string;
+  image_urls?: string[];
   is_remote?: boolean;
 }
 
@@ -248,6 +325,7 @@ export interface ServiceFormErrors {
   specific_time?: string;
   recurring_pattern?: string | { days: string[]; time: string; error: string };
   open_availability?: string;
+  images?: string;
 }
 
 export interface Comment {
@@ -255,14 +333,10 @@ export interface Comment {
   user_id: string;
   service_id: string;
   content: string;
+  image_urls?: string[];
   created_at: string;
   updated_at: string;
-  user?: {
-    id: string;
-    username: string;
-    full_name?: string;
-    bio?: string;
-  };
+  user?: User;
 }
 
 export interface CommentListResponse {
@@ -275,6 +349,7 @@ export interface CommentListResponse {
 export interface CommentForm {
   content: string;
   service_id: string;
+  image_urls?: string[];
 }
 
 export interface JoinRequest {
@@ -291,6 +366,7 @@ export interface JoinRequest {
     username: string;
     full_name?: string;
     bio?: string;
+    profile_picture?: string;
   };
   service?: {
     id: string;
@@ -376,6 +452,7 @@ export interface ChatRoom {
     username: string;
     full_name?: string;
     bio?: string;
+    profile_picture?: string;
   }[];
   services?: {
     id: string;
@@ -426,6 +503,7 @@ export interface Message {
     id: string;
     username: string;
     full_name?: string;
+    profile_picture?: string;
   };
   reply_to_message?: {
     id: string;
@@ -496,6 +574,13 @@ export interface ForumDiscussion {
   updated_at: string;
   user?: ForumAuthor;
   comment_count: number;
+  upvote_count: number;
+  user_upvoted?: boolean;
+  image_urls?: string[];
+  community_id?: string;
+  is_pinned: boolean;
+  pinned_by?: string | null;
+  pinned_at?: string | null;
 }
 
 export interface ForumDiscussionListResponse {
@@ -509,6 +594,8 @@ export interface ForumDiscussionForm {
   title: string;
   body: string;
   tags: TagEntity[];
+  image_urls?: string[];
+  community_id?: string;
 }
 
 export interface ForumEvent {
@@ -532,6 +619,16 @@ export interface ForumEvent {
     service_type: string;
   };
   comment_count: number;
+  attendee_ids: string[];
+  attendee_count: number;
+  upvote_count: number;
+  user_upvoted?: boolean;
+  image_urls?: string[];
+  banner_image_url?: string;
+  community_id?: string;
+  is_pinned: boolean;
+  pinned_by?: string | null;
+  pinned_at?: string | null;
 }
 
 export interface ForumEventListResponse {
@@ -551,17 +648,23 @@ export interface ForumEventForm {
   is_remote: boolean;
   tags: TagEntity[];
   service_id?: string;
+  image_urls?: string[];
+  banner_image_url?: string;
+  community_id?: string;
 }
 
 export interface ForumComment {
   _id: string;
   user_id: string;
-  target_type: 'discussion' | 'event';
+  target_type: 'discussion' | 'event' | 'community_post';
   target_id: string;
   content: string;
+  image_urls?: string[];
   created_at: string;
   updated_at: string;
   user?: ForumAuthor;
+  upvote_count: number;
+  user_upvoted?: boolean;
 }
 
 export interface ForumCommentListResponse {
@@ -569,4 +672,176 @@ export interface ForumCommentListResponse {
   total: number;
   page: number;
   limit: number;
+}
+
+export type ReportType = 'user' | 'service';
+export type ReportReason = 'inappropriate' | 'abusive' | 'harassment' | 'spam' | 'other';
+export type ReportStatus = 'pending' | 'under_review' | 'resolved' | 'dismissed';
+
+export interface Report {
+  _id: string;
+  report_type: ReportType;
+  reported_id: string;
+  reported_by: string;
+  reason: ReportReason;
+  description?: string;
+  status: ReportStatus;
+  resolved_by?: string;
+  resolution_notes?: string;
+  created_at: string;
+  updated_at: string;
+  reported_details?: { _id: string; username?: string; email?: string; title?: string };
+  reporter_details?: { _id: string; username?: string; email?: string };
+}
+
+export interface ReportForm {
+  report_type: ReportType;
+  reported_id: string;
+  reason: ReportReason;
+  description?: string;
+}
+
+export interface ReportListResponse {
+  reports: Report[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface ReportPendingResponse {
+  pending: boolean;
+  report_id?: string;
+  created_at?: string;
+}
+
+export type NotificationType =
+  | 'join_request_received'
+  | 'join_request_approved'
+  | 'join_request_rejected'
+  | 'transaction_completed'
+  | 'service_completed'
+  | 'new_message'
+  | 'service_started'
+  | 'service_match';
+
+export type NotificationRelatedType = 'service' | 'join_request' | 'transaction' | 'chat_room';
+
+export interface Notification {
+  _id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  related_id: string;
+  related_type: NotificationRelatedType;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface NotificationListResponse {
+  notifications: Notification[];
+  total: number;
+  page: number;
+  limit: number;
+  unread_count: number;
+}
+
+// ===================== Community =====================
+
+export type MemberRole = 'founder' | 'moderator' | 'member';
+export type MemberStatus = 'active' | 'banned';
+export type CommunityPostType = 'post' | 'announcement';
+
+export interface Community {
+  _id: string;
+  name: string;
+  slug: string;
+  description: string;
+  rules: string[];
+  founder_id: string;
+  tags: TagEntity[];
+  cover_image_url?: string;
+  avatar_url?: string;
+  member_count: number;
+  post_count: number;
+  is_pinned: boolean;
+  pinned_by?: string | null;
+  pinned_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  founder?: ForumAuthor;
+  user_membership?: MemberRole | null;
+  target_membership?: MemberRole | null;
+  is_mutual?: boolean;
+}
+
+export interface CommunityListResponse {
+  communities: Community[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface UserCommunityListResponse {
+  communities: Community[];
+  total: number;
+  mutual_count: number;
+}
+
+export interface CommunityForm {
+  name: string;
+  description: string;
+  rules?: string[];
+  tags?: TagEntity[];
+  cover_image_url?: string;
+  avatar_url?: string;
+}
+
+export interface CommunityMember {
+  _id: string;
+  community_id: string;
+  user_id: string;
+  role: MemberRole;
+  status: MemberStatus;
+  joined_at: string;
+  user?: ForumAuthor;
+  mutual_community_count?: number | null;
+}
+
+export interface CommunityMemberListResponse {
+  members: CommunityMember[];
+  total: number;
+}
+
+export interface CommunityPost {
+  _id: string;
+  community_id: string;
+  user_id: string;
+  title: string;
+  body: string;
+  tags: TagEntity[];
+  post_type: CommunityPostType;
+  is_pinned: boolean;
+  pinned_by?: string | null;
+  pinned_at?: string | null;
+  upvote_count: number;
+  user_upvoted?: boolean;
+  comment_count: number;
+  created_at: string;
+  updated_at: string;
+  user?: ForumAuthor;
+}
+
+export interface CommunityPostListResponse {
+  posts: CommunityPost[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface CommunityPostForm {
+  title: string;
+  body: string;
+  tags?: TagEntity[];
+  post_type?: CommunityPostType;
 }

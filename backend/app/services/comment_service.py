@@ -4,8 +4,8 @@ from bson import ObjectId
 
 from ..models.comment import CommentCreate, CommentUpdate, CommentResponse
 from ..core.database import get_database
-
-
+from .content_moderation_service import is_offensive
+from ..models.user import UserResponse
 class CommentService:
     def __init__(self, db):
         self.db = db
@@ -20,7 +20,10 @@ class CommentService:
             service = await self.services_collection.find_one({"_id": ObjectId(comment_data.service_id)})
             if not service:
                 raise ValueError("Service not found")
-            
+
+            if is_offensive(comment_data.content):
+                raise ValueError("Comment contains offensive language")
+
             comment_doc = {
                 **comment_data.dict(),
                 "user_id": ObjectId(user_id),
@@ -31,15 +34,10 @@ class CommentService:
             result = await self.comments_collection.insert_one(comment_doc)
             comment_doc["_id"] = result.inserted_id
             
-            # Get user info for the response
+            # Get user info for the response (CommentResponse expects user as dict)
             user = await self.users_collection.find_one({"_id": ObjectId(user_id)})
             if user:
-                comment_doc["user"] = {
-                    "id": str(user["_id"]),
-                    "username": user["username"],
-                    "full_name": user.get("full_name"),
-                    "bio": user.get("bio")
-                }
+                comment_doc["user"] = UserResponse(**user).model_dump()
             
             return CommentResponse(**comment_doc)
         except Exception as e:
@@ -71,15 +69,10 @@ class CommentService:
 
 
             async for comment_doc in cursor:
-                # Get user info for each comment
+                # Get user info for each comment (CommentResponse expects user as dict)
                 user = await self.users_collection.find_one({"_id": comment_doc["user_id"]})
                 if user:
-                    comment_doc["user"] = {
-                        "id": str(user["_id"]),
-                        "username": user["username"],
-                        "full_name": user.get("full_name"),
-                        "bio": user.get("bio")
-                    }
+                    comment_doc["user"] = UserResponse(**user).model_dump()
                 
                 comments.append(CommentResponse(**comment_doc))
             
@@ -92,15 +85,10 @@ class CommentService:
         try:
             comment_doc = await self.comments_collection.find_one({"_id": ObjectId(comment_id)})
             if comment_doc:
-                # Get user info
+                # Get user info (CommentResponse expects user as dict)
                 user = await self.users_collection.find_one({"_id": comment_doc["user_id"]})
                 if user:
-                    comment_doc["user"] = {
-                        "id": str(user["_id"]),
-                        "username": user["username"],
-                        "full_name": user.get("full_name"),
-                        "bio": user.get("bio")
-                    }
+                    comment_doc["user"] = UserResponse(**user).model_dump()
                 
                 return CommentResponse(**comment_doc)
             return None
@@ -117,7 +105,10 @@ class CommentService:
             
             if str(existing_comment["user_id"]) != user_id:
                 raise ValueError("Not authorized to update this comment")
-            
+
+            if is_offensive(comment_update.content):
+                raise ValueError("Comment contains offensive language")
+
             update_data = comment_update.dict()
             update_data["updated_at"] = datetime.utcnow()
             
@@ -162,15 +153,10 @@ class CommentService:
             
             comments = []
             async for comment_doc in cursor:
-                # Get user info for each comment
+                # Get user info for each comment (CommentResponse expects user as dict)
                 user = await self.users_collection.find_one({"_id": comment_doc["user_id"]})
                 if user:
-                    comment_doc["user"] = {
-                        "id": str(user["_id"]),
-                        "username": user["username"],
-                        "full_name": user.get("full_name"),
-                        "bio": user.get("bio")
-                    }
+                    comment_doc["user"] = UserResponse(**user).model_dump()
                 
                 comments.append(CommentResponse(**comment_doc))
             

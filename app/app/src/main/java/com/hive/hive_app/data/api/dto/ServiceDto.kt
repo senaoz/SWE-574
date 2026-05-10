@@ -1,0 +1,129 @@
+package com.hive.hive_app.data.api.dto
+
+import com.squareup.moshi.Json
+import com.squareup.moshi.JsonClass
+
+@JsonClass(generateAdapter = true)
+data class TagDto(
+    /** Backend expects `entityId` (same as web); not `id`. */
+    @Json(name = "entityId") val entityId: String? = null,
+    /** Some responses may still expose Wikidata-style id. */
+    @Json(name = "id") val id: String? = null,
+    val label: String? = null,
+    val name: String? = null,
+    val aliases: List<String>? = null,
+    val description: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class LocationDto(
+    val latitude: Double,
+    val longitude: Double,
+    val address: String? = null
+)
+
+/** Backend `RecurringPattern`: weekday names + HH:mm time. */
+@JsonClass(generateAdapter = true)
+data class RecurringPatternDto(
+    val days: List<String> = emptyList(),
+    val time: String = ""
+)
+
+@JsonClass(generateAdapter = true)
+data class ServiceCreate(
+    val title: String,
+    val description: String,
+    val category: String? = null,
+    val tags: List<TagDto>,
+    @Json(name = "estimated_duration") val estimatedDuration: Double,
+    val location: LocationDto,
+    /** Web client sends `city` (may be empty string). */
+    val city: String? = "",
+    val deadline: String? = null,
+    @Json(name = "service_type") val serviceType: String,
+    @Json(name = "max_participants") val maxParticipants: Int? = 1,
+    @Json(name = "scheduling_type") val schedulingType: String? = "open",
+    @Json(name = "specific_date") val specificDate: String? = null,
+    @Json(name = "specific_time") val specificTime: String? = null,
+    @Json(name = "recurring_pattern") val recurringPattern: RecurringPatternDto? = null,
+    @Json(name = "open_availability") val openAvailability: String? = null,
+    @Json(name = "image_urls") val imageUrls: List<String>? = null,
+    @Json(name = "is_remote") val isRemote: Boolean = false
+)
+
+@JsonClass(generateAdapter = true)
+data class ServiceResponse(
+    val _id: String,
+    val title: String,
+    val description: String,
+    val category: String? = null,
+    val tags: List<TagDto>,
+    @Json(name = "estimated_duration") val estimatedDuration: Double,
+    val location: LocationDto,
+    val deadline: String? = null,
+    @Json(name = "service_type") val serviceType: String,
+    @Json(name = "max_participants") val maxParticipants: Int? = 1,
+    @Json(name = "user_id") val userId: String,
+    val status: String = "active",
+    @Json(name = "is_pinned") val isPinned: Boolean = false,
+    @Json(name = "pinned_by") val pinnedBy: String? = null,
+    @Json(name = "pinned_at") val pinnedAt: String? = null,
+    @Json(name = "created_at") val createdAt: String,
+    @Json(name = "updated_at") val updatedAt: String,
+    @Json(name = "completed_at") val completedAt: String? = null,
+    @Json(name = "matched_user_ids") val matchedUserIds: List<String>? = null,
+    @Json(name = "provider_confirmed") val providerConfirmed: Boolean? = null,
+    @Json(name = "receiver_confirmed_ids") val receiverConfirmedIds: List<String>? = null,
+    @Json(name = "scheduling_type") val schedulingType: String? = null,
+    @Json(name = "specific_date") val specificDate: String? = null,
+    @Json(name = "specific_time") val specificTime: String? = null,
+    @Json(name = "recurring_pattern") val recurringPattern: RecurringPatternDto? = null,
+    @Json(name = "open_availability") val openAvailability: String? = null,
+    @Json(name = "image_urls") val imageUrls: List<String>? = null,
+    @Json(name = "is_remote") val isRemote: Boolean = false
+)
+
+@JsonClass(generateAdapter = true)
+data class ServiceUpdate(
+    val title: String? = null,
+    val description: String? = null,
+    val category: String? = null,
+    val tags: List<TagDto>? = null,
+    @Json(name = "estimated_duration") val estimatedDuration: Double? = null,
+    val location: LocationDto? = null,
+    val deadline: String? = null,
+    val status: String? = null,
+    @Json(name = "scheduling_type") val schedulingType: String? = null,
+    @Json(name = "specific_date") val specificDate: String? = null,
+    @Json(name = "specific_time") val specificTime: String? = null,
+    @Json(name = "recurring_pattern") val recurringPattern: RecurringPatternDto? = null,
+    @Json(name = "open_availability") val openAvailability: String? = null,
+    @Json(name = "image_urls") val imageUrls: List<String>? = null,
+    @Json(name = "is_remote") val isRemote: Boolean? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class ServiceListResponse(
+    val services: List<ServiceResponse>,
+    val total: Int,
+    val page: Int,
+    val limit: Int
+)
+
+@JsonClass(generateAdapter = true)
+data class RecommendedServiceItemDto(
+    val service: ServiceResponse,
+    val reason: String,
+    val score: Double,
+    @Json(name = "matched_interests") val matchedInterests: List<String> = emptyList()
+)
+
+@JsonClass(generateAdapter = true)
+data class RecommendedServiceListResponse(
+    val items: List<RecommendedServiceItemDto>,
+    val total: Int,
+    val page: Int,
+    val limit: Int,
+    @Json(name = "recommendation_mode") val recommendationMode: String = "empty",
+    @Json(name = "show_profile_prompt") val showProfilePrompt: Boolean = false
+)

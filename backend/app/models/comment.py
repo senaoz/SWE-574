@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, BeforeValidator
-from typing import Optional, Annotated
+from typing import Optional, List, Annotated
 from datetime import datetime
 from bson import ObjectId
 from typing_extensions import Annotated
@@ -18,6 +18,7 @@ PyObjectId = Annotated[str, BeforeValidator(validate_object_id)]
 class CommentBase(BaseModel):
     content: str = Field(..., min_length=1, max_length=1000)
     service_id: PyObjectId
+    image_urls: Optional[List[str]] = None
 
 
 class CommentCreate(CommentBase):
@@ -29,6 +30,7 @@ class CommentCreate(CommentBase):
 
 class CommentUpdate(BaseModel):
     content: str = Field(..., min_length=1, max_length=1000)
+    image_urls: Optional[List[str]] = None
 
     class Config:
         json_encoders = {ObjectId: str}

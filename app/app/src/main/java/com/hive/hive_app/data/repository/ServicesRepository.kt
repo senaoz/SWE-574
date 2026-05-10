@@ -1,0 +1,222 @@
+package com.hive.hive_app.data.repository
+
+import com.hive.hive_app.data.api.ServicesApi
+import com.hive.hive_app.data.api.dto.LocationDto
+import com.hive.hive_app.data.api.dto.RecommendedServiceListResponse
+import com.hive.hive_app.data.api.dto.RecurringPatternDto
+import com.hive.hive_app.data.api.dto.ServiceCreate
+import com.hive.hive_app.data.api.dto.ServiceResponse
+import com.hive.hive_app.data.api.dto.ServiceUpdate
+import com.hive.hive_app.data.api.dto.TagDto
+import retrofit2.HttpException
+import java.io.IOException
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class ServicesRepository @Inject constructor(
+    private val servicesApi: ServicesApi
+) {
+    suspend fun getServices(
+        page: Int = 1,
+        limit: Int = 20,
+        serviceType: String? = null,
+        category: String? = null,
+        tags: String? = null,
+        latitude: Double? = null,
+        longitude: Double? = null,
+        radius: Double? = null,
+        userId: String? = null,
+        serviceStatus: String? = null
+    ): Result<com.hive.hive_app.data.api.dto.ServiceListResponse> {
+        return try {
+            val response = servicesApi.getServices(
+                page = page,
+                limit = limit,
+                serviceType = serviceType,
+                category = category,
+                tags = tags,
+                latitude = latitude,
+                longitude = longitude,
+                radius = radius,
+                userId = userId,
+                serviceStatus = serviceStatus
+            )
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(HttpException(response))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getService(serviceId: String): Result<ServiceResponse> {
+        return try {
+            val response = servicesApi.getService(serviceId)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(HttpException(response))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createService(
+        title: String,
+        description: String,
+        category: String? = null,
+        tags: List<TagDto>,
+        estimatedDuration: Double,
+        location: LocationDto,
+        serviceType: String,
+        maxParticipants: Int = 1,
+        deadline: String? = null,
+        isRemote: Boolean = false,
+        imageUrls: List<String> = emptyList(),
+        /** Match web client: often sent as empty string. */
+        city: String = "",
+        /** Optional free text; web sends `open_availability` when set. */
+        openAvailability: String? = null,
+        schedulingType: String = "open",
+        specificDate: String? = null,
+        specificTime: String? = null,
+        recurringPattern: RecurringPatternDto? = null
+    ): Result<ServiceResponse> {
+        return try {
+            val body = ServiceCreate(
+                title = title,
+                description = description,
+                category = category,
+                tags = tags,
+                estimatedDuration = estimatedDuration,
+                location = location,
+                city = city,
+                deadline = deadline,
+                serviceType = serviceType,
+                maxParticipants = maxParticipants,
+                schedulingType = schedulingType,
+                specificDate = specificDate,
+                specificTime = specificTime,
+                recurringPattern = recurringPattern,
+                openAvailability = openAvailability?.takeIf { it.isNotBlank() },
+                isRemote = isRemote,
+                imageUrls = imageUrls.takeIf { it.isNotEmpty() }
+            )
+            val response = servicesApi.createService(body)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(HttpException(response))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateService(
+        serviceId: String,
+        update: ServiceUpdate
+    ): Result<ServiceResponse> {
+        return try {
+            val response = servicesApi.updateService(serviceId, update)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(HttpException(response))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteService(serviceId: String): Result<Unit> {
+        return try {
+            val response = servicesApi.deleteService(serviceId)
+            if (response.isSuccessful) Result.success(Unit)
+            else Result.failure(HttpException(response))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun pinService(serviceId: String, pinned: Boolean): Result<ServiceResponse> {
+        return try {
+            val response = servicesApi.pinService(serviceId, pinned)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(HttpException(response))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun saveService(serviceId: String): Result<Unit> {
+        return try {
+            val response = servicesApi.saveService(serviceId)
+            if (response.isSuccessful) Result.success(Unit)
+            else Result.failure(HttpException(response))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun unsaveService(serviceId: String): Result<Unit> {
+        return try {
+            val response = servicesApi.unsaveService(serviceId)
+            if (response.isSuccessful) Result.success(Unit)
+            else Result.failure(HttpException(response))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getSavedServices(page: Int = 1, limit: Int = 50): Result<com.hive.hive_app.data.api.dto.ServiceListResponse> {
+        return try {
+            val response = servicesApi.getSavedServices(page = page, limit = limit)
+            if (response.isSuccessful && response.body() != null) Result.success(response.body()!!)
+            else Result.failure(HttpException(response))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getSavedServiceIds(): Result<List<String>> {
+        return try {
+            val response = servicesApi.getSavedServiceIds()
+            if (response.isSuccessful && response.body() != null) Result.success(response.body()!!)
+            else Result.failure(HttpException(response))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getRecommendedServices(
+        page: Int = 1,
+        limit: Int = 5,
+        latitude: Double? = null,
+        longitude: Double? = null,
+        radius: Double? = null
+    ): Result<RecommendedServiceListResponse> {
+        return try {
+            val response = servicesApi.getRecommendedServices(
+                page = page,
+                limit = limit,
+                latitude = latitude,
+                longitude = longitude,
+                radius = radius
+            )
+            if (response.isSuccessful && response.body() != null) Result.success(response.body()!!)
+            else Result.failure(HttpException(response))
+        } catch (e: IOException) {
+            Result.failure(e)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+}

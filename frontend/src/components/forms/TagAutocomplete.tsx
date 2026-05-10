@@ -50,8 +50,8 @@ export function TagAutocomplete({
             !tags.some(
               (tag) =>
                 tag.entityId === result.entityId ||
-                tag.label.toLowerCase() === result.label.toLowerCase()
-            )
+                tag.label.toLowerCase() === result.label.toLowerCase(),
+            ),
         );
         setSuggestions(filteredResults);
         setIsSearching(false);
@@ -108,7 +108,7 @@ export function TagAutocomplete({
     const tagExists = tags.some(
       (tag) =>
         tag.label.toLowerCase() === inputValue.trim().toLowerCase() ||
-        tag.entityId === inputValue.trim()
+        tag.entityId === inputValue.trim(),
     );
 
     if (tagExists) {
@@ -142,7 +142,7 @@ export function TagAutocomplete({
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
       setSelectedIndex((prev) =>
-        prev < suggestions.length - 1 ? prev + 1 : prev
+        prev < suggestions.length - 1 ? prev + 1 : prev,
       );
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
@@ -214,11 +214,11 @@ export function TagAutocomplete({
             className="absolute w-full mt-1 max-h-60 overflow-y-auto bg-background z-50 border border-gray-400 rounded-xl shadow-2xl"
           >
             {isSearching ? (
-              <div className="p-3 text-sm text-gray-500 dark:text-gray-400">
+              <div className="p-3 text-sm opacity-80">
                 Searching WikiData...
               </div>
             ) : suggestions.length === 0 ? (
-              <div className="p-3 text-sm text-gray-500 dark:text-gray-400">
+              <div className="p-3 text-sm opacity-80">
                 No results found. Press Enter to add as manual tag.
               </div>
             ) : (

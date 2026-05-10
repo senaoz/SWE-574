@@ -1,13 +1,14 @@
 import asyncio
 import logging
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
 from .core.config import settings
 from .core.database import connect_to_mongo, close_mongo_connection, get_database
-from .api import auth, users, services, admin, comments, join_requests, transactions, chat, wikidata, ratings, forum
-
+from .api import auth, users, services, admin, comments, join_requests, transactions, chat, wikidata, ratings, forum, upload, reports, notifications, community
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -17,7 +18,6 @@ logger = logging.getLogger(__name__)
 EXPIRY_CHECK_INTERVAL_SECONDS = 3600  # Her saat başı çalışır
 
 async def run_expiry_checker():
-    """Süresi geçmiş servisleri periyodik olarak expired'a çeker."""
     from .services.service_service import ServiceService
     # Uygulama başlarken DB bağlantısı hazır olsun diye kısa bekle
     await asyncio.sleep(5)
@@ -39,6 +39,11 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Connecting to MongoDB...")
     await connect_to_mongo()
+    # Ensure upload directories exist
+    upload_dir = settings.upload_dir
+    for sub in ("profile", "services", "communities", "ratings", "comments", "forum-events", "discussions"):
+        path = os.path.join(upload_dir, sub)
+        os.makedirs(path, exist_ok=True)
     logger.info("Application startup complete")
     expiry_task = asyncio.create_task(run_expiry_checker())
     yield
@@ -79,6 +84,19 @@ app.include_router(chat.router)
 app.include_router(wikidata.router)
 app.include_router(ratings.router)
 app.include_router(forum.router)
+app.include_router(upload.router)
+app.include_router(reports.router)
+app.include_router(notifications.router)
+app.include_router(community.router)
+
+# Ensure upload directory exists before mounting (StaticFiles requires it at init)
+upload_dir = settings.upload_dir
+os.makedirs(upload_dir, exist_ok=True)
+for sub in ("profile", "services", "communities", "ratings", "comments", "forum-events", "discussions"):
+    os.makedirs(os.path.join(upload_dir, sub), exist_ok=True)
+
+# Mount static files for uploaded images (must be after routes to avoid shadowing)
+app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
 
 @app.get("/")
 async def root():

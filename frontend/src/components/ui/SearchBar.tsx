@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { TextField, Text, Flex, Badge, IconButton } from "@radix-ui/themes";
 import { MagnifyingGlassIcon, Cross2Icon } from "@radix-ui/react-icons";
 import { Service } from "@/types";
@@ -13,6 +13,8 @@ interface SearchBarProps {
 
 export function SearchBar({ className = "", onSearchChange }: SearchBarProps) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isDashboard = location.pathname === "/dashboard";
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Service[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -32,23 +34,10 @@ export function SearchBar({ className = "", onSearchChange }: SearchBarProps) {
       const response = await servicesApi.getServices({
         page: 1,
         limit: 10,
-        // Search in title, description, category, and tags
-        // Note: The backend might need to support text search parameters
+        q: query.trim(),
       });
 
-      // Filter results on frontend for now (backend search would be better)
-      const filteredResults = response.data.services.filter(
-        (service: Service) =>
-          service.title.toLowerCase().includes(query.toLowerCase()) ||
-          service.description.toLowerCase().includes(query.toLowerCase()) ||
-          service.category.toLowerCase().includes(query.toLowerCase()) ||
-          service.tags.some((tag) => {
-            const tagLabel = typeof tag === 'string' ? tag : tag.label;
-            return tagLabel.toLowerCase().includes(query.toLowerCase());
-          })
-      );
-
-      setSearchResults(filteredResults);
+      setSearchResults(response.data.services);
       setShowSearchResults(true);
     } catch (error) {
       console.error("Error searching services:", error);
@@ -72,10 +61,12 @@ export function SearchBar({ className = "", onSearchChange }: SearchBarProps) {
       clearTimeout(searchTimeoutRef.current);
     }
 
-    // Debounce search
-    searchTimeoutRef.current = setTimeout(() => {
-      handleSearch(query);
-    }, 300);
+    // Only show dropdown results if not on Dashboard
+    if (!isDashboard) {
+      searchTimeoutRef.current = setTimeout(() => {
+        handleSearch(query);
+      }, 300);
+    }
   };
 
   const handleServiceClick = (serviceId: string) => {
@@ -107,13 +98,13 @@ export function SearchBar({ className = "", onSearchChange }: SearchBarProps) {
   }, [showSearchResults]);
 
   return (
-    <div className={`relative search-container w-full ${className}`}>
+    <div className={`relative search-container ${className}`}>
       <div className="relative w-full">
         <TextField.Root
           placeholder="Search services..."
           value={searchQuery}
           onChange={handleSearchInputChange}
-          className="w-full"
+          className="w-full search-bar"
         >
           <TextField.Slot>
             <MagnifyingGlassIcon className="w-4 h-4" />
@@ -143,7 +134,7 @@ export function SearchBar({ className = "", onSearchChange }: SearchBarProps) {
                   {searchResults.map((service) => (
                     <div
                       key={service._id}
-                      className="p-3 cursor-pointer rounded-md border-b border-gray-200/10 last:border-b-0"
+                      className="p-3 cursor-pointer hover:opacity-50 transition-all duration-200"
                       onClick={() => handleServiceClick(service._id)}
                     >
                       <Flex justify="between" align="start">
@@ -166,12 +157,13 @@ export function SearchBar({ className = "", onSearchChange }: SearchBarProps) {
                             <Badge variant="soft" color="blue">
                               {service.service_type}
                             </Badge>
-                            <Badge variant="outline" color="gray">
-                              {service.category}
-                            </Badge>
                             {service.tags.slice(0, 3).map((tag, index) => (
                               <ClickableTag
-                                key={typeof tag === 'string' ? tag : (tag.entityId || tag.label) + index}
+                                key={
+                                  typeof tag === "string"
+                                    ? tag
+                                    : (tag.entityId || tag.label) + index
+                                }
                                 tag={tag}
                                 size="1"
                                 variant="outline"

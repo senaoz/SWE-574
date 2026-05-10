@@ -99,6 +99,24 @@ class TestAuthAPI:
         
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert "Incorrect email or password" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_login_banned_user(self, test_client, mock_db, test_user):
+        """Test login is blocked for banned users"""
+        await mock_db.users.update_one(
+            {"email": "test@example.com"},
+            {"$set": {"role": "banned"}}
+        )
+
+        login_data = {
+            "email": "test@example.com",
+            "password": "testpassword123"
+        }
+
+        response = test_client.post("/auth/login", json=login_data)
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "banned" in response.json()["detail"].lower()
     
     def test_get_current_user(self, test_client, test_user, auth_headers):
         """Test getting current user info with valid token"""
@@ -148,4 +166,3 @@ class TestAuthAPI:
         
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "Invalid OAuth provider" in response.json()["detail"]
-

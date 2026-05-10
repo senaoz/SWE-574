@@ -5,25 +5,26 @@ import {
   Text,
   Flex,
   Avatar,
-  Badge,
   Button,
-  TextArea,
+  Badge,
   Heading,
+  Dialog,
+  TextField,
+  Box,
 } from "@radix-ui/themes";
-import {
-  ArrowLeftIcon,
-  ChatBubbleIcon,
-  PaperPlaneIcon,
-  Pencil1Icon,
-  TrashIcon,
-  CheckIcon,
-  Cross2Icon,
-} from "@radix-ui/react-icons";
-import { forumApi } from "@/services/api";
-import { ForumDiscussion, ForumComment } from "@/types";
-import { ClickableTag } from "@/components/ui/ClickableTag";
-import ReactMarkdown from "react-markdown";
+import { Form } from "radix-ui";
+import { ArrowLeftIcon, Pencil1Icon, TrashIcon } from "@radix-ui/react-icons";
+import { PinIcon } from "lucide-react";
+import { forumApi, getImageUrl, communityApi } from "@/services/api";
 import { useUser } from "@/App";
+import { ForumDiscussion, TagEntity, Community } from "@/types";
+import { ClickableTag } from "@/components/ui/ClickableTag";
+import { UpvoteButton } from "@/components/ui/UpvoteButton";
+import { MarkdownEditor } from "@/components/forms/MarkdownEditor";
+import { TagAutocomplete } from "@/components/forms/TagAutocomplete";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { CommentSection } from "@/components/ui/CommentSection";
+import ReactMarkdown from "react-markdown";
 
 function timeAgo(dateStr: string) {
   const now = Date.now();
@@ -42,26 +43,23 @@ function timeAgo(dateStr: string) {
 export function ForumDiscussionDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentUserId } = useUser();
+  const { currentUserId, user: currentUser } = useUser();
   const [discussion, setDiscussion] = useState<ForumDiscussion | null>(null);
-  const [comments, setComments] = useState<ForumComment[]>([]);
-  const [newComment, setNewComment] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editContent, setEditContent] = useState("");
+  const [showEdit, setShowEdit] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+
+  const isOwner = !!currentUserId && discussion?.user_id === currentUserId;
+  const canPinPlatform =
+    currentUser?.role === "admin" || currentUser?.role === "moderator";
 
   useEffect(() => {
     if (!id) return;
     (async () => {
       setLoading(true);
       try {
-        const [dRes, cRes] = await Promise.all([
-          forumApi.getDiscussion(id),
-          forumApi.getComments("discussion", id),
-        ]);
+        const dRes = await forumApi.getDiscussion(id);
         setDiscussion(dRes.data);
-        setComments(cRes.data.comments);
       } catch {
         setDiscussion(null);
       } finally {
@@ -70,58 +68,16 @@ export function ForumDiscussionDetail() {
     })();
   }, [id]);
 
-  const handleEditStart = (c: ForumComment) => {
-    setEditingId(c._id);
-    setEditContent(c.content);
+  const handleDelete = async () => {
+    if (!id) return;
+    await forumApi.deleteDiscussion(id);
+    navigate("/forum?tab=discussions");
   };
 
-  const handleEditCancel = () => {
-    setEditingId(null);
-    setEditContent("");
-  };
-
-  const handleEditSave = async (commentId: string) => {
-    if (!editContent.trim()) return;
-    try {
-      const res = await forumApi.updateComment(commentId, {
-        content: editContent.trim(),
-      });
-      setComments((prev) =>
-        prev.map((c) => (c._id === commentId ? res.data : c))
-      );
-      setEditingId(null);
-      setEditContent("");
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleDelete = async (commentId: string) => {
-    if (!window.confirm("Delete this comment?")) return;
-    try {
-      await forumApi.deleteComment(commentId);
-      setComments((prev) => prev.filter((c) => c._id !== commentId));
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handlePostComment = async () => {
-    if (!newComment.trim() || !id) return;
-    setSubmitting(true);
-    try {
-      const res = await forumApi.createComment({
-        target_type: "discussion",
-        target_id: id,
-        content: newComment.trim(),
-      });
-      setComments((prev) => [res.data, ...prev]);
-      setNewComment("");
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSubmitting(false);
-    }
+  const handlePin = async () => {
+    if (!id || !discussion) return;
+    const res = await forumApi.pinDiscussion(id, !discussion.is_pinned);
+    setDiscussion(res.data);
   };
 
   if (loading) {
@@ -155,7 +111,7 @@ export function ForumDiscussionDetail() {
         <Flex gap="3" align="start">
           <Avatar
             size="4"
-            src={discussion.user?.profile_picture}
+            src={getImageUrl(discussion.user?.profile_picture)}
             fallback={
               discussion.user?.full_name?.[0] ||
               discussion.user?.username?.[0] ||
@@ -163,7 +119,60 @@ export function ForumDiscussionDetail() {
             }
           />
           <div className="flex-1">
-            <Heading size="5">{discussion.title}</Heading>
+            <div className="flex justify-between">
+              <div>
+                {discussion.is_pinned && (
+                  <Badge size="1" variant="soft" color="violet" className="mb-2">
+                    <PinIcon className="w-3 h-3 mr-1" /> Pinned by moderator
+                  </Badge>
+                )}
+                <Heading size="5">{discussion.title}</Heading>
+              </div>
+              <Flex gap="2" align="center">
+                {canPinPlatform && (
+                  <Button
+                    variant="soft"
+                    color={discussion.is_pinned ? "gray" : "violet"}
+                    size="1"
+                    onClick={handlePin}
+                  >
+                    <PinIcon className="w-3 h-3" />
+                    {discussion.is_pinned ? "Unpin" : "Pin"}
+                  </Button>
+                )}
+                {isOwner && (
+                  <>
+                    <Button
+                      variant="soft"
+                      color="gray"
+                      size="1"
+                      onClick={() => setShowEdit(true)}
+                    >
+                      <Pencil1Icon /> Edit
+                    </Button>
+                    <Button
+                      variant="soft"
+                      color="red"
+                      size="1"
+                      onClick={() => setShowDelete(true)}
+                    >
+                      <TrashIcon /> Delete
+                    </Button>
+                  </>
+                )}
+                <UpvoteButton
+                  count={discussion.upvote_count ?? 0}
+                  upvoted={discussion.user_upvoted}
+                  onUpvote={
+                    currentUserId
+                      ? () => forumApi.upvoteDiscussion(id!).then((r) => r.data)
+                      : undefined
+                  }
+                  disabled={!currentUserId}
+                  showLoginHint={!currentUserId}
+                />
+              </Flex>
+            </div>
             <Flex gap="2" align="center" className="mt-1 mb-4">
               <Text size="2" color="gray">
                 by{" "}
@@ -175,22 +184,33 @@ export function ForumDiscussionDetail() {
                 {timeAgo(discussion.created_at)}
               </Text>
             </Flex>
-            <div className="prose prose-sm max-w-none leading-relaxed">
+            <div className="prose-content">
               <ReactMarkdown
                 components={{
-                  a: ({ node, ...props }) => (
-                    <a
-                      {...props}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: "#7c3aed" }}
-                    />
+                  a: ({ node: _node, ...props }) => (
+                    <a {...props} target="_blank" rel="noopener noreferrer" />
                   ),
                 }}
               >
                 {discussion.body}
               </ReactMarkdown>
             </div>
+            {discussion.image_urls && discussion.image_urls.length > 0 && (
+              <Flex gap="2" mt="2" wrap="wrap">
+                {discussion.image_urls.map((url, i) => (
+                  <img
+                    key={i}
+                    src={getImageUrl(url) ?? url}
+                    alt=""
+                    style={{
+                      maxHeight: 300,
+                      borderRadius: 8,
+                      objectFit: "cover",
+                    }}
+                  />
+                ))}
+              </Flex>
+            )}
             {discussion.tags && discussion.tags.length > 0 && (
               <Flex gap="2" className="mt-4" wrap="wrap">
                 {discussion.tags.map((tag, i) => (
@@ -198,138 +218,243 @@ export function ForumDiscussionDetail() {
                 ))}
               </Flex>
             )}
+            {discussion.community_id && (
+              <RelatedCommunityBlock communityId={discussion.community_id} />
+            )}
           </div>
         </Flex>
       </Card>
 
-      {/* Comments section */}
-      <Card className="p-4">
-        <Flex align="center" gap="2" className="mb-4">
-          <ChatBubbleIcon className="w-5 h-5" />
-          <Text size="4" weight="bold">
-            Comments ({comments.length})
-          </Text>
-        </Flex>
-
-        {/* New comment */}
-        <div>
-          <TextArea
-            placeholder="Write a comment..."
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            rows={3}
-            className="mb-2"
-          />
-          <Flex justify="end">
-            <Button
-              onClick={handlePostComment}
-              disabled={!newComment.trim() || submitting}
-              size="2"
+      <CommentSection
+        fetchComments={() =>
+          forumApi.getComments("discussion", id!).then((r) => r.data.comments)
+        }
+        postComment={(content, imageUrls) =>
+          forumApi
+            .createComment({
+              target_type: "discussion",
+              target_id: id!,
+              content,
+              ...(imageUrls ? { image_urls: imageUrls } : {}),
+            })
+            .then((r) => r.data)
+        }
+        placeholder="Write a comment..."
+        emptyMessage="No comments yet. Be the first!"
+        renderCommentContent={(comment) => (
+          <div className="prose-content">
+            <ReactMarkdown
+              components={{
+                a: ({ node: _node, ...props }) => (
+                  <a {...props} target="_blank" rel="noopener noreferrer" />
+                ),
+              }}
             >
-              <PaperPlaneIcon className="w-4 h-4 mr-1" />
-              {submitting ? "Posting..." : "Post"}
-            </Button>
-          </Flex>
-        </div>
+              {comment.content}
+            </ReactMarkdown>
+          </div>
+        )}
+        renderCommentActions={(comment) => (
+          <UpvoteButton
+            count={comment.upvote_count ?? 0}
+            upvoted={comment.user_upvoted}
+            onUpvote={
+              currentUserId
+                ? () => forumApi.upvoteComment(comment._id).then((r) => r.data)
+                : undefined
+            }
+            disabled={!currentUserId}
+          />
+        )}
+      />
 
-        {/* Comment list */}
-        <div className="space-y-4">
-          {comments.map((c) => {
-            const isOwner = currentUserId === c.user_id;
-            const isEditing = editingId === c._id;
-            return (
-              <div key={c._id} className="flex gap-3">
-                <Avatar
-                  size="2"
-                  src={c.user?.profile_picture}
-                  fallback={
-                    c.user?.full_name?.[0] || c.user?.username?.[0] || "?"
-                  }
-                />
-                <div className="flex-1">
-                  <Flex gap="2" align="center" className="mb-1">
-                    <Text size="2" weight="bold">
-                      {c.user?.full_name || c.user?.username || "Unknown"}
-                    </Text>
-                    <Text size="1" color="gray">
-                      {timeAgo(c.created_at)}
-                    </Text>
-                    {isOwner && !isEditing && (
-                      <Flex gap="1" className="ml-auto">
-                        <Button
-                          size="1"
-                          variant="ghost"
-                          color="gray"
-                          onClick={() => handleEditStart(c)}
-                        >
-                          <Pencil1Icon />
-                        </Button>
-                        <Button
-                          size="1"
-                          variant="ghost"
-                          color="red"
-                          onClick={() => handleDelete(c._id)}
-                        >
-                          <TrashIcon />
-                        </Button>
-                      </Flex>
-                    )}
-                  </Flex>
-                  {isEditing ? (
-                    <div>
-                      <TextArea
-                        value={editContent}
-                        onChange={(e) => setEditContent(e.target.value)}
-                        rows={3}
-                        className="mb-2"
-                      />
-                      <Flex gap="2">
-                        <Button
-                          size="1"
-                          onClick={() => handleEditSave(c._id)}
-                          disabled={!editContent.trim()}
-                        >
-                          <CheckIcon /> Save
-                        </Button>
-                        <Button
-                          size="1"
-                          variant="soft"
-                          color="gray"
-                          onClick={handleEditCancel}
-                        >
-                          <Cross2Icon /> Cancel
-                        </Button>
-                      </Flex>
-                    </div>
-                  ) : (
-                    <div className="prose prose-sm max-w-none leading-relaxed">
-                      <ReactMarkdown
-                        components={{
-                          a: ({ node, ...props }) => (
-                            <a
-                              {...props}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{ color: "#7c3aed" }}
-                            />
-                          ),
-                        }}
-                      >
-                        {c.content}
-                      </ReactMarkdown>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-          {comments.length === 0 && (
-            <Text size="2" color="gray" className="text-center py-4">
-              No comments yet. Be the first!
+      <EditDiscussionDialog
+        open={showEdit}
+        onOpenChange={setShowEdit}
+        discussion={discussion}
+        onUpdated={(updated) => setDiscussion(updated)}
+      />
+      <ConfirmDialog
+        open={showDelete}
+        onOpenChange={setShowDelete}
+        title="Delete Discussion"
+        description="Are you sure you want to delete this discussion? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleDelete}
+      />
+    </div>
+  );
+}
+
+function RelatedCommunityBlock({ communityId }: { communityId: string }) {
+  const navigate = useNavigate();
+  const [community, setCommunity] = useState<Community | null>(null);
+
+  useEffect(() => {
+    communityApi
+      .getCommunity(communityId)
+      .then((r) => setCommunity(r.data))
+      .catch(() => {});
+  }, [communityId]);
+
+  if (!community) return null;
+
+  return (
+    <Card
+      mt="4"
+      className="hover-card cursor-pointer"
+      onClick={() => navigate(`/forum/communities/${community._id}`)}
+    >
+      <Flex gap="3" align="center">
+        <Avatar
+          src={
+            community.avatar_url
+              ? (getImageUrl(community.avatar_url) ?? undefined)
+              : undefined
+          }
+          fallback={community.name[0]}
+          size="3"
+          radius="full"
+        />
+        <Box flexGrow="1">
+          <div className="flex flex-col mb-2">
+            <Text size="1" color="gray">
+              Related Community
+            </Text>
+            <Text weight="bold" size="3">
+              {community.name}
+            </Text>
+          </div>
+          {community.description && (
+            <Text
+              size="1"
+              color="gray"
+              style={{
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }}
+            >
+              {community.description}
             </Text>
           )}
-        </div>
-      </Card>
-    </div>
+        </Box>
+      </Flex>
+    </Card>
+  );
+}
+
+function EditDiscussionDialog({
+  open,
+  onOpenChange,
+  discussion,
+  onUpdated,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  discussion: ForumDiscussion;
+  onUpdated: (updated: ForumDiscussion) => void;
+}) {
+  const [title, setTitle] = useState(discussion.title);
+  const [body, setBody] = useState(discussion.body);
+  const [tags, setTags] = useState<TagEntity[]>(discussion.tags ?? []);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setTitle(discussion.title);
+      setBody(discussion.body);
+      setTags(discussion.tags ?? []);
+      setError("");
+    }
+  }, [open, discussion]);
+
+  const handleSubmit = async () => {
+    if (!title.trim() || !body.trim()) {
+      setError("Title and body are required");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await forumApi.updateDiscussion(discussion._id, {
+        title,
+        body,
+        tags,
+      });
+      onUpdated(res.data);
+      onOpenChange(false);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || "Failed to update discussion");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Content className="max-w-4xl" aria-describedby={undefined}>
+        <Dialog.Title>Edit Discussion</Dialog.Title>
+        <Form.Root
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleSubmit();
+          }}
+          className="space-y-4 mt-4"
+        >
+          <Form.Field name="title" className="space-y-2">
+            <Form.Label className="text-sm font-medium">Title *</Form.Label>
+            <Form.Control asChild>
+              <TextField.Root
+                placeholder="Discussion title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </Form.Control>
+          </Form.Field>
+          <Form.Field name="body" className="space-y-2">
+            <Form.Label className="text-sm font-medium">Body *</Form.Label>
+            <MarkdownEditor
+              placeholder="Write your discussion..."
+              value={body}
+              onChange={(value) => setBody(value)}
+              rows={8}
+            />
+          </Form.Field>
+          <Form.Field name="tags" className="space-y-1">
+            <Form.Label className="text-sm font-medium">Tags</Form.Label>
+            <TagAutocomplete
+              tags={tags}
+              onTagAdd={(t) => setTags([...tags, t])}
+              onTagRemove={(t) =>
+                setTags(tags.filter((x) => x.label !== t.label))
+              }
+            />
+          </Form.Field>
+          {error && (
+            <Text size="2" color="red">
+              {error}
+            </Text>
+          )}
+          <Flex justify="end" gap="3">
+            <Button
+              type="button"
+              variant="soft"
+              color="gray"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Form.Submit asChild>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "Saving..." : "Save Changes"}
+              </Button>
+            </Form.Submit>
+          </Flex>
+        </Form.Root>
+      </Dialog.Content>
+    </Dialog.Root>
   );
 }
