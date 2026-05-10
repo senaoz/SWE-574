@@ -4,6 +4,7 @@ Tests for WikiData service integration
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from datetime import datetime, timedelta
+from fastapi import status
 
 from app.services.wikidata_service import WikidataService
 
@@ -256,3 +257,111 @@ def test_get_cache_stats(wikidata_service):
     assert stats["total_entries"] == 1
     assert "key1" in stats["cache_keys"]
 
+
+@pytest.mark.asyncio
+async def test_search_entities_full_text_success_and_cache(wikidata_service):
+    """Test full-text search parsing, request parameters, and cache reuse."""
+    mock_response_data = {
+        "query": {
+            "search": [
+                {
+                    "title": "Q123",
+                    "pageid": 123,
+                    "snippet": "Community gardening",
+                    "titlesnippet": "Community gardening",
+                    "wordcount": 42,
+                    "size": 1024,
+                    "timestamp": "2026-05-01T12:00:00Z",
+                }
+            ]
+        }
+    }
+
+    with patch("app.services.wikidata_service.httpx.AsyncClient") as mock_client_class:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json = MagicMock(return_value=mock_response_data)
+        mock_response.raise_for_status = MagicMock()
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_response)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_client_class.return_value = mock_client
+
+        results = await wikidata_service.search_entities(
+            " community gardening ", language="tr", limit=75, search_type="title"
+        )
+        cached_results = await wikidata_service.search_entities(
+            "community gardening", language="tr", limit=75, search_type="title"
+        )
+
+        assert results == cached_results
+        assert results == [
+            {
+                "title": "Q123",
+                "pageId": "123",
+                "snippet": "Community gardening",
+                "titleSnippet": "Community gardening",
+                "wordcount": 42,
+                "size": 1024,
+                "timestamp": "2026-05-01T12:00:00Z",
+                "url": "https://www.wikidata.org/wiki/Q123",
+            }
+        ]
+        assert mock_client.get.call_count == 1
+        _, kwargs = mock_client.get.call_args
+        assert kwargs["params"]["srsearch"] == "community gardening"
+        assert kwargs["params"]["srwhat"] == "title"
+        assert kwargs["params"]["srlimit"] == 75
+        assert kwargs["params"]["uselang"] == "tr"
+        assert kwargs["headers"]["User-Agent"].startswith("HivePlatform/")
+
+
+@pytest.mark.asyncio
+async def test_search_entities_full_text_handles_empty_and_failed_responses(wikidata_service):
+    """Full-text search should fail closed when input/API responses are not useful."""
+    assert await wikidata_service.search_entities("   ") == []
+
+    with patch("app.services.wikidata_service.httpx.AsyncClient") as mock_client_class:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json = MagicMock(return_value={"query": {"search": []}})
+        mock_response.raise_for_status = MagicMock()
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_response)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_client_class.return_value = mock_client
+
+        assert await wikidata_service.search_entities("unknown topic") == []
+
+
+def test_wikidata_search_api_returns_results(test_client):
+    with patch("app.api.wikidata.wikidata_service.search_entities", new_callable=AsyncMock) as search:
+        search.return_value = [{"title": "Q123", "pageId": "123"}]
+
+        response = test_client.get(
+            "/wikidata/search",
+            params={"query": "gardening", "language": "tr", "limit": 3},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == {
+            "query": "gardening",
+            "language": "tr",
+            "results": [{"title": "Q123", "pageId": "123"}],
+            "count": 1,
+        }
+        search.assert_awaited_once_with(query="gardening", language="tr", limit=3)
+
+
+def test_wikidata_search_api_wraps_service_errors(test_client):
+    with patch("app.api.wikidata.wikidata_service.search_entities", new_callable=AsyncMock) as search:
+        search.side_effect = RuntimeError("service unavailable")
+
+        response = test_client.get("/wikidata/search", params={"query": "gardening"})
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert "Error searching WikiData: service unavailable" in response.json()["detail"]

@@ -210,8 +210,6 @@ class CommunityService:
             doc = await self.communities.find_one({"slug": community_id})
             if not doc:
                 return None
-            oid = doc["_id"]
-            doc = await self.communities.find_one({"_id": oid})
         else:
             doc = await self.communities.find_one({"_id": oid})
 
@@ -609,7 +607,7 @@ class CommunityService:
             raise ValueError("Post not found")
         user_oid = ObjectId(user_id)
         upvoted_by = doc.get("upvoted_by", [])
-        if user_oid in upvoted_by:
+        if any(str(existing_user_id) == user_id for existing_user_id in upvoted_by):
             await self.posts.update_one(
                 {"_id": ObjectId(post_id)},
                 {"$pull": {"upvoted_by": user_oid}, "$inc": {"upvote_count": -1}},
