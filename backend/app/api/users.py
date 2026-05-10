@@ -1,6 +1,7 @@
 import logging
 import re
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from typing import Optional
 
 from ..models.user import UserResponse, UserUpdate, TimeBankResponse, UserRole, UserRoleUpdate, UserSettingsUpdate, PasswordChange, AccountDeletion, TimeBankBalanceUpdate
@@ -329,6 +330,28 @@ async def update_user_timebank_balance(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Failed to update TimeBank balance",
         )
+    return updated_user
+
+
+class ProfilePictureUpdate(BaseModel):
+    profile_picture: Optional[str] = None
+
+
+@router.put("/{user_id}/profile-picture", response_model=UserResponse)
+async def update_user_profile_picture(
+    user_id: str,
+    body: ProfilePictureUpdate,
+    current_user: UserResponse = Depends(require_moderator_or_admin()),
+    db=Depends(get_database),
+):
+    """Update a user's profile picture URL (admin or moderator only)"""
+    user_service = UserService(db)
+    target_user = await user_service.get_user_by_id(user_id)
+    if not target_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    updated_user = await user_service.update_user(user_id, UserUpdate(profile_picture=body.profile_picture))
+    if not updated_user:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to update profile picture")
     return updated_user
 
 
