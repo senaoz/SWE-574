@@ -172,7 +172,8 @@ fun ForumScreen(
                 selectedEventId = null
             },
             onOpenUserProfile = onOpenUserProfile,
-            modifier = modifier
+            modifier = modifier,
+            bottomBarPadding = bottomBarPadding
         )
         return
     }
@@ -188,7 +189,8 @@ fun ForumScreen(
                 selectedCommunityId = null
             },
             onOpenUserProfile = onOpenUserProfile,
-            modifier = modifier
+            modifier = modifier,
+            bottomBarPadding = bottomBarPadding
         )
         return
     }
@@ -203,7 +205,8 @@ fun ForumScreen(
                 selectedDiscussionId = null
             },
             onOpenUserProfile = onOpenUserProfile,
-            modifier = modifier
+            modifier = modifier,
+            bottomBarPadding = bottomBarPadding
         )
         return
     }
@@ -938,7 +941,8 @@ fun ForumEventDetailContent(
     viewModel: ForumViewModel,
     onBack: () -> Unit,
     onOpenUserProfile: (String) -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    bottomBarPadding: androidx.compose.ui.unit.Dp = 110.dp
 ) {
     val eventDetailState by viewModel.eventDetailState.collectAsState()
     val newCommentText by viewModel.newCommentText.collectAsState()
@@ -986,7 +990,7 @@ fun ForumEventDetailContent(
             Column(modifier = modifier.fillMaxSize().padding(innerPadding)) {
                 LazyColumn(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = bottomBarPadding),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     item {
@@ -1463,7 +1467,8 @@ private fun ForumDiscussionDetailContent(
     viewModel: ForumViewModel,
     onBack: () -> Unit,
     onOpenUserProfile: (String) -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    bottomBarPadding: androidx.compose.ui.unit.Dp = 110.dp
 ) {
     val detailState by viewModel.detailState.collectAsState()
     val newCommentText by viewModel.newCommentText.collectAsState()
@@ -1508,7 +1513,7 @@ private fun ForumDiscussionDetailContent(
             Column(modifier = modifier.fillMaxSize().padding(innerPadding)) {
                 LazyColumn(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = bottomBarPadding),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     item {
@@ -1988,7 +1993,8 @@ fun CommunityDetailScreen(
     viewModel: ForumViewModel,
     onBack: () -> Unit,
     onOpenUserProfile: (String) -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    bottomBarPadding: androidx.compose.ui.unit.Dp = 110.dp
 ) {
     val detailState by viewModel.communityDetailState.collectAsState()
     val createPostState by viewModel.createPostState.collectAsState()
@@ -2122,7 +2128,7 @@ fun CommunityDetailScreen(
                 .fillMaxSize()
                 .background(Color.White)
                 .padding(innerPadding),
-            contentPadding = PaddingValues(bottom = 24.dp)
+            contentPadding = PaddingValues(bottom = bottomBarPadding)
         ) {
             // ── Community header ──
             item {

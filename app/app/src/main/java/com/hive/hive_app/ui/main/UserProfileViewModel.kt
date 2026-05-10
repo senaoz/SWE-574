@@ -3,6 +3,7 @@ package com.hive.hive_app.ui.main
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hive.hive_app.data.api.dto.BadgesResponse
+import com.hive.hive_app.data.api.dto.CommunityResponse
 import com.hive.hive_app.data.api.dto.RatingListResponse
 import com.hive.hive_app.data.api.dto.RatingResponse
 import com.hive.hive_app.data.api.dto.UserResponse
@@ -39,6 +40,12 @@ class UserProfileViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    private val _communities = MutableStateFlow<List<CommunityResponse>>(emptyList())
+    val communities: StateFlow<List<CommunityResponse>> = _communities.asStateFlow()
+
+    private val _mutualCount = MutableStateFlow(0)
+    val mutualCount: StateFlow<Int> = _mutualCount.asStateFlow()
+
     fun load(userId: String) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -51,6 +58,10 @@ class UserProfileViewModel @Inject constructor(
             ratingsRepository.getUserRatings(userId, page = 1, limit = 20).onSuccess { body ->
                 _ratings.value = body
                 _ratingTopTags.value = computeTopTagsFromRatings(body.ratings)
+            }
+            usersRepository.getUserCommunities(userId).onSuccess { resp ->
+                _communities.value = resp.communities
+                _mutualCount.value = resp.mutualCount
             }
             _isLoading.value = false
         }

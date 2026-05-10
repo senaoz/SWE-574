@@ -51,6 +51,7 @@ private sealed class OverlayRoute {
     data class UserRatings(val userId: String, val title: String = "Ratings") : OverlayRoute()
     data class ServiceDetail(val serviceId: String) : OverlayRoute()
     data class ManageService(val serviceId: String) : OverlayRoute()
+    data class CommunityDetail(val communityId: String) : OverlayRoute()
 }
 
 @Composable
@@ -181,7 +182,8 @@ fun MainScaffold(
                     userId = top.userId,
                     onBack = { popOverlay() },
                     modifier = Modifier.fillMaxSize(),
-                    onOpenRatings = { uid -> pushOverlay(OverlayRoute.UserRatings(uid)) }
+                    onOpenRatings = { uid -> pushOverlay(OverlayRoute.UserRatings(uid)) },
+                    onCommunityClick = { communityId -> pushOverlay(OverlayRoute.CommunityDetail(communityId)) }
                 )
             }
             return
@@ -194,6 +196,20 @@ fun MainScaffold(
                     onBack = { popOverlay() },
                     onOpenRaterProfile = { pushOverlay(OverlayRoute.UserProfile(it)) },
                     onOpenExchange = { pushOverlay(OverlayRoute.ServiceDetail(it)) },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            return
+        }
+        is OverlayRoute.CommunityDetail -> {
+            key(top.communityId) {
+                val forumViewModel: ForumViewModel = hiltViewModel()
+                LaunchedEffect(top.communityId) { forumViewModel.loadCommunityDetail(top.communityId) }
+                CommunityDetailScreen(
+                    communityId = top.communityId,
+                    viewModel = forumViewModel,
+                    onBack = { popOverlay() },
+                    onOpenUserProfile = { pushOverlay(OverlayRoute.UserProfile(it)) },
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -315,7 +331,14 @@ fun MainScaffold(
     val tabBottomBarPadding = navBarTotalHeight + systemBottomInset
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            // Exclude IME from contentWindowInsets so that WindowInsets.ime is NOT
+            // consumed by Scaffold. Without this, WindowInsets.ime returns 0 inside
+            // ChatRoomScreen because Scaffold already consumed it — causing the gap
+            // between MessageInput and the keyboard.
+            contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime)
+        ) { innerPadding ->
             val layoutDirection = LocalLayoutDirection.current
             when (currentDestination) {
                 MainDestinations.MAP -> MapScreen(
