@@ -28,6 +28,7 @@ import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -724,6 +725,11 @@ fun MapScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
+        if (showListView) {
+            DiscoverScreen(
+                modifier = Modifier.fillMaxSize(),
+                onStartChat = onStartChat,
+                onOpenUserProfile = onOpenUserProfile
         if (showRecommendations) {
             RecommendationScreen(
                 modifier = Modifier.fillMaxSize(),
@@ -872,7 +878,7 @@ fun MapScreen(
                 if (state.userLat != null && state.userLon != null) {
                     val gp = GeoPoint(state.userLat!!, state.userLon!!)
                     map.overlays.add(UserLocationPulseOverlay(gp))
-                    val myIcon = ContextCompat.getDrawable(context, com.hive.hive_app.R.drawable.ic_my_location)
+                    val myIcon = ContextCompat.getDrawable(context, com.hive.hive_app.R.drawable.ic_bee_marker)
                     val userMarker = Marker(map).apply {
                         position = gp
                         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
@@ -1055,6 +1061,9 @@ fun MapScreen(
                         ),
                         textStyle = MaterialTheme.typography.bodyMedium
                     )
+                    // List view toggle
+                    IconButton(
+                        onClick = { showListView = !showListView },
                     // Recommendation icon — left of list/discovery toggle
                     IconButton(
                         onClick = {
@@ -1225,7 +1234,6 @@ fun MapScreen(
             Card(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
                     .padding(start = 12.dp, end = 12.dp, bottom = 96.dp, top = 12.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -1332,7 +1340,6 @@ private fun FilterSummaryChip(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     isActive: Boolean,
-    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val containerColor = if (isActive)
@@ -1345,7 +1352,7 @@ private fun FilterSummaryChip(
         MaterialTheme.colorScheme.onSurfaceVariant
 
     androidx.compose.material3.Surface(
-        modifier = modifier.clickable(onClick = onClick),
+        modifier = modifier,
         shape = RoundedCornerShape(50),
         color = containerColor,
         contentColor = contentColor,
