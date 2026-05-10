@@ -69,6 +69,9 @@ class AsyncMockCollection:
     
     async def count_documents(self, filter, *args, **kwargs):
         return self._sync_collection.count_documents(filter, *args, **kwargs)
+
+    async def distinct(self, key, filter=None, *args, **kwargs):
+        return self._sync_collection.distinct(key, filter or {}, *args, **kwargs)
     
     def aggregate(self, pipeline, *args, **kwargs):
         cursor = self._sync_collection.aggregate(pipeline, *args, **kwargs)
