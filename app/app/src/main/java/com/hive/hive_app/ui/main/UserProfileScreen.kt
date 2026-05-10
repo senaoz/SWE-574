@@ -72,6 +72,7 @@ import kotlinx.coroutines.launch
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.hive.hive_app.data.api.dto.BadgesResponse
+import com.hive.hive_app.data.api.dto.CommunityResponse
 import com.hive.hive_app.data.api.dto.SocialLinks
 import com.hive.hive_app.data.api.dto.UserResponse
 import com.hive.hive_app.util.badgeIcon
@@ -84,12 +85,15 @@ fun UserProfileScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: UserProfileViewModel = hiltViewModel(),
-    onOpenRatings: (ratedUserId: String) -> Unit = { }
+    onOpenRatings: (ratedUserId: String) -> Unit = { },
+    onCommunityClick: (String) -> Unit = {}
 ) {
     val user by viewModel.user.collectAsState()
     val badges by viewModel.badges.collectAsState()
     val ratings by viewModel.ratings.collectAsState()
     val ratingTopTags by viewModel.ratingTopTags.collectAsState()
+    val communities by viewModel.communities.collectAsState()
+    val mutualCount by viewModel.mutualCount.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
@@ -172,6 +176,12 @@ fun UserProfileScreen(
                     UserProfileSocialLinksCard(links = u.socialLinks)
                     Spacer(Modifier.height(12.dp))
                     UserProfileTimeBankCard(balance = u.timebankBalance)
+                    Spacer(Modifier.height(12.dp))
+                    UserProfileCommunitiesCard(
+                        communities = communities,
+                        mutualCount = mutualCount,
+                        onCommunityClick = onCommunityClick
+                    )
                     Spacer(Modifier.height(12.dp))
                     Box(Modifier.bringIntoViewRequester(badgesSectionRequester)) {
                         UserProfileBadgesCard(badges = badges)
@@ -514,6 +524,115 @@ private fun UserProfileTimeBankCard(balance: Double) {
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface
             )
+        }
+    }
+}
+
+@Composable
+private fun UserProfileCommunitiesCard(
+    communities: List<CommunityResponse>,
+    mutualCount: Int,
+    onCommunityClick: (String) -> Unit = {}
+) {
+    val mutualGreen = Color(0xFF22C55E)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Communities",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                if (communities.isNotEmpty() && mutualCount > 0) {
+                    Text(
+                        text = "$mutualCount in common",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = mutualGreen
+                    )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            if (communities.isEmpty()) {
+                Text(
+                    text = "No communities joined yet.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                val context = LocalContext.current
+                communities.forEach { community ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onCommunityClick(community.id) }
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (!community.avatarUrl.isNullOrBlank()) {
+                            AsyncImage(
+                                model = buildImageRequest(context, community.avatarUrl),
+                                contentDescription = community.name,
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = community.name.take(1).uppercase(),
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                text = community.name,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "${community.memberCount} members",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (community.isMutual) {
+                            Spacer(Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(mutualGreen.copy(alpha = 0.15f))
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = "Common",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = mutualGreen
+                                )
+                            }
+                        }
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                }
+            }
         }
     }
 }

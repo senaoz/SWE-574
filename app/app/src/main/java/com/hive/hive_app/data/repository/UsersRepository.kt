@@ -4,6 +4,7 @@ import com.hive.hive_app.data.api.UsersApi
 import com.hive.hive_app.data.api.dto.BadgesResponse
 import com.hive.hive_app.data.api.dto.PasswordChange
 import com.hive.hive_app.data.api.dto.TimeBankResponse
+import com.hive.hive_app.data.api.dto.UserCommunityListResponse
 import com.hive.hive_app.data.api.dto.UserResponse
 import com.hive.hive_app.data.api.dto.UserSettingsUpdate
 import com.hive.hive_app.data.api.dto.UserUpdate
@@ -67,6 +68,11 @@ class UsersRepository @Inject constructor(
     suspend fun getUserBadges(userId: String): Result<BadgesResponse?> = runCatching {
         val r = api.getUserBadges(userId)
         if (r.isSuccessful) r.body() else throw retrofit2.HttpException(r)
+    }
+
+    suspend fun getUserCommunities(userId: String): Result<UserCommunityListResponse> = runCatching {
+        val r = api.getUserCommunities(userId)
+        if (r.isSuccessful && r.body() != null) r.body()!! else throw retrofit2.HttpException(r)
     }
 
     suspend fun searchUsers(query: String, limit: Int? = null): Result<List<UserResponse>> = runCatching {

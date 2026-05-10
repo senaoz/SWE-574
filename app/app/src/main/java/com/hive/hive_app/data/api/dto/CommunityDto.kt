@@ -22,7 +22,8 @@ data class CommunityResponse(
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "updated_at") val updatedAt: String,
     val founder: ForumUserEmbed? = null,
-    @Json(name = "user_membership") val userMembership: String? = null
+    @Json(name = "user_membership") val userMembership: String? = null,
+    @Json(name = "is_mutual") val isMutual: Boolean = false
 )
 
 @JsonClass(generateAdapter = true)
@@ -31,6 +32,13 @@ data class CommunityListResponse(
     val total: Int,
     val page: Int,
     val limit: Int
+)
+
+@JsonClass(generateAdapter = true)
+data class UserCommunityListResponse(
+    val communities: List<CommunityResponse>,
+    val total: Int,
+    @Json(name = "mutual_count") val mutualCount: Int = 0
 )
 
 @JsonClass(generateAdapter = true)
