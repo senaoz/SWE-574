@@ -79,6 +79,7 @@ vi.mock("@radix-ui/themes", () => {
   const Badge = passthrough("span");
   const Flex = passthrough("div");
   const Grid = passthrough("div");
+  const Avatar = ({ fallback }: any) => <span>{fallback}</span>;
 
   return {
     Text,
@@ -87,6 +88,7 @@ vi.mock("@radix-ui/themes", () => {
     Badge,
     Flex,
     Grid,
+    Avatar,
     TextField: { Root: passthrough("input") },
     Table: {
       Root: passthrough("table"),
