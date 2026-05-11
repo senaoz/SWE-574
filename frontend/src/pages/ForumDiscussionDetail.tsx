@@ -13,9 +13,9 @@ import {
   Box,
 } from "@radix-ui/themes";
 import { Form } from "radix-ui";
-import { ArrowLeftIcon, Pencil1Icon, TrashIcon } from "@radix-ui/react-icons";
+import { ArrowLeftIcon, Pencil1Icon, TrashIcon, PlusIcon } from "@radix-ui/react-icons";
 import { PinIcon } from "lucide-react";
-import { forumApi, getImageUrl, communityApi } from "@/services/api";
+import { forumApi, getImageUrl, uploadApi, communityApi } from "@/services/api";
 import { useUser } from "@/App";
 import { ForumDiscussion, TagEntity, Community } from "@/types";
 import { ClickableTag } from "@/components/ui/ClickableTag";
@@ -140,7 +140,7 @@ export function ForumDiscussionDetail() {
                     {discussion.is_pinned ? "Unpin" : "Pin"}
                   </Button>
                 )}
-                {isOwner && (
+                {(isOwner || canPinPlatform) && (
                   <>
                     <Button
                       variant="soft"
@@ -360,6 +360,8 @@ function EditDiscussionDialog({
   const [title, setTitle] = useState(discussion.title);
   const [body, setBody] = useState(discussion.body);
   const [tags, setTags] = useState<TagEntity[]>(discussion.tags ?? []);
+  const [imageUrls, setImageUrls] = useState<string[]>(discussion.image_urls ?? []);
+  const [imageUploading, setImageUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -368,6 +370,7 @@ function EditDiscussionDialog({
       setTitle(discussion.title);
       setBody(discussion.body);
       setTags(discussion.tags ?? []);
+      setImageUrls(discussion.image_urls ?? []);
       setError("");
     }
   }, [open, discussion]);
@@ -383,6 +386,7 @@ function EditDiscussionDialog({
         title,
         body,
         tags,
+        image_urls: imageUrls.length > 0 ? imageUrls : [],
       });
       onUpdated(res.data);
       onOpenChange(false);
@@ -433,6 +437,56 @@ function EditDiscussionDialog({
               }
             />
           </Form.Field>
+          <Box className="space-y-2">
+            <Text size="2" weight="medium" className="block">
+              Discussion image (optional)
+            </Text>
+            {imageUrls.length === 0 && (
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  disabled={imageUploading}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setImageUploading(true);
+                    try {
+                      const res = await uploadApi.uploadDiscussionImage(file);
+                      setImageUrls([res.data.url]);
+                    } catch {
+                      // ignore upload errors
+                    } finally {
+                      setImageUploading(false);
+                    }
+                  }}
+                />
+                <span className="flex items-center justify-center gap-2 border rounded-lg p-2 hover-card text-center cursor-pointer font-medium text-sm w-full">
+                  <PlusIcon className="w-4 h-4" />
+                  {imageUploading ? "Uploading..." : "Add image"}
+                </span>
+              </label>
+            )}
+            {imageUrls.length > 0 && (
+              <Flex gap="2" wrap="wrap" className="border rounded-lg p-2">
+                <Box className="relative">
+                  <img
+                    src={getImageUrl(imageUrls[0]) ?? imageUrls[0]}
+                    alt="Preview"
+                    className="w-20 h-20 object-cover rounded"
+                  />
+                  <button
+                    type="button"
+                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs"
+                    onClick={() => setImageUrls([])}
+                  >
+                    x
+                  </button>
+                </Box>
+              </Flex>
+            )}
+          </Box>
           {error && (
             <Text size="2" color="red">
               {error}
@@ -448,7 +502,7 @@ function EditDiscussionDialog({
               Cancel
             </Button>
             <Form.Submit asChild>
-              <Button type="submit" disabled={submitting}>
+              <Button type="submit" disabled={submitting || imageUploading}>
                 {submitting ? "Saving..." : "Save Changes"}
               </Button>
             </Form.Submit>
