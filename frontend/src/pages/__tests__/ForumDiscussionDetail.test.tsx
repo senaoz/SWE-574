@@ -216,6 +216,7 @@ describe("ForumDiscussionDetail", () => {
         title: "Updated discussion",
         body: "Let us **practice** together.",
         tags: discussion.tags,
+        image_urls: discussion.image_urls,
       });
     });
     expect(
