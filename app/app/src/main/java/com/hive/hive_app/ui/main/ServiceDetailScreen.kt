@@ -75,6 +75,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
@@ -89,6 +90,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.hive.hive_app.data.api.dto.BadgesResponse
 import com.hive.hive_app.data.api.dto.JoinRequestResponse
+import com.hive.hive_app.data.api.dto.RecommendedServiceItemDto
 import com.hive.hive_app.data.api.dto.ServiceResponse
 import com.hive.hive_app.data.api.dto.UserResponse
 import com.hive.hive_app.data.api.dto.CommentResponse
@@ -121,6 +123,7 @@ fun ServiceDetailScreen(
     isSaved: Boolean = false,
     onStartChat: ((String) -> Unit)? = null,
     onOpenUserProfile: ((String) -> Unit)? = null,
+    onOpenRecommendedService: ((String) -> Unit)? = null,
     /** Owner: open full-screen manage requests instead of a dialog. */
     onManageJoinRequests: (() -> Unit)? = null
 ) {
@@ -162,6 +165,10 @@ fun ServiceDetailScreen(
                 ?: remember { mutableStateOf(false) }
             val newCommentText by viewModel?.newCommentText?.collectAsState(initial = "")
                 ?: remember { mutableStateOf("") }
+            val recommendedServices by viewModel?.recommendedServices?.collectAsState(initial = emptyList())
+                ?: remember { mutableStateOf(emptyList<RecommendedServiceItemDto>()) }
+            val recommendedLoading by viewModel?.recommendedLoading?.collectAsState(initial = false)
+                ?: remember { mutableStateOf(false) }
             val focusManager = LocalFocusManager.current
             var showApplyDialog by remember { mutableStateOf(false) }
             var applyError by remember { mutableStateOf<String?>(null) }
@@ -259,14 +266,20 @@ fun ServiceDetailScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(imageUrls) { url ->
-                            AsyncImage(
-                                model = url,
-                                contentDescription = null,
+                            Box(
                                 modifier = Modifier
                                     .fillMaxHeight()
+                                    .size(width = 300.dp, height = 220.dp)
                                     .clip(RoundedCornerShape(12.dp))
                                     .clickable { expandedImageUrl = url }
-                            )
+                            ) {
+                                AsyncImage(
+                                    model = url,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         }
                     }
                 }
@@ -483,6 +496,13 @@ fun ServiceDetailScreen(
                             ) {
                                 if (myJoinRequest != null) {
                                     StatusChip(status = myJoinRequest!!.status)
+                                    if (myJoinRequest!!.status.equals("pending", ignoreCase = true)) {
+                                        OutlinedButton(onClick = {
+                                            viewModel?.cancelMyJoinRequest { _, _ -> }
+                                        }) {
+                                            Text("Cancel request")
+                                        }
+                                    }
                                     Spacer(modifier = Modifier.weight(1f))
                                     if (creator != null && onStartChat != null) {
                                         IconButton(onClick = {
@@ -581,10 +601,36 @@ fun ServiceDetailScreen(
                                                 if (onOpenUserProfile != null) Modifier.clickable { onOpenUserProfile(user._id) }
                                                 else Modifier
                                             ),
-                                        verticalAlignment = Alignment.CenterVertically
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
+                                        val displayName = user.fullName?.takeIf { it.isNotBlank() } ?: user.username
+                                        val initials = displayName.takeIf { it.isNotBlank() }?.take(2)?.uppercase() ?: "?"
+                                        if (user.profilePicture?.isNotBlank() == true) {
+                                            AsyncImage(
+                                                model = buildImageRequest(context, user.profilePicture),
+                                                contentDescription = "Profile photo",
+                                                modifier = Modifier
+                                                    .size(32.dp)
+                                                    .clip(CircleShape)
+                                            )
+                                        } else {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(32.dp)
+                                                    .clip(CircleShape)
+                                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = initials,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                                )
+                                            }
+                                        }
                                         Text(
-                                            text = user.fullName?.takeIf { it.isNotBlank() } ?: user.username,
+                                            text = displayName,
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.onSurface,
                                             modifier = Modifier.weight(1f)
@@ -696,6 +742,7 @@ fun ServiceDetailScreen(
                                     comments.forEach { comment ->
                                         ServiceCommentItem(
                                             comment = comment,
+                                            ownerId = service.userId,
                                             onOpenUserProfile = onOpenUserProfile
                                         )
                                     }
@@ -808,11 +855,93 @@ fun ServiceDetailScreen(
                             )
                         }
                     }
+                    if (recommendedLoading || recommendedServices.isNotEmpty()) {
+                        DetailSection(title = "Services like this", icon = Icons.Default.TrendingUp) {
+                            if (recommendedLoading && recommendedServices.isEmpty()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(22.dp),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        strokeWidth = 2.dp
+                                    )
+                                }
+                            } else {
+                                LazyRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    items(
+                                        items = recommendedServices.take(3),
+                                        key = { it.service._id }
+                                    ) { item ->
+                                        RecommendedServiceCompactCard(
+                                            item = item,
+                                            onClick = {
+                                                onOpenRecommendedService?.invoke(item.service._id)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                     // Clearance so the floating + FAB never overlaps the map
                     Spacer(modifier = Modifier.height(96.dp))
                 }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun RecommendedServiceCompactCard(
+    item: RecommendedServiceItemDto,
+    onClick: () -> Unit
+) {
+    val context = LocalContext.current
+    val imageModel = buildImageRequest(context, item.service.imageUrls?.firstOrNull())
+    Card(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.size(width = 220.dp, height = 170.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (imageModel != null) {
+                AsyncImage(
+                    model = imageModel,
+                    contentDescription = item.service.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(82.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                )
+            }
+            Text(
+                text = item.service.title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
+            Text(
+                text = item.reason,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -870,10 +999,12 @@ private fun BadgeInfoInlineBox(
 @Composable
 private fun ServiceCommentItem(
     comment: CommentResponse,
+    ownerId: String,
     onOpenUserProfile: ((String) -> Unit)? = null
 ) {
     val author = comment.user?.username ?: comment.user?.fullName ?: "Unknown"
     val authorId = comment.user?.resolvedId ?: comment.userId
+    val isOwnerComment = authorId == ownerId
     val context = LocalContext.current
     Card(
         modifier = Modifier
@@ -918,6 +1049,20 @@ private fun ServiceCommentItem(
                 }
             }
             Column(modifier = Modifier.weight(1f)) {
+                if (isOwnerComment) {
+                    Surface(
+                        shape = RoundedCornerShape(percent = 50),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Text(
+                            text = "Owner",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
                 Text(
                     text = comment.content,
                     style = MaterialTheme.typography.bodyMedium,
@@ -1180,8 +1325,8 @@ private fun ServiceStatusBar(status: String) {
                 verticalAlignment = Alignment.Top
             ) {
                 steps.forEachIndexed { index, step ->
-                    val isCompleted = index < currentIndex && !isCancelled && !isExpired
-                    val isCurrent = index == currentIndex
+                    val isCompleted = (index < currentIndex || (status.lowercase() == "completed" && index == currentIndex)) && !isCancelled && !isExpired
+                    val isCurrent = index == currentIndex && status.lowercase() != "completed"
 
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1252,8 +1397,12 @@ private fun ServiceStatusBar(status: String) {
 
                     // Connector line between steps
                     if (index < steps.size - 1) {
-                        val lineColor = if (index < currentIndex && !isCancelled && !isExpired)
-                            activeColor else MaterialTheme.colorScheme.outlineVariant
+                        val lineColor = when {
+                            index < currentIndex && isCancelled -> cancelledColor
+                            index < currentIndex && isExpired -> expiredColor
+                            index < currentIndex -> activeColor
+                            else -> MaterialTheme.colorScheme.outlineVariant
+                        }
                         Box(
                             modifier = Modifier
                                 .weight(0.5f)

@@ -96,6 +96,10 @@ export function SettingsPanel() {
       alert("Password must be at least 8 characters long");
       return;
     }
+    if (!/[A-Z]/.test(passwordForm.new_password)) {
+      alert("Password must contain at least one uppercase letter");
+      return;
+    }
     setPasswordLoading(true);
     try {
       await usersApi.changePassword(passwordForm);

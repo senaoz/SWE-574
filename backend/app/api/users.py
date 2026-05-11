@@ -1,5 +1,7 @@
 import logging
+import re
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from typing import Optional
 
 from ..models.user import UserResponse, UserUpdate, TimeBankResponse, UserRole, UserRoleUpdate, UserSettingsUpdate, PasswordChange, AccountDeletion, TimeBankBalanceUpdate
@@ -140,6 +142,16 @@ async def change_password(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="New passwords do not match"
         )
+    if len(password_change.new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters long"
+        )
+    if not re.search(r'[A-Z]', password_change.new_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must contain at least one uppercase letter"
+        )
     
     success = await user_service.change_password(str(current_user.id), password_change)
     if not success:
@@ -254,10 +266,14 @@ async def get_user_communities(
     target_user = await user_service.get_user_by_id(user_id)
     if not target_user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
-    current_user_id = str(current_user.id) if current_user else None
     community_service = CommunityService(db)
-    return await community_service.get_communities_for_user(user_id, current_user_id)
+    current_user_id = str(current_user.id) if current_user else None
+    result = await community_service.get_communities_for_user(
+        target_user_id=user_id,
+        current_user_id=current_user_id,
+    )
+    return result
+
 
 @router.put("/{user_id}/role", response_model=UserResponse)
 async def update_user_role(
@@ -268,27 +284,27 @@ async def update_user_role(
 ):
     """Update user role (admin or moderator only)"""
     user_service = UserService(db)
-    
+
     target_user = await user_service.get_user_by_id(user_id)
     if not target_user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-    
+
     if str(current_user.id) == user_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot change your own role"
         )
-    
+
     updated_user = await user_service.update_user_role(user_id, role_update)
     if not updated_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Failed to update user role"
         )
-    
+
     return updated_user
 
 
@@ -321,6 +337,28 @@ async def update_user_timebank_balance(
     return updated_user
 
 
+class ProfilePictureUpdate(BaseModel):
+    profile_picture: Optional[str] = None
+
+
+@router.put("/{user_id}/profile-picture", response_model=UserResponse)
+async def update_user_profile_picture(
+    user_id: str,
+    body: ProfilePictureUpdate,
+    current_user: UserResponse = Depends(require_moderator_or_admin()),
+    db=Depends(get_database),
+):
+    """Update a user's profile picture URL (admin or moderator only)"""
+    user_service = UserService(db)
+    target_user = await user_service.get_user_by_id(user_id)
+    if not target_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    updated_user = await user_service.update_user(user_id, UserUpdate(profile_picture=body.profile_picture))
+    if not updated_user:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to update profile picture")
+    return updated_user
+
+
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user_by_id(
     user_id: str,
@@ -329,7 +367,119 @@ async def get_user_by_id(
     """Get user by ID"""
     logger.info("GET /users/%s", user_id)
     user_service = UserService(db)
-    
+
+    try:
+        user = await user_service.get_user_by_id(user_id)
+        if not user:
+            logger.warning("GET /users/%s user not found", user_id)
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        return user
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("GET /users/%s error: %s", user_id, e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error fetching user: {str(e)}"
+        )
+
+
+@router.put("/{user_id}/role", response_model=UserResponse)
+async def update_user_role(
+    user_id: str,
+    role_update: UserRoleUpdate,
+    current_user: UserResponse = Depends(require_moderator_or_admin()),
+    db=Depends(get_database)
+):
+    """Update user role (admin or moderator only)"""
+    user_service = UserService(db)
+
+    target_user = await user_service.get_user_by_id(user_id)
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    if str(current_user.id) == user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot change your own role"
+        )
+
+    updated_user = await user_service.update_user_role(user_id, role_update)
+    if not updated_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to update user role"
+        )
+
+    return updated_user
+
+
+@router.put("/{user_id}/timebank", response_model=UserResponse)
+async def update_user_timebank_balance(
+    user_id: str,
+    body: TimeBankBalanceUpdate,
+    current_user: UserResponse = Depends(require_moderator_or_admin()),
+    db=Depends(get_database),
+):
+    """Update a user's TimeBank balance (admin or moderator only)"""
+    user_service = UserService(db)
+    target_user = await user_service.get_user_by_id(user_id)
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    updated_user = await user_service.set_timebank_balance(
+        user_id=user_id,
+        new_balance=body.balance,
+        admin_user_id=str(current_user.id),
+        admin_username=current_user.username,
+    )
+    if not updated_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to update TimeBank balance",
+        )
+    return updated_user
+
+
+class ProfilePictureUpdate(BaseModel):
+    profile_picture: Optional[str] = None
+
+
+@router.put("/{user_id}/profile-picture", response_model=UserResponse)
+async def update_user_profile_picture(
+    user_id: str,
+    body: ProfilePictureUpdate,
+    current_user: UserResponse = Depends(require_moderator_or_admin()),
+    db=Depends(get_database),
+):
+    """Update a user's profile picture URL (admin or moderator only)"""
+    user_service = UserService(db)
+    target_user = await user_service.get_user_by_id(user_id)
+    if not target_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    updated_user = await user_service.update_user(user_id, UserUpdate(profile_picture=body.profile_picture))
+    if not updated_user:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to update profile picture")
+    return updated_user
+
+
+@router.get("/{user_id}", response_model=UserResponse)
+async def get_user_by_id(
+    user_id: str,
+    db=Depends(get_database)
+):
+    """Get user by ID"""
+    logger.info("GET /users/%s", user_id)
+    user_service = UserService(db)
+
     try:
         user = await user_service.get_user_by_id(user_id)
         if not user:

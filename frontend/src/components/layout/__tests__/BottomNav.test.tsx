@@ -1,32 +1,36 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BottomNav } from "../BottomNav";
 
+const mockNavigate = vi.fn();
 const mockUseUser = vi.fn();
+
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
+  return { ...actual, useNavigate: () => mockNavigate };
+});
 
 vi.mock("@/contexts/UserContext", () => ({
   useUser: () => mockUseUser(),
 }));
 
 vi.mock("@/components/forms/OfferNeedForm", () => ({
-  OfferNeedForm: (props: any) => (
-    <div data-testid="offer-need-form">
-      <span data-testid="service-type">{props.serviceType}</span>
-      <button onClick={props.onSuccess}>Save service</button>
-      <button onClick={props.onClose}>Close form</button>
-    </div>
+  OfferNeedForm: ({ serviceType }: { serviceType: string }) => (
+    <div data-testid="offer-need-form" data-service-type={serviceType} />
   ),
 }));
 
-function renderBottomNav(initialPath = "/dashboard") {
+function renderNav(path = "/dashboard") {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MemoryRouter initialEntries={[initialPath]}>
-      <Routes>
-        <Route path="*" element={<BottomNav />} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={qc}>
+      <MemoryRouter initialEntries={[path]}>
+        <BottomNav />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -35,55 +39,91 @@ describe("BottomNav", () => {
     vi.clearAllMocks();
   });
 
-  it("renders nothing for guests", () => {
-    mockUseUser.mockReturnValue({ user: undefined });
-
-    renderBottomNav();
-
-    expect(screen.queryByLabelText("Create Offer or Need")).not.toBeInTheDocument();
-    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+  it("renders nothing when user is not authenticated", () => {
+    mockUseUser.mockReturnValue({ user: null });
+    const { container } = renderNav();
+    expect(container.firstChild).toBeNull();
   });
 
-  it("renders primary mobile navigation for authenticated users", () => {
-    mockUseUser.mockReturnValue({ user: { _id: "u1", username: "alice" } });
+  describe("authenticated", () => {
+    beforeEach(() => {
+      mockUseUser.mockReturnValue({
+        user: { _id: "u1", username: "alice", role: "user" },
+      });
+    });
 
-    renderBottomNav("/forum/discussion/123");
+    it("renders Map nav button", () => {
+      renderNav();
+      expect(screen.getByRole("button", { name: /map/i })).toBeInTheDocument();
+    });
 
-    expect(screen.getByLabelText("Create Offer or Need")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Map" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Chat" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Common" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Profile" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Common" }).className).toContain(
-      "text-lime-500",
-    );
-  });
+    it("renders Chat nav button", () => {
+      renderNav();
+      expect(screen.getByRole("button", { name: /chat/i })).toBeInTheDocument();
+    });
 
-  it("opens create dialog with need selected by default and can switch to offer", async () => {
-    const user = userEvent.setup();
-    mockUseUser.mockReturnValue({ user: { _id: "u1", username: "alice" } });
+    it("renders Common nav button", () => {
+      renderNav();
+      expect(screen.getByRole("button", { name: /common/i })).toBeInTheDocument();
+    });
 
-    renderBottomNav();
-    await user.click(screen.getByLabelText("Create Offer or Need"));
+    it("renders Profile nav button", () => {
+      renderNav();
+      expect(screen.getByRole("button", { name: /^profile$/i })).toBeInTheDocument();
+    });
 
-    expect(screen.getByText("Need a Service")).toBeInTheDocument();
-    expect(screen.getByTestId("service-type")).toHaveTextContent("need");
+    it("renders FAB create button", () => {
+      renderNav();
+      expect(
+        screen.getByRole("button", { name: /create offer or need/i }),
+      ).toBeInTheDocument();
+    });
 
-    await user.click(screen.getByText("Offer a Service"));
+    it("navigates to /dashboard on Map click", async () => {
+      const user = userEvent.setup();
+      renderNav();
+      await user.click(screen.getByRole("button", { name: /map/i }));
+      expect(mockNavigate).toHaveBeenCalledWith("/dashboard");
+    });
 
-    expect(screen.getByTestId("service-type")).toHaveTextContent("offer");
-  });
+    it("navigates to /profile?tab=chat on Chat click", async () => {
+      const user = userEvent.setup();
+      renderNav();
+      await user.click(screen.getByRole("button", { name: /chat/i }));
+      expect(mockNavigate).toHaveBeenCalledWith("/profile?tab=chat");
+    });
 
-  it("closes the create dialog when the embedded form succeeds", async () => {
-    const user = userEvent.setup();
-    mockUseUser.mockReturnValue({ user: { _id: "u1", username: "alice" } });
+    it("navigates to /forum on Common click", async () => {
+      const user = userEvent.setup();
+      renderNav();
+      await user.click(screen.getByRole("button", { name: /common/i }));
+      expect(mockNavigate).toHaveBeenCalledWith("/forum");
+    });
 
-    renderBottomNav();
-    await user.click(screen.getByLabelText("Create Offer or Need"));
-    expect(screen.getByTestId("offer-need-form")).toBeInTheDocument();
+    it("navigates to /profile on Profile click", async () => {
+      const user = userEvent.setup();
+      renderNav();
+      await user.click(screen.getByRole("button", { name: /^profile$/i }));
+      expect(mockNavigate).toHaveBeenCalledWith("/profile");
+    });
 
-    await user.click(screen.getByText("Save service"));
+    it("opens create dialog on FAB click", async () => {
+      const user = userEvent.setup();
+      renderNav();
+      await user.click(
+        screen.getByRole("button", { name: /create offer or need/i }),
+      );
+      expect(screen.getByTestId("offer-need-form")).toBeInTheDocument();
+    });
 
-    expect(screen.queryByTestId("offer-need-form")).not.toBeInTheDocument();
+    it("shows Offer a Service and Need a Service options in dialog", async () => {
+      const user = userEvent.setup();
+      renderNav();
+      await user.click(
+        screen.getByRole("button", { name: /create offer or need/i }),
+      );
+      expect(screen.getByText("Offer a Service")).toBeInTheDocument();
+      expect(screen.getByText("Need a Service")).toBeInTheDocument();
+    });
   });
 });

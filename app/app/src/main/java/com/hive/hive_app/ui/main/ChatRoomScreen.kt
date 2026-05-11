@@ -7,9 +7,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -46,7 +48,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.platform.LocalContext
@@ -62,11 +66,13 @@ import java.util.Locale
 
 private const val CHAT_POLL_INTERVAL_MS = 3000L
 
+
 @Composable
 fun ChatRoomScreen(
     room: ChatRoomResponse,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    bottomBarPadding: Dp = 0.dp,
     onOpenUserProfile: (String) -> Unit = {},
     onOpenServiceDetail: (String) -> Unit = {},
     viewModel: ChatRoomViewModel = hiltViewModel()
@@ -101,10 +107,16 @@ fun ChatRoomScreen(
         ?.take(3)
         .orEmpty()
 
+    val density = LocalDensity.current
+    val imeBottomPx = WindowInsets.ime.getBottom(density)
+    val imeBottomPadding = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
+    val keyboardVisible = imeBottomPx > 0
+    val columnBottomPadding = if (keyboardVisible) imeBottomPadding else bottomBarPadding
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .imePadding()
+            .padding(bottom = columnBottomPadding)
     ) {
         Card(
             modifier = Modifier
@@ -632,12 +644,14 @@ private fun messageDate(isoDate: String?): LocalDate? {
 }
 
 @Composable
-private fun MessageInput(onSend: (String) -> Unit) {
+private fun MessageInput(
+    onSend: (String) -> Unit
+) {
     var text by remember { mutableStateOf("") }
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
         ),
@@ -646,7 +660,7 @@ private fun MessageInput(onSend: (String) -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
+                .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.Bottom
         ) {
             OutlinedTextField(

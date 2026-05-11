@@ -2,6 +2,7 @@ package com.hive.hive_app.navigation
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -24,6 +25,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.hive.hive_app.ui.main.*
 import com.hive.hive_app.ui.notifications.NotificationsScreen
 
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -47,6 +51,7 @@ private sealed class OverlayRoute {
     data class UserRatings(val userId: String, val title: String = "Ratings") : OverlayRoute()
     data class ServiceDetail(val serviceId: String) : OverlayRoute()
     data class ManageService(val serviceId: String) : OverlayRoute()
+    data class CommunityDetail(val communityId: String) : OverlayRoute()
 }
 
 @Composable
@@ -116,6 +121,9 @@ fun MainScaffold(
 
     val onStartChat: (String) -> Unit = { roomId ->
         openChatRoomId = roomId
+        showActiveItems = false
+        overlayStack = emptyList()
+        showCommonSheet = false
         openCreateGroupSheet = false
         currentDestination = MainDestinations.CHAT
     }
@@ -162,6 +170,7 @@ fun MainScaffold(
                     isSaved = detailIsSaved,
                     onStartChat = onStartChat,
                     onOpenUserProfile = { pushOverlay(OverlayRoute.UserProfile(it)) },
+                    onOpenRecommendedService = { pushOverlay(OverlayRoute.ServiceDetail(it)) },
                     onManageJoinRequests = { detailState?._id?.let { pushOverlay(OverlayRoute.ManageService(it)) } }
                 )
             }
@@ -173,7 +182,8 @@ fun MainScaffold(
                     userId = top.userId,
                     onBack = { popOverlay() },
                     modifier = Modifier.fillMaxSize(),
-                    onOpenRatings = { uid -> pushOverlay(OverlayRoute.UserRatings(uid)) }
+                    onOpenRatings = { uid -> pushOverlay(OverlayRoute.UserRatings(uid)) },
+                    onCommunityClick = { communityId -> pushOverlay(OverlayRoute.CommunityDetail(communityId)) }
                 )
             }
             return
@@ -186,6 +196,20 @@ fun MainScaffold(
                     onBack = { popOverlay() },
                     onOpenRaterProfile = { pushOverlay(OverlayRoute.UserProfile(it)) },
                     onOpenExchange = { pushOverlay(OverlayRoute.ServiceDetail(it)) },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            return
+        }
+        is OverlayRoute.CommunityDetail -> {
+            key(top.communityId) {
+                val forumViewModel: ForumViewModel = hiltViewModel()
+                LaunchedEffect(top.communityId) { forumViewModel.loadCommunityDetail(top.communityId) }
+                CommunityDetailScreen(
+                    communityId = top.communityId,
+                    viewModel = forumViewModel,
+                    onBack = { popOverlay() },
+                    onOpenUserProfile = { pushOverlay(OverlayRoute.UserProfile(it)) },
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -301,9 +325,20 @@ fun MainScaffold(
     val navBarHeight = 70.dp
     val fabRadius = 30.dp  // half of fabSize (60.dp) in CustomBottomNavBar
     val navBarTotalHeight = navBarHeight + fabRadius
+    // Bottom system inset (gesture/navigation bar). Tab content must reserve
+    // navBarTotalHeight + this so the last visible row sits above the gesture line.
+    val systemBottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val tabBottomBarPadding = navBarTotalHeight + systemBottomInset
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            // Exclude IME from contentWindowInsets so that WindowInsets.ime is NOT
+            // consumed by Scaffold. Without this, WindowInsets.ime returns 0 inside
+            // ChatRoomScreen because Scaffold already consumed it — causing the gap
+            // between MessageInput and the keyboard.
+            contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime)
+        ) { innerPadding ->
             val layoutDirection = LocalLayoutDirection.current
             when (currentDestination) {
                 MainDestinations.MAP -> MapScreen(
@@ -320,16 +355,18 @@ fun MainScaffold(
                     onOpenUserProfile = onOpenUserProfile
                 )
                 MainDestinations.CHAT -> ChatScreen(
-                    Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = navBarTotalHeight),
+                    Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = 0.dp),
                     initialRoomId = openChatRoomId,
                     onInitialRoomConsumed = { openChatRoomId = null },
                     openCreateGroupSheet = openCreateGroupSheet,
                     onCreateGroupSheetConsumed = { openCreateGroupSheet = false },
+                    bottomBarPadding = tabBottomBarPadding,
                     onOpenUserProfile = onOpenUserProfile,
                     onOpenServiceDetail = { serviceId -> pushOverlay(OverlayRoute.ServiceDetail(serviceId)) }
                 )
                 MainDestinations.COMMON -> ForumScreen(
-                    modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = navBarTotalHeight),
+                    modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = 0.dp),
+                    bottomBarPadding = tabBottomBarPadding,
                     onOpenUserProfile = onOpenUserProfile,
                     initialCommunityId = openForumCommunityId,
                     onInitialCommunityConsumed = { openForumCommunityId = null }
@@ -337,6 +374,7 @@ fun MainScaffold(
                 MainDestinations.PROFILE -> ProfileScreen(
                     onLogout = onLogout,
                     modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding(), bottom = 0.dp),
+                    bottomBarPadding = tabBottomBarPadding,
                     onOpenSaved = { showSavedServices = true },
                     onOpenNotifications = { showNotifications = true },
                     onOpenActive = { showActiveItems = true },
@@ -350,8 +388,20 @@ fun MainScaffold(
             }
         }
 
+        // Same-coloured backdrop sitting behind the gesture / system navigation bar so
+        // the lifted CustomBottomNavBar above doesn't leave a transparent gap.
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(systemBottomInset)
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f))
+        )
+
         CustomBottomNavBar(
-            modifier = Modifier.align(Alignment.BottomCenter),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding(),
             currentDestination = currentDestination,
             unreadCount = unreadCount,
             onDestinationSelected = { dest ->

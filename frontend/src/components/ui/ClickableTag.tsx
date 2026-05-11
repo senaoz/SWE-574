@@ -17,6 +17,8 @@ interface ClickableTagProps {
   className?: string;
   /** Use when tag is inside another clickable area (e.g. search result row) to avoid double navigation */
   stopPropagation?: boolean;
+  /** Override navigation with a custom click handler */
+  onClick?: (tag: TagEntity | string) => void;
 }
 
 export function ClickableTag({
@@ -26,10 +28,29 @@ export function ClickableTag({
   color = "gray",
   className = "",
   stopPropagation = false,
+  onClick,
 }: ClickableTagProps) {
   const label = typeof tag === "string" ? tag : tag.label;
   const param = tagToParam(tag);
   const to = `/dashboard?tag=${param}`;
+
+  if (onClick) {
+    return (
+      <Badge
+        variant={variant}
+        size={size}
+        color={color}
+        className={`cursor-pointer hover:opacity-80 inline-block ${className}`}
+        aria-label={`Filter by tag ${label}`}
+        onClick={(e) => {
+          if (stopPropagation) e.stopPropagation();
+          onClick(tag);
+        }}
+      >
+        {label}
+      </Badge>
+    );
+  }
 
   return (
     <Link

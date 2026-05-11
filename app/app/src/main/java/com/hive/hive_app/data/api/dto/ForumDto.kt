@@ -93,7 +93,9 @@ data class ForumEventCreate(
     val longitude: Double? = null,
     @Json(name = "is_remote") val isRemote: Boolean = false,
     val tags: List<TagDto>? = null,
-    @Json(name = "service_id") val serviceId: String? = null
+    @Json(name = "service_id") val serviceId: String? = null,
+    @Json(name = "image_urls") val imageUrls: List<String>? = null,
+    @Json(name = "banner_image_url") val bannerImageUrl: String? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -107,7 +109,9 @@ data class ForumEventUpdate(
     val longitude: Double? = null,
     @Json(name = "is_remote") val isRemote: Boolean? = null,
     val tags: List<TagDto>? = null,
-    @Json(name = "service_id") val serviceId: String? = null
+    @Json(name = "service_id") val serviceId: String? = null,
+    @Json(name = "image_urls") val imageUrls: List<String>? = null,
+    @Json(name = "banner_image_url") val bannerImageUrl: String? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -124,6 +128,8 @@ data class ForumEventResponse(
     @Json(name = "is_remote") val isRemote: Boolean = false,
     val tags: List<TagDto>? = null,
     @Json(name = "service_id") val serviceId: String? = null,
+    @Json(name = "image_urls") val imageUrls: List<String> = emptyList(),
+    @Json(name = "banner_image_url") val bannerImageUrl: String? = null,
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "updated_at") val updatedAt: String,
     val user: ForumUserEmbed? = null,
@@ -133,7 +139,10 @@ data class ForumEventResponse(
     @Json(name = "attendee_count") val attendeeCount: Int = 0,
     @Json(name = "is_pinned") val isPinned: Boolean = false,
     @Json(name = "pinned_by") val pinnedBy: String? = null,
-    @Json(name = "pinned_at") val pinnedAt: String? = null
+    @Json(name = "pinned_at") val pinnedAt: String? = null,
+    val status: String? = null,
+    @Json(name = "is_cancelled") val isCancelled: Boolean? = null,
+    @Json(name = "is_canceled") val isCanceled: Boolean? = null
 )
 
 @JsonClass(generateAdapter = true)

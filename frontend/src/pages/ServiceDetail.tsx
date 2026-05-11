@@ -256,7 +256,8 @@ export function ServiceDetail() {
     retry: false,
   });
 
-  const isSaved = service?.is_saved ?? (id ? savedServiceIds.includes(id) : false);
+  const isSaved =
+    service?.is_saved ?? (id ? savedServiceIds.includes(id) : false);
   const saveMutation = useMutation({
     mutationFn: (serviceId: string) => servicesApi.saveService(serviceId),
     onSuccess: () => {
@@ -431,7 +432,11 @@ export function ServiceDetail() {
         participant_ids: [currentUserId, service.user_id],
         service_id: service._id,
       });
-      navigate(data?._id ? `/profile?tab=chat&room_id=${data._id}` : "/profile?tab=chat");
+      navigate(
+        data?._id
+          ? `/profile?tab=chat&room_id=${data._id}`
+          : "/profile?tab=chat",
+      );
     } catch (error) {
       console.error("Error starting chat:", error);
     }
@@ -653,7 +658,12 @@ export function ServiceDetail() {
               </Text>
               <Text size="3">{service.max_participants ?? "No limit"}</Text>
               {(() => {
-                const status = getCapacityStatus({ ...service, matched_user_ids: service.matched_user_ids?.length ? service.matched_user_ids : participants.map(p => p._id) });
+                const status = getCapacityStatus({
+                  ...service,
+                  matched_user_ids: service.matched_user_ids?.length
+                    ? service.matched_user_ids
+                    : participants.map((p) => p._id),
+                });
                 if (!status) return null;
                 if (status.type === "full")
                   return (
@@ -763,18 +773,16 @@ export function ServiceDetail() {
               </Button>
             )}
             {/* Edit button for owner or admin */}
-            {(service.status === "active" &&
-              service.user_id === currentUserId) ||
-              (currentUser?.role === "admin" && (
-                <Button
-                  variant="soft"
-                  size="3"
-                  onClick={() => setEditDialogOpen(true)}
-                >
-                  <Pencil1Icon className="w-4 h-4" />
-                  Edit
-                </Button>
-              ))}
+            {(isServingUser || currentUser?.role === "admin") && (
+              <Button
+                variant="soft"
+                size="3"
+                onClick={() => setEditDialogOpen(true)}
+              >
+                <Pencil1Icon className="w-4 h-4" />
+                Edit
+              </Button>
+            )}
             {/* Delete button for admins */}
             {currentUser?.role === "admin" && (
               <Button
@@ -862,11 +870,7 @@ export function ServiceDetail() {
               </Button>
             )}
             {currentUserId && service.user_id !== currentUserId && (
-              <Button
-                variant="soft"
-                size="3"
-                onClick={handleStartChat}
-              >
+              <Button variant="soft" size="3" onClick={handleStartChat}>
                 <MessageCircleIcon className="w-4 h-4" />
                 Message
               </Button>
@@ -1155,7 +1159,16 @@ export function ServiceDetail() {
             />
           )}
 
-          <ServiceStatusBar status={service.status as "active" | "in_progress" | "completed" | "cancelled" | "expired"} />
+          <ServiceStatusBar
+            status={
+              service.status as
+                | "active"
+                | "in_progress"
+                | "completed"
+                | "cancelled"
+                | "expired"
+            }
+          />
 
           {linkedEvents.length > 0 && (
             <Card className="p-4">
@@ -1191,11 +1204,17 @@ export function ServiceDetail() {
 
           <CommentSection
             fetchComments={() =>
-              commentsApi.getServiceComments(service._id).then((r) => r.data.comments)
+              commentsApi
+                .getServiceComments(service._id)
+                .then((r) => r.data.comments)
             }
             postComment={(content, imageUrls) =>
               commentsApi
-                .createComment({ content, service_id: service._id, ...(imageUrls ? { image_urls: imageUrls } : {}) })
+                .createComment({
+                  content,
+                  service_id: service._id,
+                  ...(imageUrls ? { image_urls: imageUrls } : {}),
+                })
                 .then((r) => r.data)
             }
             title="Comments & Ideas"
@@ -1205,11 +1224,21 @@ export function ServiceDetail() {
               const isOwner = String(service.user_id ?? "") === uid;
               const isParticipant =
                 !isOwner &&
-                service.matched_user_ids?.some((id) => String(id ?? "") === uid);
+                service.matched_user_ids?.some(
+                  (id) => String(id ?? "") === uid,
+                );
               return (
                 <>
-                  {isOwner && <Badge color="amber" size="1">Owner</Badge>}
-                  {isParticipant && <Badge color="blue" size="1">Participant</Badge>}
+                  {isOwner && (
+                    <Badge color="amber" size="1">
+                      Owner
+                    </Badge>
+                  )}
+                  {isParticipant && (
+                    <Badge color="blue" size="1">
+                      Participant
+                    </Badge>
+                  )}
                 </>
               );
             }}

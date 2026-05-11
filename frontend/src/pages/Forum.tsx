@@ -15,6 +15,7 @@ import {
   Box,
   Grid,
   Switch,
+  Tooltip,
 } from "@radix-ui/themes";
 import { Form } from "radix-ui";
 import {
@@ -52,7 +53,7 @@ function timeAgo(dateStr: string) {
 export function Forum() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = searchParams.get("tab") || "discussions";
+  const initialTab = searchParams.get("tab") || "events";
   const [tab, setTab] = useState(initialTab);
   const [searchQ, setSearchQ] = useState("");
   const [tagFilter, setTagFilter] = useState("");
@@ -81,6 +82,11 @@ export function Forum() {
   const { currentUserId, user: currentUser } = useUser();
   const canPinPlatform =
     currentUser?.role === "admin" || currentUser?.role === "moderator";
+
+  const pinnedDiscussionCount = discussions.filter((d) => d.is_pinned).length;
+  const pinnedEventCount = events.filter((ev) => ev.is_pinned).length;
+  const pinnedCommunityCount = communities.filter((c) => c.is_pinned).length;
+  const PIN_LIMIT = 2;
 
   const loadDiscussions = useCallback(async () => {
     setDiscussionsLoading(true);
@@ -178,22 +184,34 @@ export function Forum() {
   };
   return (
     <div>
-      <Flex direction="column" justify="between" align="center" className="m-12">
+      <Flex
+        direction="column"
+        justify="between"
+        align="center"
+        className="m-12"
+      >
         <Heading size="8" className={"max-w-lg"} align="center">
-          The 🤾‍♂️ people platform.<br />
-          Where 🏈 interests<br />
+          The 🤾‍♂️ people platform.
+          <br />
+          Where 🏈 interests
+          <br />
           become 🎻 friendships.
         </Heading>
-        <Text size="3" color="gray" className={"max-w-3xl mt-6 mb-3"} align="center">
-          Whatever your interest, from hiking and reading to networking and skill sharing, there are thousands of people who share it on Hive. Events are happening every day—sign up to join the fun.
+        <Text
+          size="3"
+          color="gray"
+          className={"max-w-3xl mt-6 mb-3"}
+          align="center"
+        >
+          Whatever your interest, from hiking and reading to networking and
+          skill sharing, there are thousands of people who share it on Hive.
+          Events are happening every day—sign up to join the fun.
         </Text>
-        <Button onClick={() => setTab('communities')}>
-          See Communities
-        </Button>
+        <Button onClick={() => setTab("communities")}>See Communities</Button>
       </Flex>
       <Flex gap="3" className="mb-6" wrap="wrap">
         <TextField.Root
-          placeholder="Search discussions & events..."
+          placeholder="Search discussions, events & communities..."
           value={searchQ}
           onChange={(e) => setSearchQ(e.target.value)}
           className="flex-1 min-w-[200px]"
@@ -280,10 +298,16 @@ export function Forum() {
                     />
                     <div className="flex-1 min-w-0">
                       <Flex justify="between" align="start" gap="2">
-                        <Flex gap="2" align="center" className="min-w-0" wrap="wrap">
+                        <Flex
+                          gap="2"
+                          align="center"
+                          className="min-w-0"
+                          wrap="wrap"
+                        >
                           {d.is_pinned && (
                             <Badge size="1" variant="soft" color="violet">
-                              <PinIcon className="w-3 h-3 mr-1" /> Pinned by moderator
+                              <PinIcon className="w-3 h-3 mr-1" /> Pinned by
+                              moderator
                             </Badge>
                           )}
                           <Text size="3" weight="bold" className="line-clamp-1">
@@ -292,17 +316,32 @@ export function Forum() {
                         </Flex>
                         <Flex gap="2" align="center" className="shrink-0">
                           {canPinPlatform && (
-                            <Button
-                              size="1"
-                              variant="soft"
-                              color={d.is_pinned ? "gray" : "violet"}
-                              onClick={(e) => void handlePinDiscussion(e, d)}
+                            <Tooltip
+                              content={
+                                d.is_pinned
+                                  ? "Unpin this discussion"
+                                  : pinnedDiscussionCount >= PIN_LIMIT
+                                    ? "Maximum 2 discussions can be pinned"
+                                    : "Pin this discussion to the top"
+                              }
                             >
-                              <PinIcon className="w-3 h-3" />
-                              {d.is_pinned ? "Unpin" : "Pin"}
-                            </Button>
+                              <Button
+                                size="1"
+                                variant="soft"
+                                color={d.is_pinned ? "gray" : "violet"}
+                                onClick={(e) => void handlePinDiscussion(e, d)}
+                                disabled={!d.is_pinned && pinnedDiscussionCount >= PIN_LIMIT}
+                              >
+                                <PinIcon className="w-3 h-3" />
+                                {d.is_pinned ? "Unpin" : "Pin"}
+                              </Button>
+                            </Tooltip>
                           )}
-                          <Text size="1" color="gray" className="whitespace-nowrap">
+                          <Text
+                            size="1"
+                            color="gray"
+                            className="whitespace-nowrap"
+                          >
                             {timeAgo(d.created_at)}
                           </Text>
                         </Flex>
@@ -423,13 +462,16 @@ export function Forum() {
                   size="3"
                   onClick={() => navigate(`/forum/events/${ev._id}`)}
                 >
-                  {(ev.banner_image_url || (ev.image_urls && ev.image_urls.length > 0)) && (
+                  {(ev.banner_image_url ||
+                    (ev.image_urls && ev.image_urls.length > 0)) && (
                     <Inset clip="padding-box" side="top" pb="current">
                       <img
                         src={
                           ev.banner_image_url
-                            ? (getImageUrl(ev.banner_image_url) ?? ev.banner_image_url)
-                            : (getImageUrl(ev.image_urls![0]) ?? ev.image_urls![0])
+                            ? (getImageUrl(ev.banner_image_url) ??
+                              ev.banner_image_url)
+                            : (getImageUrl(ev.image_urls![0]) ??
+                              ev.image_urls![0])
                         }
                         alt={ev.title}
                         loading="lazy"
@@ -444,10 +486,16 @@ export function Forum() {
                     </Inset>
                   )}
                   <Flex justify="between" align="start" wrap="wrap" gap="2">
-                    <Flex gap="2" align="center" className="min-w-0" wrap="wrap">
+                    <Flex
+                      gap="2"
+                      align="center"
+                      className="min-w-0"
+                      wrap="wrap"
+                    >
                       {ev.is_pinned && (
                         <Badge size="1" variant="soft" color="violet">
-                          <PinIcon className="w-3 h-3 mr-1" /> Pinned by moderator
+                          <PinIcon className="w-3 h-3 mr-1" /> Pinned by
+                          moderator
                         </Badge>
                       )}
                       <Text size="3" weight="bold" className="line-clamp-1">
@@ -456,15 +504,26 @@ export function Forum() {
                     </Flex>
                     <Flex gap="2" align="center">
                       {canPinPlatform && (
-                        <Button
-                          size="1"
-                          variant="soft"
-                          color={ev.is_pinned ? "gray" : "violet"}
-                          onClick={(e) => void handlePinEvent(e, ev)}
+                        <Tooltip
+                          content={
+                            ev.is_pinned
+                              ? "Unpin this event"
+                              : pinnedEventCount >= PIN_LIMIT
+                                ? "Maximum 2 events can be pinned"
+                                : "Pin this event to the top"
+                          }
                         >
-                          <PinIcon className="w-3 h-3" />
-                          {ev.is_pinned ? "Unpin" : "Pin"}
-                        </Button>
+                          <Button
+                            size="1"
+                            variant="soft"
+                            color={ev.is_pinned ? "gray" : "violet"}
+                            onClick={(e) => void handlePinEvent(e, ev)}
+                            disabled={!ev.is_pinned && pinnedEventCount >= PIN_LIMIT}
+                          >
+                            <PinIcon className="w-3 h-3" />
+                            {ev.is_pinned ? "Unpin" : "Pin"}
+                          </Button>
+                        </Tooltip>
                       )}
                       <Badge size="1" variant="soft" color="purple">
                         <CalendarClockIcon className="w-3 h-3" />
@@ -625,7 +684,9 @@ export function Forum() {
                   {c.cover_image_url && (
                     <Inset clip="padding-box" side="top" pb="current">
                       <img
-                        src={getImageUrl(c.cover_image_url) ?? c.cover_image_url}
+                        src={
+                          getImageUrl(c.cover_image_url) ?? c.cover_image_url
+                        }
                         alt={c.name}
                         loading="lazy"
                         style={{
@@ -644,7 +705,8 @@ export function Forum() {
                         <Flex gap="2" align="center" wrap="wrap">
                           {c.is_pinned && (
                             <Badge size="1" variant="soft" color="violet">
-                              <PinIcon className="w-3 h-3 mr-1" /> Pinned by moderator
+                              <PinIcon className="w-3 h-3 mr-1" /> Pinned by
+                              moderator
                             </Badge>
                           )}
                           <Text size="3" weight="bold">
@@ -668,15 +730,26 @@ export function Forum() {
                       </div>
                       <Flex gap="2" align="center">
                         {canPinPlatform && (
-                          <Button
-                            size="1"
-                            variant="soft"
-                            color={c.is_pinned ? "gray" : "violet"}
-                            onClick={(e) => void handlePinCommunity(e, c)}
+                          <Tooltip
+                            content={
+                              c.is_pinned
+                                ? "Unpin this community"
+                                : pinnedCommunityCount >= PIN_LIMIT
+                                  ? "Maximum 2 communities can be pinned"
+                                  : "Pin this community to the top"
+                            }
                           >
-                            <PinIcon className="w-3 h-3" />
-                            {c.is_pinned ? "Unpin" : "Pin"}
-                          </Button>
+                            <Button
+                              size="1"
+                              variant="soft"
+                              color={c.is_pinned ? "gray" : "violet"}
+                              onClick={(e) => void handlePinCommunity(e, c)}
+                              disabled={!c.is_pinned && pinnedCommunityCount >= PIN_LIMIT}
+                            >
+                              <PinIcon className="w-3 h-3" />
+                              {c.is_pinned ? "Unpin" : "Pin"}
+                            </Button>
+                          </Tooltip>
                         )}
                         <Badge size="1" variant="soft" color="gray">
                           <UsersIcon className="w-3 h-3 mr-1" />
@@ -707,6 +780,10 @@ export function Forum() {
                           tag={tag}
                           size="1"
                           stopPropagation
+                          onClick={(t) => {
+                            const label = typeof t === "string" ? t : t.label;
+                            setTagFilter(label);
+                          }}
                         />
                       ))}
                     </Flex>

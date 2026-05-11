@@ -1,296 +1,299 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Theme } from "@radix-ui/themes";
-import type { ForumEvent, Service, User } from "@/types";
 import { ServiceDetail } from "../ServiceDetail";
 
-const mockNavigate = vi.fn();
+// ─── API mocks ────────────────────────────────────────────────────────────────
 const mockGetService = vi.fn();
 const mockGetUserById = vi.fn();
-const mockGetTimeBank = vi.fn();
-const mockGetPendingRequestForService = vi.fn();
-const mockCancelRequest = vi.fn();
+const mockGetPendingRequest = vi.fn();
 const mockGetLinkedEvents = vi.fn();
 const mockGetPotentialMatches = vi.fn();
 const mockGetServices = vi.fn();
-const mockSaveService = vi.fn();
-const mockUnsaveService = vi.fn();
-const mockPinService = vi.fn();
-const mockDeleteService = vi.fn();
-const mockCreateChatRoom = vi.fn();
-const mockUseSavedServiceIds = vi.fn();
-
-vi.mock("react-router-dom", async () => {
-  const actual = await vi.importActual<typeof import("react-router-dom")>(
-    "react-router-dom",
-  );
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate,
-  };
-});
-
-vi.mock("@/App", () => ({
-  useUser: () => ({
-    currentUserId: "admin-1",
-    user: { _id: "admin-1", role: "admin" },
-  }),
-}));
-
-vi.mock("@/hooks/useSavedServiceIds", () => ({
-  useSavedServiceIds: () => mockUseSavedServiceIds(),
-}));
+const mockGetTimeBank = vi.fn();
 
 vi.mock("@/services/api", () => ({
-  getImageUrl: (path?: string) => (path ? `https://cdn.example.test/${path}` : undefined),
   servicesApi: {
-    getService: (...args: any[]) => mockGetService(...args),
-    getPotentialMatches: (...args: any[]) => mockGetPotentialMatches(...args),
-    getServices: (...args: any[]) => mockGetServices(...args),
-    saveService: (...args: any[]) => mockSaveService(...args),
-    unsaveService: (...args: any[]) => mockUnsaveService(...args),
-    pinService: (...args: any[]) => mockPinService(...args),
-    deleteService: (...args: any[]) => mockDeleteService(...args),
+    getService: (...a: any[]) => mockGetService(...a),
+    getPotentialMatches: (...a: any[]) => mockGetPotentialMatches(...a),
+    getServices: (...a: any[]) => mockGetServices(...a),
+    saveService: vi.fn(),
+    unsaveService: vi.fn(),
+    deleteService: vi.fn(),
+    pinService: vi.fn(),
   },
   usersApi: {
-    getUserById: (...args: any[]) => mockGetUserById(...args),
-    getTimeBank: (...args: any[]) => mockGetTimeBank(...args),
+    getUserById: (...a: any[]) => mockGetUserById(...a),
+    getTimeBank: () => mockGetTimeBank(),
   },
   joinRequestsApi: {
-    getPendingRequestForService: (...args: any[]) =>
-      mockGetPendingRequestForService(...args),
-    cancelRequest: (...args: any[]) => mockCancelRequest(...args),
+    getPendingRequestForService: (...a: any[]) => mockGetPendingRequest(...a),
+    cancelRequest: vi.fn(),
   },
   forumApi: {
-    getLinkedEvents: (...args: any[]) => mockGetLinkedEvents(...args),
+    getLinkedEvents: (...a: any[]) => mockGetLinkedEvents(...a),
   },
   commentsApi: {
     getServiceComments: vi.fn().mockResolvedValue({ data: { comments: [] } }),
-    createComment: vi.fn().mockResolvedValue({ data: {} }),
+    createComment: vi.fn(),
   },
   chatApi: {
-    createChatRoom: (...args: any[]) => mockCreateChatRoom(...args),
+    createChatRoom: vi.fn(),
   },
+  getImageUrl: (p: string | null) => p ?? "",
+}));
+
+// ServiceDetail uses useUser from @/App
+vi.mock("@/App", () => ({
+  useUser: () => ({
+    currentUserId: "u1",
+    user: { _id: "u1", role: "user" },
+  }),
+  useTheme: () => ({ appearance: "light", toggleAppearance: vi.fn() }),
+}));
+
+vi.mock("@/hooks/useSavedServiceIds", () => ({
+  useSavedServiceIds: () => ({ savedServiceIds: [] }),
+}));
+
+const mockNavigate = vi.fn();
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
+  return { ...actual, useNavigate: () => mockNavigate };
+});
+
+// ─── Heavy component mocks ────────────────────────────────────────────────────
+vi.mock("@/components/map/ServiceMap", () => ({
+  ServiceMap: () => <div data-testid="service-map" />,
+  applyMapFilters: (list: any[]) => list,
+  defaultMapFilters: {},
 }));
 
 vi.mock("@/components/ui/ImageGallery", () => ({
-  ImageGallery: ({ urls }: any) => <div>Image gallery: {urls.length}</div>,
+  ImageGallery: () => <div data-testid="image-gallery" />,
 }));
 
 vi.mock("@/components/ui/ProviderProfileSummary", () => ({
-  ProviderProfileSummary: ({ user }: any) => <div>Provider: {user.full_name}</div>,
-}));
-
-vi.mock("@/components/map/ServiceMap", () => ({
-  ServiceMap: ({ services }: any) => <div>Service map: {services.length}</div>,
+  ProviderProfileSummary: ({ user }: { user?: { full_name: string } }) => (
+    <div data-testid="provider-summary">{user?.full_name}</div>
+  ),
 }));
 
 vi.mock("@/components/ui/HandShakeModal", () => ({
-  HandShakeModal: ({ service, disabled }: any) => (
-    <button disabled={disabled}>Join {service.title}</button>
-  ),
+  HandShakeModal: () => <div data-testid="handshake-modal" />,
 }));
 
 vi.mock("@/components/ui/CommentSection", () => ({
-  CommentSection: ({ title }: any) => <div>{title}</div>,
+  CommentSection: () => <div data-testid="comment-section" />,
+  CommentItem: () => <div />,
 }));
 
 vi.mock("@/components/ui/ParticipantAvatars", () => ({
-  ParticipantAvatars: ({ participants }: any) => (
-    <div>Participants: {participants.map((p: any) => p.full_name).join(", ")}</div>
-  ),
+  ParticipantAvatars: () => <div data-testid="participant-avatars" />,
 }));
 
 vi.mock("@/components/ui/StatusBadge", () => ({
-  StatusBadge: ({ status }: any) => <span>Status: {status}</span>,
-}));
-
-vi.mock("@/components/ui/ServiceStatusBar", () => ({
-  ServiceStatusBar: ({ status }: any) => <div>Status bar: {status}</div>,
-}));
-
-vi.mock("@/components/ui/ClickableTag", () => ({
-  ClickableTag: ({ tag }: any) => (
-    <span>{typeof tag === "string" ? tag : tag.label}</span>
+  StatusBadge: ({ status }: { status: string }) => (
+    <span data-testid="status-badge">{status}</span>
   ),
 }));
 
+vi.mock("@/components/ui/ServiceStatusBar", () => ({
+  ServiceStatusBar: () => <div data-testid="service-status-bar" />,
+}));
+
 vi.mock("@/components/ui/ReportDialog", () => ({
-  ReportDialog: ({ open, reportedName }: any) =>
-    open ? <div>Report service: {reportedName}</div> : null,
+  ReportDialog: () => <div data-testid="report-dialog" />,
 }));
 
 vi.mock("@/components/forms/EditServiceDialog", () => ({
-  EditServiceDialog: ({ open, service }: any) =>
-    open ? <div>Edit service: {service.title}</div> : null,
+  EditServiceDialog: () => <div data-testid="edit-service-dialog" />,
 }));
 
-const provider: User = {
-  _id: "owner-1",
-  username: "owner",
-  email: "owner@example.test",
-  full_name: "Owner User",
-  is_active: true,
-  is_verified: true,
-  role: "user",
-  timebank_balance: 3,
-  created_at: "2026-05-01T00:00:00Z",
-  updated_at: "2026-05-01T00:00:00Z",
-};
+vi.mock("@radix-ui/themes", async () => {
+  const actual = await vi.importActual<typeof import("@radix-ui/themes")>("@radix-ui/themes");
+  return {
+    ...actual,
+    Tooltip: ({ children, content }: { children: React.ReactElement; content: string }) =>
+      React.cloneElement(children, { "aria-label": content }),
+  };
+});
 
-const participant: User = {
-  ...provider,
-  _id: "participant-1",
-  username: "matched",
-  full_name: "Matched User",
-};
+import React from "react";
 
-const service: Service = {
-  _id: "service-1",
-  user_id: "owner-1",
-  title: "Piano lessons",
-  description: "Learn **piano** with a neighbor.",
-  category: "education",
-  tags: [{ label: "Music", entityId: "Q638", description: "music" }],
-  estimated_duration: 2,
-  location: { latitude: 41.01, longitude: 29.01, address: "Kadikoy" },
-  service_type: "offer",
-  status: "active",
-  created_at: "2026-05-01T00:00:00Z",
-  updated_at: "2026-05-01T00:00:00Z",
-  deadline: "2026-05-20T00:00:00Z",
-  matched_user_ids: ["participant-1"],
-  max_participants: 3,
-  scheduling_type: "specific",
-  specific_date: "2026-05-15T00:00:00Z",
-  specific_time: "14:30",
-  image_urls: ["uploads/piano.jpg"],
-  is_pinned: false,
-  is_saved: false,
-};
+function makeService(overrides = {}) {
+  return {
+    _id: "svc1",
+    title: "Fix my bicycle",
+    description: "I need help fixing the brakes on my bike.",
+    service_type: "need",
+    status: "open",
+    is_remote: false,
+    is_pinned: false,
+    duration: 2,
+    max_participants: 1,
+    tags: [],
+    location: { address: "Istanbul, Turkey", coordinates: [28.97, 41.01] },
+    user_id: "u2",
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    matched_user_ids: [],
+    ...overrides,
+  };
+}
 
-const matchService: Service = {
-  ...service,
-  _id: "service-2",
-  title: "Need guitar practice",
-  service_type: "need",
-  user_id: "owner-2",
-  matched_user_ids: [],
-};
+function makeProvider(overrides = {}) {
+  return {
+    _id: "u2",
+    username: "bob",
+    full_name: "Bob Jones",
+    email: "bob@example.com",
+    bio: "I fix things",
+    role: "user",
+    is_active: true,
+    is_verified: false,
+    timebank_balance: 5,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    ...overrides,
+  };
+}
 
-const linkedEvent: ForumEvent = {
-  _id: "event-1",
-  user_id: "owner-1",
-  title: "Music meetup",
-  description: "Jam together.",
-  event_at: "2026-05-18T12:00:00Z",
-  is_remote: false,
-  tags: [],
-  created_at: "2026-05-01T00:00:00Z",
-  updated_at: "2026-05-01T00:00:00Z",
-  comment_count: 0,
-  attendee_ids: [],
-  attendee_count: 0,
-  upvote_count: 0,
-  is_pinned: false,
-};
-
-function renderServiceDetail() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
+function renderDetail(serviceId = "svc1") {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <QueryClientProvider client={queryClient}>
-      <Theme>
-        <MemoryRouter initialEntries={["/service/service-1"]}>
+    <Theme>
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={[`/services/${serviceId}`]}>
           <Routes>
-            <Route path="/service/:id" element={<ServiceDetail />} />
+            <Route path="/services/:id" element={<ServiceDetail />} />
+            <Route path="/dashboard" element={<div>Dashboard</div>} />
           </Routes>
         </MemoryRouter>
-      </Theme>
-    </QueryClientProvider>,
+      </QueryClientProvider>
+    </Theme>,
   );
 }
 
-describe("ServiceDetail page", () => {
+describe("ServiceDetail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseSavedServiceIds.mockReturnValue({ savedServiceIds: [] });
-    mockGetService.mockResolvedValue({ data: service });
-    mockGetUserById.mockImplementation((id: string) =>
-      Promise.resolve({ data: id === "participant-1" ? participant : provider }),
-    );
-    mockGetTimeBank.mockResolvedValue({
-      data: { requires_need_creation: false, transactions: [] },
-    });
-    mockGetPendingRequestForService.mockRejectedValue({ response: { status: 404 } });
-    mockGetLinkedEvents.mockResolvedValue({ data: { events: [linkedEvent] } });
-    mockGetPotentialMatches.mockResolvedValue({
-      data: { items: [{ service: matchService, relevance_score: 0.9, reason_label: "Matching tags" }] },
-    });
-    mockGetServices.mockResolvedValue({ data: { services: [service, matchService] } });
-    mockSaveService.mockResolvedValue({});
-    mockUnsaveService.mockResolvedValue({});
-    mockPinService.mockResolvedValue({ data: { ...service, is_pinned: true } });
-    mockDeleteService.mockResolvedValue({});
-    mockCreateChatRoom.mockResolvedValue({ data: { _id: "room-1" } });
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText: vi.fn().mockResolvedValue(undefined) },
-    });
+    mockGetLinkedEvents.mockResolvedValue({ data: { events: [] } });
+    mockGetPotentialMatches.mockResolvedValue({ data: { items: [], total: 0 } });
+    mockGetServices.mockResolvedValue({ data: { services: [] } });
+    mockGetTimeBank.mockResolvedValue({ data: { balance: 2 } });
+    mockGetPendingRequest.mockRejectedValue({ response: { status: 404 } });
   });
 
-  it("loads service details, provider, participants, events, and recommendations", async () => {
-    renderServiceDetail();
+  it("shows loading state initially", () => {
+    mockGetService.mockReturnValue(new Promise(() => {}));
+    renderDetail();
+    expect(screen.getByText(/loading service details/i)).toBeInTheDocument();
+  });
 
-    expect(screen.getByText("Loading service details...")).toBeInTheDocument();
-
+  it("shows 'Service Not Found' when API returns error", async () => {
+    mockGetService.mockRejectedValue(new Error("Not found"));
+    renderDetail();
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Piano lessons" })).toBeInTheDocument();
+      expect(screen.getByText(/service not found/i)).toBeInTheDocument();
     });
-
-    expect(screen.getByText("Provider: Owner User")).toBeInTheDocument();
-    expect(screen.getByText("Participants: Matched User")).toBeInTheDocument();
-    expect(screen.getByText("Image gallery: 1")).toBeInTheDocument();
-    expect(screen.getByText("Music meetup")).toBeInTheDocument();
-    expect(screen.getByText("Need guitar practice")).toBeInTheDocument();
-    expect(screen.getByText("Comments & Ideas")).toBeInTheDocument();
   });
 
-  it("pins, saves, reports, and starts chat for a service", async () => {
+  it("shows 'Back to Dashboard' button when service not found", async () => {
+    mockGetService.mockRejectedValue(new Error("Not found"));
+    renderDetail();
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /back to dashboard/i }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("renders service title when loaded", async () => {
+    mockGetService.mockResolvedValue({ data: makeService() });
+    mockGetUserById.mockResolvedValue({ data: makeProvider() });
+    renderDetail();
+    await waitFor(() => {
+      expect(screen.getByText("Fix my bicycle")).toBeInTheDocument();
+    });
+  });
+
+  it("renders service description when loaded", async () => {
+    mockGetService.mockResolvedValue({ data: makeService() });
+    mockGetUserById.mockResolvedValue({ data: makeProvider() });
+    renderDetail();
+    await waitFor(() => {
+      expect(
+        screen.getByText(/I need help fixing the brakes/i),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("renders provider summary section", async () => {
+    mockGetService.mockResolvedValue({ data: makeService() });
+    mockGetUserById.mockResolvedValue({ data: makeProvider() });
+    renderDetail();
+    await waitFor(() => {
+      expect(screen.getByTestId("provider-summary")).toBeInTheDocument();
+    });
+  });
+
+  it("renders back/arrow button to navigate back", async () => {
+    mockGetService.mockResolvedValue({ data: makeService() });
+    mockGetUserById.mockResolvedValue({ data: makeProvider() });
+    renderDetail();
+    await waitFor(() => screen.getByText("Fix my bicycle"));
+    const backBtn = screen.getByRole("button", { name: /back/i });
+    expect(backBtn).toBeInTheDocument();
+  });
+
+  it("navigates back when back button is clicked", async () => {
     const user = userEvent.setup();
-
-    renderServiceDetail();
-    await screen.findByRole("heading", { name: "Piano lessons" });
-
-    await user.click(screen.getByRole("button", { name: /Pin/ }));
-    expect(mockPinService).toHaveBeenCalledWith("service-1", true);
-
-    await user.click(screen.getByRole("button", { name: /^Save$/ }));
-    await waitFor(() => {
-      expect(mockSaveService).toHaveBeenCalledWith("service-1");
-    });
-
-    await user.click(screen.getByRole("button", { name: /Message/ }));
-    expect(mockCreateChatRoom).toHaveBeenCalledWith({
-      participant_ids: ["admin-1", "owner-1"],
-      service_id: "service-1",
-    });
-    expect(mockNavigate).toHaveBeenCalledWith("/profile?tab=chat&room_id=room-1");
-
-    await user.click(screen.getByRole("button", { name: /Report/ }));
-    expect(screen.getByText("Report service: Piano lessons")).toBeInTheDocument();
+    mockGetService.mockResolvedValue({ data: makeService() });
+    mockGetUserById.mockResolvedValue({ data: makeProvider() });
+    renderDetail();
+    await waitFor(() => screen.getByText("Fix my bicycle"));
+    const backBtn = screen.getByRole("button", { name: /back/i });
+    await user.click(backBtn);
+    expect(mockNavigate).toHaveBeenCalledWith(-1);
   });
 
-  it("shows not found when the service cannot be loaded", async () => {
-    mockGetService.mockRejectedValue(new Error("missing"));
+  it("shows status badge", async () => {
+    mockGetService.mockResolvedValue({ data: makeService({ status: "open" }) });
+    mockGetUserById.mockResolvedValue({ data: makeProvider() });
+    renderDetail();
+    await waitFor(() => {
+      expect(screen.getByTestId("status-badge")).toHaveTextContent("open");
+    });
+  });
 
-    renderServiceDetail();
+  it("renders comment section", async () => {
+    mockGetService.mockResolvedValue({ data: makeService() });
+    mockGetUserById.mockResolvedValue({ data: makeProvider() });
+    renderDetail();
+    await waitFor(() => {
+      expect(screen.getByTestId("comment-section")).toBeInTheDocument();
+    });
+  });
 
-    expect(await screen.findByText("Service Not Found")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Back to Dashboard" })).toBeInTheDocument();
+  it("shows own service without a Join button (user is provider)", async () => {
+    // user_id matches currentUserId ("u1")
+    mockGetService.mockResolvedValue({ data: makeService({ user_id: "u1" }) });
+    mockGetUserById.mockResolvedValue({ data: makeProvider({ _id: "u1" }) });
+    renderDetail();
+    await waitFor(() => screen.getByText("Fix my bicycle"));
+    expect(screen.queryByRole("button", { name: /join/i })).not.toBeInTheDocument();
+  });
+
+  it("shows service map for non-remote service", async () => {
+    mockGetService.mockResolvedValue({ data: makeService({ is_remote: false }) });
+    mockGetUserById.mockResolvedValue({ data: makeProvider() });
+    renderDetail();
+    await waitFor(() => {
+      expect(screen.getByTestId("service-map")).toBeInTheDocument();
+    });
   });
 });

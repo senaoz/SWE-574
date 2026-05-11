@@ -2,6 +2,7 @@ package com.hive.hive_app.data.repository
 
 import com.hive.hive_app.data.api.ServicesApi
 import com.hive.hive_app.data.api.dto.LocationDto
+import com.hive.hive_app.data.api.dto.RecommendedServiceListResponse
 import com.hive.hive_app.data.api.dto.RecurringPatternDto
 import com.hive.hive_app.data.api.dto.ServiceCreate
 import com.hive.hive_app.data.api.dto.ServiceResponse
@@ -190,6 +191,30 @@ class ServicesRepository @Inject constructor(
             val response = servicesApi.getSavedServiceIds()
             if (response.isSuccessful && response.body() != null) Result.success(response.body()!!)
             else Result.failure(HttpException(response))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getRecommendedServices(
+        page: Int = 1,
+        limit: Int = 5,
+        latitude: Double? = null,
+        longitude: Double? = null,
+        radius: Double? = null
+    ): Result<RecommendedServiceListResponse> {
+        return try {
+            val response = servicesApi.getRecommendedServices(
+                page = page,
+                limit = limit,
+                latitude = latitude,
+                longitude = longitude,
+                radius = radius
+            )
+            if (response.isSuccessful && response.body() != null) Result.success(response.body()!!)
+            else Result.failure(HttpException(response))
+        } catch (e: IOException) {
+            Result.failure(e)
         } catch (e: Exception) {
             Result.failure(e)
         }

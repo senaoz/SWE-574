@@ -91,20 +91,20 @@ export function CustomBadge({
         <Flex direction="column" gap="1">
           <Text size="2" weight="bold">{badge.name}</Text>
           {badge.description && (
-            <Text size="1" style={{ color: "var(--gray-11)" }}>{badge.description}</Text>
+            <Text size="1" style={{ color: "var(--gray-8)" }}>{badge.description}</Text>
           )}
         </Flex>
       }
       side="right"
     >
       <Box
-        className={`p-2 custom-badge-icon ${className}`}
+        className={`p-2 custom-badge-icon ${className || ''}`}
         data-badge-key={badge.key}
       >
         <IconComponent
           size={size}
           style={{
-            color: badge.earned ? "var(--lime-11)" : "var(--gray-8)",
+            color: badge.earned ? "var(--lime-11) !important" : "var(--gray-8) !important",
           }}
         />
       </Box>

@@ -28,7 +28,9 @@ import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.FormatListBulleted
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Search
@@ -90,8 +92,6 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.Point
 import android.view.View
-import android.os.Handler
-import android.os.Looper
 import androidx.annotation.DrawableRes
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
@@ -320,30 +320,6 @@ private class MapBubbleInfoWindow(
     }
 }
 
-/** Soft pulsing rings under the “You” marker. */
-private class UserLocationPulseOverlay(
-    private val geoPoint: GeoPoint
-) : Overlay() {
-    private val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.FILL
-    }
-
-    override fun draw(canvas: Canvas, mapView: MapView, shadow: Boolean) {
-        val p = Point()
-        mapView.projection.toPixels(geoPoint, p)
-        val t = (System.currentTimeMillis() % 1800L) / 1800.0
-        val pulse = sin(t * kotlin.math.PI * 2) * 0.5 + 0.5
-        val rOuter = (22f + pulse * 38f).toFloat()
-        val alphaOuter = (35 + pulse * 55).toInt().coerceIn(0, 120)
-        ringPaint.color = AndroidColor.argb(alphaOuter, 33, 150, 243)
-        canvas.drawCircle(p.x.toFloat(), p.y.toFloat(), rOuter, ringPaint)
-        val rInner = rOuter * 0.55f
-        val alphaInner = (alphaOuter * 0.45f).toInt().coerceIn(0, 80)
-        ringPaint.color = AndroidColor.argb(alphaInner, 100, 181, 246)
-        canvas.drawCircle(p.x.toFloat(), p.y.toFloat(), rInner, ringPaint)
-    }
-}
-
 /** Approximate area shown instead of exact coordinates (meters). */
 private const val PRIVACY_RADIUS_METERS = 450.0
 
@@ -533,6 +509,7 @@ fun MapScreen(
     var didInitialCenter by remember { mutableStateOf(false) }
     var nearMeCenterNonce by remember { mutableStateOf(0) }
     var showListView by remember { mutableStateOf(false) }
+    var showRecommendations by remember { mutableStateOf(false) }
 
     LaunchedEffect(resetNonce) {
         // "Map" tab reselected from bottom bar: return to the map root UI.
@@ -544,16 +521,19 @@ fun MapScreen(
         completeServiceRatingArgs = null
         showFilters = false
         showListView = false
+        showRecommendations = false
     }
 
     BackHandler(
         enabled = completeServiceRatingArgs != null ||
+            showRecommendations ||
             manageRequestsServiceId != null ||
             showCreateServiceScreen ||
             selectedServiceId != null ||
             selectedForumEventId != null
     ) {
         when {
+            showRecommendations -> showRecommendations = false
             completeServiceRatingArgs != null -> completeServiceRatingArgs = null
             manageRequestsServiceId != null -> manageRequestsServiceId = null
             showCreateServiceScreen -> {
@@ -672,6 +652,7 @@ fun MapScreen(
             isSaved = detailIsSaved,
             onStartChat = onStartChat,
             onOpenUserProfile = onOpenUserProfile,
+            onOpenRecommendedService = { selectedServiceId = it },
             onManageJoinRequests = {
                 manageRequestsServiceId = id
                 selectedServiceId = null
@@ -700,7 +681,7 @@ fun MapScreen(
     var mapUiReady by remember { mutableStateOf(false) }
     val activity = LocalActivity.current
 
-    BackHandler(enabled = showListView) {
+    BackHandler(enabled = showListView && !showRecommendations) {
         showListView = false
     }
 
@@ -717,7 +698,16 @@ fun MapScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        if (showListView) {
+        if (showRecommendations) {
+            RecommendationScreen(
+                modifier = Modifier.fillMaxSize(),
+                onBack = { showRecommendations = false },
+                onServiceSelected = { serviceId ->
+                    showRecommendations = false
+                    if (onServiceSelected != null) onServiceSelected(serviceId) else selectedServiceId = serviceId
+                }
+            )
+        } else if (showListView) {
             DiscoverScreen(
                 modifier = Modifier.fillMaxSize(),
                 onStartChat = onStartChat,
@@ -855,8 +845,7 @@ fun MapScreen(
                 }
                 if (state.userLat != null && state.userLon != null) {
                     val gp = GeoPoint(state.userLat!!, state.userLon!!)
-                    map.overlays.add(UserLocationPulseOverlay(gp))
-                    val myIcon = ContextCompat.getDrawable(context, com.hive.hive_app.R.drawable.ic_my_location)
+                    val myIcon = ContextCompat.getDrawable(context, com.hive.hive_app.R.drawable.ic_bee_marker)
                     val userMarker = Marker(map).apply {
                         position = gp
                         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
@@ -877,23 +866,6 @@ fun MapScreen(
                 // Give osmdroid a moment to create layout/first tiles; then fade loader out.
                 delay(400)
                 mapUiReady = true
-            }
-        }
-
-        DisposableEffect(mapViewRef, state.userLat, state.userLon) {
-            val map = mapViewRef ?: return@DisposableEffect onDispose { }
-            val handler = Handler(Looper.getMainLooper())
-            val invalidator = object : Runnable {
-                override fun run() {
-                    map.invalidate()
-                    handler.postDelayed(this, 50)
-                }
-            }
-            if (state.userLat != null && state.userLon != null) {
-                handler.post(invalidator)
-            }
-            onDispose {
-                handler.removeCallbacks(invalidator)
             }
         }
 
@@ -1039,9 +1011,31 @@ fun MapScreen(
                         ),
                         textStyle = MaterialTheme.typography.bodyMedium
                     )
+                    // Recommendation icon — left of list/discovery toggle
+                    IconButton(
+                        onClick = {
+                            showRecommendations = !showRecommendations
+                            if (showRecommendations) {
+                                showListView = false
+                                showFilters = false
+                            }
+                        },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (showRecommendations) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = "Recommendations",
+                            tint = if (showRecommendations) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                     // List view toggle
                     IconButton(
-                        onClick = { showListView = !showListView },
+                        onClick = {
+                            showListView = !showListView
+                            if (showListView) showRecommendations = false
+                        },
                         modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
@@ -1107,18 +1101,51 @@ fun MapScreen(
                         icon = Icons.Outlined.Search,
                         label = typeLabel,
                         isActive = !typeIsDefault,
+                        onClick = {
+                            if (typeIsDefault) {
+                                showFilters = true
+                            } else {
+                                viewModel.setFilters(
+                                    state.filterTimeOfDay,
+                                    state.filterDate,
+                                    null
+                                )
+                            }
+                        },
                         modifier = Modifier.weight(1f)
                     )
                     FilterSummaryChip(
                         icon = Icons.Outlined.Schedule,
                         label = dateLabel,
                         isActive = !dateIsDefault,
+                        onClick = {
+                            if (dateIsDefault) {
+                                showFilters = true
+                            } else {
+                                viewModel.setFilters(
+                                    state.filterTimeOfDay,
+                                    MapViewModel.DateFilter.ANYTIME,
+                                    state.filterType
+                                )
+                            }
+                        },
                         modifier = Modifier.weight(1f)
                     )
                     FilterSummaryChip(
                         icon = Icons.Outlined.WbCloudy,
                         label = timeLabel,
                         isActive = !timeIsDefault,
+                        onClick = {
+                            if (timeIsDefault) {
+                                showFilters = true
+                            } else {
+                                viewModel.setFilters(
+                                    MapViewModel.TimeOfDayFilter.ANYTIME,
+                                    state.filterDate,
+                                    state.filterType
+                                )
+                            }
+                        },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -1154,6 +1181,7 @@ fun MapScreen(
             Card(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
                     .padding(start = 12.dp, end = 12.dp, bottom = 96.dp, top = 12.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -1260,6 +1288,7 @@ private fun FilterSummaryChip(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     isActive: Boolean,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val containerColor = if (isActive)
@@ -1272,7 +1301,7 @@ private fun FilterSummaryChip(
         MaterialTheme.colorScheme.onSurfaceVariant
 
     androidx.compose.material3.Surface(
-        modifier = modifier,
+        modifier = modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(50),
         color = containerColor,
         contentColor = contentColor,

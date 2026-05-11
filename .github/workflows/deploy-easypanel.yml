@@ -26,7 +26,15 @@ jobs:
 
       - name: Run backend tests
         working-directory: backend
-        run: pytest -m "not integration" --no-cov
+        run: pytest -m "not integration" --cov=app --cov-report=xml --cov-report=html
+
+      - name: Upload backend coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: backend/coverage.xml
+          flags: backend
+          fail_ci_if_error: false
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -49,7 +57,15 @@ jobs:
 
       - name: Frontend tests
         working-directory: frontend
-        run: npm run test:run
+        run: npm run test:run -- --coverage
+
+      - name: Upload frontend coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: frontend/coverage/clover.xml
+          flags: frontend
+          fail_ci_if_error: false
 
   deploy:
     runs-on: ubuntu-latest

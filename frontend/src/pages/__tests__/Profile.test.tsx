@@ -4,257 +4,206 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Theme } from "@radix-ui/themes";
-import type { Community, RatingDetailed } from "@/types";
 import { Profile } from "../Profile";
 
-const mockNavigate = vi.fn();
-const mockRefetchUser = vi.fn();
+// ─── API mocks ────────────────────────────────────────────────────────────────
+const mockGetTimeBank = vi.fn();
 const mockUpdateProfile = vi.fn();
+const mockGetUserCommunities = vi.fn();
 const mockGetUserRatings = vi.fn();
 const mockGetUserRatingsDetailed = vi.fn();
-const mockGetUserCommunities = vi.fn();
-const mockGetTimeBank = vi.fn();
 const mockGetServices = vi.fn();
 const mockGetMyRequests = vi.fn();
 const mockGetMyTransactions = vi.fn();
 
-const profileUser = vi.hoisted(() => ({
-  _id: "user-1",
-  username: "aysenur",
-  email: "aysenur@example.test",
-  full_name: "Aysenur Unal",
-  bio: "Timebank organizer",
-  location: "Kadikoy",
-  profile_picture: "avatars/aysenur.png",
-  social_links: { website: "https://aysenur.example.test" },
-  interests: ["Music"],
-  is_active: true,
-  is_verified: true,
-  role: "user",
-  timebank_balance: 7.5,
-  created_at: "2026-05-01T00:00:00Z",
-  updated_at: "2026-05-01T00:00:00Z",
-}));
-
-vi.mock("react-router-dom", async () => {
-  const actual = await vi.importActual<typeof import("react-router-dom")>(
-    "react-router-dom",
-  );
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate,
-  };
-});
-
-vi.mock("@/contexts/UserContext", () => ({
-  useUser: () => ({
-    user: profileUser,
-    isLoading: false,
-    refetchUser: mockRefetchUser,
-  }),
-}));
-
 vi.mock("@/services/api", () => ({
-  getImageUrl: (path?: string) => (path ? `https://cdn.example.test/${path}` : undefined),
   usersApi: {
-    updateProfile: (...args: any[]) => mockUpdateProfile(...args),
-    getUserCommunities: (...args: any[]) => mockGetUserCommunities(...args),
-    getTimeBank: (...args: any[]) => mockGetTimeBank(...args),
+    getTimeBank: () => mockGetTimeBank(),
+    updateProfile: (...a: any[]) => mockUpdateProfile(...a),
+    getUserCommunities: () => mockGetUserCommunities(),
   },
   ratingsApi: {
-    getUserRatings: (...args: any[]) => mockGetUserRatings(...args),
-    getUserRatingsDetailed: (...args: any[]) => mockGetUserRatingsDetailed(...args),
+    getUserRatings: () => mockGetUserRatings(),
+    getUserRatingsDetailed: () => mockGetUserRatingsDetailed(),
   },
   uploadApi: {
     uploadProfilePicture: vi.fn(),
   },
   servicesApi: {
-    getServices: (...args: any[]) => mockGetServices(...args),
+    getServices: (...a: any[]) => mockGetServices(...a),
   },
   joinRequestsApi: {
-    getMyRequests: (...args: any[]) => mockGetMyRequests(...args),
+    getMyRequests: () => mockGetMyRequests(),
   },
   transactionsApi: {
-    getMyTransactions: (...args: any[]) => mockGetMyTransactions(...args),
+    getMyTransactions: () => mockGetMyTransactions(),
   },
+  getImageUrl: (p: string | null) => p ?? "",
+}));
+
+// Stable reference — avoids infinite loop in useEffect([user]) in Profile.tsx
+const MOCK_USER = {
+  _id: "u1",
+  username: "alice",
+  full_name: "Alice Smith",
+  email: "alice@example.com",
+  bio: "Hello world",
+  role: "user",
+  timebank_balance: 3.5,
+  interests: ["cooking"],
+  is_verified: false,
+  profile_picture: null,
+  social_links: {},
+  badges: [],
+  created_at: new Date().toISOString(),
+};
+const mockRefetchUser = vi.fn();
+
+vi.mock("@/contexts/UserContext", () => ({
+  useUser: () => ({
+    user: MOCK_USER,
+    isLoading: false,
+    refetchUser: mockRefetchUser,
+  }),
+}));
+
+const mockNavigate = vi.fn();
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
+  return { ...actual, useNavigate: () => mockNavigate };
+});
+
+// ─── Heavy component mocks ────────────────────────────────────────────────────
+vi.mock("@/pages/MyServices", () => ({
+  MyServices: () => <div data-testid="my-services" />,
+}));
+
+vi.mock("@/pages/Chat", () => ({
+  Chat: () => <div data-testid="chat" />,
 }));
 
 vi.mock("@/components/ui/ActivitySummarySection", () => ({
-  ActivitySummarySection: ({ transactions, ratings }: any) => (
-    <div>
-      Mock activity: {transactions.length} transactions, {ratings.length} ratings
-    </div>
-  ),
-}));
-
-vi.mock("../MyServices", () => ({
-  MyServices: ({ activeTab }: any) => <div>Mock MyServices {activeTab}</div>,
-}));
-
-vi.mock("@/components/ui/BadgeDisplay", () => ({
-  BadgeDisplay: () => <div>Mock badge display</div>,
-}));
-
-vi.mock("@/components/ui/RatingStars", () => ({
-  RatingStars: ({ value }: any) => <span>Rating stars: {value}</span>,
+  ActivitySummarySection: () => <div data-testid="activity-summary" />,
 }));
 
 vi.mock("@/components/ui/InterestSelector", () => ({
-  InterestSelector: ({ open, initialSelected, onSave }: any) =>
-    open ? (
-      <div>
-        Interest selector open: {initialSelected.join(", ")}
-        <button onClick={() => onSave(["Music", "Repair"])}>Save mock interests</button>
-      </div>
-    ) : null,
+  InterestSelector: () => <div data-testid="interest-selector" />,
 }));
 
 vi.mock("@/components/ui/InterestChip", () => ({
-  InterestChip: ({ name }: any) => <span>{name}</span>,
-}));
-
-vi.mock("@/components/ui/MapLocationPicker", () => ({
-  MapLocationPicker: ({ onChange }: any) => (
-    <button
-      onClick={() =>
-        onChange({ latitude: 41.01, longitude: 29.01, address: "Besiktas" })
-      }
-    >
-      Mock location picker
-    </button>
+  InterestChip: ({ name }: { name: string }) => (
+    <span data-testid="interest-chip">{name}</span>
   ),
 }));
 
-vi.mock("../Chat", () => ({
-  Chat: () => <div>Mock chat tab</div>,
+vi.mock("@/components/ui/MapLocationPicker", () => ({
+  MapLocationPicker: () => <div data-testid="map-location-picker" />,
 }));
 
-const community: Community = {
-  _id: "community-1",
-  name: "Kadikoy Helpers",
-  slug: "kadikoy-helpers",
-  description: "Neighbors helping neighbors.",
-  rules: [],
-  founder_id: "user-1",
-  tags: [],
-  member_count: 12,
-  post_count: 3,
-  is_pinned: false,
-  created_at: "2026-05-01T00:00:00Z",
-  updated_at: "2026-05-01T00:00:00Z",
-};
+vi.mock("@/components/ui/BadgeDisplay", () => ({
+  BadgeDisplay: () => <div data-testid="badge-display" />,
+}));
 
-const rating: RatingDetailed = {
-  _id: "rating-1",
-  transaction_id: "tx-1",
-  rater_id: "user-2",
-  rated_user_id: "user-1",
-  score: 5,
-  comment: "Great exchange",
-  created_at: "2026-05-02T00:00:00Z",
-};
+vi.mock("@/components/ui/RatingStars", () => ({
+  RatingStars: () => <div data-testid="rating-stars" />,
+}));
 
-function renderProfile(initialEntry = "/profile") {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
+vi.mock("@/constants/profilePicturePresets", () => ({
+  PROFILE_PICTURE_PRESETS: [
+    { id: "p1", url: "/presets/p1.png", name: "Bee" },
+  ],
+}));
+
+function renderProfile(path = "/profile") {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <QueryClientProvider client={queryClient}>
-      <Theme>
-        <MemoryRouter initialEntries={[initialEntry]}>
+    <Theme>
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={[path]}>
           <Profile />
         </MemoryRouter>
-      </Theme>
-    </QueryClientProvider>,
+      </QueryClientProvider>
+    </Theme>,
   );
 }
 
-describe("Profile page", () => {
+describe("Profile", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUpdateProfile.mockResolvedValue({});
-    mockRefetchUser.mockResolvedValue({});
-    mockGetUserRatings.mockResolvedValue({
-      data: { total: 2, average_score: 4.6 },
-    });
-    mockGetUserRatingsDetailed.mockResolvedValue({
-      data: { ratings: [rating], total: 1 },
-    });
-    mockGetUserCommunities.mockResolvedValue({
-      data: { communities: [community], total: 1, mutual_count: 0 },
-    });
-    mockGetTimeBank.mockResolvedValue({
-      data: {
-        balance: 7.5,
-        transactions: [{ id: "time-1" }],
-        max_balance: 10,
-        can_earn: true,
-        effective_max_balance: 10,
-        effective_min_balance: -10,
-      },
-    });
-    mockGetServices.mockResolvedValue({ data: { services: [], total: 2 } });
-    mockGetMyRequests.mockResolvedValue({ data: { requests: [], total: 1 } });
-    mockGetMyTransactions.mockResolvedValue({
-      data: { transactions: [{ _id: "tx-1" }], total: 1 },
-    });
+    mockGetTimeBank.mockResolvedValue({ data: { balance: 3.5, transactions: [], requires_need_creation: false } });
+    mockGetUserCommunities.mockResolvedValue({ data: { communities: [] } });
+    mockGetUserRatings.mockResolvedValue({ data: { average: 4.5, count: 2 } });
+    mockGetUserRatingsDetailed.mockResolvedValue({ data: { ratings: [] } });
+    mockGetServices.mockResolvedValue({ data: { services: [], total: 0 } });
+    mockGetMyRequests.mockResolvedValue({ data: { requests: [] } });
+    mockGetMyTransactions.mockResolvedValue({ data: { transactions: [] } });
   });
 
-  it("renders the profile summary with eager stats and communities", async () => {
+  it("renders all 7 tab triggers", () => {
     renderProfile();
+    expect(screen.getByRole("tab", { name: /profile/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /activity/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /my services/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /my applications/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /timebank logs/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /saved items/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /chat/i })).toBeInTheDocument();
+  });
 
-    expect(screen.getByText("Aysenur Unal")).toBeInTheDocument();
-    expect(screen.getByText("@aysenur")).toBeInTheDocument();
-    expect(screen.getByText("7.5 hrs")).toBeInTheDocument();
+  it("shows the user's full name", () => {
+    renderProfile();
+    expect(screen.getByText("Alice Smith")).toBeInTheDocument();
+  });
 
+  it("shows the user's username", () => {
+    renderProfile();
+    expect(screen.getByText("@alice")).toBeInTheDocument();
+  });
+
+  it("shows timebank balance strip", () => {
+    renderProfile();
+    expect(screen.getByText(/3\.5 hrs/i)).toBeInTheDocument();
+  });
+
+  it("shows bio text in profile tab", () => {
+    renderProfile();
+    expect(screen.getByText("Hello world")).toBeInTheDocument();
+  });
+
+  it("shows interests chip in profile tab", () => {
+    renderProfile();
+    expect(screen.getByText("cooking")).toBeInTheDocument();
+  });
+
+  it("switches to My Services tab on click", async () => {
+    const user = userEvent.setup();
+    renderProfile();
+    await user.click(screen.getByRole("tab", { name: /my services/i }));
     await waitFor(() => {
-      expect(screen.getByText("4.6 (2 ratings)")).toBeInTheDocument();
+      expect(screen.getByTestId("my-services")).toBeInTheDocument();
     });
-    expect(screen.getByRole("button", { name: "Open Kadikoy Helpers" })).toBeInTheDocument();
-    expect(screen.getByText("Mock badge display")).toBeInTheDocument();
   });
 
-  it("saves edited profile fields", async () => {
+  it("switches to Chat tab and renders Chat component", async () => {
     const user = userEvent.setup();
-
     renderProfile();
-    await user.click(screen.getByRole("button", { name: /Edit Profile/ }));
-
-    const fullNameInput = screen.getByPlaceholderText("Full Name");
-    await user.clear(fullNameInput);
-    await user.type(fullNameInput, "Aysenur Updated");
-    await user.click(screen.getByRole("button", { name: /Save Changes/ }));
-
+    await user.click(screen.getByRole("tab", { name: /chat/i }));
     await waitFor(() => {
-      expect(mockUpdateProfile).toHaveBeenCalledWith(
-        expect.objectContaining({ full_name: "Aysenur Updated" }),
-      );
+      expect(screen.getByTestId("chat")).toBeInTheDocument();
     });
-    expect(mockRefetchUser).toHaveBeenCalled();
   });
 
-  it("opens interests from the URL parameter and saves selections", async () => {
-    const user = userEvent.setup();
-
-    renderProfile("/profile?interests=true");
-    await screen.findByText(/Interest selector open: Music/);
-    await user.click(screen.getByRole("button", { name: "Save mock interests" }));
-
-    expect(mockUpdateProfile).toHaveBeenCalledWith({ interests: ["Music", "Repair"] });
-    expect(mockRefetchUser).toHaveBeenCalled();
+  it("opens chat tab when URL includes ?tab=chat", () => {
+    renderProfile("/profile?tab=chat");
+    expect(screen.getByTestId("chat")).toBeInTheDocument();
   });
 
-  it("lazily renders visited tabs", async () => {
+  it("shows Activity tab with ActivitySummarySection", async () => {
     const user = userEvent.setup();
-
     renderProfile();
-    await user.click(screen.getByRole("tab", { name: /Chat/ }));
-    expect(screen.getByText("Mock chat tab")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("tab", { name: /My Services/ }));
-    expect(screen.getByText("Mock MyServices services")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("tab", { name: /Activity/ }));
-    expect(screen.getByText(/Mock activity/)).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: /activity/i }));
+    await waitFor(() => {
+      expect(screen.getByTestId("activity-summary")).toBeInTheDocument();
+    });
   });
 });

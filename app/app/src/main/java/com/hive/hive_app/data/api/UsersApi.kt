@@ -2,6 +2,7 @@ package com.hive.hive_app.data.api
 
 import com.hive.hive_app.data.api.dto.BadgesResponse
 import com.hive.hive_app.data.api.dto.TimeBankResponse
+import com.hive.hive_app.data.api.dto.UserCommunityListResponse
 import com.hive.hive_app.data.api.dto.UserResponse
 import com.hive.hive_app.data.api.dto.UserUpdate
 import com.hive.hive_app.data.api.dto.UserSettingsUpdate
@@ -48,6 +49,9 @@ interface UsersApi {
 
     @GET("users/{user_id}/badges")
     suspend fun getUserBadges(@Path("user_id") userId: String): Response<BadgesResponse>
+
+    @GET("users/{user_id}/communities")
+    suspend fun getUserCommunities(@Path("user_id") userId: String): Response<UserCommunityListResponse>
 
     @GET("users/search")
     suspend fun searchUsers(

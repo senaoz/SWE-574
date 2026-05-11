@@ -18,6 +18,7 @@ import {
   Tabs,
   Dialog,
   Grid,
+  Avatar,
 } from "@radix-ui/themes";
 import { Pencil1Icon } from "@radix-ui/react-icons";
 import api, { usersApi, reportsApi } from "@/services/api";
@@ -42,6 +43,10 @@ export function AdminPanel() {
   const [selectedUserForBalance, setSelectedUserForBalance] =
     useState<User | null>(null);
   const [balanceEditValue, setBalanceEditValue] = useState<string>("");
+  const [selectedUserForPhoto, setSelectedUserForPhoto] = useState<User | null>(
+    null,
+  );
+  const [photoEditValue, setPhotoEditValue] = useState<string>("");
   const queryClient = useQueryClient();
   const { user: currentUser } = useUser();
 
@@ -50,6 +55,11 @@ export function AdminPanel() {
     if (currentUser.role === "admin") return true;
     if (currentUser.role === "moderator" && user.role !== "admin") return true;
     return false;
+  };
+
+  const canEditPhoto = () => {
+    if (!currentUser || !currentUser.is_active) return false;
+    return currentUser.role === "admin" || currentUser.role === "moderator";
   };
 
   const canEditTimebank = (user: User) => {
@@ -148,6 +158,34 @@ export function AdminPanel() {
     }
   };
 
+  const updateProfilePictureMutation = useMutation({
+    mutationFn: ({
+      userId,
+      profile_picture,
+    }: {
+      userId: string;
+      profile_picture: string;
+    }) => api.put(`/users/${userId}/profile-picture`, { profile_picture }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      setSelectedUserForPhoto(null);
+      setPhotoEditValue("");
+    },
+  });
+
+  const openPhotoEdit = (user: User) => {
+    setSelectedUserForPhoto(user);
+    setPhotoEditValue(user.profile_picture || "");
+  };
+
+  const confirmPhotoUpdate = () => {
+    if (!selectedUserForPhoto) return;
+    updateProfilePictureMutation.mutate({
+      userId: selectedUserForPhoto._id,
+      profile_picture: photoEditValue,
+    });
+  };
+
   const updateTimebankMutation = useMutation({
     mutationFn: ({ userId, balance }: { userId: string; balance: number }) =>
       usersApi.updateUserTimebank(userId, { balance }),
@@ -230,7 +268,7 @@ export function AdminPanel() {
         <>
           {/* Summary Cards */}
           <Grid columns={{ initial: "1", md: "2", lg: "4" }} gap="4">
-            <Card className="p-4">
+            <Card className="p-6">
               <Text size="2" color="gray" className="block mb-1">
                 Total Services
               </Text>
@@ -249,7 +287,7 @@ export function AdminPanel() {
               </Flex>
                */}
             </Card>
-            <Card className="p-4">
+            <Card className="p-6">
               <Text size="2" color="gray" className="block mb-1">
                 Participation Rate
               </Text>
@@ -257,7 +295,7 @@ export function AdminPanel() {
                 {analytics.summary.participation_rate}%
               </Text>
             </Card>
-            <Card className="p-4">
+            <Card className="p-6">
               <Text size="2" color="gray" className="block mb-1">
                 Avg Participants/Service
               </Text>
@@ -265,7 +303,7 @@ export function AdminPanel() {
                 {analytics.summary.avg_participants_per_service}
               </Text>
             </Card>
-            <Card className="p-4">
+            <Card className="p-6">
               <Text size="2" color="gray" className="block mb-1">
                 Total Participants
               </Text>
@@ -277,7 +315,7 @@ export function AdminPanel() {
 
           {/* Max Participants Service */}
           {analytics.max_participants_service && (
-            <Card className="p-4">
+            <Card className="p-6">
               <Text size="4" weight="bold" className="block mb-3">
                 Most Popular Service
               </Text>
@@ -302,7 +340,7 @@ export function AdminPanel() {
           )}
 
           {/* Join Request Statistics */}
-          <Card className="p-4">
+          <Card className="p-6">
             <Text size="4" weight="bold" className="block mb-3">
               Service Statistics
             </Text>
@@ -363,9 +401,7 @@ export function AdminPanel() {
           <Tabs.Trigger value="reports">
             Reports ({reportsData?.total || 0})
           </Tabs.Trigger>
-          <Tabs.Trigger value="settings">
-            My Settings
-          </Tabs.Trigger>
+          <Tabs.Trigger value="settings">My Settings</Tabs.Trigger>
         </Tabs.List>
 
         <Tabs.Content value="users" className="mt-6">
@@ -378,6 +414,9 @@ export function AdminPanel() {
               <Table.Root>
                 <Table.Header>
                   <Table.Row>
+                    <Table.ColumnHeaderCell>
+                      Profile Picture
+                    </Table.ColumnHeaderCell>
                     <Table.ColumnHeaderCell>Username</Table.ColumnHeaderCell>
                     <Table.ColumnHeaderCell>Email</Table.ColumnHeaderCell>
                     <Table.ColumnHeaderCell>Interests</Table.ColumnHeaderCell>
@@ -390,6 +429,17 @@ export function AdminPanel() {
                 <Table.Body>
                   {users?.map((user: User) => (
                     <Table.Row key={user._id}>
+                      <Table.Cell>
+                        <Flex align="center" gap="1">
+                          <Avatar
+                            src={user.profile_picture ?? undefined}
+                            fallback={user.username[0]}
+                            size="2"
+                            style={{ cursor: canEditPhoto() ? "pointer" : "default" }}
+                            onClick={() => canEditPhoto() && openPhotoEdit(user)}
+                          />
+                        </Flex>
+                      </Table.Cell>
                       <Table.Cell>
                         <Flex direction="column" gap="1">
                           <Text weight="medium">{user.username}</Text>
@@ -790,7 +840,7 @@ export function AdminPanel() {
           </Card>
         </Tabs.Content>
         <Tabs.Content value="reports" className="mt-6">
-          <Card className="p-4">
+          <Card className="p-6">
             <Flex justify="between" align="center" mb="4">
               <Text size="4" weight="bold">
                 Reports
@@ -983,6 +1033,75 @@ export function AdminPanel() {
               </Flex>
             </Flex>
           )}
+        </Dialog.Content>
+      </Dialog.Root>
+
+      {/* Profile Picture Update Dialog */}
+      <Dialog.Root
+        open={!!selectedUserForPhoto}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedUserForPhoto(null);
+            setPhotoEditValue("");
+          }
+        }}
+      >
+        <Dialog.Content className="max-w-md w-full" aria-describedby={undefined}>
+          <Flex direction="column" gap="4">
+            <Dialog.Title>
+              <Text size="4" weight="bold">
+                Update Profile Picture
+              </Text>
+            </Dialog.Title>
+            {selectedUserForPhoto && (
+              <>
+                <Flex align="center" gap="3">
+                  <Avatar
+                    src={photoEditValue || undefined}
+                    fallback={selectedUserForPhoto.username[0]}
+                    size="5"
+                  />
+                  <Flex direction="column" gap="1">
+                    <Text weight="medium">{selectedUserForPhoto.username}</Text>
+                    {selectedUserForPhoto.full_name && (
+                      <Text size="2" color="gray">
+                        {selectedUserForPhoto.full_name}
+                      </Text>
+                    )}
+                  </Flex>
+                </Flex>
+                <Flex direction="column" gap="2">
+                  <Text size="2" weight="medium">
+                    Image URL:
+                  </Text>
+                  <TextField.Root
+                    value={photoEditValue}
+                    onChange={(e) => setPhotoEditValue(e.target.value)}
+                    placeholder="https://..."
+                  />
+                </Flex>
+                <Flex gap="3" justify="end">
+                  <Dialog.Close>
+                    <Button
+                      variant="soft"
+                      onClick={() => {
+                        setSelectedUserForPhoto(null);
+                        setPhotoEditValue("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </Dialog.Close>
+                  <Button
+                    onClick={confirmPhotoUpdate}
+                    disabled={updateProfilePictureMutation.isPending}
+                  >
+                    {updateProfilePictureMutation.isPending ? "Saving..." : "Save"}
+                  </Button>
+                </Flex>
+              </>
+            )}
+          </Flex>
         </Dialog.Content>
       </Dialog.Root>
 

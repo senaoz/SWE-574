@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -24,6 +26,7 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +53,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.hive.hive_app.data.repository.WikidataTagSuggestion
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -84,6 +91,7 @@ fun CreateEventScreen(
     var tagQuery by remember { mutableStateOf("") }
     var selectedTags by remember { mutableStateOf<List<WikidataTagSuggestion>>(emptyList()) }
     var selectedImageUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var selectedBannerImageUri by remember { mutableStateOf<Uri?>(null) }
     var selectedCommunityId by remember { mutableStateOf<String?>(null) }
     var showCommunityDialog by remember { mutableStateOf(false) }
     var localError by remember { mutableStateOf<String?>(null) }
@@ -105,6 +113,11 @@ fun CreateEventScreen(
     val tagSearchLoading by viewModel.tagSearchLoading.collectAsState()
     val tagSearchError by viewModel.tagSearchError.collectAsState()
     val communitiesState by viewModel.communitiesListState.collectAsState()
+    val bannerImagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        selectedBannerImageUri = uri
+    }
 
     LaunchedEffect(Unit) {
         if (communitiesState.communities.isEmpty() && !communitiesState.isLoading) {
@@ -143,6 +156,7 @@ fun CreateEventScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .systemBarsPadding()
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
@@ -315,6 +329,30 @@ fun CreateEventScreen(
         )
 
         Spacer(modifier = Modifier.height(12.dp))
+        CommonSectionLabel("Banner image")
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedButton(
+            onClick = { bannerImagePickerLauncher.launch("image/*") },
+            enabled = !createEventState.isSubmitting,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Filled.AddAPhoto, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(if (selectedBannerImageUri == null) "Pick banner image" else "Change banner image")
+        }
+        if (selectedBannerImageUri != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            AsyncImage(
+                model = ImageRequest.Builder(context).data(selectedBannerImageUri).crossfade(true).build(),
+                contentDescription = "Event banner preview",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp)
+                    .clip(RoundedCornerShape(12.dp))
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
         CommonImagePickerSection(
             selectedImageUris = selectedImageUris,
             onImagesChanged = { selectedImageUris = it },
@@ -360,7 +398,8 @@ fun CreateEventScreen(
                     longitude = if (isRemote) null else selectedLon,
                     isRemote = isRemote,
                     tags = selectedTags,
-                    imageUris = selectedImageUris
+                    imageUris = selectedImageUris,
+                    bannerImageUri = selectedBannerImageUri
                 ) { id ->
                     onCreated(id)
                 }
