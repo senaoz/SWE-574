@@ -15,6 +15,7 @@ import {
   Box,
   Grid,
   Switch,
+  Tooltip,
 } from "@radix-ui/themes";
 import { Form } from "radix-ui";
 import {
@@ -81,6 +82,11 @@ export function Forum() {
   const { currentUserId, user: currentUser } = useUser();
   const canPinPlatform =
     currentUser?.role === "admin" || currentUser?.role === "moderator";
+
+  const pinnedDiscussionCount = discussions.filter((d) => d.is_pinned).length;
+  const pinnedEventCount = events.filter((ev) => ev.is_pinned).length;
+  const pinnedCommunityCount = communities.filter((c) => c.is_pinned).length;
+  const PIN_LIMIT = 2;
 
   const loadDiscussions = useCallback(async () => {
     setDiscussionsLoading(true);
@@ -310,15 +316,26 @@ export function Forum() {
                         </Flex>
                         <Flex gap="2" align="center" className="shrink-0">
                           {canPinPlatform && (
-                            <Button
-                              size="1"
-                              variant="soft"
-                              color={d.is_pinned ? "gray" : "violet"}
-                              onClick={(e) => void handlePinDiscussion(e, d)}
+                            <Tooltip
+                              content={
+                                d.is_pinned
+                                  ? "Unpin this discussion"
+                                  : pinnedDiscussionCount >= PIN_LIMIT
+                                    ? "Maximum 2 discussions can be pinned"
+                                    : "Pin this discussion to the top"
+                              }
                             >
-                              <PinIcon className="w-3 h-3" />
-                              {d.is_pinned ? "Unpin" : "Pin"}
-                            </Button>
+                              <Button
+                                size="1"
+                                variant="soft"
+                                color={d.is_pinned ? "gray" : "violet"}
+                                onClick={(e) => void handlePinDiscussion(e, d)}
+                                disabled={!d.is_pinned && pinnedDiscussionCount >= PIN_LIMIT}
+                              >
+                                <PinIcon className="w-3 h-3" />
+                                {d.is_pinned ? "Unpin" : "Pin"}
+                              </Button>
+                            </Tooltip>
                           )}
                           <Text
                             size="1"
@@ -487,15 +504,26 @@ export function Forum() {
                     </Flex>
                     <Flex gap="2" align="center">
                       {canPinPlatform && (
-                        <Button
-                          size="1"
-                          variant="soft"
-                          color={ev.is_pinned ? "gray" : "violet"}
-                          onClick={(e) => void handlePinEvent(e, ev)}
+                        <Tooltip
+                          content={
+                            ev.is_pinned
+                              ? "Unpin this event"
+                              : pinnedEventCount >= PIN_LIMIT
+                                ? "Maximum 2 events can be pinned"
+                                : "Pin this event to the top"
+                          }
                         >
-                          <PinIcon className="w-3 h-3" />
-                          {ev.is_pinned ? "Unpin" : "Pin"}
-                        </Button>
+                          <Button
+                            size="1"
+                            variant="soft"
+                            color={ev.is_pinned ? "gray" : "violet"}
+                            onClick={(e) => void handlePinEvent(e, ev)}
+                            disabled={!ev.is_pinned && pinnedEventCount >= PIN_LIMIT}
+                          >
+                            <PinIcon className="w-3 h-3" />
+                            {ev.is_pinned ? "Unpin" : "Pin"}
+                          </Button>
+                        </Tooltip>
                       )}
                       <Badge size="1" variant="soft" color="purple">
                         <CalendarClockIcon className="w-3 h-3" />
@@ -702,15 +730,26 @@ export function Forum() {
                       </div>
                       <Flex gap="2" align="center">
                         {canPinPlatform && (
-                          <Button
-                            size="1"
-                            variant="soft"
-                            color={c.is_pinned ? "gray" : "violet"}
-                            onClick={(e) => void handlePinCommunity(e, c)}
+                          <Tooltip
+                            content={
+                              c.is_pinned
+                                ? "Unpin this community"
+                                : pinnedCommunityCount >= PIN_LIMIT
+                                  ? "Maximum 2 communities can be pinned"
+                                  : "Pin this community to the top"
+                            }
                           >
-                            <PinIcon className="w-3 h-3" />
-                            {c.is_pinned ? "Unpin" : "Pin"}
-                          </Button>
+                            <Button
+                              size="1"
+                              variant="soft"
+                              color={c.is_pinned ? "gray" : "violet"}
+                              onClick={(e) => void handlePinCommunity(e, c)}
+                              disabled={!c.is_pinned && pinnedCommunityCount >= PIN_LIMIT}
+                            >
+                              <PinIcon className="w-3 h-3" />
+                              {c.is_pinned ? "Unpin" : "Pin"}
+                            </Button>
+                          </Tooltip>
                         )}
                         <Badge size="1" variant="soft" color="gray">
                           <UsersIcon className="w-3 h-3 mr-1" />
