@@ -194,7 +194,7 @@ export function ForumEventDetail() {
                 {event.is_pinned ? "Unpin" : "Pin"}
               </Button>
             )}
-            {isOwner && (
+            {(isOwner || canPinPlatform) && (
               <>
                 <Button
                   variant="soft"

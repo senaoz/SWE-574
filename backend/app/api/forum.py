@@ -168,7 +168,7 @@ async def update_event(
     db=Depends(get_database),
 ):
     svc = _forum(db)
-    is_admin = current_user.role == "admin"
+    is_admin = current_user.role in ("admin", "moderator")
     try:
         result = await svc.update_event(event_id, data, str(current_user.id), is_admin=is_admin)
         if not result:
