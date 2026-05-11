@@ -95,7 +95,7 @@ describe("ProviderProfileSummary", () => {
 
   it("navigates to the public user detail page when clicked", async () => {
     const clicker = userEvent.setup();
-    const { container } = render(
+    render(
       <Theme>
         <MemoryRouter>
           <ProviderProfileSummary user={user} />

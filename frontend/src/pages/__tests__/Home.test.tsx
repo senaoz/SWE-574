@@ -81,6 +81,11 @@ const forumEvent: ForumEvent = {
   tags: [],
   created_at: "2026-05-01T00:00:00Z",
   updated_at: "2026-05-01T00:00:00Z",
+  comment_count: 0,
+  attendee_ids: [],
+  attendee_count: 0,
+  upvote_count: 0,
+  is_pinned: false,
 };
 
 function renderHome() {
