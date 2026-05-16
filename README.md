@@ -51,7 +51,7 @@ The Hive is built around the idea that everyone has something valuable to offer.
 | Individual Contributions | [https://github.com/senaoz/SWE-574/blob/main/final-deliverables/individual_contributions.md](https://github.com/senaoz/SWE-574/blob/main/final-deliverables/individual_contributions.md) |
 | Wiki | [https://github.com/senaoz/SWE-574/wiki](https://github.com/senaoz/SWE-574/wiki) |
 | AI Use Declaration | [https://github.com/senaoz/SWE-574/blob/main/AI_USAGE.md](https://github.com/senaoz/SWE-574/blob/main/AI_USAGE.md) |
-| Testing Coverage for Backend - Codecov | [https://app.codecov.io/gh/senaoz/SWE-574/tree/main](https://app.codecov.io/gh/senaoz/SWE-574/tree/main) |
+| Testing Coverage - Codecov | [https://app.codecov.io/gh/senaoz/SWE-574/tree/main](https://app.codecov.io/gh/senaoz/SWE-574/tree/main) |
 | UML Diagrams | [https://github.com/senaoz/SWE-574/wiki/UML-Diagrams](https://github.com/senaoz/SWE-574/wiki/UML-Diagrams) |
 | GitHub Actions | [https://github.com/senaoz/SWE-574/actions](https://github.com/senaoz/SWE-574/actions) |
 
