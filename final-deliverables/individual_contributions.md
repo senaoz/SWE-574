@@ -317,9 +317,11 @@ I acted as a full-stack feature owner across three platforms throughout the proj
 
 ### Code Contributions
 
+Some of my code contribution is as below.
+
 #### 1. Community Platform (Full-Stack)
 
-The Community platform was my largest single contribution: a completely new subsystem I built across all three layers of the stack. Related requirements: FR-5.1, FR-5.2, FR-5.3 (community browsing, membership, and content).
+The Community platform was my largest single contribution: a completely new subsystem I built across all three layers of the stack. Related requirements: FR-5.1, FR-5.2, FR-5.3 (community browsing, membership, and content). https://github.com/senaoz/SWE-574/pull/446
 
 **Backend**
 - Designed and implemented the FastAPI router `community.py` (309 lines) with 10+ REST endpoints: list, create, get, update, delete, join, leave, get-members, update-member-role
