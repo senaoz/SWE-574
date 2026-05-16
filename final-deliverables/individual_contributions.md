@@ -6,7 +6,7 @@
 
 ---
 
-## Ayşenur Ünal
+## [Ayşenur Ünal](https://github.com/aysenurunal)
 
 The personalised recommendation system, service-match notification feature, moderator pinning system, community member visibility improvements, and save/bookmark feature were implemented. The test strategy was led across all three layers of the stack (backend, frontend, Android), with active participation in code review and bug triage throughout the project.
 
@@ -68,7 +68,7 @@ The personalised recommendation system, service-match notification feature, mode
 
 ---
 
-## Sena Öz
+## [Sena Öz](https://github.com/senaoz)
 
 The backend service layer and React web frontend were owned throughout all milestones. Core areas covered include the exchange flow (TimeBank, transactions, join requests), forum and community modules, rating and badge system, and moderator tooling on the web client. The CI/CD pipeline and test infrastructure were also set up for both backend and frontend.
 
@@ -117,7 +117,7 @@ The backend service layer and React web frontend were owned throughout all miles
 
 ---
 
-## Kenan Altunbaş
+## [Kenan Altunbaş](https://github.com/kj-kenan)
 
 106 issues were opened covering web and mobile bugs, missing features, and test cases, making this the primary testing and bug-reporting role on the project. On the code side, shared UI components were developed for both web and Android: the service status bar, capacity warnings, bee location marker, Near Me button, community features on Android, badge additions, map UI improvements, and TimeBank balance enforcement.
 
@@ -191,7 +191,7 @@ The backend service layer and React web frontend were owned throughout all miles
 
 ---
 
-## Yusuf Savaş
+## [Yusuf Savaş](https://github.com/Yusufss4)
 
 The Android mobile application was developed as the primary platform responsibility. The full chat system, recommendation screen, similar services panel, community creation flows, forum event image uploads, and multiple rounds of layout and padding fixes were implemented. The Android GitHub Actions workflow was authored, OpenAPI documentation was maintained, and app versioning was managed throughout the project.
 
