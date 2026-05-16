@@ -46,6 +46,7 @@ The Hive is built around the idea that everyone has something valuable to offer.
 
 | Resource | URL |
 |----------|-----|
+| Final Report | [https://github.com/senaoz/SWE-574/blob/main/final-deliverables/SWE574_Group3_Final_Project_Report.pdf](https://github.com/senaoz/SWE-574/blob/main/final-deliverables/SWE574_Group3_Final_Project_Report.pdf) |
 | Final Deliverables Folder | [https://github.com/senaoz/SWE-574/blob/main/final-deliverables](https://github.com/senaoz/SWE-574/blob/main/final-deliverables) |
 | Individual Contributions | [https://github.com/senaoz/SWE-574/blob/main/final-deliverables/individual_contributions.md](https://github.com/senaoz/SWE-574/blob/main/final-deliverables/individual_contributions.md) |
 | Wiki | [https://github.com/senaoz/SWE-574/wiki](https://github.com/senaoz/SWE-574/wiki) |
