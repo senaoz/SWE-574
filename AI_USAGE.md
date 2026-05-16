@@ -8,20 +8,20 @@ This document discloses every use of AI-assisted tools across the project, as re
 
 | Area | Tool | Level of Reliance |
 |---|---|---|
-| Backend source code (FastAPI services, API routes) | Claude Code (Sonnet/Opus) | Partial generation |
-| Backend models (Pydantic schemas) | Claude Code (Sonnet/Opus) | Partial generation |
-| Backend test suite (pytest) | Claude Code (Sonnet/Opus) | Major generation |
-| Mock / seed data | Claude Code (Sonnet/Opus) | Major generation |
-| Frontend React components | Claude Code (Sonnet/Opus), GitHub Copilot | Partial generation |
-| Frontend TypeScript types | Claude Code (Sonnet/Opus) | Suggestion only |
-| Frontend test suite (Vitest) | Claude Code (Sonnet/Opus) | Partial generation |
-| Android app (Kotlin/Compose) | Claude Code (Sonnet/Opus), GitHub Copilot | Partial generation |
-| Android unit tests | Claude Code (Sonnet/Opus) | Partial generation |
-| Docker / CI-CD configuration | Claude Code (Sonnet/Opus) | Suggestion only |
-| Final project report (LaTeX) | Claude Code (Sonnet/Opus) | Partial generation |
+| Backend source code (FastAPI services, API routes) | Claude Code (Sonnet) | Partial generation |
+| Backend models (Pydantic schemas) | Claude Code (Sonnet) | Partial generation |
+| Backend test suite (pytest) | Claude Code (Sonnet) | Major generation |
+| Mock / seed data | Claude Code (Sonnet) | Major generation |
+| Frontend React components | Claude Code (Sonnet), GitHub Copilot | Partial generation |
+| Frontend TypeScript types | Claude Code (Sonnet) | Suggestion only |
+| Frontend test suite (Vitest) | Claude Code (Sonnet) | Partial generation |
+| Android app (Kotlin/Compose) | Claude Code (Sonnet), GitHub Copilot | Partial generation |
+| Android unit tests | Claude Code (Sonnet) | Partial generation |
+| Docker / CI-CD configuration | Claude Code (Sonnet) | Suggestion only |
+| Final project report (LaTeX) | Claude Code (Sonnet) | Partial generation |
 | SRS document | ChatGPT-4o | Suggestion only |
-| UML diagrams (TikZ) | Claude Code (Sonnet/Opus) | Major generation |
-| AGENTS.md / CLAUDE.md guidance files | Claude Code (Sonnet/Opus) | Major generation |
+| UML diagrams (TikZ) | Claude Code (Sonnet) | Major generation |
+| AGENTS.md / CLAUDE.md guidance files | Claude Code (Sonnet) | Major generation |
 
 ---
 
