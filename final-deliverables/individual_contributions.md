@@ -150,7 +150,8 @@ The Community platform was my largest single contribution: a completely new subs
 - Made communities tappable throughout the app
 - Restored accidentally deleted backend endpoints after a rebase silently dropped routes from `users.py`
 
-**SCREENSHOT: Communities tab on Android showing the list of communities with banners, and a community detail screen open**
+<img width="1849" height="419" alt="image" src="https://github.com/user-attachments/assets/31a9f72c-3493-4cc6-8aec-ea94eefb0114" />
+<img width="921" height="2048" alt="image" src="https://github.com/user-attachments/assets/8c36c523-7dcb-4ce9-97fd-ea10c79b57be" />
 
 ---
 
@@ -163,7 +164,7 @@ I overhauled the Android app's navigation and overall UX to make it more compact
 - Refactored the entire nav graph to the `BottomNav` + `NavHost` pattern, fixing persistent navbar overlap on detail screens throughout the app
 - Ensured content was never obscured by the bar by computing per-screen bottom padding manually (`navBarHeight` for standard screens, `navBarTotalHeight` for FAB screens, `contentPadding` on lazy lists)
 
-**SCREENSHOT: Android app showing the semi-transparent custom bottom navigation bar alongside a content screen, demonstrating the compact and elegant layout**
+<img width="921" height="2048" alt="image" src="https://github.com/user-attachments/assets/a4398857-637a-4d66-9a94-d75d61379bfa" />
 
 ---
 
@@ -178,8 +179,6 @@ I built a standalone attend/unattend subsystem on top of the existing Events mod
 - Map centres on marker tap and closes the previously open popup automatically
 - Filtered inactive services (cancelled, expired) out of the map feed
 
-**SCREENSHOT: Event detail screen showing the Attend button and the attendee avatar row below the event description**
-
 ---
 
 ### 4. Service Status Bar (Web + Android)
@@ -190,7 +189,7 @@ I implemented a full lifecycle step indicator on both platforms showing every tr
 - Correct step highlighted for completed state; distinct colour coding for cancelled and expired states
 - Same visual contract maintained on both web and Android
 
-**SCREENSHOT: Service detail page (web and Android side by side) showing the step indicator with the current step highlighted and terminal states colour-coded**
+<img width="620" height="168" alt="image" src="https://github.com/user-attachments/assets/5ef8937f-d5f7-47cf-a37d-b43e6a43dd1f" />
 
 ---
 
@@ -198,7 +197,6 @@ I implemented a full lifecycle step indicator on both platforms showing every tr
 
 I added a visual warning banner to listing cards and detail pages when a service is near or at its participant limit. Related requirement: FR-2.3 (participant capacity enforcement).
 
-**SCREENSHOT: Service listing card and detail page showing the capacity warning banner when the participant limit is reached or nearly reached**
 
 ---
 
