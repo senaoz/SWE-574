@@ -119,15 +119,15 @@ The backend service layer and React web frontend were owned throughout all miles
 
 ## [Kenan Altunbaş](https://github.com/kj-kenan)
 
-## Executive Summary
+### Executive Summary
 
 I acted as a full-stack feature owner across three platforms throughout the project: the React/TypeScript web client, the Kotlin/Jetpack-Compose Android app, and the Python/FastAPI backend. My largest single contribution was the Community platform — a green-field subsystem spanning backend API design, web frontend pages, and Android screens, built entirely from scratch. Beyond Communities, I delivered Event Attendance, Service Status Bar, TimeBank balance enforcement with a comprehensive test suite, map and badge improvements, and a range of bug fixes. In parallel I served as the primary QA driver, opening 106 issues covering bugs, missing features, and test-coverage gaps.
 
 ---
 
-## Code Contributions
+### Code Contributions
 
-### 1. Community Platform (Full-Stack)
+#### 1. Community Platform (Full-Stack)
 
 The Community platform was my largest single contribution: a completely new subsystem I built across all three layers of the stack. Related requirements: FR-5.1, FR-5.2, FR-5.3 (community browsing, membership, and content).
 
@@ -155,7 +155,7 @@ The Community platform was my largest single contribution: a completely new subs
 
 ---
 
-### 2. Android UX Overhaul and Mobile Navigation Redesign
+#### 2. Android UX Overhaul and Mobile Navigation Redesign
 
 I overhauled the Android app's navigation and overall UX to make it more compact, polished, and intuitive. Related issue: #335.
 
@@ -168,7 +168,7 @@ I overhauled the Android app's navigation and overall UX to make it more compact
 
 ---
 
-### 3. Event Attendance Feature (Android + Backend)
+#### 3. Event Attendance Feature (Android + Backend)
 
 I built a standalone attend/unattend subsystem on top of the existing Events model, delivered across backend and Android in one sprint. Related requirement: FR-4.2 (event attendance tracking).
 
@@ -181,7 +181,7 @@ I built a standalone attend/unattend subsystem on top of the existing Events mod
 
 ---
 
-### 4. Service Status Bar (Web + Android)
+#### 4. Service Status Bar (Web + Android)
 
 I implemented a full lifecycle step indicator on both platforms showing every transaction state. Related requirement: FR-3.4 (service transaction lifecycle visibility).
 
@@ -193,14 +193,14 @@ I implemented a full lifecycle step indicator on both platforms showing every tr
 
 ---
 
-### 5. Service Capacity Warning (Web + Android)
+#### 5. Service Capacity Warning (Web + Android)
 
 I added a visual warning banner to listing cards and detail pages when a service is near or at its participant limit. Related requirement: FR-2.3 (participant capacity enforcement).
 
 
 ---
 
-### 6. TimeBank Balance Enforcement (Backend)
+#### 6. TimeBank Balance Enforcement (Backend)
 
 I built a security-critical enforcement layer to prevent users from bypassing the 0–10 hour balance cap through concurrent requests. Related requirements: FR-6.1, FR-6.2 (TimeBank credit limits).
 
@@ -211,7 +211,7 @@ I built a security-critical enforcement layer to prevent users from bypassing th
 
 ---
 
-### 7. Balance Control Test Suite
+#### 7. Balance Control Test Suite
 
 I wrote `test_balance_controls.py` (805 lines) to cover all five enforcement points end-to-end.
 
@@ -221,13 +221,13 @@ I wrote `test_balance_controls.py` (805 lines) to cover all five enforcement poi
 
 ---
 
-### 8. Chat Keyboard Fix (Mobile Web)
+#### 8. Chat Keyboard Fix (Mobile Web)
 
 The message input panel on mobile web was obscured by the virtual keyboard. I refactored keyboard detection from a fragile `visualViewport` resize listener to `onFocus`/`onBlur` events with a 150 ms delay on blur to bridge the gap between blur and a tap on the Send button.
 
 ---
 
-### 9. Bug Fixes
+#### 9. Bug Fixes
 
 - Corrected the expiry checker for specific-date services; updated Dashboard to show only active/upcoming services
 - Added edit/delete controls for own comments on the web client
@@ -239,7 +239,7 @@ The message input panel on mobile web was obscured by the virtual keyboard. I re
 
 ---
 
-## Documentation Contributions
+### Documentation Contributions
 
 Documentation was woven into feature development rather than delivered as standalone commits:
 
@@ -253,7 +253,7 @@ Documentation was woven into feature development rather than delivered as standa
 
 ---
 
-## QA & Issue Tracking
+### QA & Issue Tracking
 
 I opened 152 issues across the project's GitHub tracker and closed 84 of them, the highest individual issue-reporting volume on the team. Issues spanned three categories:
 
@@ -265,7 +265,7 @@ Many of these issues were subsequently self-resolved in the same milestone, clos
 
 ---
 
-## Code Review Activities
+### Code Review Activities
 
 I reviewed several pull requests from teammates throughout the project, providing feedback on correctness, edge cases, and code style. Three notable cases also involved active conflict resolution.
 
@@ -280,9 +280,9 @@ Before opening the Near Me button and bee-location-marker pull requests, main ha
 
 ---
 
-## Technical Challenges
+### Technical Challenges
 
-### Android Custom Bottom Navigation Bar — Content Overlap and Inset Management
+#### Android Custom Bottom Navigation Bar — Content Overlap and Inset Management
 
 The most time-consuming UI challenge in the project was getting the custom bottom navigation bar to behave correctly on Android. The nav bar was drawn with a Canvas-based custom composable rather than the standard `NavigationBar` component, which meant Jetpack Compose's `Scaffold` had no knowledge of its height and could not insert the correct bottom padding automatically.
 
@@ -294,19 +294,19 @@ A third related issue was the navbar background showing as semi-transparent on s
 
 ---
 
-### Silent Rebase Deletion of Backend Endpoints
+#### Silent Rebase Deletion of Backend Endpoints
 
 A rebase on the community branch silently dropped several routes from `users.py`. The regression only surfaced in production when mobile clients began receiving 404 responses. I diagnosed it by diffing the merged tree against the pre-rebase branch tip and restored the deleted endpoints in a follow-up commit.
 
 ---
 
-### ServiceStatusBar Step-Index Off-by-One
+#### ServiceStatusBar Step-Index Off-by-One
 
 The step array mapping between the backend transaction state enum and the UI step indicator had an off-by-one that caused the wrong step to be highlighted for completed transactions. Fixing it required enumerating every state transition — including the three terminal states (Completed, Cancelled, Expired) — and verifying colour logic for each independently on both platforms.
 
 ---
 
-### Concurrent TimeBank Manipulation
+#### Concurrent TimeBank Manipulation
 
 Naive balance checks based on the stored value are trivially bypassed by two simultaneous requests. The fix required modelling the worst-case projected balance — accounting for all in-flight offers, needs, join requests, and approved transactions — and applying the check atomically at each of the five enforcement points across three service files.
 
