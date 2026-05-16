@@ -119,75 +119,203 @@ The backend service layer and React web frontend were owned throughout all miles
 
 ## [Kenan Altunbaş](https://github.com/kj-kenan)
 
-106 issues were opened covering web and mobile bugs, missing features, and test cases, making this the primary testing and bug-reporting role on the project. On the code side, shared UI components were developed for both web and Android: the service status bar, capacity warnings, bee location marker, Near Me button, community features on Android, badge additions, map UI improvements, and TimeBank balance enforcement.
+# Kenan Altunbas — Individual Contribution Summary
+**SWE 574 · Bogazici University · Spring 2026**
 
 ---
 
-### Coding Contributions
+## Executive Summary
 
-#### Service Status Bar (Web + Android)
-- A full lifecycle step indicator was implemented (Pending → Accepted → In Progress → Completed / Cancelled / Expired) on both platforms
-- Correct highlighting for the completed step was added; distinct colour coding was applied for cancelled and expired states
-
-**Key commits:** `b6e6ded` `ca5e54a` `6fcabb7`  
-**Related PR:** [#431](https://github.com/senaoz/SWE-574/pull/431)
-
-#### Service Capacity Warning (Web + Android)
-- A visual warning banner was added to listing cards and detail pages when a service is near or at its participant limit (FR-2.3)
-
-**Key commit:** `8e718ec`  
-**Related issue:** [#326](https://github.com/senaoz/SWE-574/issues/326)
-
-#### Bee Location Marker (Web + Android)
-- A bee-shaped SVG icon was added to the Leaflet map (web) and Google Maps (Android) to mark the authenticated user's position
-
-**Key commit:** `9cb778f`  
-**Related PR:** [#442](https://github.com/senaoz/SWE-574/pull/442) · Issue [#441](https://github.com/senaoz/SWE-574/issues/441)
-
-#### Near Me Button (Web)
-- A map control button was added to recentre the view on the browser's current geolocation
-
-**Key commit:** `31c2e31`  
-**Related PR:** [#432](https://github.com/senaoz/SWE-574/pull/432) · Issue [#407](https://github.com/senaoz/SWE-574/issues/407)
-
-#### Community Feature (Android)
-- A Communities tab and community detail screen were built (banner, members, posts, events, no-community label)
-- Community membership was surfaced on user profiles with a mutual "common community" badge; communities were made clickable
-- Accidentally deleted backend endpoints were restored after a merge conflict (`05eb55d`)
-
-**Key commits:** `d908e9f` `facd436` `3e5f971` `16ac127` `05eb55d`  
-**Related PRs:** [#446](https://github.com/senaoz/SWE-574/pull/446) [#447](https://github.com/senaoz/SWE-574/pull/447) · Issues [#337](https://github.com/senaoz/SWE-574/issues/337) [#444](https://github.com/senaoz/SWE-574/issues/444)
-
-#### Mobile Navigation Refactor
-- Android bottom navigation was refactored to the `BottomNav` + `NavHost` pattern; navbar overlap on detail screens was fixed
-
-**Key commit:** `2f18235`  
-**Related issue:** [#335](https://github.com/senaoz/SWE-574/issues/335)
-
-#### TimeBank Balance Enforcement (Backend)
-- Effective balance limit checks were added using worst-case pending calculations to prevent manipulation via concurrent requests (`dd39acf` `81dd4f0`)
-- TimeBank limit error handling and debug logging were improved (`1094ead`)
-
-#### Badge System and Map UI
-- 6 new achievement badges were added; a search bar overlap on the map list view was fixed (`c956d6e` · issue [#362](https://github.com/senaoz/SWE-574/issues/362))
-- Rich map popups were introduced with provider info, rating, tags, and date; a compact popup layout with inline tags and priority badge was applied
-- Scheduled date/time was added to listing cards; emoji markers were replaced with SVG icons
-
-**Key commits:** `df7d27e` `47dbd18` `fcc3e90` `0a3b1e1` `c52317d`  
-**Related issues:** [#316](https://github.com/senaoz/SWE-574/issues/316) [#317](https://github.com/senaoz/SWE-574/issues/317) [#306](https://github.com/senaoz/SWE-574/issues/306)
-
-#### Bug Fixes
-- The expiry checker for specific-date services was corrected; the Dashboard was updated to show only active/upcoming services (`13a2b61` · issue [#436](https://github.com/senaoz/SWE-574/issues/436))
-- Edit/delete controls for own comments were added to the web client (`4bf3852` · issue [#412](https://github.com/senaoz/SWE-574/issues/412))
-- Comment username clicks were fixed to navigate to the correct user profile (`aadca4b`)
-- Remote services being filterable by distance was identified and fixed (issue [#406](https://github.com/senaoz/SWE-574/issues/406))
+I acted as a full-stack feature owner across three platforms throughout the project: the React/TypeScript web client, the Kotlin/Jetpack-Compose Android app, and the Python/FastAPI backend. My largest single contribution was the Community platform — a green-field subsystem spanning backend API design, web frontend pages, and Android screens, built entirely from scratch. Beyond Communities, I delivered Event Attendance, Service Status Bar, TimeBank balance enforcement with a comprehensive test suite, map and badge improvements, and a range of bug fixes. In parallel I served as the primary QA driver, opening 106 issues covering bugs, missing features, and test-coverage gaps.
 
 ---
 
-### Challenges
-- **Merge conflict deleted endpoints** — a rebase silently dropped routes from `users.py`; the regression only surfaced in production and was diagnosed and fixed in `05eb55d`
-- **ServiceStatusBar step index** — an off-by-one in the step array mapping between the backend transaction state enum and the UI required careful enumeration of all state transitions
-- **Android nav graph with community detail** — a new destination had to be integrated into the existing `NavHost` without breaking deep-link navigation from push notifications
+## Code Contributions
+
+### 1. Community Platform (Full-Stack)
+
+The Community platform was my largest single contribution: a completely new subsystem I built across all three layers of the stack. Related requirements: FR-5.1, FR-5.2, FR-5.3 (community browsing, membership, and content).
+
+**Backend**
+- Designed and implemented the FastAPI router `community.py` (309 lines) with 10+ REST endpoints: list, create, get, update, delete, join, leave, get-members, update-member-role
+- Wrote `community_service.py` (492 lines) encapsulating all business logic
+- Defined Pydantic models in `models/community.py` (209 lines)
+- Extended `forum_service.py` to surface community-scoped posts and events
+
+**Web Frontend**
+- Built `CommunityDetail.tsx` (497 lines): banner, member list, post feed, events
+- Built `CommunityPostDetail.tsx` (337 lines): post view with Markdown support and upvoting
+- Expanded `Forum.tsx` (+312 lines) to include community tabs
+- Introduced `BottomNav.tsx` (156 lines) as a shared navigation component
+- Wired routing in `App.tsx` for all new community paths
+
+**Android**
+- Built the Communities tab and community detail screen (banner, members, posts, events, no-community label)
+- Surfaced community membership on user profiles with a mutual common-community badge
+- Made communities tappable throughout the app
+- Restored accidentally deleted backend endpoints after a rebase silently dropped routes from `users.py`
+
+**SCREENSHOT: Communities tab on Android showing the list of communities with banners, and a community detail screen open**
+
+---
+
+### 2. Android UX Overhaul and Mobile Navigation Redesign
+
+I overhauled the Android app's navigation and overall UX to make it more compact, polished, and intuitive. Related issue: #335.
+
+- Replaced the default `NavigationSuiteScaffold` with a custom Canvas-drawn bottom navigation bar: slimmer profile, semi-transparent frosted background, and a curved cutout for the central FAB — giving the app a more refined visual identity
+- Consolidated the navigation destinations from five tabs to four, removing redundant screens (Discover, Active, Forum standalone) and relocating their content into contextually appropriate sections, reducing cognitive overhead
+- Refactored the entire nav graph to the `BottomNav` + `NavHost` pattern, fixing persistent navbar overlap on detail screens throughout the app
+- Ensured content was never obscured by the bar by computing per-screen bottom padding manually (`navBarHeight` for standard screens, `navBarTotalHeight` for FAB screens, `contentPadding` on lazy lists)
+
+**SCREENSHOT: Android app showing the semi-transparent custom bottom navigation bar alongside a content screen, demonstrating the compact and elegant layout**
+
+---
+
+### 3. Event Attendance Feature (Android + Backend)
+
+I built a standalone attend/unattend subsystem on top of the existing Events model, delivered across backend and Android in one sprint. Related requirement: FR-4.2 (event attendance tracking).
+
+- Added attend/unattend REST endpoints to the backend and extended `ForumRepository` with matching methods
+- Added an Attend/Leave button on event detail screens, hidden for the organiser
+- Displayed attendees with profile pictures or initials fallback; tapping navigates to their profile
+- Completely redesigned the Android map info window: type badge, tag chips, date, creator info, View Details button
+- Map centres on marker tap and closes the previously open popup automatically
+- Filtered inactive services (cancelled, expired) out of the map feed
+
+**SCREENSHOT: Event detail screen showing the Attend button and the attendee avatar row below the event description**
+
+---
+
+### 4. Service Status Bar (Web + Android)
+
+I implemented a full lifecycle step indicator on both platforms showing every transaction state. Related requirement: FR-3.4 (service transaction lifecycle visibility).
+
+- Step indicator implemented end-to-end: Pending → Accepted → In Progress → Completed / Cancelled / Expired
+- Correct step highlighted for completed state; distinct colour coding for cancelled and expired states
+- Same visual contract maintained on both web and Android
+
+**SCREENSHOT: Service detail page (web and Android side by side) showing the step indicator with the current step highlighted and terminal states colour-coded**
+
+---
+
+### 5. Service Capacity Warning (Web + Android)
+
+I added a visual warning banner to listing cards and detail pages when a service is near or at its participant limit. Related requirement: FR-2.3 (participant capacity enforcement).
+
+**SCREENSHOT: Service listing card and detail page showing the capacity warning banner when the participant limit is reached or nearly reached**
+
+---
+
+### 6. TimeBank Balance Enforcement (Backend)
+
+I built a security-critical enforcement layer to prevent users from bypassing the 0–10 hour balance cap through concurrent requests. Related requirements: FR-6.1, FR-6.2 (TimeBank credit limits).
+
+- Introduced `get_effective_max_balance()` and `get_effective_min_balance()` in `user_service.py`: they account for all in-flight activities (active offers/needs, pending join requests, approved application transactions) before allowing new service creation or handshakes
+- Implemented five enforcement points (CP1–CP5) blocking offer creation, need creation, JR-to-need, JR-to-offer, and need-JR approval when the worst-case projected balance would breach the range
+- Patched `join_request_service.py` so the need-JR approval check blocks whenever `effective_max >= 10`, regardless of whether the applicant already has an active need
+- Improved error handling and debug logging for all TimeBank limit violations
+
+---
+
+### 7. Balance Control Test Suite
+
+I wrote `test_balance_controls.py` (805 lines) to cover all five enforcement points end-to-end.
+
+- 7 test classes: `TestEffectiveMaxBalance`, `TestEffectiveMinBalance`, `TestCP1` through `TestCP5`
+- 31 async test methods covering boundary conditions: base cases, single-activity projections, multi-activity interactions, edge-exact limits, and approval-time checks
+- Every enforcement point has both an allowed and a blocked branch tested
+
+---
+
+### 8. Chat Keyboard Fix (Mobile Web)
+
+The message input panel on mobile web was obscured by the virtual keyboard. I refactored keyboard detection from a fragile `visualViewport` resize listener to `onFocus`/`onBlur` events with a 150 ms delay on blur to bridge the gap between blur and a tap on the Send button.
+
+---
+
+### 9. Bug Fixes
+
+- Corrected the expiry checker for specific-date services; updated Dashboard to show only active/upcoming services
+- Added edit/delete controls for own comments on the web client
+- Fixed comment username clicks to navigate to the correct user profile
+- Identified and fixed remote services being filterable by distance
+- Capped feedback tag selection at 5 in the service completion dialog
+- Updated need icon colour from red to amber; corrected service type selection shadow
+- Improved bio field validation on the registration form
+
+---
+
+## Documentation Contributions
+
+Documentation was woven into feature development rather than delivered as standalone commits:
+
+- Organised team meetings throughout both milestones and maintained the [Meeting Notes](https://github.com/senaoz/SWE-574/wiki/Meeting-Notes) on the project wiki.
+- Authored the [Software Requirements Specification (SRS)](https://github.com/senaoz/SWE-574/wiki/SRS), covering functional and non-functional requirements for the platform.
+- Created the [Demo Scenarios](https://github.com/senaoz/SWE-574/wiki/Scenarios-&-Mockups), defining end-to-end user flows used during milestone presentations.
+- Inline code comments throughout `ChatRoom.tsx` explaining the `onFocus`/`onBlur` keyboard detection approach and the 150 ms delay rationale
+- Detailed commit messages for the TimeBank enforcement commits describing the effective-balance model, all five control points, and the reasoning for worst-case projection
+- 106 issue descriptions served as living documentation: expected behaviour, reproduction steps, and acceptance criteria for each bug and feature
+- The mobile APK workflow file is self-documenting with step names and comments explaining the APK location logic and naming convention
+
+---
+
+## QA & Issue Tracking
+
+I opened 152 issues across the project's GitHub tracker and closed 84 of them, the highest individual issue-reporting volume on the team. Issues spanned three categories:
+
+- Web and mobile UI/UX bugs (layout overlaps, broken navigation, incorrect state display)
+- Missing or incomplete features flagged against the SRS (e.g. capacity warnings FR-2.3, distance filter for remote services)
+- Test-coverage gaps identified and logged as actionable test-case issues
+
+Many of these issues were subsequently self-resolved in the same milestone, closing the loop between QA discovery and implementation.
+
+---
+
+## Code Review Activities
+
+I reviewed several pull requests from teammates throughout the project, providing feedback on correctness, edge cases, and code style. Three notable cases also involved active conflict resolution.
+
+**Community Branch — Rebase Conflict**
+While integrating the community feature branch, a rebase against main silently dropped several routes from `users.py`. The missing endpoints were not caught by CI at the time. The regression surfaced in production; I identified the deleted routes by diffing the merged tree against the pre-rebase branch tip and restored them in a follow-up commit.
+
+**Service Details Loading — Merge Conflict**
+A merge conflict arose when integrating the fix/service-details branch with concurrent changes on main. The conflict touched component state initialisation logic and required manual resolution to preserve both the loading-state fix and the upstream changes without introducing a regression.
+
+**Pre-PR Conflict Resolution on Feature Branches**
+Before opening the Near Me button and bee-location-marker pull requests, main had diverged enough to cause conflicts in shared files (`ServiceMap.tsx` and related components). I merged main into both branches and resolved the conflicts locally before submitting the PRs, keeping the review diffs clean.
+
+---
+
+## Technical Challenges
+
+### Android Custom Bottom Navigation Bar — Content Overlap and Inset Management
+
+The most time-consuming UI challenge in the project was getting the custom bottom navigation bar to behave correctly on Android. The nav bar was drawn with a Canvas-based custom composable rather than the standard `NavigationBar` component, which meant Jetpack Compose's `Scaffold` had no knowledge of its height and could not insert the correct bottom padding automatically.
+
+The first symptom was content scrolling behind the bar and becoming unreadable. The fix required manually computing `navBarTotalHeight = navBarHeight (70 dp) + fabRadius (30 dp)` and passing that value as explicit bottom padding to every screen's content modifier. Each screen type needed its own version of this padding: regular screens got `navBarHeight`, screens with a floating action button got `navBarTotalHeight`, and list screens used `contentPadding` on the `LazyColumn`.
+
+The second symptom appeared in the chat screen: the message input panel was not rising when the keyboard opened. The root cause was that `Scaffold` was consuming the IME `WindowInsets` before `ChatRoomScreen` could read them, so `WindowInsets.ime.getBottom()` always returned 0 inside the screen. The fix was to configure the Scaffold with `contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime)`, which preserved the IME inset for downstream composables while still handling safe-area padding at the scaffold level.
+
+A third related issue was the navbar background showing as semi-transparent on some devices because the system was drawing the navigation gesture bar behind the custom composable. Resolving this required calling `WindowCompat.setDecorFitsSystemWindows(window, false)` at the activity level to opt into edge-to-edge display, then carefully re-adding only the insets each screen actually needed rather than letting the system handle them globally.
+
+---
+
+### Silent Rebase Deletion of Backend Endpoints
+
+A rebase on the community branch silently dropped several routes from `users.py`. The regression only surfaced in production when mobile clients began receiving 404 responses. I diagnosed it by diffing the merged tree against the pre-rebase branch tip and restored the deleted endpoints in a follow-up commit.
+
+---
+
+### ServiceStatusBar Step-Index Off-by-One
+
+The step array mapping between the backend transaction state enum and the UI step indicator had an off-by-one that caused the wrong step to be highlighted for completed transactions. Fixing it required enumerating every state transition — including the three terminal states (Completed, Cancelled, Expired) — and verifying colour logic for each independently on both platforms.
+
+---
+
+### Concurrent TimeBank Manipulation
+
+Naive balance checks based on the stored value are trivially bypassed by two simultaneous requests. The fix required modelling the worst-case projected balance — accounting for all in-flight offers, needs, join requests, and approved transactions — and applying the check atomically at each of the five enforcement points across three service files.
 
 ---
 
