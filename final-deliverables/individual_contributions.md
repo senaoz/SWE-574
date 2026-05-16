@@ -97,6 +97,11 @@ The backend service layer and React web frontend were owned throughout all miles
 **Key commits:** `235308e` `aa6dff9` `b85a5fc` `475ef27` `8206d77` `5ce457c`  
 **Related PRs:** [#49](https://github.com/senaoz/SWE-574/pull/49) [#51](https://github.com/senaoz/SWE-574/pull/51) [#450](https://github.com/senaoz/SWE-574/pull/450) [#451](https://github.com/senaoz/SWE-574/pull/451)
 
+<img width="1912" height="1241" alt="Screenshot 2026-05-16 at 17 16 11" src="https://github.com/user-attachments/assets/d137b82a-e7ba-414d-85a2-21f9e9fcd74d" />
+<img width="1912" height="1079" alt="Screenshot 2026-05-16 at 17 16 46" src="https://github.com/user-attachments/assets/61f2225a-a56e-4c17-97ad-e4c75593e4c9" />
+<img width="1912" height="1345" alt="Screenshot 2026-05-16 at 17 17 08" src="https://github.com/user-attachments/assets/182c70f0-e69e-4682-b9ae-3e9409b67c58" />
+
+
 #### CI/CD and Test Infrastructure
 - `docker-compose.yml`, backend/frontend `Dockerfile`s, and the GitHub Actions deploy workflow were authored
 - Codecov integration was added for backend (`pytest --cov`) and frontend (Vitest) coverage reporting (PR [#429](https://github.com/senaoz/SWE-574/pull/429))
