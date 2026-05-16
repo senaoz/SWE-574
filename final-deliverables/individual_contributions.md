@@ -321,7 +321,7 @@ Some of my code contribution is as below.
 
 #### 1. Community Platform (Full-Stack)
 
-The Community platform was my largest single contribution: a completely new subsystem I built across all three layers of the stack. Related requirements: FR-5.1, FR-5.2, FR-5.3 (community browsing, membership, and content). https://github.com/senaoz/SWE-574/pull/446
+The Community platform was my largest single contribution: a completely new subsystem I built across all three layers of the stack. Related requirements: FR-5.1, FR-5.2, FR-5.3 (community browsing, membership, and content). https://github.com/senaoz/SWE-574/pull/446 - https://github.com/senaoz/SWE-574/pull/332 - https://github.com/senaoz/SWE-574/pull/339
 
 **Backend**
 - Designed and implemented the FastAPI router `community.py` (309 lines) with 10+ REST endpoints: list, create, get, update, delete, join, leave, get-members, update-member-role
@@ -349,7 +349,7 @@ The Community platform was my largest single contribution: a completely new subs
 
 #### 2. Android UX Overhaul and Mobile Navigation Redesign
 
-I overhauled the Android app's navigation and overall UX to make it more compact, polished, and intuitive. Related issue: #335.
+I overhauled the Android app's navigation and overall UX to make it more compact, polished, and intuitive. Related issue: #335. https://github.com/senaoz/SWE-574/pull/338
 
 - Replaced the default `NavigationSuiteScaffold` with a custom Canvas-drawn bottom navigation bar: slimmer profile, semi-transparent frosted background, and a curved cutout for the central FAB — giving the app a more refined visual identity
 - Consolidated the navigation destinations from five tabs to four, removing redundant screens (Discover, Active, Forum standalone) and relocating their content into contextually appropriate sections, reducing cognitive overhead
@@ -360,7 +360,7 @@ I overhauled the Android app's navigation and overall UX to make it more compact
 
 ---
 
-#### 3. Event Attendance Feature (Android + Backend)
+#### 3. Event Attendance Feature (Android + Backend) https://github.com/senaoz/SWE-574/pull/318
 
 I built a standalone attend/unattend subsystem on top of the existing Events model, delivered across backend and Android in one sprint. Related requirement: FR-4.2 (event attendance tracking).
 
@@ -373,9 +373,9 @@ I built a standalone attend/unattend subsystem on top of the existing Events mod
 
 ---
 
-#### 4. Service Status Bar (Web + Android)
-
-I implemented a full lifecycle step indicator on both platforms showing every transaction state. Related requirement: FR-3.4 (service transaction lifecycle visibility).
+#### 4. Service Status Bar (Web + Android) 
+ 
+I implemented a full lifecycle step indicator on both platforms showing every transaction state. Related requirement: FR-3.4 (service transaction lifecycle visibility). https://github.com/senaoz/SWE-574/pull/363
 
 - Step indicator implemented end-to-end: Pending → Accepted → In Progress → Completed / Cancelled / Expired
 - Correct step highlighted for completed state; distinct colour coding for cancelled and expired states
@@ -387,47 +387,20 @@ I implemented a full lifecycle step indicator on both platforms showing every tr
 
 #### 5. Service Capacity Warning (Web + Android)
 
-I added a visual warning banner to listing cards and detail pages when a service is near or at its participant limit. Related requirement: FR-2.3 (participant capacity enforcement).
-
-
----
-
-#### 6. TimeBank Balance Enforcement (Backend)
-
-I built a security-critical enforcement layer to prevent users from bypassing the 0–10 hour balance cap through concurrent requests. Related requirements: FR-6.1, FR-6.2 (TimeBank credit limits).
-
-- Introduced `get_effective_max_balance()` and `get_effective_min_balance()` in `user_service.py`: they account for all in-flight activities (active offers/needs, pending join requests, approved application transactions) before allowing new service creation or handshakes
-- Implemented five enforcement points (CP1–CP5) blocking offer creation, need creation, JR-to-need, JR-to-offer, and need-JR approval when the worst-case projected balance would breach the range
-- Patched `join_request_service.py` so the need-JR approval check blocks whenever `effective_max >= 10`, regardless of whether the applicant already has an active need
-- Improved error handling and debug logging for all TimeBank limit violations
+I added a visual warning banner to listing cards and detail pages when a service is near or at its participant limit. Related requirement: FR-2.3 (participant capacity enforcement). https://github.com/senaoz/SWE-574/pull/364
 
 ---
 
-#### 7. Balance Control Test Suite
+#### 6. Badge System
 
-I wrote `test_balance_controls.py` (805 lines) to cover all five enforcement points end-to-end.
+I added 6 new achievement badges to the platform to reward user engagement and milestone completions. The badges were integrated into the existing badge service and surfaced on user profiles. I also fixed a search bar overlap bug on the map list view that had been blocking the top of the results. https://github.com/senaoz/SWE-574/pull/157 - https://github.com/senaoz/SWE-574/pull/370 - https://github.com/senaoz/SWE-574/pull/184
 
-- 7 test classes: `TestEffectiveMaxBalance`, `TestEffectiveMinBalance`, `TestCP1` through `TestCP5`
-- 31 async test methods covering boundary conditions: base cases, single-activity projections, multi-activity interactions, edge-exact limits, and approval-time checks
-- Every enforcement point has both an allowed and a blocked branch tested
+- 6 new achievement badges defined and integrated into the badge service
+- Badges surfaced on user profiles
+- Search bar overlap on the map list view fixed
 
----
+<img width="1819" height="621" alt="image" src="https://github.com/user-attachments/assets/b1c5a576-4560-4d05-9bd3-560ff1ef7d74" />
 
-#### 8. Chat Keyboard Fix (Mobile Web)
-
-The message input panel on mobile web was obscured by the virtual keyboard. I refactored keyboard detection from a fragile `visualViewport` resize listener to `onFocus`/`onBlur` events with a 150 ms delay on blur to bridge the gap between blur and a tap on the Send button.
-
----
-
-#### 9. Bug Fixes
-
-- Corrected the expiry checker for specific-date services; updated Dashboard to show only active/upcoming services
-- Added edit/delete controls for own comments on the web client
-- Fixed comment username clicks to navigate to the correct user profile
-- Identified and fixed remote services being filterable by distance
-- Capped feedback tag selection at 5 in the service completion dialog
-- Updated need icon colour from red to amber; corrected service type selection shadow
-- Improved bio field validation on the registration form
 
 ---
 
