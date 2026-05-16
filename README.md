@@ -9,8 +9,8 @@ The Hive is built around the idea that everyone has something valuable to offer.
 ### Core Features
 
 - **Time Bank** — Earn and spend time credits by offering and requesting services. Transactions are tracked and enforced automatically.
-- **Service Marketplace** — Browse, filter, and search community services with geolocation support. Services are tagged using WikiData entities for semantic discoverability.
-- **Join Requests & Scheduling** — Request to join a service, agree on a time, and confirm completion to trigger automatic credit transfer.
+- **Services Dashboard** — Browse, filter, and search community services with geolocation support. Services are tagged using WikiData entities for semantic discoverability.
+- **Requests to get or give a service** — Request to join a service, agree on a time, and confirm completion to trigger automatic credit transfer.
 - **Forum** — Create discussions and events. Members can comment, react, and attach photos. Events include time and location.
 - **Community Groups** — Users can form and join communities around shared interests, with dedicated posts and moderation tools.
 - **Real-time Chat** — Direct messaging between users with chat room support.
@@ -69,6 +69,7 @@ docker compose up -d --build
 | API Docs | 8000  | <http://localhost:8000/docs> |
 
 See [`backend/README.md`](backend/README.md) for local development setup and CI/CD details.
+See [`frontend/`](https://github.com/senaoz/SWE-574/tree/main/frontend) for the React web app setup and development guide.
 
 -------
 
