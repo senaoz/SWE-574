@@ -31,6 +31,11 @@ I implemented the Dashboard “For You” recommendation experience, making serv
 **Key commits:** `df7bb88` `bdd17c7` `ebc3326` `23e47da` `fca8308` `c8e8b05` `9a6fc90`  
 **Related PRs:** [#252](https://github.com/senaoz/SWE-574/pull/252) [#253](https://github.com/senaoz/SWE-574/pull/253)
 
+<img width="383" height="631" alt="Ekran Resmi 2026-05-16 ÖS 9 14 51" src="https://github.com/user-attachments/assets/3eb9ca76-f75c-45d0-9c24-6bdc85377ef2" />
+
+<img width="684" height="529" alt="Ekran Resmi 2026-05-16 ÖS 9 44 08" src="https://github.com/user-attachments/assets/2a214637-699e-450b-96a0-fbe2dc6400a7" />
+
+
 ---
 
 ### 2. Save / Bookmark Flow and Dashboard UX
@@ -47,6 +52,9 @@ I implemented the save/bookmark interaction for service cards and improved Dashb
 **Key commits:** `473556f` `6320188` `1da154b` `46a8ae8` `89a5ccd` `fca8308`  
 **Related PRs:** [#252](https://github.com/senaoz/SWE-574/pull/252) [#253](https://github.com/senaoz/SWE-574/pull/253)
 
+<img width="120" height="90" alt="Ekran Resmi 2026-05-16 ÖS 9 41 22" src="https://github.com/user-attachments/assets/a3ae6e70-2d1b-43a0-80f1-ab2fa7c056fb" />
+
+
 ---
 
 ### 3. Service Match Notification Feature (Backend + Frontend Contract)
@@ -61,6 +69,9 @@ I implemented the notification flow that alerts users when a newly created servi
 
 **Key commits:** `6be87f0` `b0524cd`  
 **Related PR:** [#433](https://github.com/senaoz/SWE-574/pull/433)
+
+<img width="347" height="186" alt="Ekran Resmi 2026-05-16 ÖS 9 42 26" src="https://github.com/user-attachments/assets/b171df2b-ec72-43b9-8a95-b8ed69efabd9" />
+
 
 ---
 
@@ -79,6 +90,9 @@ I implemented moderator/admin pinning across several platform content types. Rel
 **Key commits:** `de9f6a5` `e1304f7`  
 **Related PR:** [#409](https://github.com/senaoz/SWE-574/pull/409)
 
+<img width="188" height="57" alt="Ekran Resmi 2026-05-16 ÖS 9 15 37" src="https://github.com/user-attachments/assets/379dfb10-b216-41c4-9bcd-ae51570e8259" />
+
+
 ---
 
 ### 5. Community Member Visibility and Profile Enhancements
@@ -95,6 +109,11 @@ I improved community pages and profile-community visibility so users can better 
 
 **Key commits:** `43eefe6` `c41b80b` `37bd06a` `5bddceb`  
 **Related PRs:** [#376](https://github.com/senaoz/SWE-574/pull/376) [#378](https://github.com/senaoz/SWE-574/pull/378)
+
+<img width="334" height="101" alt="Ekran Resmi 2026-05-16 ÖS 9 16 33" src="https://github.com/user-attachments/assets/ee8d5dc4-650c-4ae9-979a-d565e35ded75" />
+
+<img width="514" height="522" alt="Ekran Resmi 2026-05-16 ÖS 9 16 04" src="https://github.com/user-attachments/assets/813d6915-6430-4ce5-bb42-da7ee914b0ff" />
+
 
 ---
 
