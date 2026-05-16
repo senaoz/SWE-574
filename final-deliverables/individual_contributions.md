@@ -6,7 +6,7 @@
 
 ---
 
-## Ayşenur Ünal
+## [Ayşenur Ünal](https://github.com/aysenurunal)
 
 The personalised recommendation system, service-match notification feature, moderator pinning system, community member visibility improvements, and save/bookmark feature were implemented. The test strategy was led across all three layers of the stack (backend, frontend, Android), with active participation in code review and bug triage throughout the project.
 
@@ -68,7 +68,7 @@ The personalised recommendation system, service-match notification feature, mode
 
 ---
 
-## Sena Öz
+## [Sena Öz](https://github.com/senaoz)
 
 The backend service layer and React web frontend were owned throughout all milestones. Core areas covered include the exchange flow (TimeBank, transactions, join requests), forum and community modules, rating and badge system, and moderator tooling on the web client. The CI/CD pipeline and test infrastructure were also set up for both backend and frontend.
 
@@ -97,6 +97,11 @@ The backend service layer and React web frontend were owned throughout all miles
 **Key commits:** `235308e` `aa6dff9` `b85a5fc` `475ef27` `8206d77` `5ce457c`  
 **Related PRs:** [#49](https://github.com/senaoz/SWE-574/pull/49) [#51](https://github.com/senaoz/SWE-574/pull/51) [#450](https://github.com/senaoz/SWE-574/pull/450) [#451](https://github.com/senaoz/SWE-574/pull/451)
 
+<img width="1912" height="1241" alt="Screenshot 2026-05-16 at 17 16 11" src="https://github.com/user-attachments/assets/d137b82a-e7ba-414d-85a2-21f9e9fcd74d" />
+<img width="1912" height="1079" alt="Screenshot 2026-05-16 at 17 16 46" src="https://github.com/user-attachments/assets/61f2225a-a56e-4c17-97ad-e4c75593e4c9" />
+<img width="1912" height="1345" alt="Screenshot 2026-05-16 at 17 17 08" src="https://github.com/user-attachments/assets/182c70f0-e69e-4682-b9ae-3e9409b67c58" />
+
+
 #### CI/CD and Test Infrastructure
 - `docker-compose.yml`, backend/frontend `Dockerfile`s, and the GitHub Actions deploy workflow were authored
 - Codecov integration was added for backend (`pytest --cov`) and frontend (Vitest) coverage reporting (PR [#429](https://github.com/senaoz/SWE-574/pull/429))
@@ -112,7 +117,7 @@ The backend service layer and React web frontend were owned throughout all miles
 
 ---
 
-## Kenan Altunbaş
+## [Kenan Altunbaş](https://github.com/kj-kenan)
 
 106 issues were opened covering web and mobile bugs, missing features, and test cases, making this the primary testing and bug-reporting role on the project. On the code side, shared UI components were developed for both web and Android: the service status bar, capacity warnings, bee location marker, Near Me button, community features on Android, badge additions, map UI improvements, and TimeBank balance enforcement.
 
@@ -186,7 +191,7 @@ The backend service layer and React web frontend were owned throughout all miles
 
 ---
 
-## Yusuf Savaş
+## [Yusuf Savaş](https://github.com/Yusufss4)
 
 The Android mobile application was developed as the primary platform responsibility. The full chat system, recommendation screen, similar services panel, community creation flows, forum event image uploads, and multiple rounds of layout and padding fixes were implemented. The Android GitHub Actions workflow was authored, OpenAPI documentation was maintained, and app versioning was managed throughout the project.
 
