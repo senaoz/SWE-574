@@ -193,7 +193,7 @@ The backend service layer and React web frontend were owned throughout all miles
 
 ## [Yusuf Savaş](https://github.com/Yusufss4)
 
-The Android mobile application was developed as the primary platform responsibility. The full chat system, recommendation screen, similar services panel, community creation flows, forum event image uploads, and multiple rounds of layout and padding fixes were implemented. The Android GitHub Actions workflow was authored, OpenAPI documentation was maintained, and app versioning was managed throughout the project.
+Owned the end-to-end development of the primary Android application, engineering core features including a chat system, map integration, service discovery, service and community management flows. Optimized application performance and UI responsiveness through layout refinements while streamlining DevOps by authoring the GitHub Actions CI/CD workflow for APK build, managing app versioning, and maintaining OpenAPI documentation for mobile app. Additionally, drove product quality across both web and mobile platforms by executing testing and documenting 56 critical issues to ensure a stable, production-ready release.
 
 ---
 
@@ -269,3 +269,7 @@ The Android mobile application was developed as the primary platform responsibil
 - **Android safe-area / keyboard avoidance** — the message input bar was obscured by the system navigation bar on specific Android configurations; `WindowInsets` + `imePadding` modifiers had to be applied at the correct layout level
 - **Horizontal pager recomposition** — `rememberPagerState` index was reset on async image load, causing flicker; loading was deferred until the pager became visible
 - **MapScreen decoupling** — `DiscoverScreen` had grown tightly coupled to `MapScreen`'s ViewModel; shared state had to be promoted to a nav-graph-scoped ViewModel to separate them
+
+<img width="1920" height="800" alt="2" src="https://github.com/user-attachments/assets/a400a742-bffd-4452-ba10-052c02a53dd0" />
+<img width="1920" height="800" alt="1" src="https://github.com/user-attachments/assets/8bdc8b13-da62-4e38-a7f9-d7485d13ba18" />
+
