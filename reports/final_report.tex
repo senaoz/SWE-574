@@ -1869,7 +1869,211 @@ Tokens are obtained via \texttt{POST /login}. Expiry: 30 minutes.
 
 \subsection{File Uploads}
 
-Files are uploaded via \texttt{multipart/form-data} to \texttt{/upload/\{type\}} and served as static files at \texttt{/uploads/\{type\}/\{filename\}}. Supported types: \texttt{profile}, \texttt{services}, \texttt{communities}, \texttt{ratings}, \texttt{comments}, \texttt{forum-events}, \texttt{discussions}.
+Files are uploaded via \texttt{multipart/form-data} to \texttt{/upload/\{type\}} and served as static files at:
+\begin{itemize}
+    \item \texttt{/uploads/\{type\}/\{filename\}}.
+    \item Supported types: \texttt{profile}, \texttt{services}, \texttt{communities}, \texttt{ratings}, \texttt{comments}, \texttt{forum-events}, \texttt{discussions}.
+\end{itemize}
+
+
+\section{Sample Usage Scenarios}
+
+Four scenarios are presented below demonstrating complex, multi-step API workflows introduced or significantly extended in the final milestone.
+
+% ----------------------------------------------------------
+\subsection{Scenario 1: Personalised Service Recommendations}
+% ----------------------------------------------------------
+
+\textbf{Endpoint:} \texttt{GET /services/recommendations}
+
+\textbf{Description:} A logged-in user requests personalised service recommendations. The backend ranks services by tag overlap with the user's interests, geographic proximity, and recency, returning each result with a human-readable reason and a relevance score.
+
+\textbf{Request:}
+\begin{lstlisting}[language=bash]
+curl -s \
+  -H "Authorization: Bearer $TOKEN" \
+  "https://backend-swe.gnahh5.easypanel.host/services/recommendations?limit=2"
+\end{lstlisting}
+
+\textbf{Response:}
+\begin{lstlisting}
+{
+  "items": [
+    {
+      "service": {
+        "title": "Home Cooking / Meal Prep",
+        "category": null,
+        "tags": [
+          { "label": "cooking", "entityId": "11476" },
+          { "label": "food",    "entityId": "2095"  }
+        ],
+        "estimated_duration": 2.0,
+        "service_type": "offer",
+        "status": "active",
+        "_id": "69ac0aa29b15aae8e3174d8b"
+      },
+      "reason": "Because it's similar to services you saved",
+      "score": 4.5367,
+      "matched_interests": ["Cooking"]
+    },
+    {
+      "service": {
+        "title": "Specialty Coffee Home Brewing Workshop",
+        "tags": [
+          { "label": "Coffee", "entityId": "Q8486" }
+        ],
+        "estimated_duration": 2.0,
+        "service_type": "offer",
+        "status": "active",
+        "_id": "69ac0aa29b15aae8e3174e12"
+      },
+      "reason": "Popular in your neighbourhood",
+      "score": 3.8102,
+      "matched_interests": ["Cooking"]
+    }
+  ]
+}
+\end{lstlisting}
+
+% ----------------------------------------------------------
+\subsection{Scenario 2: Semantic Tag Search via Wikidata}
+% ----------------------------------------------------------
+
+\textbf{Endpoint:} \texttt{GET /wikidata/search}
+
+\textbf{Description:} A user types a keyword while creating a service. The frontend queries this endpoint, which proxies to the Wikidata search API and returns structured concept entities. The user selects an entity (e.g.\ \texttt{Q6607} for ``guitar'') which is stored as a structured tag on the service, enabling semantic filtering beyond simple keyword matching.
+
+\textbf{Request:}
+\begin{lstlisting}[language=bash]
+curl -s \
+  -H "Authorization: Bearer $TOKEN" \
+  "https://backend-swe.gnahh5.easypanel.host/wikidata/search\
+?query=guitar+lessons&limit=3"
+\end{lstlisting}
+
+\textbf{Response:}
+\begin{lstlisting}
+{
+  "query": "guitar lessons",
+  "language": "en",
+  "results": [
+    {
+      "title": "Q136036312",
+      "pageId": "129754246",
+      "snippet": "Interactive guitar-learning application on iOS.",
+      "titleSnippet": "Amped Guitar",
+      "timestamp": "2025-09-01T09:16:55Z",
+      "url": "https://www.wikidata.org/wiki/Q136036312"
+    },
+    {
+      "title": "Q6607",
+      "pageId": "7734",
+      "snippet": "fretted string instrument",
+      "titleSnippet": "guitar",
+      "timestamp": "2026-05-11T13:36:07Z",
+      "url": "https://www.wikidata.org/wiki/Q6607"
+    }
+  ],
+  "count": 3
+}
+\end{lstlisting}
+
+% ----------------------------------------------------------
+\subsection{Scenario 3: Forum Event Image Upload}
+% ----------------------------------------------------------
+
+\textbf{Endpoint:} \texttt{POST /upload/forum-event-image} then \texttt{POST /forum/events}
+
+\textbf{Description:} A moderator creates a forum event with a banner image. The image is first uploaded as \texttt{multipart/form-data}; the returned URL is then embedded in the event creation payload. This two-step media upload workflow was added in the final milestone.
+
+\textbf{Request — Step 1 (upload image):}
+\begin{lstlisting}[language=bash]
+curl -s -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@banner.jpg" \
+  "https://backend-swe.gnahh5.easypanel.host/upload/forum-event-image"
+\end{lstlisting}
+
+\textbf{Response — Step 1:}
+\begin{lstlisting}
+{
+  "url": "/uploads/forum-events/68f67f9c_1778401261.webp",
+  "filename": "68f67f9c_1778401261.webp"
+}
+\end{lstlisting}
+
+\textbf{Request — Step 2 (create event with banner):}
+\begin{lstlisting}[language=bash]
+curl -s -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Community Repair Café",
+    "description": "Bring broken items and fix them together.",
+    "location": "Kadıköy, Istanbul",
+    "date": "2026-06-14T10:00:00",
+    "banner_image_url": "/uploads/forum-events/68f67f9c_1778401261.webp",
+    "community_id": null
+  }' \
+  "https://backend-swe.gnahh5.easypanel.host/forum/events"
+\end{lstlisting}
+
+\textbf{Response — Step 2:}
+\begin{lstlisting}
+{
+  "_id": "6a1f3d22abc44e001b3c8f01",
+  "title": "Community Repair Café",
+  "description": "Bring broken items and fix them together.",
+  "date": "2026-06-14T10:00:00",
+  "banner_image_url": "/uploads/forum-events/68f67f9c_1778401261.webp",
+  "created_by": "68f67f9c3966e4ce6ebcd0d8",
+  "attendees": [],
+  "created_at": "2026-05-16T12:00:00"
+}
+\end{lstlisting}
+
+% ----------------------------------------------------------
+\subsection{Scenario 4: Join Request with TimeBank Balance Enforcement}
+% ----------------------------------------------------------
+
+\textbf{Endpoint:} \texttt{POST /join-requests/}
+
+\textbf{Description:} A user applies to join a 2-hour offer service. The backend computes the user's \emph{projected minimum balance} — current balance minus all pending outgoing commitments — and rejects the request if accepting would push the balance below 0. This prevents balance manipulation through concurrent applications (anti-hoarding rule, FR-7).
+
+\textbf{Request:}
+\begin{lstlisting}[language=bash]
+curl -s -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "service_id": "69ac0aa29b15aae8e3174d8b",
+    "message": "I can help with meal prep on Sunday afternoon."
+  }' \
+  "https://backend-swe.gnahh5.easypanel.host/join-requests/"
+\end{lstlisting}
+
+\textbf{Response (balance enforcement triggered):}
+\begin{lstlisting}
+{
+  "detail": "Error creating join request: You cannot apply to this
+  offer. Your projected minimum balance would drop to -1.0 hrs.
+  Wait for your active needs or applications to complete or be
+  cancelled."
+}
+\end{lstlisting}
+
+When the user's projected balance is sufficient, the request is accepted and returns:
+\begin{lstlisting}
+{
+  "_id": "6a1f3d22abc44e001b3c9200",
+  "service_id": "69ac0aa29b15aae8e3174d8b",
+  "user_id": "68f67f9c3966e4ce6ebcd0d8",
+  "status": "pending",
+  "message": "I can help with meal prep on Sunday afternoon.",
+  "created_at": "2026-05-16T12:05:00"
+}
+\end{lstlisting}
+
 
 % =========================================================
 \chapter{Test Plan and Results}
