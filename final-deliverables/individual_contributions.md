@@ -119,11 +119,6 @@ The backend service layer and React web frontend were owned throughout all miles
 
 ## [Kenan Altunbaş](https://github.com/kj-kenan)
 
-# Kenan Altunbas — Individual Contribution Summary
-**SWE 574 · Bogazici University · Spring 2026**
-
----
-
 ## Executive Summary
 
 I acted as a full-stack feature owner across three platforms throughout the project: the React/TypeScript web client, the Kotlin/Jetpack-Compose Android app, and the Python/FastAPI backend. My largest single contribution was the Community platform — a green-field subsystem spanning backend API design, web frontend pages, and Android screens, built entirely from scratch. Beyond Communities, I delivered Event Attendance, Service Status Bar, TimeBank balance enforcement with a comprehensive test suite, map and badge improvements, and a range of bug fixes. In parallel I served as the primary QA driver, opening 106 issues covering bugs, missing features, and test-coverage gaps.
