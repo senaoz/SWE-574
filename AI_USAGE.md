@@ -1,10 +1,5 @@
 # AI Use Declaration
 
-**Project:** The Hive Platform  
-**Course:** SWE 574 — Software Development Practice, Spring 2026  
-**Team:** Ayşenur Ünal, Sena Öz, Kenan Altunbaş, Yusuf Savaş  
-**Date:** May 2026
-
 This document discloses every use of AI-assisted tools across the project, as required by the SWE 574 course policy. All generated output was reviewed, tested, and modified by team members before integration.
 
 ---
