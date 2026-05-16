@@ -88,53 +88,14 @@
     \vspace{1cm}
     {May 2026\par}
     \vspace{2cm}
-    \begin{tabular}{ll}
+    \begin{tabularx}{\textwidth}{XX}
         \textbf{Git Repository:} & \url{https://github.com/senaoz/SWE-574}              \\
         \textbf{Git Version:}    & \texttt{v0.9}                                        \\
         \textbf{Deployment URL:} & \url{https://swe.gnahh5.easypanel.host}              \\
         \textbf{Backend API:}    & \url{https://backend-swe.gnahh5.easypanel.host/docs} \\
-    \end{tabular}
+    \end{tabularx}
 \end{titlepage}
 \thispagestyle{empty}
-
-% Honor Code Page
-\newpage
-\thispagestyle{empty}
-\vspace*{2cm}
-
-\begin{center}
-    \large\textbf{HONOR CODE}
-\end{center}
-
-\vspace{1cm}
-
-\large
-Related to the submission of all the project deliverables for the SWE 574 Spring 2026 semester project reported in this report, we \textbf{Ay\c{s}enur \"{U}nal, Sena \"{O}z, Kenan Altunba\c{s}, and Yusuf Sava\c{s}} declare that:
-
-\begin{itemize}[leftmargin=0.5cm]
-    \item We are students in the Software Engineering MS program at Boğaziçi University and are registered for SWE 574 course during the Spring 2026 semester.
-
-    \item All the material that we are submitting related to our project (including but not limited to the project repository, the final project report, and supplementary documents) have been exclusively prepared by the team members named above.
-
-    \item We have prepared this material as a team without the assistance of anyone else with the exception of permitted peer assistance, which we have explicitly disclosed in this report.
-
-    \item We have used AI tools (Claude, ChatGPT, Gemini etc.) as development assistants, which we have fully disclosed in the AI Use Declaration document.
-
-    \item All third-party software and libraries used have been properly attributed and their licenses respected, as documented in the Third-Party Software document.
-\end{itemize}
-
-\vspace{1cm}
-
-\begin{center}
-    \begin{tabular}{p{6cm} p{6cm}}
-        \textbf{Ay\c{s}enur \"{U}nal} & \textbf{Sena \"{O}z}     \\[1.5cm]
-        \rule{5.5cm}{0.4pt}           & \rule{5.5cm}{0.4pt}      \\
-        Signature                     & Signature                \\[1.5cm]
-        \textbf{Kenan Altunba\c{s}}   & \textbf{Yusuf Sava\c{s}} \\[1.5cm]
-        \rule{5.5cm}{0.4pt}           & \rule{5.5cm}{0.4pt}      \\
-        Signature                     & Signature                \\
-    \end{tabular}
-\end{center}
 
 \newpage
 \tableofcontents
@@ -204,7 +165,7 @@ The following test accounts are available on the live deployment for evaluation:
 
 \begin{table}[h]
     \centering
-    \begin{tabular}{|l|l|l|}
+    \begin{tabularx}{\textwidth}{|l|l|X|}
         \hline
         \textbf{Role} & \textbf{Email}                      & \textbf{Password}    \\
         \hline
@@ -214,7 +175,7 @@ The following test accounts are available on the live deployment for evaluation:
         \hline
         Regular User  & \texttt{<mehmet.demir@example.com>} & \texttt{Password123} \\
         \hline
-    \end{tabular}
+    \end{tabularx}
     \caption{Test User Credentials}
 \end{table}
 
@@ -1240,7 +1201,7 @@ Full interactive API documentation: \url{https://backend-swe.gnahh5.easypanel.ho
 
 \begin{table}[h]
     \centering
-    \begin{tabular}{|l|l|}
+    \begin{tabularx}{\textwidth}{|l|X|}
         \hline
         \textbf{Route}                                & \textbf{Access}      \\
         \hline
@@ -1270,7 +1231,7 @@ Full interactive API documentation: \url{https://backend-swe.gnahh5.easypanel.ho
         \hline
         \texttt{/admin}                               & Moderator/Admin only \\
         \hline
-    \end{tabular}
+    \end{tabularx}
     \caption{Frontend Routes}
 \end{table}
 
@@ -1314,7 +1275,7 @@ Dependency functions in \texttt{core/permissions.py}:
 
 \begin{table}[h]
     \centering
-    \begin{tabular}{|l|c|c|}
+    \begin{tabularx}{\textwidth}{|l|X|X|}
         \hline
         \textbf{Category}             & \textbf{Total} & \textbf{Status}     \\
         \hline
@@ -1324,7 +1285,7 @@ Dependency functions in \texttt{core/permissions.py}:
         \hline
         \textbf{Overall}              & \textbf{34}    & \textbf{32 (94\%)}  \\
         \hline
-    \end{tabular}
+    \end{tabularx}
     \caption{Requirement Completion Summary}
 \end{table}
 
@@ -1482,7 +1443,7 @@ npm test             # Vitest unit tests
 
 \begin{table}[h]
     \centering
-    \begin{tabular}{|l|l|}
+    \begin{tabularx}{\textwidth}{|l|X|}
         \hline
         \textbf{Variable}         & \textbf{Description}                           \\
         \hline
@@ -1496,7 +1457,7 @@ npm test             # Vitest unit tests
         \hline
         \texttt{DEBUG}            & Debug mode flag (\texttt{true}/\texttt{false}) \\
         \hline
-    \end{tabular}
+    \end{tabularx}
     \caption{Backend Environment Variables}
 \end{table}
 
@@ -1504,13 +1465,13 @@ npm test             # Vitest unit tests
 
 \begin{table}[h]
     \centering
-    \begin{tabular}{|l|l|}
+    \begin{tabularx}{\textwidth}{|l|X|}
         \hline
         \textbf{Variable}       & \textbf{Description} \\
         \hline
         \texttt{VITE\_API\_URL} & Backend API base URL \\
         \hline
-    \end{tabular}
+    \end{tabularx}
     \caption{Frontend Environment Variables}
 \end{table}
 
@@ -1953,7 +1914,7 @@ The backend test suite contains \textbf{33 test files} covering all major API an
 
 \begin{table}[h]
     \centering
-    \begin{tabular}{|l|l|}
+    \begin{tabularx}{\textwidth}{|l|X|}
         \hline
         \textbf{Test File}                       & \textbf{Coverage Area}       \\
         \hline
@@ -2017,7 +1978,7 @@ The backend test suite contains \textbf{33 test files} covering all major API an
         \hline
         \texttt{test\_admin\_api.py}             & Admin API endpoints          \\
         \hline
-    \end{tabular}
+    \end{tabularx}
     \caption{Backend Test Files}
 \end{table}
 
@@ -2027,7 +1988,7 @@ Coverage was measured with \texttt{pytest-cov} against the full \texttt{app/} pa
 
 \begin{table}[h]
     \centering
-    \begin{tabular}{|l|r|r|r|}
+    \begin{tabularx}{\textwidth}{|l|X|X|X|}
         \hline
         \textbf{Module / Layer}                           & \textbf{Statements} & \textbf{Missed} & \textbf{Coverage} \\
         \hline
@@ -2132,7 +2093,7 @@ Coverage was measured with \texttt{pytest-cov} against the full \texttt{app/} pa
         \hline
         \textbf{TOTAL}                                    & \textbf{6326}       & \textbf{1196}   & \textbf{81\%}     \\
         \hline
-    \end{tabular}
+    \end{tabularx}
     \caption{Backend Code Coverage by Module (pytest-cov, May 2026)}
 \end{table}
 
@@ -2144,7 +2105,7 @@ Running the full suite (\texttt{pytest tests/ -q}) on 33 test files:
 
 \begin{table}[h]
     \centering
-    \begin{tabular}{|l|r|}
+    \begin{tabularx}{\textwidth}{|l|X|}
         \hline
         \textbf{Metric}         & \textbf{Value} \\
         \hline
@@ -2160,7 +2121,7 @@ Running the full suite (\texttt{pytest tests/ -q}) on 33 test files:
         \hline
         Business logic coverage & 87\%           \\
         \hline
-    \end{tabular}
+    \end{tabularx}
     \caption{Test Execution Summary}
 \end{table}
 
@@ -2181,7 +2142,7 @@ Ten end-to-end scenarios were executed manually on the deployed system. All 10 s
 
 \begin{table}[h]
     \centering
-    \begin{tabular}{|l|l|l|}
+    \begin{tabularx}{\textwidth}{|l|l|X|}
         \hline
         \textbf{Scenario}                      & \textbf{Objective}                            & \textbf{Result} \\
         \hline
@@ -2205,9 +2166,23 @@ Ten end-to-end scenarios were executed manually on the deployed system. All 10 s
         \hline
         10. Responsive Design                  & Mobile and desktop layouts verified           & Passed          \\
         \hline
-    \end{tabular}
+    \end{tabularx}
     \caption{User Acceptance Test Results}
 \end{table}
+
+% =========================================================
+\chapter{User Interface / User Experience}
+\label{chap:uiux}
+% =========================================================
+
+% ---------------------------------------------------------
+\section{Web Application Interfaces}
+% ---------------------------------------------------------
+
+
+% ---------------------------------------------------------
+\section{Mobile Application Interfaces}
+% ---------------------------------------------------------
 
 % =========================================================
 \chapter{Use Case Demo}
