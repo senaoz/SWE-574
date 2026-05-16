@@ -8,63 +8,228 @@
 
 ## [Ayşenur Ünal](https://github.com/aysenurunal)
 
-The personalised recommendation system, service-match notification feature, moderator pinning system, community member visibility improvements, and save/bookmark feature were implemented. The test strategy was led across all three layers of the stack (backend, frontend, Android), with active participation in code review and bug triage throughout the project.
+## Executive Summary
+
+I contributed across the backend, React web frontend, and Android test layers, with a strong focus on recommendation quality, dashboard usability, moderation workflows, community visibility, notifications, and test coverage. My largest feature contribution was the personalised recommendation system on the web dashboard, including pagination, interest/location matching, cold-start fallback, and explainability tooltips. I also implemented the save/bookmark flow, service-match notifications, moderator pinning across multiple content types, and community member visibility improvements. In parallel, I led a major quality push by adding and improving backend, frontend, and Android unit tests, fixing local test blockers, and participating actively in code review, merge integration, and bug triage.
 
 ---
 
-### Coding Contributions
+## Code Contributions
 
-#### Recommendation System (Web)
-- The Dashboard "For You" section was built with pagination, interest + location matching, and cold-start fallback for new users (FR-14)
-- A hover tooltip was added to recommendation cards to explain why a service was surfaced
-- Filter state was preserved after back-navigation; interest matching was tightened to reduce over-broad results
-- Recommendation algorithm mismatches were identified and corrected
+### 1. Personalised Recommendation System (Web + Backend)
 
-**Key commits:** `ebc3326` `c8e8b05` `9a6fc90` `fca8308` `23e47da`  
+I implemented the Dashboard “For You” recommendation experience, making service discovery more personalised and useful for each user. Related requirement: FR-14.
+
+- Added recommendation-related backend support for service posts and surfaced recommended services on the Dashboard
+- Built the “For You” section with pagination and active offer/need matching
+- Implemented interest-based matching and later tightened the algorithm to avoid over-broad recommendations
+- Added location-based cold-start fallback for users with limited profile or activity history
+- Added profile guidance so users understand when missing interests/location reduce recommendation quality
+- Added hover tooltips to recommendation cards explaining why a service was recommended
+- Preserved Dashboard filter state after back-navigation to avoid losing user context
+
+**Key commits:** `df7bb88` `bdd17c7` `ebc3326` `23e47da` `fca8308` `c8e8b05` `9a6fc90`  
 **Related PRs:** [#252](https://github.com/senaoz/SWE-574/pull/252) [#253](https://github.com/senaoz/SWE-574/pull/253)
 
-#### Service Match Notification (Backend + Frontend)
-- A background service was implemented to notify users when a newly posted service matches their saved interests or open Need posts (FR-9)
-- The flow was implemented end-to-end: backend trigger → notification record → frontend badge update
+<img width="383" height="631" alt="Ekran Resmi 2026-05-16 ÖS 9 14 51" src="https://github.com/user-attachments/assets/3eb9ca76-f75c-45d0-9c24-6bdc85377ef2" />
+
+<img width="684" height="529" alt="Ekran Resmi 2026-05-16 ÖS 9 44 08" src="https://github.com/user-attachments/assets/2a214637-699e-450b-96a0-fbe2dc6400a7" />
+
+
+---
+
+### 2. Save / Bookmark Flow and Dashboard UX
+
+I implemented the save/bookmark interaction for service cards and improved Dashboard filtering and sorting usability.
+
+- Added the save/heart button to Dashboard and Home listing cards
+- Wired saved service state through backend API, service model, and frontend card state
+- Fixed stale save/unsave state across Dashboard, Home, My Services, and Profile navigation
+- Introduced React Query cache invalidation at the correct saved-service query granularity
+- Added Dashboard sorting support such as newest-to-oldest ordering
+- Fixed Dashboard filter persistence after navigating away and returning
+
+**Key commits:** `473556f` `6320188` `1da154b` `46a8ae8` `89a5ccd` `fca8308`  
+**Related PRs:** [#252](https://github.com/senaoz/SWE-574/pull/252) [#253](https://github.com/senaoz/SWE-574/pull/253)
+
+<img width="120" height="90" alt="Ekran Resmi 2026-05-16 ÖS 9 41 22" src="https://github.com/user-attachments/assets/a3ae6e70-2d1b-43a0-80f1-ab2fa7c056fb" />
+
+<img width="334" height="293" alt="Ekran Resmi 2026-05-16 ÖS 9 46 48" src="https://github.com/user-attachments/assets/723aa695-669c-449b-994c-7406806538b7" />
+
+---
+
+### 3. Service Match Notification Feature (Backend + Frontend Contract)
+
+I implemented the notification flow that alerts users when a newly created service matches their saved interests or open Need posts. Related requirement: FR-9.
+
+- Added backend matching logic when new service posts are created
+- Created notification records for users whose interests or Needs match the new post
+- Extended the notification model/types to support service-match notifications
+- Connected the backend trigger to the frontend notification contract so the notification badge can reflect new matches
+- Added backend tests for the matching and notification behavior
 
 **Key commits:** `6be87f0` `b0524cd`  
 **Related PR:** [#433](https://github.com/senaoz/SWE-574/pull/433)
 
-#### Moderator Pinning (Web)
-- Pinning controls were added for moderators and admins across posts, communities, discussions, and events (FR-12)
-- A two-pin-per-category server-side limit was enforced with client-side tooltip feedback
+<img width="347" height="186" alt="Ekran Resmi 2026-05-16 ÖS 9 42 26" src="https://github.com/user-attachments/assets/b171df2b-ec72-43b9-8a95-b8ed69efabd9" />
+
+
+---
+
+### 4. Moderator Pinning System (Backend + Web + Android API Support)
+
+I implemented moderator/admin pinning across several platform content types. Related requirement: FR-12.
+
+- Added pin/unpin support for service posts, communities, forum discussions, and events
+- Enforced a two-pin-per-category limit on the backend
+- Added client-side moderator/admin controls and disabled-state feedback
+- Added tooltip feedback explaining why a moderator cannot pin more content when the limit is reached
+- Extended backend models, services, and API routes for pinned content
+- Updated Android API DTOs and repositories so mobile clients can consume pinned-state data
+- Added backend tests for pinning behavior and service API coverage
 
 **Key commits:** `de9f6a5` `e1304f7`  
 **Related PR:** [#409](https://github.com/senaoz/SWE-574/pull/409)
 
-#### Community Member Visibility
-- Member count, avatar row, and "Show all members" modal were added to community pages
-- Community banners and related event cards were surfaced on community profiles
+<img width="188" height="57" alt="Ekran Resmi 2026-05-16 ÖS 9 15 37" src="https://github.com/user-attachments/assets/379dfb10-b216-41c4-9bcd-ae51570e8259" />
 
-**Key commits:** `43eefe6` `5bddceb` `37bd06a`  
-**Related PRs:** [#376](https://github.com/senaoz/SWE-574/pull/376) [#378](https://github.com/senaoz/SWE-574/pull/378)
-
-#### Save / Bookmark and Dashboard UX
-- A save (heart) button was added to Dashboard and Home listing cards; stale save/unsave state across navigations was fixed
-- A sort filter was added to the Dashboard (newest to oldest, etc.)
-
-**Key commits:** `6320188` `89a5ccd` `1da154b`  
-**Related PRs:** [#252](https://github.com/senaoz/SWE-574/pull/252) [#253](https://github.com/senaoz/SWE-574/pull/253)
-
-#### Test Suite (All Layers)
-- **Backend:** unit tests were written for `ChatService`, `TransactionService`, upload API, duplicate transaction prevention, badge regression, and reports/communities/wikidata coverage
-- **Frontend:** multiple Vitest improvement passes were completed; local test suite blockers were resolved
-- **Android:** mobile unit tests were added
-
-**Key commits:** `18fd546` `be81fe3` `4e58339` `cb2f5b8` `f17f69a` `62c258f` `1b14765` `8174f23` `099ba66` `4f9383b` `76d76f2`  
-**Related PRs:** [#136](https://github.com/senaoz/SWE-574/pull/136) [#377](https://github.com/senaoz/SWE-574/pull/377) [#449](https://github.com/senaoz/SWE-574/pull/449) [#452](https://github.com/senaoz/SWE-574/pull/452) [#454](https://github.com/senaoz/SWE-574/pull/454)
 
 ---
 
-### Challenges
-- **Recommendation cold-start** — users with no history had no results; a location-based fallback was introduced, requiring a separate API call and a merge strategy for the two result sets
-- **Stale save state** — the heart button went out of sync across navigations; React Query cache invalidation at the correct query key granularity was required
-- **Test ordering in CI** — mongomock fixture teardown order caused intermittent failures in parallel test runs; fixture scope and teardown sequencing were adjusted
+### 5. Community Member Visibility and Profile Enhancements
+
+I improved community pages and profile-community visibility so users can better understand who belongs to a community and what activity is connected to it.
+
+- Added member count and avatar row to community detail pages
+- Added “Show all members” modal for browsing community members
+- Improved community banners and image visibility
+- Surfaced community membership on user profiles and user detail pages
+- Added related event cards to community/profile views
+- Updated backend community/user APIs and models to support the new community display data
+- Added community service/API tests for the new behavior
+
+**Key commits:** `43eefe6` `c41b80b` `37bd06a` `5bddceb`  
+**Related PRs:** [#376](https://github.com/senaoz/SWE-574/pull/376) [#378](https://github.com/senaoz/SWE-574/pull/378)
+
+<img width="334" height="101" alt="Ekran Resmi 2026-05-16 ÖS 9 16 33" src="https://github.com/user-attachments/assets/ee8d5dc4-650c-4ae9-979a-d565e35ded75" />
+
+<img width="514" height="522" alt="Ekran Resmi 2026-05-16 ÖS 9 16 04" src="https://github.com/user-attachments/assets/813d6915-6430-4ce5-bb42-da7ee914b0ff" />
+
+
+---
+
+### 6. Content Moderation and Service Flow Fixes
+
+I contributed backend and frontend fixes around service creation, transaction correctness, and user-generated content quality.
+
+- Added profanity/content moderation checks around service-related user-generated text flows
+- Updated shared moderation-related backend services
+- Fixed offer post creation issues in the frontend service form
+- Fixed transaction handling for Need posts in the join request flow
+- Resolved frontend type-check errors across auth, forms, layout, comments, forum, profile, and Wikidata-related code
+
+**Key commits:** `896ee46` `6b65543` `fadc61f` `4484310`
+
+---
+
+### 7. Map and Event UX Fixes
+
+I contributed fixes to event/map behavior and profile navigation from event attendance surfaces.
+
+- Fixed map event filtering logic
+- Ensured cancelled or inactive event/service data was handled correctly in the map utility layer
+- Fixed attendee profile links from event detail views
+- Added frontend utility tests for map event behavior
+
+**Key commit:** `75cf9ca`
+
+---
+
+### 8. Test Suite and Quality Engineering (Backend + Frontend + Android)
+
+I led a broad test coverage effort across all three layers of the project.
+
+**Backend**
+- Added unit tests for `ChatService`, covering room creation, participant authorization, duplicate/existing room behavior, and soft-delete behavior
+- Added unit tests for `TransactionService`
+- Added duplicate transaction and repeated finalization regression tests
+- Added upload API tests
+- Added badge regression coverage
+- Added backend API tests for admin, chat, comments, forum, join requests, ratings, transactions, upload, and users
+- Added backend coverage for reports, communities, and Wikidata
+- Fixed local backend/frontend test blockers
+
+**Frontend**
+- Added and improved Vitest coverage across major components and pages
+- Covered Dashboard, Home, Forum, Profile, Settings, UserDetail, ServiceDetail, My Services, Saved Services, Chat, Admin Panel, Notification Bell, Service Status Bar, OfferListingCard, Applicant lists, modals, Markdown editor, tag autocomplete, and Wikidata services
+- Fixed frontend type-check and test setup issues blocking the local suite
+
+**Android**
+- Added mobile unit tests for DTOs, repositories, notification/community/Wikidata flows, badge utilities, format utilities, and service completion rating arguments
+
+**Key commits:** `2c40cc8` `2b3272d` `c273de7` `c47b83f` `495e006` `4e58339` `45d5600` `be81fe3` `cb2f5b8` `76d76f2` `18fd546` `f17f69a` `62c258f` `1b14765` `8174f23` `099ba66` `4f9383b`  
+**Related PRs:** [#136](https://github.com/senaoz/SWE-574/pull/136) [#377](https://github.com/senaoz/SWE-574/pull/377) [#449](https://github.com/senaoz/SWE-574/pull/449) [#452](https://github.com/senaoz/SWE-574/pull/452) [#454](https://github.com/senaoz/SWE-574/pull/454)
+
+___
+
+### 9. Profanity / Content Moderation (Backend)
+
+I added profanity and content moderation checks to improve the safety and quality of user-generated content across the platform.
+
+- Integrated profanity detection into backend service flows
+- Added moderation checks for service-related user-generated content
+- Extended moderation behavior across chat, comments, and service posts
+- Prevented suspected profanity from being published directly in titles, comments, and chat messages
+- Improved platform trust and content quality by adding an automated first-layer moderation guard
+
+**Key commit:** `896ee46`  
+**Related PR:** [#98](https://github.com/senaoz/SWE-574/pull/98)
+___
+
+### 10. Advanced Dashboard Sorting and Discovery Controls (Web)
+
+I improved Dashboard discovery by adding explicit sorting controls so users could browse services not only by recommendation relevance, but also by freshness, effort, and proximity.
+
+- Added a dedicated `Sort` filter to the Dashboard filter bar
+- Implemented multiple ranking options:
+  - Recommended
+  - Newest to oldest
+  - Oldest to newest
+  - Highest hours first
+  - Lowest hours first
+  - Closest to far
+  - Farthest to nearest
+- Preserved recommendation ordering as the default unless the user selected another sort mode
+- Added guards so distance-based sorting is disabled when user location is unavailable
+- Applied sorting after existing Dashboard filters so search, city, availability, and recommendation filters continue to work together
+- Improved Dashboard usability by giving users more control over how they browse offer/need posts
+
+**Key commits:** `89a5ccd` `ebc3326`  
+**Related PR:** [#215](https://github.com/senaoz/SWE-574/pull/215)
+
+<img width="1055" height="65" alt="Ekran Resmi 2026-05-16 ÖS 9 56 10" src="https://github.com/user-attachments/assets/024dc3b4-d065-452c-9901-061230f0e97f" />
+
+
+---
+
+
+## Technical Challenges
+
+### Recommendation Cold-Start and Matching Quality
+
+The recommendation system initially struggled for users with no saved interests, no history, or incomplete profile data. I introduced a location-based fallback and merged those results with interest-based recommendations, while also tightening the matching logic so broad tags did not produce noisy “For You” results.
+
+### Stale Save / Unsave State
+
+The save heart button could go out of sync after navigation because different pages reused cached service data. Fixing this required invalidating and refreshing the correct React Query keys so Dashboard, Home, Profile, and saved-service views stayed consistent.
+
+### Moderator Pin Limits Across Content Types
+
+Pinning had to work consistently across posts, communities, discussions, and events while enforcing the same two-pin-per-category rule. This required coordinated backend validation, frontend disabled states, moderator/admin permission checks, and tooltip feedback.
+
+### Test Stability and Coverage Expansion
+
+Expanding the test suite exposed local blockers, type issues, and regression-prone backend paths. I resolved these blockers while adding focused tests around transactions, chat, upload, badges, communities, reports, Wikidata, frontend UI behavior, and Android utilities.
 
 ---
 
