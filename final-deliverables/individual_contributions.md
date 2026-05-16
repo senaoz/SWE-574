@@ -54,6 +54,7 @@ I implemented the save/bookmark interaction for service cards and improved Dashb
 
 <img width="120" height="90" alt="Ekran Resmi 2026-05-16 ÖS 9 41 22" src="https://github.com/user-attachments/assets/a3ae6e70-2d1b-43a0-80f1-ab2fa7c056fb" />
 
+<img width="334" height="293" alt="Ekran Resmi 2026-05-16 ÖS 9 46 48" src="https://github.com/user-attachments/assets/723aa695-669c-449b-994c-7406806538b7" />
 
 ---
 
@@ -168,6 +169,46 @@ I led a broad test coverage effort across all three layers of the project.
 
 **Key commits:** `2c40cc8` `2b3272d` `c273de7` `c47b83f` `495e006` `4e58339` `45d5600` `be81fe3` `cb2f5b8` `76d76f2` `18fd546` `f17f69a` `62c258f` `1b14765` `8174f23` `099ba66` `4f9383b`  
 **Related PRs:** [#136](https://github.com/senaoz/SWE-574/pull/136) [#377](https://github.com/senaoz/SWE-574/pull/377) [#449](https://github.com/senaoz/SWE-574/pull/449) [#452](https://github.com/senaoz/SWE-574/pull/452) [#454](https://github.com/senaoz/SWE-574/pull/454)
+
+___
+
+### 9. Profanity / Content Moderation (Backend)
+
+I added profanity and content moderation checks to improve the safety and quality of user-generated content across the platform.
+
+- Integrated profanity detection into backend service flows
+- Added moderation checks for service-related user-generated content
+- Extended moderation behavior across chat, comments, and service posts
+- Prevented suspected profanity from being published directly in titles, comments, and chat messages
+- Improved platform trust and content quality by adding an automated first-layer moderation guard
+
+**Key commit:** `896ee46`  
+**Related PR:** [#98](https://github.com/senaoz/SWE-574/pull/98)
+___
+
+### 10. Advanced Dashboard Sorting and Discovery Controls (Web)
+
+I improved Dashboard discovery by adding explicit sorting controls so users could browse services not only by recommendation relevance, but also by freshness, effort, and proximity.
+
+- Added a dedicated `Sort` filter to the Dashboard filter bar
+- Implemented multiple ranking options:
+  - Recommended
+  - Newest to oldest
+  - Oldest to newest
+  - Highest hours first
+  - Lowest hours first
+  - Closest to far
+  - Farthest to nearest
+- Preserved recommendation ordering as the default unless the user selected another sort mode
+- Added guards so distance-based sorting is disabled when user location is unavailable
+- Applied sorting after existing Dashboard filters so search, city, availability, and recommendation filters continue to work together
+- Improved Dashboard usability by giving users more control over how they browse offer/need posts
+
+**Key commits:** `89a5ccd` `ebc3326`  
+**Related PR:** [#215](https://github.com/senaoz/SWE-574/pull/215)
+
+<img width="1055" height="65" alt="Ekran Resmi 2026-05-16 ÖS 9 56 10" src="https://github.com/user-attachments/assets/024dc3b4-d065-452c-9901-061230f0e97f" />
+
 
 ---
 
