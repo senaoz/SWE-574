@@ -102,15 +102,40 @@ The backend service layer and React web frontend were owned throughout all miles
 <img width="1912" height="1345" alt="Screenshot 2026-05-16 at 17 17 08" src="https://github.com/user-attachments/assets/182c70f0-e69e-4682-b9ae-3e9409b67c58" />
 
 
-#### CI/CD and Test Infrastructure
-- `docker-compose.yml`, backend/frontend `Dockerfile`s, and the GitHub Actions deploy workflow were authored
-- Codecov integration was added for backend (`pytest --cov`) and frontend (Vitest) coverage reporting (PR [#429](https://github.com/senaoz/SWE-574/pull/429))
+#### Profile Activity Dashboard (Web)
+- An Activity tab was added to the Profile page with a 52-week GitHub-style heatmap, credit balance trend line chart, activity radar chart, streak counter, and achievement badge display (`4a11e34` `5fe34a3` `aa9e5fe` `f2fd1f7` `fbc8bff`)
+- A stats strip with current TimeBank balance was added to the profile header and services summary (`755c3f5`)
+- Tag cloud with sentiment-based colour coding and count-based sizing was introduced (`ba0fd27` range)
+
+#### File Upload System (Backend + Web)
+- The full file upload pipeline was built: multipart form handling in FastAPI, file type/size validation, storage routing to category-specific directories (`profile/`, `services/`, `ratings/`, `comments/`, `forum-events/`, `discussions/`), and static serving at `/uploads/` — commit `606893b`
+- Image upload was added to comments (`544fdf3`), ratings (`8ab5285`), forum events (`afb95ff`), and service creation (`65199fb`)
+- A persistent Docker volume (`uploads`) was added to `docker-compose.yml` so uploaded files survive container restarts (`4308b84`)
+- Empty-file edge case was handled in the upload endpoint to return an empty string rather than raising an exception (`2dd8cdf`)
+- Moderator image editing for forum discussions and events was added (PRs [#450](https://github.com/senaoz/SWE-574/pull/450) [#451](https://github.com/senaoz/SWE-574/pull/451))
+
+#### Dockerization, Deployment and CI/CD
+- The entire containerised stack was authored from scratch in the initial commit (`d7d7b71`): `backend/Dockerfile` (21 lines, multi-stage), `frontend/Dockerfile` (36 lines, Nginx-served production build), and `docker-compose.yml` (60 lines) wiring backend, frontend, and MongoDB with a shared network
+- `PYTHONUNBUFFERED` and MongoDB URL env vars were added to `docker-compose.yml` for correct log streaming and connection handling (`2843c59` `a3f99cc`)
+- Port exposure strategy was refined: external ports were removed for backend/frontend containers (traffic routed through Nginx), while MongoDB remained accessible on `localhost:38017` for local dev (`21cc4ed` `d702efa`)
+- An uploads Docker volume was introduced for persistent file storage across deployments (`4308b84`)
+- The GitHub Actions deploy workflow was built from scratch (`77b34b9`): on push to `main`, Docker images are rebuilt on the Easypanel host via a webhook `curl` call
+- A test job was added as a prerequisite gate — backend `pytest` and frontend `npm test` must pass before the deploy step fires (`2222d65`)
+- Frontend tests were integrated into the workflow and Easypanel deployment URL and `curl` timeout/retry options were hardened (`0419bae` `8e9020d`)
+- Codecov coverage upload was added for both backend (`pytest --cov`) and frontend (Vitest) with separate token scoping (`3fa9e3f` `d406477`)
+
+**Key commits:** `d7d7b71` `2843c59` `a3f99cc` `21cc4ed` `4308b84` `77b34b9` `2222d65` `3fa9e3f`  
+**Related PRs:** [#429](https://github.com/senaoz/SWE-574/pull/429)
+
+#### Test Infrastructure (Backend + Frontend)
+- Vitest was integrated into the frontend with coverage support; initial auth component tests were written (`52a9586`)
 - A 307-test integration and unit suite across 36 frontend files was added (PR [#440](https://github.com/senaoz/SWE-574/pull/440))
 - Additional backend test coverage was added for remaining modules (PR [#449](https://github.com/senaoz/SWE-574/pull/449))
 
 ---
 
 ### Challenges
+- **Persistent uploads across container restarts** — uploaded files were lost on every `docker compose up --build` cycle because the build context was re-copied; a named Docker volume mounted at `/app/uploads` was required to decouple the upload directory from the image layer
 - **TimeBank anti-hoarding enforcement** — the backend guard and frontend prompt had to be coordinated without breaking existing exchange flows across all edge cases
 - **MongoDB ObjectId / string ID mismatch** — query paths in the transaction service returned inconsistent results depending on ID type; fixed in `0de5643`
 - **Test harness 422 vs 401** — mongomock validates request bodies before the auth check, causing 17 known test failures; the discrepancy was documented rather than masked

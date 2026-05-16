@@ -1,4 +1,4 @@
-\documentclass[10pt,a4paper]{report}
+\documentclass[11pt,a4paper]{report}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[english]{babel}
@@ -17,6 +17,7 @@
 \usepackage{multirow}
 \usepackage{tikz}
 \usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, backgrounds, calc}
+\usepackage{tcolorbox}
 
 % Page geometry
 \geometry{
@@ -50,7 +51,9 @@
     commentstyle=\color{green!60!black},
     stringstyle=\color{red},
     showspaces=false,
-    showstringspaces=false
+    showstringspaces=false,
+    extendedchars=true,
+    inputencoding=utf8
 }
 
 % Header and footer
@@ -114,39 +117,41 @@ This chapter lists all project deliverables submitted across the two milestones 
     \centering
     \begin{tabularx}{\textwidth}{|l|X|}
         \hline
-        \textbf{Deliverable}                 & \textbf{Location}                                                                    \\
+        \textbf{Deliverable}                 & \textbf{Location}                                                                           \\
         \hline
-        Software Requirements Specification  & \url{https://github.com/senaoz/SWE-574/wiki/SRS}                                     \\
+        Software Requirements Specification  & \url{https://github.com/senaoz/SWE-574/wiki/SRS}                                            \\
         \hline
-        UML Diagrams                         & \url{https://github.com/senaoz/SWE-574/wiki/UML-Diagrams}                            \\
+        UML Diagrams                         & \url{https://github.com/senaoz/SWE-574/wiki/UML-Diagrams}                                   \\
         \hline
-        Scenarios \& Mockups                 & \url{https://github.com/senaoz/SWE-574/wiki/Scenarios-\&-Mockups}                    \\
+        Scenarios \& Mockups                 & \url{https://github.com/senaoz/SWE-574/wiki/Scenarios-\&-Mockups}                           \\
         \hline
-        Project Plan                         & \url{https://github.com/senaoz/SWE-574/wiki}                                         \\
+        Project Plan                         & \url{https://github.com/senaoz/SWE-574/wiki}                                                \\
         \hline
-        Communication Plan                   & \url{https://github.com/senaoz/SWE-574/wiki/Communication-Plan}                      \\
+        Communication Plan                   & \url{https://github.com/senaoz/SWE-574/wiki/Communication-Plan}                             \\
         \hline
-        Responsibility Assignment Matrix     & \url{https://github.com/senaoz/SWE-574/wiki/Responsibility-Assignment-Matrix-(RACI)} \\
+        Responsibility Assignment Matrix     & \url{https://github.com/senaoz/SWE-574/wiki/Responsibility-Assignment-Matrix-(RACI)}        \\
         \hline
-        Weekly Reports \& Meeting Notes      & \url{https://github.com/senaoz/SWE-574/wiki/Meeting-Notes}                           \\
+        Weekly Reports \& Meeting Notes      & \url{https://github.com/senaoz/SWE-574/wiki/Meeting-Notes}                                  \\
         \hline
-        Final Project Report (this document) & \texttt{reports/latex/main.pdf} in repository                                        \\
+        Final Project Report (this document) & \url{https://github.com/senaoz/SWE-574/tree/main/final-deliverables}
+        \\
         \hline
-        Source Code Repository               & \url{https://github.com/senaoz/SWE-574}                                              \\
+        Source Code Repository               & \url{https://github.com/senaoz/SWE-574}                                                     \\
         \hline
-        Live Web Deployment                  & \url{https://swe.gnahh5.easypanel.host}                                              \\
+        Live Web Deployment                  & \url{https://swe.gnahh5.easypanel.host}                                                     \\
         \hline
-        Android APK                          & \texttt{apk/} directory in repository root                                           \\
+        Android APK                          & \url{https://github.com/senaoz/SWE-574/tree/main/apk}                                        \\
         \hline
-        Demo Video                           & \textit{[TBD --- link to be added before submission. Maximum 5 minutes.]}            \\
+        Demo Video                           & \textit{\url{https://drive.google.com/file/d/1BxsD2vjVa1TiVinZe4NU7vNgSqXYdloy/view?usp=sharing}} \\
         \hline
-        Backend API Documentation            & \url{https://backend-swe.gnahh5.easypanel.host/docs}                                 \\
+        Backend API Documentation            & \url{https://backend-swe.gnahh5.easypanel.host/docs}                                        \\
         \hline
-        Updated SRS                          & \url{https://github.com/senaoz/SWE-574/wiki/SRS}                                     \\
+        Updated SRS                          & \url{https://github.com/senaoz/SWE-574/wiki/SRS}                                            \\
         \hline
-        Architecture \& Design Docs          & \url{https://github.com/senaoz/SWE-574/wiki/UML-Diagrams}                            \\
+        Architecture \& Design Docs          & \url{https://github.com/senaoz/SWE-574/wiki/UML-Diagrams}                                   \\
         \hline
-        AI Use Declaration                   & \texttt{AI\_USAGE.md} in repository root (also Chapter~9 of this report)             \\
+        AI Use Declaration                   & \url{https://github.com/senaoz/SWE-574/blob/main/AI_USAGE.md}
+        \\
         \hline
     \end{tabularx}
 \end{table}
@@ -157,7 +162,7 @@ This chapter lists all project deliverables submitted across the two milestones 
 
 \section{Demo Video}
 
-\textit{[TBD --- A demo video of no more than 5 minutes will be provided before final submission.]}
+\textit{\url{https://drive.google.com/file/d/1BxsD2vjVa1TiVinZe4NU7vNgSqXYdloy/view?usp=sharing}}
 
 \section{Test User Accounts}
 
@@ -2008,9 +2013,9 @@ curl -s -X POST \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "title": "Community Repair Café",
+    "title": "Community Repair Cafe",
     "description": "Bring broken items and fix them together.",
-    "location": "Kadıköy, Istanbul",
+    "location": "Kadikoy, Istanbul",
     "date": "2026-06-14T10:00:00",
     "banner_image_url": "/uploads/forum-events/68f67f9c_1778401261.webp",
     "community_id": null
@@ -2022,7 +2027,7 @@ curl -s -X POST \
 \begin{lstlisting}
 {
   "_id": "6a1f3d22abc44e001b3c8f01",
-  "title": "Community Repair Café",
+  "title": "Community Repair Cafe",
   "description": "Bring broken items and fix them together.",
   "date": "2026-06-14T10:00:00",
   "banner_image_url": "/uploads/forum-events/68f67f9c_1778401261.webp",
@@ -2382,12 +2387,22 @@ Ten end-to-end scenarios were executed manually on the deployed system. All 10 s
 % ---------------------------------------------------------
 \section{Web Application Interfaces}
 % ---------------------------------------------------------
-Web Application Interfaces: \url{https://github.com/senaoz/SWE-574/wiki/Web-Interfaces}
+
+The Hive web application is built with React and TypeScript, offering a responsive and accessible interface for all core platform features. Users can browse and post services, manage their TimeBank balance, participate in forum discussions and events, join communities, and configure their profile settings. The design follows a clean, card-based layout with light and dark mode support.
+
+Full annotated screenshots of all major web screens are available in the project wiki:
+
+\url{https://github.com/senaoz/SWE-574/wiki/Web-Interfaces}
 
 % ---------------------------------------------------------
 \section{Mobile Application Interfaces}
 % ---------------------------------------------------------
-Mobile Application Interfaces: \url{https://github.com/senaoz/SWE-574/wiki/App-Interfaces}
+
+The Hive Android application is developed with Kotlin and Jetpack Compose, providing a native mobile experience that shares the same backend as the web client. The app supports service discovery, user profiles, join requests, transaction history, and real-time notifications. The interface follows Material Design 3 guidelines and adapts to both light and dark system themes.
+
+Full annotated screenshots of all major mobile screens are available in the project wiki:
+
+\url{https://github.com/senaoz/SWE-574/wiki/App-Interfaces}
 
 % =========================================================
 \chapter{Use Case Demo}
@@ -2696,6 +2711,58 @@ The Hive Platform has been successfully designed, developed, tested, and deploye
 
 \section{Final Statement}
 
-The Hive Platform represents a complete implementation of a community service exchange system based on the TimeBank concept. The project demonstrates proficiency in full-stack web development (React, FastAPI, MongoDB), mobile development (Android/Kotlin), software engineering practices (RBAC, geospatial queries, content moderation, CI/CD), and systematic project management from requirements through production deployment.
+The Hive Platform was conceived as a community-driven service exchange system, and over the course of the semester it grew into a fully deployed, production-grade application. What began as a set of requirements on paper became a live platform where real users can offer and request services, earn and spend time credits, connect through forum discussions and events, and build communities around shared interests.
+
+Building this system required sustained collaboration across every layer of the stack. The backend team designed a layered FastAPI architecture with careful attention to security, scalability, and testability. The frontend team delivered a polished React application with features that rival commercial platforms. The mobile team shipped a native Android client in Kotlin that brings the full Hive experience to handheld devices. Throughout, the team maintained a CI/CD pipeline, wrote over 450 automated tests, and kept the live deployment continuously available.
+
+Beyond the technical output, this project was an exercise in software engineering as a discipline: negotiating trade-offs, managing complexity, responding to feedback, and delivering working software iteratively. The result is a platform we are proud to submit --- not as a prototype, but as a complete, working system.
+
+\section{Individual Contributions}
+
+Detailed individual contributions for each team member are maintained as a living document in the project repository. The document includes per-member task breakdowns, sprint-level summaries, commit references, screenshots of completed work, and links to relevant pull requests. It covers contributions across all layers of the system — backend, frontend, mobile, testing, documentation, and DevOps — and is updated to reflect the full scope of work delivered throughout the semester.
+
+The individual contributions document is available at:
+
+\url{https://github.com/senaoz/SWE-574/blob/main/final-deliverables/individual_contributions.md}
+
+% =========================================================
+\chapter{Honor Code Declarations}
+% =========================================================
+
+Each team member signs the following declaration. Four identical declarations follow, one per member. Name, signature, and date are filled in by hand on the printed copy.
+
+\newcommand{\honordeclaration}{%
+\begin{tcolorbox}[
+    colback=white,
+    colframe=blue!50!black,
+    fonttitle=\bfseries,
+    title=Honor Code Declaration,
+    arc=4pt,
+    boxrule=1.5pt,
+    left=8pt, right=8pt, top=8pt, bottom=8pt
+]
+Related to the submission of all project deliverables for the SWE 574 Spring 2026 semester project, I declare that:
+\begin{itemize}
+    \item I am registered for SWE 574 during the Spring 2026 semester.
+    \item All submitted materials have been prepared by myself and/or my project team.
+    \item Any permitted external assistance or reused software has been explicitly disclosed.
+    \item I understand that plagiarism and unauthorized code reuse are academic integrity violations.
+\end{itemize}
+
+\vspace{0.5cm}
+\textbf{Name:} \underline{\hspace{8cm}}
+
+\vspace{0.5cm}
+\textbf{Signature:} \underline{\hspace{6cm}}
+
+\vspace{0.5cm}
+\textbf{Date:} \underline{\hspace{4cm}}
+\end{tcolorbox}
+}
+
+\honordeclaration
+\honordeclaration
+\honordeclaration
+\honordeclaration
 
 \end{document}
