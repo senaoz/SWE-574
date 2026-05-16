@@ -12,7 +12,9 @@ A community-oriented time-bank service exchange platform built for the **SWE 574
 |----------|-----|
 | Live Application | [https://swe.gnahh5.easypanel.host](https://swe.gnahh5.easypanel.host) |
 | Backend API Docs | [https://backend-swe.gnahh5.easypanel.host/docs](https://backend-swe.gnahh5.easypanel.host/docs) |
-| Testing Coverage - Codecov | [https://app.codecov.io/gh/senaoz/SWE-574/tree/main](https://app.codecov.io/gh/senaoz/SWE-574/tree/main) |
+| Wiki | [https://github.com/senaoz/SWE-574/wiki](https://github.com/senaoz/SWE-574/wiki) |
+| Testing Coverage for Backend - Codecov | [https://app.codecov.io/gh/senaoz/SWE-574/tree/main](https://app.codecov.io/gh/senaoz/SWE-574/tree/main) |
+| UML Diagrams | [https://github.com/senaoz/SWE-574/wiki/UML-Diagrams](https://github.com/senaoz/SWE-574/wiki/UML-Diagrams) |
 | GitHub Actions | [https://github.com/senaoz/SWE-574/actions](https://github.com/senaoz/SWE-574/actions) |
 
 ### Test Accounts
