@@ -9,6 +9,7 @@ import com.hive.hive_app.data.api.dto.CommunityPostCreate
 import com.hive.hive_app.data.api.dto.CommunityPostListResponse
 import com.hive.hive_app.data.api.dto.CommunityPostResponse
 import com.hive.hive_app.data.api.dto.CommunityResponse
+import com.hive.hive_app.data.api.dto.ForumEventListResponse
 import com.hive.hive_app.data.api.dto.ForumUserEmbed
 import com.hive.hive_app.data.api.dto.UpvoteResponse
 import kotlinx.coroutines.runBlocking
@@ -129,6 +130,10 @@ class CommunityRepositoryTest {
             postId: String,
             pinned: Boolean
         ): Response<CommunityPostResponse> = unused()
+
+        override suspend fun getCommunityEvents(
+            communityId: String
+        ): Response<ForumEventListResponse> = unused()
 
         private fun <T> unused(): Response<T> {
             throw UnsupportedOperationException("Unused in this test")

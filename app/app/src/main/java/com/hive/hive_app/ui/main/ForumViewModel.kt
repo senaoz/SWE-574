@@ -676,6 +676,12 @@ class ForumViewModel @Inject constructor(
 
     private val _communityById = MutableStateFlow<Map<String, CommunityResponse>>(emptyMap())
     val communityById: StateFlow<Map<String, CommunityResponse>> = _communityById.asStateFlow()
+    private val _communityEventsById = MutableStateFlow<Map<String, List<ForumEventResponse>>>(emptyMap())
+    val communityEventsById: StateFlow<Map<String, List<ForumEventResponse>>> = _communityEventsById.asStateFlow()
+    private val _communityEventsLoading = MutableStateFlow<Set<String>>(emptySet())
+    val communityEventsLoading: StateFlow<Set<String>> = _communityEventsLoading.asStateFlow()
+    private val _communityEventsErrorById = MutableStateFlow<Map<String, String?>>(emptyMap())
+    val communityEventsErrorById: StateFlow<Map<String, String?>> = _communityEventsErrorById.asStateFlow()
 
     fun setCommunitySearchQuery(query: String) {
         _communitiesListState.update { it.copy(searchQuery = query) }
@@ -1038,6 +1044,47 @@ class ForumViewModel @Inject constructor(
             communityRepository.getCommunity(id).onSuccess { community ->
                 updateCommunityCache(listOf(community))
             }
+        }
+    }
+
+    fun getCommunityEvents(communityId: String?): List<ForumEventResponse> {
+        val id = communityId?.trim().orEmpty()
+        if (id.isBlank()) return emptyList()
+        return _communityEventsById.value[id] ?: emptyList()
+    }
+
+    fun getCommunityEventCount(communityId: String?): Int = getCommunityEvents(communityId).size
+
+    fun getCommunityEventsError(communityId: String?): String? {
+        val id = communityId?.trim().orEmpty()
+        if (id.isBlank()) return null
+        return _communityEventsErrorById.value[id]
+    }
+
+    fun isCommunityEventsLoading(communityId: String?): Boolean {
+        val id = communityId?.trim().orEmpty()
+        if (id.isBlank()) return false
+        return _communityEventsLoading.value.contains(id)
+    }
+
+    fun loadCommunityEvents(communityId: String, forceRefresh: Boolean = false) {
+        val id = communityId.trim()
+        if (id.isBlank()) return
+        if (!forceRefresh && _communityEventsById.value.containsKey(id)) return
+        if (_communityEventsLoading.value.contains(id)) return
+        viewModelScope.launch {
+            _communityEventsLoading.update { it + id }
+            _communityEventsErrorById.update { it + (id to null) }
+            communityRepository.getCommunityEvents(id)
+                .onSuccess { response ->
+                    _communityEventsById.update { cache -> cache + (id to response.events) }
+                }
+                .onFailure { e ->
+                    _communityEventsErrorById.update { errors ->
+                        errors + (id to (e.message ?: "Failed to load community events"))
+                    }
+                }
+            _communityEventsLoading.update { it - id }
         }
     }
 

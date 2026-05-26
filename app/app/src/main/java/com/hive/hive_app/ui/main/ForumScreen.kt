@@ -171,6 +171,11 @@ fun ForumScreen(
                 viewModel.clearEventDetail()
                 selectedEventId = null
             },
+            onOpenCommunity = { communityId ->
+                viewModel.clearEventDetail()
+                selectedEventId = null
+                selectedCommunityId = communityId
+            },
             onOpenUserProfile = onOpenUserProfile,
             modifier = modifier,
             bottomBarPadding = bottomBarPadding
@@ -180,7 +185,10 @@ fun ForumScreen(
 
     if (selectedCommunityId != null) {
         val id = selectedCommunityId!!
-        LaunchedEffect(id) { viewModel.loadCommunityDetail(id) }
+        LaunchedEffect(id) {
+            viewModel.loadCommunityDetail(id)
+            viewModel.loadCommunityEvents(id)
+        }
         CommunityDetailScreen(
             communityId = id,
             viewModel = viewModel,
@@ -188,6 +196,7 @@ fun ForumScreen(
                 viewModel.clearCommunityDetail()
                 selectedCommunityId = null
             },
+            onOpenEvent = { eventId -> selectedEventId = eventId },
             onOpenUserProfile = onOpenUserProfile,
             modifier = modifier,
             bottomBarPadding = bottomBarPadding
@@ -940,6 +949,7 @@ private fun ForumEventCard(
 fun ForumEventDetailContent(
     viewModel: ForumViewModel,
     onBack: () -> Unit,
+    onOpenCommunity: (String) -> Unit = {},
     onOpenUserProfile: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     bottomBarPadding: androidx.compose.ui.unit.Dp = 110.dp
@@ -1084,7 +1094,7 @@ fun ForumEventDetailContent(
                                     val community = event.communityId?.let { id -> communityById[id] }
                                     if (community != null) {
                                         AssistChip(
-                                            onClick = {},
+                                            onClick = { onOpenCommunity(community.id) },
                                             label = { Text(community.name, style = MaterialTheme.typography.labelSmall) },
                                             leadingIcon = {
                                                 CommunityAvatar(name = community.name, avatarUrl = community.avatarUrl, size = 16.dp)
@@ -1815,6 +1825,7 @@ fun CommunitiesContent(
     onCommunityClick: (String) -> Unit = {}
 ) {
     val state by viewModel.communitiesListState.collectAsState()
+    val communityEventsById by viewModel.communityEventsById.collectAsState()
 
     Column(modifier = modifier.fillMaxSize()) {
         OutlinedTextField(
@@ -1862,8 +1873,12 @@ fun CommunitiesContent(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(items = state.communities, key = { it.id }) { community ->
+                            LaunchedEffect(community.id) {
+                                viewModel.loadCommunityEvents(community.id)
+                            }
                             CommunityCard(
                                 community = community,
+                                eventsCount = communityEventsById[community.id]?.size ?: 0,
                                 onClick = { onCommunityClick(community.id) }
                             )
                         }
@@ -1879,6 +1894,7 @@ fun CommunitiesContent(
 @Composable
 fun CommunityCard(
     community: CommunityResponse,
+    eventsCount: Int = 0,
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {}
 ) {
@@ -1953,6 +1969,10 @@ fun CommunityCard(
                             Icon(Icons.Filled.Article, contentDescription = null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(text = "${community.postCount}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
+                        Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Event, contentDescription = null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(text = "$eventsCount", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
             }
@@ -1992,12 +2012,16 @@ fun CommunityDetailScreen(
     communityId: String,
     viewModel: ForumViewModel,
     onBack: () -> Unit,
+    onOpenEvent: (String) -> Unit = {},
     onOpenUserProfile: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     bottomBarPadding: androidx.compose.ui.unit.Dp = 110.dp
 ) {
     val detailState by viewModel.communityDetailState.collectAsState()
     val createPostState by viewModel.createPostState.collectAsState()
+    val communityEventsById by viewModel.communityEventsById.collectAsState()
+    val communityEventsLoading by viewModel.communityEventsLoading.collectAsState()
+    val communityEventsErrorById by viewModel.communityEventsErrorById.collectAsState()
     var showNewPost by remember { mutableStateOf(false) }
     var showAllMembers by remember { mutableStateOf(false) }
     var selectedPost by remember { mutableStateOf<CommunityPostResponse?>(null) }
@@ -2005,6 +2029,9 @@ fun CommunityDetailScreen(
     val postSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val community = detailState.community
+    val communityEvents = communityEventsById[communityId].orEmpty()
+    val communityEventsLoadingForId = communityEventsLoading.contains(communityId)
+    val communityEventsError = communityEventsErrorById[communityId]
 
     Scaffold(
         topBar = {
@@ -2392,6 +2419,77 @@ fun CommunityDetailScreen(
                                 }
                             }
                         }
+                    }
+                }
+            }
+
+            // ── Events section ──
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = CardDefaults.cardElevation(2.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                Icons.Filled.Event,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = "Events (${communityEvents.size})",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        if (communityEventsLoadingForId && communityEvents.isEmpty()) {
+                            Box(modifier = Modifier.fillMaxWidth().height(56.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(modifier = Modifier.size(28.dp), color = MaterialTheme.colorScheme.primary)
+                            }
+                        } else if (communityEventsError != null && communityEvents.isEmpty()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = communityEventsError,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                TextButton(onClick = { viewModel.loadCommunityEvents(communityId, forceRefresh = true) }) {
+                                    Text("Retry")
+                                }
+                            }
+                        } else if (communityEvents.isEmpty()) {
+                            Text(
+                                text = "No events yet for this community.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (communityEvents.isNotEmpty()) {
+                items(items = communityEvents, key = { it.id }) { event ->
+                    Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                        ForumEventCard(
+                            event = event,
+                            community = community,
+                            onClick = { onOpenEvent(event.id) },
+                            onOpenUserProfile = onOpenUserProfile
+                        )
                     }
                 }
             }
