@@ -30,6 +30,17 @@ class Settings(BaseSettings):
     # Uploads (local filesystem)
     upload_dir: str = "uploads"
     max_upload_size_mb: float = 5.0
+
+    # Email (SMTP)
+    mail_username: str = ""
+    mail_password: str = ""
+    mail_from: str = ""
+    mail_port: int = 587
+    mail_server: str = ""
+    mail_starttls: bool = True
+
+    # Frontend URL (used in email links)
+    frontend_url: str = "http://localhost:3000"
     
     def get_allowed_origins(self) -> List[str]:
         """Get allowed origins as a list"""

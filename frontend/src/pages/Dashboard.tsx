@@ -9,7 +9,7 @@ import {
   DashboardFilterBar,
   type DashboardFilters,
 } from "@/components/ui/DashboardFilterBar";
-import { servicesApi, forumApi, usersApi } from "@/services/api";
+import { servicesApi, forumApi, usersApi, authApi } from "@/services/api";
 import {
   Box,
   Button,
@@ -50,7 +50,8 @@ const MAX_RECOMMENDATION_POSTS = 30;
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const { currentUserId } = useUser();
+  const { currentUserId, user } = useUser();
+  const [resendStatus, setResendStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [services, setServices] = useState<Service[]>([]);
   const [filteredServices, setFilteredServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,6 +109,16 @@ export function Dashboard() {
   const openInterestsEditor = useCallback(() => {
     navigate("/profile?tab=profile&interests=true");
   }, [navigate]);
+
+  const handleResendVerification = useCallback(async () => {
+    setResendStatus("sending");
+    try {
+      await authApi.resendVerification();
+      setResendStatus("sent");
+    } catch {
+      setResendStatus("error");
+    }
+  }, []);
 
   useEffect(() => {
     if (selectedCity === activeCity) return;
@@ -494,6 +505,34 @@ if (isInitialLoad) {
         onServiceCreated={fetchServices}
         requiresNeedCreation={timebankData?.requires_need_creation}
       />
+
+      {user && !user.is_verified && (
+        <Callout.Root color="blue">
+          <Callout.Icon>
+            <ExclamationTriangleIcon />
+          </Callout.Icon>
+          <Callout.Text>
+            <Flex align="center" gap="3" wrap="wrap">
+              <Text>Please verify your email address to unlock all features.</Text>
+              <Button
+                size="1"
+                variant="soft"
+                disabled={resendStatus === "sending" || resendStatus === "sent"}
+                onClick={handleResendVerification}
+              >
+                {resendStatus === "sent"
+                  ? "Email sent!"
+                  : resendStatus === "sending"
+                    ? "Sending…"
+                    : "Resend verification email"}
+              </Button>
+              {resendStatus === "error" && (
+                <Text color="red" size="1">Failed to send. Please try again.</Text>
+              )}
+            </Flex>
+          </Callout.Text>
+        </Callout.Root>
+      )}
 
       {timebankData?.requires_need_creation && (
         <Callout.Root color="amber">

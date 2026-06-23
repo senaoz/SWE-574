@@ -13,6 +13,14 @@ BADGE_DEFINITIONS = [
         "target": 1,
     },
     {
+        "key": "verified_bee",
+        "name": "Verified Bee",
+        "description": "Verify your email address",
+        "icon": "badge-check",
+        "metric": "is_email_verified",
+        "target": 1,
+    },
+    {
         "key": "profile_complete",
         "name": "Polished Wings",
         "description": "Set a profile picture",
@@ -248,8 +256,11 @@ class BadgeService:
         else:
             member_for_a_year = 0
 
+        is_email_verified = 1 if user_doc.get("is_verified") else 0
+
         return {
             "always": 1,
+            "is_email_verified": is_email_verified,
             "exchange_count": exchange_count,
             "rating_count": rating_count,
             "contributed_hours": contributed_hours,
